@@ -1,0 +1,13 @@
+.gcloudignore
+.git
+.gitignore
+node_modules
+dist
+electron
+*.bat
+*.md
+Dockerfile
+cloudbuild.yaml
+package-lock.json
+.npmrc
+.dockerignore

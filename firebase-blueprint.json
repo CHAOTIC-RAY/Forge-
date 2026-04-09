@@ -1,0 +1,210 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "A social media post scheduled in the calendar",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "outlet": { "type": "string" },
+        "productCategory": { "type": "string" },
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "brief": { "type": "string" },
+        "caption": { "type": "string" },
+        "hashtags": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "link": { "type": "string" },
+        "userId": { "type": "string", "description": "The UID of the user who owns this post" },
+        "businessId": { "type": "string", "description": "The ID of the business this post belongs to" }
+      },
+      "required": ["id", "date", "outlet", "type", "title", "brief", "caption", "hashtags", "userId", "businessId"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "PriorityProduct": {
+      "title": "PriorityProduct",
+      "description": "A product marked as priority for content creation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "notes": { "type": "string" },
+        "sku": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "string" },
+        "link": { "type": "string" },
+        "outlet": { "type": "string" },
+        "userId": { "type": "string" },
+        "businessId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "priority", "userId", "businessId"]
+    },
+    "InventoryProduct": {
+      "title": "InventoryProduct",
+      "description": "A product in the main inventory database",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "link": { "type": "string" },
+        "stockInfo": { "type": "string" },
+        "outlet": { "type": "string" },
+        "sku": { "type": "string" },
+        "price": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" },
+        "businessId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "type", "userId", "businessId"]
+    },
+    "CategoryCount": {
+      "title": "CategoryCount",
+      "description": "Product count per category",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string" },
+        "count": { "type": "integer" },
+        "userId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["category", "count", "userId"]
+    },
+    "Todo": {
+      "title": "Todo",
+      "description": "A task in the todo list",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "dueDate": { "type": "string", "format": "date" },
+        "businessId": { "type": "string" }
+      },
+      "required": ["id", "text", "completed", "userId", "createdAt", "businessId"]
+    },
+    "Business": {
+      "title": "Business",
+      "description": "A business profile managed by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "description": { "type": "string" },
+        "industry": { "type": "string" },
+        "position": { "type": "string" },
+        "brandColors": {
+          "type": "object",
+          "properties": {
+            "primary": { "type": "string" },
+            "secondary": { "type": "string" },
+            "accent": { "type": "string" }
+          }
+        },
+        "logoUrl": { "type": "string" },
+        "shareToken": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerId", "createdAt", "updatedAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment left on a post",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "userName", "text", "createdAt"]
+    },
+    "IdeaHistory": {
+      "title": "IdeaHistory",
+      "description": "A saved AI generated idea",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "businessId": { "type": "string" },
+        "title": { "type": "string" },
+        "brief": { "type": "string" },
+        "caption": { "type": "string" },
+        "hashtags": { "type": "string" },
+        "type": { "type": "string" },
+        "outlet": { "type": "string" },
+        "format": { "type": "string" },
+        "feasibility": { "type": "number" },
+        "impact": { "type": "number" }
+      },
+      "required": ["id", "businessId"]
+    }
+  },
+  "firestore": {
+    "/businesses/{businessId}": {
+      "schema": "Business",
+      "description": "User's business profiles"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Collection of scheduled posts"
+    },
+    "/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Comments on posts"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/priority_products/{productId}": {
+      "schema": "PriorityProduct",
+      "description": "User's priority products"
+    },
+    "/inventory_products/{productId}": {
+      "schema": "InventoryProduct",
+      "description": "User's main inventory database"
+    },
+    "/inventory_category_counts/{countId}": {
+      "schema": "CategoryCount",
+      "description": "User's inventory category counts"
+    },
+    "/todos/{todoId}": {
+      "schema": "Todo",
+      "description": "User's todo list items"
+    },
+    "/idea_history/{historyId}": {
+      "schema": "IdeaHistory",
+      "description": "Saved AI ideas"
+    },
+    "/brand_kits/{businessId}": {
+      "schema": "Business",
+      "description": "Brand kit settings for a business"
+    },
+    "/categories/{businessId}": {
+      "schema": "Business",
+      "description": "Category settings for a business"
+    }
+  }
+}

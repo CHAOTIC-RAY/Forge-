@@ -1,0 +1,16 @@
+node_modules
+dist
+electron
+.git
+.gitignore
+*.bat
+*.md
+coverage
+.env
+.env.*
+!.env.example
+package-lock.json
+.npmrc
+.gcloudignore
+cloudbuild.yaml
+Dockerfile

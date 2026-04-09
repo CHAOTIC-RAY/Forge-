@@ -1,0 +1,217 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email.lower() == "2003ray.dark@gmail.com" && 
+             request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isBusinessOwner(businessId) {
+      return isAuthenticated() && 
+             businessId != null && 
+             exists(/databases/$(database)/documents/businesses/$(businessId)) &&
+             get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
+    }
+
+    function isBusinessShared(businessId) {
+      return businessId != null && 
+             exists(/databases/$(database)/documents/businesses/$(businessId)) &&
+             get(/databases/$(database)/documents/businesses/$(businessId)).data.shareToken != null;
+    }
+
+    function canAccessBusiness(businessId) {
+      return isBusinessOwner(businessId) || isBusinessShared(businessId) || isAdmin();
+    }
+
+    // ===============================================================
+    // Validation Functions
+    // ===============================================================
+    function isValidBusiness(data, isUpdate) {
+      let requiredFields = ['id', 'name', 'ownerId', 'createdAt', 'updatedAt'];
+      return data.keys().hasAll(requiredFields) &&
+             data.id is string && data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('industry' in data) || data.industry is string) &&
+             (!('position' in data) || data.position is string) &&
+             (!('shareToken' in data) || data.shareToken is string) &&
+             (!('shareRestriction' in data) || data.shareRestriction in ['guest', 'authenticated']) &&
+             (!('description' in data) || data.description is string) &&
+             (!('logoUrl' in data) || data.logoUrl is string) &&
+             (!('brandColors' in data) || data.brandColors is map) &&
+             (isUpdate ? (data.ownerId == resource.data.ownerId) : (data.ownerId == request.auth.uid));
+    }
+
+    function isValidPost(data, isUpdate) {
+      let requiredFields = ['id', 'date', 'outlet', 'type', 'title', 'brief', 'caption', 'hashtags', 'userId', 'businessId'];
+      return data.keys().hasAll(requiredFields) &&
+             data.id is string && data.id.size() < 100 &&
+             data.date is string && data.date.size() < 30 &&
+             data.outlet is string && data.outlet.size() < 100 &&
+             data.type is string && data.type.size() < 100 &&
+             data.title is string && data.title.size() < 1000 &&
+             data.brief is string && data.brief.size() < 10000 &&
+             data.caption is string && data.caption.size() < 20000 &&
+             data.hashtags is string && data.hashtags.size() < 5000 &&
+             (isUpdate ? (data.userId == resource.data.userId) : (data.userId == request.auth.uid || isAdmin())) &&
+             data.businessId is string &&
+             (!('contentFormats' in data) || data.contentFormats is list) &&
+             (!('targetPlatforms' in data) || data.targetPlatforms is list) &&
+             (!('campaignType' in data) || data.campaignType is string) &&
+             (!('campaignName' in data) || data.campaignName is string) &&
+             (!('images' in data) || data.images is list) &&
+             (!('link' in data) || data.link is string);
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() < 255;
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['postId', 'userId', 'userName', 'text', 'createdAt']) &&
+             data.postId is string && data.postId.size() < 100 &&
+             data.userId is string && data.userId.size() < 100 &&
+             data.userName is string && data.userName.size() < 255 &&
+             (!('userPhoto' in data) || data.userPhoto is string) &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 5000;
+    }
+
+    function isValidPriorityProduct(data, isUpdate) {
+      return data.keys().hasAll(['id', 'name', 'priority', 'userId', 'businessId']) &&
+             data.id is string && data.id.size() < 100 &&
+             data.name is string && data.name.size() < 1000 &&
+             data.priority in ['high', 'medium', 'low'] &&
+             (isUpdate ? (data.userId == resource.data.userId) : (data.userId == request.auth.uid || isAdmin())) &&
+             data.businessId is string;
+    }
+
+    function isValidInventoryProduct(data, isUpdate) {
+      return data.keys().hasAll(['title', 'type', 'userId', 'businessId']) &&
+             data.title is string && data.title.size() < 1000 &&
+             data.type is string && data.type.size() < 200 &&
+             (isUpdate ? (data.userId == resource.data.userId) : (data.userId == request.auth.uid || isAdmin())) &&
+             data.businessId is string;
+    }
+
+    function isValidCategoryCount(data) {
+      return data.keys().hasAll(['category', 'count', 'userId', 'businessId']) &&
+             data.category is string && data.category.size() < 200 &&
+             data.count is int && data.count >= 0 &&
+             data.userId == request.auth.uid &&
+             data.businessId is string;
+    }
+
+    function isValidTodo(data, isUpdate) {
+      return data.keys().hasAll(['id', 'text', 'completed', 'userId', 'createdAt', 'businessId']) &&
+             data.id is string && data.id.size() < 100 &&
+             data.text is string && data.text.size() < 5000 &&
+             data.completed is bool &&
+             (isUpdate ? (data.userId == resource.data.userId) : (data.userId == request.auth.uid || isAdmin())) &&
+             data.createdAt is string &&
+             data.businessId is string;
+    }
+
+    function isValidIdeaHistory(data) {
+      return data.keys().hasAll(['id', 'businessId']) &&
+             data.id is string && data.id.size() < 100 &&
+             data.businessId is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    
+    match /businesses/{businessId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow get: if resource.data.shareToken != null;
+      allow create: if isAuthenticated() && isValidBusiness(request.resource.data, false);
+      allow update: if isAuthenticated() && resource.data.ownerId == request.auth.uid && isValidBusiness(request.resource.data, true);
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /posts/{postId} {
+      allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
+      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidPost(request.resource.data, false);
+      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidPost(request.resource.data, true);
+      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+    }
+
+    match /comments/{commentId} {
+      // Allow read if user can access the post's business
+      allow read: if isAuthenticated() && 
+                  exists(/databases/$(database)/documents/posts/$(resource.data.postId)) &&
+                  canAccessBusiness(get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.businessId);
+      
+      // Allow create if user can access the post's business
+      allow create: if isAuthenticated() && 
+                    exists(/databases/$(database)/documents/posts/$(request.resource.data.postId)) &&
+                    canAccessBusiness(get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.businessId) &&
+                    isValidComment(request.resource.data);
+                    
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /priority_products/{productId} {
+      allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
+      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidPriorityProduct(request.resource.data, false);
+      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidPriorityProduct(request.resource.data, true);
+      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+    }
+
+    match /inventory_products/{productId} {
+      allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
+      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidInventoryProduct(request.resource.data, false);
+      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidInventoryProduct(request.resource.data, true);
+      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+    }
+
+    match /inventory_category_counts/{countId} {
+      allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
+      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidCategoryCount(request.resource.data);
+      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidCategoryCount(request.resource.data);
+      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+    }
+
+    match /todos/{todoId} {
+      allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
+      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidTodo(request.resource.data, false);
+      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidTodo(request.resource.data, true);
+      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+    }
+
+    match /idea_history/{historyId} {
+      allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
+      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidIdeaHistory(request.resource.data);
+      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidIdeaHistory(request.resource.data);
+      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+    }
+
+    match /brand_kits/{businessId} {
+      allow read: if isAuthenticated() && canAccessBusiness(businessId);
+      allow write: if isAuthenticated() && (isBusinessOwner(businessId) || isAdmin());
+    }
+
+    match /categories/{businessId} {
+      allow read: if isAuthenticated() && canAccessBusiness(businessId);
+      allow write: if isAuthenticated() && (isBusinessOwner(businessId) || isAdmin());
+    }
+  }
+}
