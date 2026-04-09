@@ -34,8 +34,26 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
     });
 
     if (!uploadResponse.ok) {
-      const errorData = await uploadResponse.json();
-      throw new Error(errorData.error || 'Failed to upload to Cloudinary');
+      let errorMessage = 'Failed to upload to Cloudinary';
+      try {
+        const errorData = await uploadResponse.json();
+        errorMessage = errorData.error || errorData.details || errorMessage;
+      } catch (e) {
+        // If not JSON, get text (could be Cloudflare error page)
+        try {
+          const errorText = await uploadResponse.text();
+          if (errorText.includes('413 Request Entity Too Large')) {
+            errorMessage = 'Image is too large for the current server configuration.';
+          } else if (errorText.includes('524')) {
+            errorMessage = 'Upload timed out. The image might be too large or the connection is slow.';
+          } else {
+            errorMessage = `Server error (${uploadResponse.status})`;
+          }
+        } catch (textErr) {
+          errorMessage = `Upload failed with status ${uploadResponse.status}`;
+        }
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await uploadResponse.json();

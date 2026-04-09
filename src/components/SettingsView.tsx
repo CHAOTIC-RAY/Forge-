@@ -28,6 +28,24 @@ const GROQ_MODELS = [
   { id: 'gemma2-9b-it', name: 'Gemma 2 9B' }
 ];
 
+const PUTER_TEXT_MODELS = [
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Default)' },
+  { id: 'gpt-4o', name: 'GPT-4o' },
+  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet' },
+  { id: 'claude-3-opus', name: 'Claude 3 Opus' }
+];
+
+const PUTER_IMAGE_MODELS = [
+  { id: 'dall-e-3', name: 'DALL-E 3 (Default)' }
+];
+
+const POLLINATION_MODELS = [
+  { id: 'flux', name: 'Flux (Default)' },
+  { id: 'turbo', name: 'Turbo' },
+  { id: 'stable-diffusion-3', name: 'Stable Diffusion 3' },
+  { id: 'playground-v2.5', name: 'Playground v2.5' }
+];
+
 const BentoCard = ({ 
   id, 
   icon: Icon, 
@@ -160,6 +178,37 @@ export function SettingsView({
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(user?.displayName || '');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
+  const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
+
+  useEffect(() => {
+    const checkPuter = async () => {
+      if (typeof window !== 'undefined' && (window as any).puter) {
+        try {
+          const signedIn = await (window as any).puter.auth.isSignedIn();
+          setIsPuterSignedIn(signedIn);
+        } catch (e) {
+          console.error("Error checking Puter auth", e);
+        }
+      }
+    };
+    checkPuter();
+    const interval = setInterval(checkPuter, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handlePuterSignIn = async () => {
+    if (typeof window !== 'undefined' && (window as any).puter) {
+      try {
+        await (window as any).puter.auth.signIn();
+        const signedIn = await (window as any).puter.auth.isSignedIn();
+        setIsPuterSignedIn(signedIn);
+        if (signedIn) toast.success("Signed in to Puter.js!");
+      } catch (e) {
+        console.error("Puter sign in error", e);
+        toast.error("Failed to sign in to Puter.js");
+      }
+    }
+  };
 
   const handleUpdateName = async () => {
     if (!auth.currentUser) return;
@@ -758,15 +807,26 @@ export function SettingsView({
                 </div>
               ) : aiSettings.preferredProvider === 'puter' ? (
                 <div className="space-y-4">
+                  {!isPuterSignedIn && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-xl">
+                      <p className="text-xs text-amber-700 dark:text-amber-400 mb-2 font-medium">Puter.js requires authentication for AI services.</p>
+                      <button 
+                        onClick={handlePuterSignIn}
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors"
+                      >
+                        Sign in to Puter.js
+                      </button>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Puter Text Model</label>
-                    <input 
-                      type="text"
+                    <select 
                       value={aiSettings.puterTextModel || 'gpt-4o-mini'}
                       onChange={(e) => handleAiSettingChange('puterTextModel', e.target.value)}
-                      placeholder="e.g. gpt-4o-mini, claude-3-5-sonnet"
                       className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
-                    />
+                    >
+                      {PUTER_TEXT_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
                   </div>
                 </div>
               ) : (
@@ -836,28 +896,39 @@ export function SettingsView({
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Pollination Model</label>
-                    <input 
-                      type="text"
+                    <select 
                       value={aiSettings.pollinationModel || 'flux'}
                       onChange={(e) => handleAiSettingChange('pollinationModel', e.target.value)}
-                      placeholder="e.g. flux, turbo"
                       className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
-                    />
+                    >
+                      {POLLINATION_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
                   </div>
                 </div>
               )}
 
               {aiSettings.imageProvider === 'puter' && (
                 <div className="mt-4 space-y-4">
+                  {!isPuterSignedIn && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-xl">
+                      <p className="text-xs text-amber-700 dark:text-amber-400 mb-2 font-medium">Puter.js requires authentication for AI services.</p>
+                      <button 
+                        onClick={handlePuterSignIn}
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors"
+                      >
+                        Sign in to Puter.js
+                      </button>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Puter Image Model</label>
-                    <input 
-                      type="text"
+                    <select 
                       value={aiSettings.puterImageModel || 'dall-e-3'}
                       onChange={(e) => handleAiSettingChange('puterImageModel', e.target.value)}
-                      placeholder="e.g. dall-e-3, gpt-image-1.5"
                       className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
-                    />
+                    >
+                      {PUTER_IMAGE_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
                   </div>
                 </div>
               )}

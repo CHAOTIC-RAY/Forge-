@@ -4,7 +4,8 @@ import { vertexAI, auth, db } from './firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
-import puter from '@heyputer/puter.js';
+
+declare const puter: any;
 
 export const getAi = () => {
   const settings = getAiSettings();

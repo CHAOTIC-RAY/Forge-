@@ -23,7 +23,12 @@ if (process.env.CLOUDINARY_URL) {
 }
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit
+  }
+});
 
 interface CachedProduct {
   title: string;
@@ -42,7 +47,8 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use("/api", scraperRouter);
 
   // Proxy image endpoint to bypass CORS
@@ -423,18 +429,28 @@ app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res)
       return res.status(400).json({ error: "No image file provided" });
     }
 
-    // Convert buffer to base64
-    const b64 = Buffer.from(req.file.buffer).toString("base64");
-    const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+    // Use upload_stream for better memory efficiency (avoids extra base64 conversion)
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "forge_posts",
+        resource_type: "auto",
+      },
+      (error, result) => {
+        if (error) {
+          console.error("Cloudinary upload error:", error);
+          return res.status(500).json({ 
+            error: "Failed to upload image to Cloudinary", 
+            details: error.message 
+          });
+        }
+        res.json({
+          url: result?.secure_url,
+          public_id: result?.public_id,
+        });
+      }
+    );
 
-    const result = await cloudinary.uploader.upload(dataURI, {
-      folder: "forge_posts",
-    });
-
-    res.json({
-      url: result.secure_url,
-      public_id: result.public_id,
-    });
+    uploadStream.end(req.file.buffer);
   } catch (error: any) {
     console.error("Cloudinary upload error:", error);
     res.status(500).json({ error: "Failed to upload image to Cloudinary", details: error.message });
