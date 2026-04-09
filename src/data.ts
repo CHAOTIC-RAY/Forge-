@@ -26,6 +26,7 @@ export type Post = {
   platforms?: string[];
 
   isAiGenerated?: boolean;
+  aiProvider?: string;
   createdAt?: string;
 
   // Campaign fields

@@ -327,7 +327,7 @@ export async function generatePostContent(outlet: string, productCategory?: stri
   throw new Error("All AI providers (Gemini, Groq, Firebase) failed to generate content or timed out. Please try again later.");
 }
 
-export async function generateMockupImage(title: string, brief: string, caption: string, referenceImageBase64?: string, business?: Business) {
+export async function generateMockupImage(title: string, brief: string, caption: string, referenceImageBase64?: string, business?: Business): Promise<{ url: string, provider: string }> {
   const settings = getAiSettings();
   const ai = getAi();
   
@@ -373,18 +373,19 @@ export async function generateMockupImage(title: string, brief: string, caption:
     const response = await fetch(url, { headers });
     if (!response.ok) throw new Error("Failed to generate image with Pollination.ai");
     const blob = await response.blob();
-    return new Promise<string>((resolve, reject) => {
+    const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+    return { url: base64, provider: 'Pollination.ai' };
   }
 
   if (settings.imageProvider === 'puter') {
     const model = settings.puterImageModel || 'dall-e-3';
     const image = await puter.ai.txt2img(prompt, { model });
-    return image.src;
+    return { url: image.src, provider: 'Puter.js' };
   }
 
   const parts: any[] = [{ text: prompt }];
@@ -423,7 +424,7 @@ export async function generateMockupImage(title: string, brief: string, caption:
     const response = await result.response;
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' };
       }
     }
   } else {
@@ -442,7 +443,7 @@ export async function generateMockupImage(title: string, brief: string, caption:
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' };
       }
     }
   }
@@ -536,7 +537,7 @@ export async function generateSmartPost(title: string, category: string, outlet:
   }
 }
 
-export async function generatePostVisuals(title: string, brief: string, brandKit: any): Promise<string[]> {
+export async function generatePostVisuals(title: string, brief: string, brandKit: any): Promise<{ url: string, provider: string }[]> {
   const ai = getAi();
   
   // 1. Generate AI Image based on brief and brand kit
@@ -557,10 +558,10 @@ export async function generatePostVisuals(title: string, brief: string, brandKit
     }
   });
 
-  const images: string[] = [];
+  const images: { url: string, provider: string }[] = [];
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) {
-      images.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+      images.push({ url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' });
     }
   }
 
@@ -1948,7 +1949,7 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
   }
 }
 
-export async function generateAiImage(prompt: string, style: string = 'photorealistic'): Promise<string> {
+export async function generateAiImage(prompt: string, style: string = 'photorealistic'): Promise<{ url: string, provider: string }> {
   const fullPrompt = `${prompt}. Style: ${style}. High quality, professional social media content for Forge Enterprises.`;
   const settings = getAiSettings();
 
@@ -1966,18 +1967,19 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
     const response = await fetch(url, { headers });
     if (!response.ok) throw new Error("Failed to generate image with Pollination.ai");
     const blob = await response.blob();
-    return new Promise((resolve, reject) => {
+    const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+    return { url: base64, provider: 'Pollination.ai' };
   }
 
   if (settings.imageProvider === 'puter') {
     const model = settings.puterImageModel || 'dall-e-3';
     const image = await puter.ai.txt2img(fullPrompt, { model });
-    return image.src;
+    return { url: image.src, provider: 'Puter.js' };
   }
 
   if (settings.preferredProvider === 'firebase') {
@@ -1986,7 +1988,7 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
     const response = await result.response;
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' };
       }
     }
   } else {
@@ -2005,7 +2007,7 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' };
       }
     }
   }

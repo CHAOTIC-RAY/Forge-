@@ -214,6 +214,7 @@ export default function App() {
   // Image Viewer state
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
+  const [currentAiProvider, setCurrentAiProvider] = useState<string | null>(null);
   
   const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
   const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
@@ -1435,8 +1436,9 @@ export default function App() {
     setIsPostModalOpen(true);
   };
 
-  const handleImageClick = (url: string) => {
+  const handleImageClick = (url: string, aiProvider?: string) => {
     setCurrentImage(url);
+    setCurrentAiProvider(aiProvider || null);
     setIsImageViewerOpen(true);
   };
 
@@ -1446,8 +1448,12 @@ export default function App() {
       return;
     }
     try {
-      const imageBase64 = await generateMockupImage(post.title, post.brief, post.caption, post.images?.[0], activeBusiness);
-      const updatedPost = { ...post, images: [...(post.images || []), imageBase64] };
+      const result = await generateMockupImage(post.title, post.brief, post.caption, post.images?.[0], activeBusiness);
+      const updatedPost = { 
+        ...post, 
+        images: [...(post.images || []), result.url],
+        aiProvider: result.provider
+      };
       // Save to Firestore immediately to persist the generated mockup
       await handleSavePost(updatedPost);
       // Local state will be updated by the onSnapshot listener
@@ -3125,6 +3131,7 @@ export default function App() {
       <ImageViewer
         isOpen={isImageViewerOpen}
         imageUrl={currentImage}
+        aiProvider={currentAiProvider}
         onClose={() => setIsImageViewerOpen(false)}
       />
 

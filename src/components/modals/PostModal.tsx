@@ -4,7 +4,7 @@ import { X, Upload, Image as ImageIcon, Trash2, Wand2, MessageSquare, Send, Shar
 import { Toaster, toast } from 'sonner';
 import { Post, OUTLETS, PRODUCT_CATEGORIES } from '../../data';
 import { v4 as uuidv4 } from 'uuid';
-import { generatePostContent, generateMockupImage, generatePostFromImage, generateAiImage, generateHashtagSuggestions, generatePostWithFramework, findProductsByCategory, HighStockProduct, generateSmartPost, generatePostVisuals, generateSmartBrief } from '../../lib/gemini';
+import { generatePostContent, generateMockupImage, generatePostFromImage, generateAiImage, generateHashtagSuggestions, generatePostWithFramework, findProductsByCategory, HighStockProduct, generateSmartPost, generatePostVisuals, generateSmartBrief, getAiSettings } from '../../lib/gemini';
 import { createImageCollage, cn, getAnalyticsSettings } from '../../lib/utils';
 import { db } from '../../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
@@ -323,14 +323,18 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     }
     setIsGeneratingMockup(true);
     try {
-      const images = await generatePostVisuals(
+      const result = await generatePostVisuals(
         formData.title,
         formData.brief,
         activeBusiness?.brandKit
       );
+      const newImages = result.map(r => r.url);
+      const provider = result[0]?.provider || 'Gemini';
+      
       setFormData(prev => ({
         ...prev,
-        images: [...(prev.images || []), ...images]
+        images: [...(prev.images || []), ...newImages],
+        aiProvider: provider
       }));
       toast.success('Visuals generated successfully.');
     } catch (error) {
@@ -371,10 +375,11 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     }
     setIsGeneratingAiImage(true);
     try {
-      const imageBase64 = await generateAiImage(formData.title, 'photorealistic');
+      const result = await generateAiImage(formData.title, 'photorealistic');
       setFormData(prev => ({
         ...prev,
-        images: [...(prev.images || []), imageBase64]
+        images: [...(prev.images || []), result.url],
+        aiProvider: result.provider
       }));
       toast.success('AI Image generated successfully.');
     } catch (error) {
@@ -923,6 +928,11 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     {img.startsWith('https://lh3.googleusercontent.com') && (
                       <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-blue-500/80 text-white text-[8px] font-bold rounded uppercase tracking-widest">
                         Drive
+                      </div>
+                    )}
+                    {user && formData.aiProvider && img.startsWith('data:') && (
+                      <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-purple-500/80 text-white text-[8px] font-bold rounded uppercase tracking-widest">
+                        AI: {formData.aiProvider}
                       </div>
                     )}
                   </div>

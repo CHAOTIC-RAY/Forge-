@@ -42,7 +42,7 @@ interface CalendarProps {
   onAddPost: (date?: string) => void;
   onDeletePost?: (postId: string) => void;
   onCopyPost?: (post: Post, date: string) => void;
-  onImageClick: (url: string) => void;
+  onImageClick: (url: string, aiProvider?: string) => void;
   onRegeneratePost?: (post: Post) => void;
   onGenerateMockup?: (post: Post) => void;
   onPrevMonth?: () => void;
@@ -440,15 +440,22 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
   };
 
   return (
-    <img 
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      src={imageUrl} 
-      alt="" 
-      className={cn("w-full h-full object-cover", isDragging && "opacity-50")} 
-    />
+    <div className="relative w-full h-full">
+      <img 
+        ref={setNodeRef}
+        style={style}
+        {...listeners}
+        {...attributes}
+        src={imageUrl} 
+        alt="" 
+        className={cn("w-full h-full object-cover", isDragging && "opacity-50")} 
+      />
+      {auth.currentUser && post.aiProvider && imageUrl.startsWith('data:') && (
+        <div className="absolute bottom-0.5 left-0.5 px-1 py-0.5 bg-purple-500/80 text-white text-[6px] font-bold rounded uppercase tracking-widest z-10 pointer-events-none">
+          AI: {post.aiProvider}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -637,7 +644,7 @@ interface DraggablePostProps {
   post: Post;
   viewMode?: ViewMode;
   onEdit: () => void;
-  onImageClick: (url: string) => void;
+  onImageClick: (url: string, aiProvider?: string) => void;
   onRegenerate?: () => void;
   onGenerateMockup?: () => void;
   isAdmin?: boolean;
@@ -800,7 +807,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
               )}
               onClick={(e) => {
                 e.stopPropagation();
-                onImageClick(img);
+                onImageClick(img, post.aiProvider);
               }}
             >
               <DraggableImage imageUrl={img} post={post} />
