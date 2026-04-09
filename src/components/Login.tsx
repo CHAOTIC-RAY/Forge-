@@ -7,13 +7,28 @@ import { MigrationTool } from './MigrationTool';
 
 export function Login() {
   const [error, setError] = useState<string | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
   const handleLogin = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+    setError(null);
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      setError(err.message);
+      console.error("Login error:", err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError("Sign-in cancelled. Please keep the popup open to sign in.");
+      } else if (err.code === 'auth/network-request-failed') {
+        setError("Network error. Please check your connection and try again.");
+      } else if (err.message?.includes('INTERNAL ASSERTION FAILED')) {
+        setError("A temporary authentication error occurred. Please try again.");
+      } else {
+        setError(err.message || "Failed to sign in. Please try again.");
+      }
+    } finally {
+      setIsSigningIn(false);
     }
   };
 
@@ -34,10 +49,11 @@ export function Login() {
 
         <button
           onClick={handleLogin}
-          className="w-full py-4 px-6 bg-[#E3E2E6] text-[#1A1C1E] rounded-xl font-semibold flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-[0.98]"
+          disabled={isSigningIn}
+          className="w-full py-4 px-6 bg-[#E3E2E6] text-[#1A1C1E] rounded-xl font-semibold flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-[0.98] disabled:opacity-50"
         >
           <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-          Continue with Google
+          {isSigningIn ? 'Signing in...' : 'Continue with Google'}
         </button>
         
         <div className="mt-6 flex flex-col gap-2">

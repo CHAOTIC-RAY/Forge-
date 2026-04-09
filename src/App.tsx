@@ -152,7 +152,29 @@ export default function App() {
   const isGuest = !user;
   const [aiSettings, setAiSettingsState] = useState(getAiSettings());
   const [analyticsSettings, setAnalyticsSettingsState] = useState(getAnalyticsSettings());
+  const [isSigningIn, setIsSigningIn] = useState(false);
   
+  const handleLogin = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error("Login error:", error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        toast.error("Sign-in cancelled. Please keep the popup open to sign in.");
+      } else if (error.code === 'auth/network-request-failed') {
+        toast.error("Network error. Please check your connection and try again.");
+      } else if (error.message?.includes('INTERNAL ASSERTION FAILED')) {
+        toast.error("A temporary authentication error occurred. Please try again.");
+      } else {
+        toast.error(error.message || "Failed to sign in. Please try again.");
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   // Business multi-tenancy state
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
@@ -2265,7 +2287,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <LandingView onLogin={() => signInWithPopup(auth, googleProvider)} />;
+    return <LandingView onLogin={handleLogin} />;
   }
   
   if (isGuest && loading) {
@@ -2592,9 +2614,10 @@ export default function App() {
             )}
             {isGuest && (
               <button 
-                onClick={() => signInWithPopup(auth, googleProvider)}
+                onClick={handleLogin}
+                disabled={isSigningIn}
                 title="Sign In (Admin)"
-                className="w-full flex items-center justify-center p-2.5 rounded-xl transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400"
+                className="w-full flex items-center justify-center p-2.5 rounded-xl transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400 disabled:opacity-50"
               >
                 <Smartphone className="w-5 h-5 shrink-0" />
               </button>
@@ -2905,6 +2928,7 @@ export default function App() {
             {[
               { id: 'home', icon: LayoutGrid, title: 'Home' },
               { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
+              { id: 'chat', icon: MessageSquare, title: 'Chat' },
               { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
               { id: 'more', icon: Menu, title: 'More' }
             ].map(tab => {
@@ -2956,11 +2980,12 @@ export default function App() {
             
             {isGuest && (
               <button 
-                onClick={() => signInWithPopup(auth, googleProvider)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#2383E2] text-white rounded-xl font-medium text-sm active:scale-95 transition-transform"
+                onClick={handleLogin}
+                disabled={isSigningIn}
+                className="flex items-center gap-2 px-4 py-2 bg-[#2383E2] text-white rounded-xl font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
               >
                 <Smartphone className="w-4 h-4" />
-                Sign In
+                {isSigningIn ? '...' : 'Sign In'}
               </button>
             )}
           </div>

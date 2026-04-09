@@ -138,26 +138,78 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
   const settings = getAiSettings();
   const model = settings.puterTextModel || 'gpt-4o-mini';
   
+  // Ensure puter is available
+  const puterInstance = (window as any).puter;
+  if (!puterInstance) {
+    console.error("[Puter] Puter.js is not loaded on window.");
+    throw new Error("Puter.js is not loaded yet. Please refresh the page.");
+  }
+
   try {
+    // Check if signed in
+    const isSignedIn = await puterInstance.auth.isSignedIn();
+    if (!isSignedIn) {
+      console.warn("[Puter] User is not signed in to Puter.js");
+      throw new Error("Please sign in to Puter.js in Settings to use this AI provider.");
+    }
+
     let response: any;
+    console.log(`[Puter] Calling model ${model} with prompt:`, prompt.substring(0, 100) + "...");
+    
     if (images && images.length > 0) {
-      const mediaUrls = images.map(img => `data:${img.mimeType};base64,${img.base64}`);
-      response = await (puter.ai as any).chat(prompt, mediaUrls, false, { model });
+      const messages = [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            ...images.map(img => ({
+              type: 'image_url',
+              image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+            }))
+          ]
+        }
+      ];
+      console.log("[Puter] Sending messages with images:", messages);
+      response = await puterInstance.ai.chat(messages, { model });
     } else {
-      response = await (puter.ai as any).chat(prompt, { model });
+      // Use messages format even for text-only for consistency
+      const messages = [{ role: 'user', content: prompt }];
+      console.log("[Puter] Sending text-only messages:", messages);
+      response = await puterInstance.ai.chat(messages, { model });
     }
     
-    // Puter.js chat response can be a string or an object with message.content
+    console.log("[Puter] Raw response:", response);
+
+    // Puter.js v2 chat response handling
     if (typeof response === 'string') return response;
+    
+    // Check for response.message.content (standard OpenAI-like)
     if (response?.message?.content) {
       if (typeof response.message.content === 'string') return response.message.content;
       if (Array.isArray(response.message.content)) {
         return response.message.content.map((c: any) => c.text || '').join('');
       }
     }
-    return response?.toString() || '';
-  } catch (error) {
-    console.error("Puter AI Error:", error);
+    
+    // Check for response.text (common in some Puter versions)
+    if (response?.text) return response.text;
+
+    // Check for choices (OpenAI style)
+    if (response?.choices?.[0]?.message?.content) return response.choices[0].message.content;
+    if (response?.choices?.[0]?.text) return response.choices[0].text;
+    
+    // If it's an object with a toString that isn't [object Object]
+    const str = String(response);
+    if (str !== '[object Object]') return str;
+
+    // Fallback: try to find any string property that looks like content
+    if (typeof response === 'object' && response !== null) {
+      return response.content || response.result || response.output || JSON.stringify(response);
+    }
+
+    return str;
+  } catch (error: any) {
+    console.error("[Puter] Error in fetchFromPuter:", error);
     throw error;
   }
 }
@@ -269,6 +321,17 @@ export async function generatePostContent(outlet: string, productCategory?: stri
       return null;
     }
   };
+
+  // Hierarchy 0: Puter.js (if preferred)
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.");
+      const parsed = safeParseJSON(puterResponse || '{}');
+      if (parsed && parsed.title) return parsed;
+    } catch (error) {
+      console.warn("Puter.js failed. Cascading to Gemini...");
+    }
+  }
 
   // Hierarchy 1: Gemini Public API
   try {
@@ -473,6 +536,19 @@ export async function generateSmartBrief(title: string, recentPosts: Post[]): Pr
   const cached = getCachedResponse(cacheKey);
   if (cached) return cached.text;
 
+  const settings = getAiSettings();
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const puterResponse = await fetchFromPuter(prompt);
+      if (puterResponse) {
+        setCachedResponse(cacheKey, { text: puterResponse });
+        return puterResponse;
+      }
+    } catch (error) {
+      console.warn("Puter failed for smart brief, falling back:", error);
+    }
+  }
+
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: [{ parts: [{ text: prompt }] }],
@@ -510,6 +586,17 @@ export async function generateSmartPost(title: string, category: string, outlet:
   
   Make it professional and high-converting.`;
 
+  const settings = getAiSettings();
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
+      const parsed = safeParseJSON(puterResponse || '{}');
+      if (parsed && parsed.title) return parsed;
+    } catch (error) {
+      console.warn("Puter failed for smart post, falling back:", error);
+    }
+  }
+
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: [{ parts: [{ text: prompt }] }],
@@ -539,6 +626,14 @@ export async function generateSmartPost(title: string, category: string, outlet:
 }
 
 export async function generatePostVisuals(title: string, brief: string, brandKit: any): Promise<{ url: string, provider: string }[]> {
+  const settings = getAiSettings();
+  
+  if (settings.imageProvider === 'pollination' || settings.imageProvider === 'puter') {
+    const style = brandKit?.style || 'photorealistic';
+    const image = await generateAiImage(`${title}. ${brief}`, style);
+    return [image];
+  }
+
   const ai = getAi();
   
   // 1. Generate AI Image based on brief and brand kit
@@ -1978,8 +2073,25 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
   }
 
   if (settings.imageProvider === 'puter') {
+    const puterInstance = (window as any).puter;
+    if (!puterInstance) {
+      throw new Error("Puter.js is not loaded yet. Please refresh the page.");
+    }
+
+    // Check if signed in
+    const isSignedIn = await puterInstance.auth.isSignedIn();
+    if (!isSignedIn) {
+      throw new Error("Please sign in to Puter.js in Settings to use this image provider.");
+    }
+
     const model = settings.puterImageModel || 'dall-e-3';
-    const image = await puter.ai.txt2img(fullPrompt, { model });
+    console.log(`[Puter] Generating image with model ${model}...`);
+    const image = await puterInstance.ai.txt2img(fullPrompt, { model });
+    
+    if (!image || !image.src) {
+      throw new Error("Puter.js failed to generate an image.");
+    }
+    
     return { url: image.src, provider: 'Puter.js' };
   }
 
@@ -2063,13 +2175,18 @@ export async function generateHashtagSuggestions(content: string): Promise<strin
 }
 
 export async function generateGreeting(userName: string, timeOfDay: string): Promise<string> {
-  const ai = getAi();
+  const settings = getAiSettings();
   const prompt = `Generate a highly creative, unique, and energetic greeting for a user named "${userName}". 
   The current time of day is "${timeOfDay}". 
   CRITICAL: DO NOT use standard phrases like "Good morning", "Good afternoon", "Good evening", or "Hello". 
   Be imaginative, inspiring, or slightly playful. Keep it under 12 words. Do not include quotes.`;
 
   try {
+    if (settings.preferredProvider === 'puter') {
+      const puterResponse = await fetchFromPuter(prompt);
+      if (puterResponse) return puterResponse.replace(/["']/g, '').trim();
+    }
+    const ai = getAi();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
@@ -2081,6 +2198,48 @@ export async function generateGreeting(userName: string, timeOfDay: string): Pro
   } catch (error) {
     console.error("Failed to generate greeting:", error);
     return `Ready to conquer the ${timeOfDay}, ${userName}?`;
+  }
+}
+
+export async function generateDailyGreetings(userName: string): Promise<{ morning: string, evening: string, night: string, midnight: string }> {
+  const settings = getAiSettings();
+  const prompt = `Generate 4 unique, creative, and energetic greetings for a user named "${userName}".
+  One for each time of day: morning, evening, night, and midnight.
+  
+  CRITICAL: DO NOT use standard phrases like "Good morning", "Good evening", etc.
+  Be imaginative, inspiring, or slightly playful. Keep each under 12 words.
+  
+  Return ONLY a valid JSON object with keys: morning, evening, night, midnight.`;
+
+  try {
+    let text = '';
+    if (settings.preferredProvider === 'puter') {
+      text = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
+    } else {
+      const ai = getAi();
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.9,
+        }
+      });
+      text = response.text || '{}';
+    }
+
+    const parsed = safeParseJSON(text);
+    if (parsed && parsed.morning) return parsed;
+    
+    throw new Error("Invalid greeting format");
+  } catch (error) {
+    console.error("Failed to generate daily greetings:", error);
+    return {
+      morning: `Rise and shine, ${userName}! Let's make today legendary.`,
+      evening: `The sun sets, but your momentum doesn't, ${userName}.`,
+      night: `Stars are out, and so is your brilliance, ${userName}.`,
+      midnight: `Burning the midnight oil? You're a force of nature, ${userName}.`
+    };
   }
 }
 

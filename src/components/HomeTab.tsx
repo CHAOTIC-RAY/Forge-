@@ -11,12 +11,17 @@ import {
   Sparkles,
   Lightbulb,
   BarChart3,
-  Database
+  Database,
+  Instagram,
+  Facebook,
+  Users,
+  Eye,
+  Heart
 } from 'lucide-react';
 import { format, isToday, parseISO, isAfter, startOfDay } from 'date-fns';
 import { Post, Business } from '../data';
 import { cn } from '../lib/utils';
-import { generateGreeting, HighStockProduct } from '../lib/gemini';
+import { generateDailyGreetings, HighStockProduct } from '../lib/gemini';
 import { User } from 'firebase/auth';
 import { db } from '../lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -53,37 +58,39 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
   useEffect(() => {
     const fetchGreeting = async () => {
       const userName = user?.displayName || 'User';
-      const cacheKey = `greeting_${userName}`;
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const cacheKey = `daily_greetings_${userName}`;
       const cached = localStorage.getItem(cacheKey);
       
       const hour = new Date().getHours();
-      let timeOfDay = 'morning';
-      if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
-      else if (hour >= 17) timeOfDay = 'evening';
+      let timeOfDay: 'morning' | 'evening' | 'night' | 'midnight' = 'morning';
+      if (hour >= 5 && hour < 12) timeOfDay = 'morning';
+      else if (hour >= 12 && hour < 18) timeOfDay = 'evening';
+      else if (hour >= 18 && hour < 22) timeOfDay = 'night';
+      else timeOfDay = 'midnight';
+
+      let greetings: any = null;
 
       if (cached) {
         try {
-          const { text, timestamp, timeOfDay: cachedTime } = JSON.parse(cached);
-          const now = Date.now();
-          const twoHours = 2 * 60 * 60 * 1000;
-          
-          if (now - timestamp < twoHours && timeOfDay === cachedTime) {
-            setGreeting(text);
-            return;
+          const parsed = JSON.parse(cached);
+          if (parsed.date === todayStr) {
+            greetings = parsed.greetings;
           }
         } catch (e) {
-          console.error("Failed to parse cached greeting", e);
+          console.error("Failed to parse cached greetings", e);
         }
       }
 
-      // Generate new greeting
-      const newGreeting = await generateGreeting(userName, timeOfDay);
-      setGreeting(newGreeting);
-      localStorage.setItem(cacheKey, JSON.stringify({
-        text: newGreeting,
-        timestamp: Date.now(),
-        timeOfDay
-      }));
+      if (!greetings) {
+        greetings = await generateDailyGreetings(userName);
+        localStorage.setItem(cacheKey, JSON.stringify({
+          date: todayStr,
+          greetings
+        }));
+      }
+
+      setGreeting(greetings[timeOfDay] || greetings.morning);
     };
 
     fetchGreeting();
@@ -115,8 +122,33 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
     { label: 'Total Posts', value: posts.length.toString(), icon: MessageSquare, color: 'text-amber-500', bg: 'bg-amber-500/10' },
   ];
 
+  const socialStats = [
+    { 
+      platform: 'Instagram', 
+      icon: Instagram, 
+      color: 'text-pink-500', 
+      bg: 'bg-pink-500/10',
+      metrics: [
+        { label: 'Followers', value: '1.2k', icon: Users },
+        { label: 'Reach', value: '5.4k', icon: Eye },
+        { label: 'Engagement', value: '8.2%', icon: Heart }
+      ]
+    },
+    { 
+      platform: 'Facebook', 
+      icon: Facebook, 
+      color: 'text-blue-600', 
+      bg: 'bg-blue-600/10',
+      metrics: [
+        { label: 'Followers', value: '2.8k', icon: Users },
+        { label: 'Reach', value: '12.1k', icon: Eye },
+        { label: 'Engagement', value: '4.5%', icon: Heart }
+      ]
+    }
+  ];
+
   return (
-    <div className="flex-1 flex flex-col gap-8 p-6 md:p-8 lg:p-12 w-full overflow-y-auto no-scrollbar">
+    <div className="flex-1 flex flex-col gap-8 p-6 md:p-8 lg:p-12 w-full overflow-y-auto no-scrollbar pb-24 md:pb-8">
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <motion.div 
@@ -143,26 +175,60 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
         )}
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      {/* Quick Stats - Square on Mobile */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, index) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] p-5 rounded-3xl shadow-sm flex flex-col gap-4 hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] p-4 md:p-5 rounded-3xl shadow-sm flex flex-col justify-between aspect-square md:aspect-auto md:gap-4 hover:shadow-md transition-shadow"
           >
-            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", stat.bg)}>
-              <stat.icon className={cn("w-6 h-6", stat.color)} />
+            <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center", stat.bg)}>
+              <stat.icon className={cn("w-5 h-5 md:w-6 md:h-6", stat.color)} />
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest">
+              <span className="text-[9px] md:text-[10px] font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest">
                 {stat.label}
               </span>
-              <span className="text-2xl font-black text-[#37352F] dark:text-[#EBE9ED]">
+              <span className="text-xl md:text-2xl font-black text-[#37352F] dark:text-[#EBE9ED]">
                 {stat.value}
               </span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Social Analytics Bento Boxes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {socialStats.map((platform, idx) => (
+          <motion.div
+            key={platform.platform}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 + idx * 0.1 }}
+            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm overflow-hidden"
+          >
+            <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-[#F7F7F5]/30 dark:bg-[#2E2E2E]/30">
+              <div className="flex items-center gap-3">
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", platform.bg)}>
+                  <platform.icon className={cn("w-5 h-5", platform.color)} />
+                </div>
+                <h3 className="font-black text-base">{platform.platform} Insights</h3>
+              </div>
+              <TrendingUp className="w-4 h-4 text-green-500" />
+            </div>
+            <div className="p-5 grid grid-cols-3 gap-4">
+              {platform.metrics.map((metric) => (
+                <div key={metric.label} className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5 text-[#787774] dark:text-[#9B9A97]">
+                    <metric.icon className="w-3 h-3" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{metric.label}</span>
+                  </div>
+                  <span className="text-lg font-black text-[#37352F] dark:text-[#EBE9ED]">{metric.value}</span>
+                </div>
+              ))}
             </div>
           </motion.div>
         ))}
@@ -304,6 +370,18 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             </div>
           </motion.div>
         </div>
+      </div>
+
+      {/* Mobile Floating Chat Button */}
+      <div className="md:hidden fixed bottom-20 right-6 z-40">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('chat')}
+          className="w-14 h-14 bg-[#2383E2] text-white rounded-full shadow-2xl flex items-center justify-center border-4 border-white dark:border-[#191919]"
+        >
+          <MessageSquare className="w-6 h-6" />
+        </motion.button>
       </div>
     </div>
   );

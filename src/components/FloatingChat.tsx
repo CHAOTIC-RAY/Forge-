@@ -148,9 +148,14 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: "I couldn't generate a valid post from that. Could you be more specific?" }]);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat error:", error);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: 'Sorry, I encountered an error processing your request.' }]);
+      const errorMessage = error.message || 'Sorry, I encountered an error processing your request.';
+      setMessages(prev => [...prev, { 
+        id: Date.now().toString(), 
+        role: 'assistant', 
+        content: errorMessage.includes('JSON') ? 'Sorry, I had trouble formatting the response. Please try again.' : errorMessage 
+      }]);
     } finally {
       setIsTyping(false);
     }
