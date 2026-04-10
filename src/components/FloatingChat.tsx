@@ -182,7 +182,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
     <div className={cn(
       "fixed z-50 flex flex-col items-end gap-4 transition-all duration-300",
       isFullPage 
-        ? "inset-0 bg-white dark:bg-[#191919] p-0 pointer-events-auto" 
+        ? "inset-0 bottom-[64px] md:bottom-0 bg-white dark:bg-[#191919] p-0 pointer-events-auto" 
         : "bottom-6 right-6 pointer-events-none"
     )}>
       <AnimatePresence>
@@ -337,12 +337,12 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                     }
                   }}
                   placeholder="Type a message..."
-                  className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED]"
+                  className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED]"
                 />
                 <button 
                   onClick={handleSend}
                   disabled={!input.trim() && !attachedItem}
-                  className="absolute right-2 bottom-2 p-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500 text-white rounded-lg transition-all"
+                  className="absolute right-2 bottom-2 p-2 bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:hover:bg-brand text-white rounded-lg transition-all"
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -363,7 +363,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
             }}
             className={cn(
               "w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 group relative overflow-hidden",
-              isButtonOver ? "scale-125 bg-green-500" : "bg-blue-500 hover:bg-blue-600",
+              isButtonOver ? "bg-green-500 scale-125" : "bg-brand hover:bg-brand-hover",
               isOpen && !isMinimized ? "rotate-90" : ""
             )}
           >

@@ -22,7 +22,7 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { v4 as uuidv4 } from 'uuid';
-import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addMonths, subMonths } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addMonths, subMonths, isAfter } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -242,28 +242,93 @@ export default function App() {
   const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme');
+      const saved = localStorage.getItem('forge_theme_mode');
       if (saved) return saved === 'dark';
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
     return false;
   });
 
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+  const [themePreset, setThemePreset] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('forge_theme_preset') || 'default';
     }
-  }, [isDarkMode]);
+    return 'default';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      localStorage.setItem('forge_theme_mode', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('forge_theme_mode', 'light');
+    }
+    
+    // Apply theme preset
+    root.setAttribute('data-theme', themePreset);
+    localStorage.setItem('forge_theme_preset', themePreset);
+  }, [isDarkMode, themePreset]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
   const userProfileSynced = useRef<string | null>(null);
 
   // Migration logic for 2003ray.dark@gmail.com
   // Migration completed. Legacy code removed.
+
+  const [sharePassword, setSharePassword] = useState('');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [pendingShareData, setPendingShareData] = useState<Business | null>(null);
+
+  const completeShareAccess = async (bizData: Business) => {
+    setActiveBusiness(bizData);
+    setIsViewOnly(true);
+    
+    // Update analytics
+    try {
+      const newViews = (bizData.shareAnalytics?.views || 0) + 1;
+      await updateDoc(doc(db, 'businesses', bizData.id), {
+        'shareAnalytics.views': newViews,
+        'shareAnalytics.lastViewedAt': new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Error updating share analytics", e);
+    }
+
+    // Fetch posts
+    const q = query(collection(db, 'posts'), where('businessId', '==', bizData.id));
+    const snapshot = await getDocs(q);
+    const sharedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+    
+    // Apply filters
+    let filteredPosts = sharedPosts;
+    if (bizData.shareFilters) {
+      if (bizData.shareFilters.tags?.length) {
+        filteredPosts = filteredPosts.filter(p => bizData.shareFilters?.tags?.includes(p.outlet || ''));
+      }
+      if (bizData.shareFilters.dateRange?.start) {
+        filteredPosts = filteredPosts.filter(p => p.date >= bizData.shareFilters!.dateRange!.start);
+      }
+      if (bizData.shareFilters.dateRange?.end) {
+        filteredPosts = filteredPosts.filter(p => p.date <= bizData.shareFilters!.dateRange!.end);
+      }
+    }
+    
+    setPosts(filteredPosts);
+    setActiveTab('calendar');
+    addSyncLog(`Viewing shared calendar for ${bizData.name}`, 'success');
+  };
+
+  const handlePasswordSubmit = () => {
+    if (pendingShareData && sharePassword === pendingShareData.sharePassword) {
+      completeShareAccess(pendingShareData);
+      setIsPasswordModalOpen(false);
+      setSharePassword('');
+    } else {
+      toast.error("Incorrect password.");
+    }
+  };
 
   // Handle Share Link / View Only Mode
   useEffect(() => {
@@ -281,23 +346,44 @@ export default function App() {
     };
     testConnection();
 
-    const params = new URLSearchParams(window.location.search);
-    const shareToken = params.get('share');
-    const bizId = params.get('biz');
+    // Check for share link in URL path or params
+    const pathParts = window.location.pathname.split('/');
+    let bizId: string | null = null;
+    let shareToken: string | null = null;
+
+    if (pathParts[1] === 'share' && pathParts[2] && pathParts[3]) {
+      bizId = pathParts[2];
+      shareToken = pathParts[3];
+    } else {
+      const params = new URLSearchParams(window.location.search);
+      shareToken = params.get('share');
+      bizId = params.get('biz');
+    }
 
     if (shareToken && bizId) {
-      setIsViewOnly(true);
       const fetchShared = async () => {
         try {
-          const { getDoc, doc } = await import('firebase/firestore');
-          const bizDoc = await getDoc(doc(db, 'businesses', bizId));
-          if (bizDoc.exists() && bizDoc.data().shareToken === shareToken) {
+          const bizDoc = await getDoc(doc(db, 'businesses', bizId!));
+          if (bizDoc.exists()) {
             const bizData = { id: bizDoc.id, ...bizDoc.data() } as Business;
-            setSharedBusiness(bizData);
-            setActiveBusiness(bizData);
-            addSyncLog(`Viewing shared calendar for ${bizData.name}`, 'success');
-          } else {
-            toast.error("Invalid or expired share link.");
+            if (bizData.shareToken === shareToken) {
+              // Check expiration
+              if (bizData.shareExpiresAt && isAfter(new Date(), parseISO(bizData.shareExpiresAt))) {
+                toast.error("This share link has expired.");
+                return;
+              }
+
+              // Check password
+              if (bizData.sharePassword) {
+                setPendingShareData(bizData);
+                setIsPasswordModalOpen(true);
+                return;
+              }
+
+              completeShareAccess(bizData);
+            } else {
+              toast.error("Invalid or expired share link.");
+            }
           }
         } catch (e) {
           console.error("Error fetching shared business", e);
@@ -2472,7 +2558,7 @@ export default function App() {
                 <button
                   onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
                   title={activeBusiness.name}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-[#2383E2] text-white border-[#1a6ab8] shadow-md hover:scale-105"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-brand text-white border-brand-hover shadow-md hover:scale-105"
                 >
                   {activeBusiness.name.substring(0, 2).toUpperCase()}
                 </button>
@@ -2498,7 +2584,7 @@ export default function App() {
                           }}
                           className={cn(
                             "w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] transition-colors",
-                            activeBusiness?.id === biz.id ? "text-[#2383E2] font-medium" : "text-[#37352F] dark:text-[#EBE9ED]"
+                            activeBusiness?.id === biz.id ? "text-brand font-medium" : "text-[#37352F] dark:text-[#EBE9ED]"
                           )}
                         >
                           <span className="truncate">{biz.name}</span>
@@ -2522,7 +2608,7 @@ export default function App() {
                           setIsWorkspaceDropdownOpen(false);
                           setIsBusinessModalOpen(true);
                         }}
-                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-lg transition-colors text-[#2383E2]"
+                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-lg transition-colors text-brand"
                       >
                         <Plus className="w-4 h-4" />
                         Add New Workspace
@@ -2641,7 +2727,7 @@ export default function App() {
           {user ? (
             <button 
               onClick={() => setActiveTab('more')}
-              className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#2383E2]"
+              className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand"
               title="Settings"
             >
               <img 
@@ -2675,7 +2761,7 @@ export default function App() {
                 {user && !isViewOnly && (
                   <button
                     onClick={() => setIsBusinessModalOpen(true)}
-                    className="w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl flex items-center justify-center font-bold text-xs text-[#2383E2] shadow-sm active:scale-95 transition-transform"
+                    className="w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl flex items-center justify-center font-bold text-xs text-brand shadow-sm active:scale-95 transition-transform"
                   >
                     {activeBusiness?.name.substring(0, 2).toUpperCase() || '??'}
                   </button>
@@ -2875,18 +2961,18 @@ export default function App() {
           {activeDragItem ? (
             <div className="opacity-80 scale-105 shadow-2xl pointer-events-none">
               {activeDragItem.type === 'product' && (
-                <div className="bg-white dark:bg-[#191919] border border-[#2383E2] rounded-md p-3 w-64 shadow-xl">
-                  <div className="text-[10px] font-bold text-[#2383E2] uppercase mb-1">{activeDragItem.product.type}</div>
+                <div className="bg-white dark:bg-[#191919] border border-brand rounded-md p-3 w-64 shadow-xl">
+                  <div className="text-[10px] font-bold text-brand uppercase mb-1">{activeDragItem.product.type}</div>
                   <div className="text-sm font-bold">{activeDragItem.product.title}</div>
                 </div>
               )}
               {activeDragItem.type === 'image' && (
-                <div className="w-20 h-20 rounded-md overflow-hidden border-2 border-[#2383E2]">
+                <div className="w-20 h-20 rounded-md overflow-hidden border-2 border-brand">
                   <img src={activeDragItem.imageUrl} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
               {activeDragItem.type === 'idea' && (
-                <div className="bg-white dark:bg-[#1E1E1E] border border-[#2383E2] rounded-[24px] p-5 shadow-xl w-64">
+                <div className="bg-white dark:bg-[#1E1E1E] border border-brand rounded-[24px] p-5 shadow-xl w-64">
                   <div className="flex gap-2 mb-2">
                     <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">
                       {activeDragItem.idea.type}
@@ -2920,8 +3006,7 @@ export default function App() {
 
     {/* Mobile Bottom Navigation */}
       <div className={cn(
-        "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white dark:bg-[#191919] border-t border-[#E9E9E7] dark:border-[#2E2E2E] h-[64px] flex items-center px-2 shadow-[0_-8px_24px_rgba(0,0,0,0.05)]",
-        activeTab === 'chat' && "translate-y-32 opacity-0 pointer-events-none"
+        "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white dark:bg-[#191919] border-t border-[#E9E9E7] dark:border-[#2E2E2E] h-[64px] flex items-center px-2 shadow-[0_-8px_24px_rgba(0,0,0,0.05)]"
       )}>
         {isAdmin ? (
           <nav className="flex-1 flex flex-row justify-between w-full h-full items-center">
@@ -2941,7 +3026,7 @@ export default function App() {
                   onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
                     "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
-                    isActive ? "text-[#2383E2]" : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                    isActive ? "text-brand" : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                   )}
                   title={tab.title}
                 >
@@ -2949,7 +3034,7 @@ export default function App() {
                   {isActive && (
                     <motion.div
                       layoutId="mobileActiveTabIndicator"
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#2383E2] rounded-b-full"
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
                       initial={false}
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
@@ -2964,14 +3049,14 @@ export default function App() {
               onClick={() => setActiveTab('schedule')}
               className={cn(
                 "flex flex-col items-center justify-center transition-all duration-200 relative h-full px-4",
-                activeTab === 'schedule' ? "text-[#2383E2]" : "text-[#787774] dark:text-[#9B9A97]"
+                activeTab === 'schedule' ? "text-brand" : "text-[#787774] dark:text-[#9B9A97]"
               )}
             >
               <CalendarIcon className="w-6 h-6" />
               {activeTab === 'schedule' && (
                 <motion.div
                   layoutId="mobileActiveTabIndicatorGuest"
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#2383E2] rounded-b-full"
+                  className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
                   initial={false}
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 />
@@ -2982,7 +3067,7 @@ export default function App() {
               <button 
                 onClick={handleLogin}
                 disabled={isSigningIn}
-                className="flex items-center gap-2 px-4 py-2 bg-[#2383E2] text-white rounded-xl font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-xl font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
               >
                 <Smartphone className="w-4 h-4" />
                 {isSigningIn ? '...' : 'Sign In'}
@@ -3150,6 +3235,41 @@ export default function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-[#191919] p-8 rounded-3xl shadow-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] max-w-md w-full space-y-6"
+          >
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto text-blue-600 dark:text-blue-400">
+                <Lock className="w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-bold">Protected Calendar</h2>
+              <p className="text-sm text-[#787774] dark:text-[#9B9A97]">This calendar is password protected. Please enter the password to view.</p>
+            </div>
+            <div className="space-y-4">
+              <input 
+                type="password"
+                value={sharePassword}
+                onChange={(e) => setSharePassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                placeholder="Enter password"
+                className="w-full p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 text-center text-lg font-bold tracking-widest"
+                autoFocus
+              />
+              <button 
+                onClick={handlePasswordSubmit}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/20 active:scale-95"
+              >
+                Access Calendar
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
 

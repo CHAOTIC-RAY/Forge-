@@ -115,8 +115,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-2xl flex items-center justify-center">
-              <CalendarIcon className="w-6 h-6 text-[#2665fd]" />
+            <div className="w-12 h-12 bg-brand/10 rounded-2xl flex items-center justify-center">
+              <CalendarIcon className="w-6 h-6 text-brand" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
@@ -135,7 +135,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                 className={cn(
                   "px-4 py-2 rounded-lg text-sm font-bold transition-all",
                   calendarMode === 'work' 
-                    ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] shadow-sm" 
+                    ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
                     : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                 )}
               >
@@ -146,7 +146,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                 className={cn(
                   "px-4 py-2 rounded-lg text-sm font-bold transition-all",
                   calendarMode === 'personal' 
-                    ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] shadow-sm" 
+                    ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
                     : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                 )}
               >

@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Business } from '../data';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { toast } from 'sonner';
-import { Share2, Copy, RefreshCw, Settings, X } from 'lucide-react';
+import { Share2, Copy, RefreshCw, Settings, X, Lock, Calendar, Tags, Eye, QrCode, ChevronDown, ChevronUp, Clock, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { format, addDays, isAfter, parseISO } from 'date-fns';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '../lib/utils';
 
 interface CalendarSharingProps {
   activeBusiness: Business | null;
@@ -13,14 +16,21 @@ interface CalendarSharingProps {
 
 export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSharingProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   if (!activeBusiness) return null;
 
   const handleGenerateShareLink = async () => {
     const token = uuidv4();
     try {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), { shareToken: token, shareRestriction: 'guest' });
-      onUpdateBusiness({ ...activeBusiness, shareToken: token, shareRestriction: 'guest' });
+      const updates = { 
+        shareToken: token, 
+        shareRestriction: activeBusiness.shareRestriction || 'guest',
+        shareAnalytics: { views: 0, lastViewedAt: null }
+      };
+      await updateDoc(doc(db, 'businesses', activeBusiness.id), updates);
+      onUpdateBusiness({ ...activeBusiness, ...updates });
       toast.success("Share link generated!");
     } catch (e) {
       console.error("Error generating share link", e);
@@ -28,14 +38,14 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
     }
   };
 
-  const handleUpdateRestriction = async (restriction: 'guest' | 'authenticated') => {
+  const handleUpdateField = async (field: string, value: any) => {
     try {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), { shareRestriction: restriction });
-      onUpdateBusiness({ ...activeBusiness, shareRestriction: restriction });
-      toast.success(`Restriction updated to ${restriction}!`);
+      await updateDoc(doc(db, 'businesses', activeBusiness.id), { [field]: value });
+      onUpdateBusiness({ ...activeBusiness, [field]: value });
+      toast.success("Settings updated!");
     } catch (e) {
-      console.error("Error updating restriction", e);
-      toast.error("Failed to update restriction.");
+      console.error(`Error updating ${field}`, e);
+      toast.error("Failed to update settings.");
     }
   };
 
@@ -45,6 +55,12 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
     navigator.clipboard.writeText(shareUrl);
     toast.success("Link copied to clipboard!");
   };
+
+  const shareUrl = activeBusiness.shareToken 
+    ? `${window.location.origin}/share/${activeBusiness.id}/${activeBusiness.shareToken}`
+    : '';
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}`;
 
   return (
     <div className="relative">
@@ -57,67 +73,262 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
         <span className="text-xs font-medium md:hidden">Share Schedule</span>
       </button>
 
-      {isOpen && (
-        <>
-          {/* Backdrop for mobile */}
-          <div 
-            className="fixed inset-0 bg-black/20 dark:bg-black/40 z-[60] md:hidden" 
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="fixed md:absolute bottom-0 md:bottom-auto left-0 md:left-auto right-0 md:right-0 md:top-full mt-0 md:mt-2 w-full md:w-80 bg-white dark:bg-[#191919] border-t md:border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-t-2xl md:rounded-xl shadow-2xl md:shadow-xl z-[70] md:z-50 p-6 md:p-4 space-y-4 animate-in slide-in-from-bottom md:slide-in-from-top duration-200">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <Share2 className="w-4 h-4 text-blue-500" /> Calendar Sharing
-              </h3>
-              <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-full transition-colors">
-                <X className="w-5 h-5 md:w-4 md:h-4" />
-              </button>
-            </div>
-            
-            {activeBusiness.shareToken ? (
-              <>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Share Link</label>
-                  <div className="flex items-center gap-2 text-xs text-[#787774] dark:text-[#9B9A97] bg-[#F7F7F5] dark:bg-[#202020] p-3 md:p-2 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                    <span className="truncate flex-1">{`${window.location.origin}/share/${activeBusiness.id}/${activeBusiness.shareToken}`}</span>
-                    <button onClick={handleCopyLink} className="p-2 md:p-1 hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded transition-colors" title="Copy Link">
-                      <Copy className="w-4 h-4 md:w-3 md:h-3" />
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Backdrop for mobile */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/20 dark:bg-black/40 z-[60] md:hidden" 
+              onClick={() => setIsOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="fixed md:absolute bottom-0 md:bottom-auto left-0 md:left-auto right-0 md:right-0 md:top-full mt-0 md:mt-2 w-full md:w-[400px] bg-white dark:bg-[#191919] border-t md:border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-t-3xl md:rounded-2xl shadow-2xl md:shadow-xl z-[70] md:z-50 overflow-hidden"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-[#F7F7F5] dark:bg-[#202020]">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-blue-500" /> Calendar Sharing
+                </h3>
+                <div className="flex items-center gap-1">
+                  {activeBusiness.shareToken && (
+                    <button 
+                      onClick={() => setShowQr(!showQr)}
+                      className={cn(
+                        "p-1.5 rounded-lg transition-colors",
+                        showQr ? "bg-blue-100 text-blue-600" : "hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#787774]"
+                      )}
+                      title="Show QR Code"
+                    >
+                      <QrCode className="w-4 h-4" />
                     </button>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Access Restriction</label>
-                  <select 
-                    value={activeBusiness.shareRestriction || 'guest'}
-                    onChange={(e) => handleUpdateRestriction(e.target.value as 'guest' | 'authenticated')}
-                    className="w-full p-3 md:p-2 text-sm rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="guest">Guest (No Login Required)</option>
-                    <option value="authenticated">Guest + Logged In Only</option>
-                  </select>
-                </div>
-
-                <div className="pt-2">
-                  <button 
-                    onClick={handleGenerateShareLink} 
-                    className="w-full flex items-center justify-center gap-2 py-3 md:py-2 text-sm text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg font-medium transition-colors"
-                  >
-                    <RefreshCw className="w-4 h-4" /> Regenerate Share Link
+                  )}
+                  <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-lg transition-colors">
+                    <X className="w-5 h-5 md:w-4 md:h-4" />
                   </button>
                 </div>
-              </>
-            ) : (
-              <button 
-                onClick={handleGenerateShareLink} 
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors shadow-lg shadow-blue-500/20"
-              >
-                Generate Share Link
-              </button>
-            )}
-          </div>
-        </>
-      )}
+              </div>
+
+              <div className="p-5 space-y-6 max-h-[70vh] overflow-y-auto">
+                {activeBusiness.shareToken ? (
+                  <>
+                    {/* QR Code View */}
+                    <AnimatePresence>
+                      {showQr && (
+                        <motion.div 
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="flex flex-col items-center gap-4 py-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20"
+                        >
+                          <div className="p-3 bg-white rounded-xl shadow-sm">
+                            <img src={qrUrl} alt="QR Code" className="w-32 h-32" />
+                          </div>
+                          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Scan to view calendar</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Link Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-black text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest">Share Link</label>
+                        {activeBusiness.shareAnalytics && (
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-600">
+                            <Eye className="w-3 h-3" />
+                            {activeBusiness.shareAnalytics.views} views
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[#37352F] dark:text-[#EBE9ED] bg-[#F7F7F5] dark:bg-[#202020] p-3 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] group">
+                        <span className="truncate flex-1 font-medium">{shareUrl}</span>
+                        <button onClick={handleCopyLink} className="p-2 hover:bg-white dark:hover:bg-[#2E2E2E] rounded-lg transition-all shadow-sm active:scale-90" title="Copy Link">
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Basic Settings */}
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest px-1">Access Type</label>
+                        <select 
+                          value={activeBusiness.shareRestriction || 'guest'}
+                          onChange={(e) => handleUpdateField('shareRestriction', e.target.value)}
+                          className="w-full p-3 text-sm rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
+                        >
+                          <option value="guest">Public (No Login)</option>
+                          <option value="authenticated">Private (Login Required)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Advanced Toggle */}
+                    <button 
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      className="w-full flex items-center justify-between py-2 px-1 text-xs font-bold text-[#787774] hover:text-[#2383E2] transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Settings className="w-3.5 h-3.5" /> Link Security & Control
+                      </span>
+                      {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+
+                    <AnimatePresence>
+                      {showAdvanced && (
+                        <motion.div 
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="space-y-5 pt-2"
+                        >
+                          {/* Password Protection */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest px-1 flex items-center gap-1.5">
+                              <Lock className="w-3 h-3" /> Password Protection
+                            </label>
+                            <input 
+                              type="password"
+                              value={activeBusiness.sharePassword || ''}
+                              onChange={(e) => handleUpdateField('sharePassword', e.target.value)}
+                              placeholder="Set a password (optional)"
+                              className="w-full p-3 text-sm rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            />
+                          </div>
+
+                          {/* Expiration */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest px-1 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3" /> Link Expiration
+                            </label>
+                            <div className="flex gap-2">
+                              <select 
+                                value={activeBusiness.shareExpiresAt ? 'custom' : 'never'}
+                                onChange={(e) => {
+                                  if (e.target.value === 'never') handleUpdateField('shareExpiresAt', null);
+                                  else handleUpdateField('shareExpiresAt', addDays(new Date(), 7).toISOString());
+                                }}
+                                className="flex-1 p-3 text-sm rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                              >
+                                <option value="never">Never Expires</option>
+                                <option value="custom">Expires on Date</option>
+                              </select>
+                              {activeBusiness.shareExpiresAt && (
+                                <input 
+                                  type="date"
+                                  value={format(parseISO(activeBusiness.shareExpiresAt), 'yyyy-MM-dd')}
+                                  onChange={(e) => handleUpdateField('shareExpiresAt', new Date(e.target.value).toISOString())}
+                                  className="flex-1 p-3 text-sm rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Advanced Filtering */}
+                          <div className="space-y-3 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                            <h4 className="text-[10px] font-black text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest flex items-center gap-1.5">
+                              <Tags className="w-3 h-3" /> Advanced Filtering
+                            </h4>
+                            
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97]">Visible Outlets</label>
+                              <div className="flex flex-wrap gap-2">
+                                {['Rainbow Buildware', 'Rainbow Living Mall', 'Rainbow Office System'].map(outlet => {
+                                  const isSelected = activeBusiness.shareFilters?.tags?.includes(outlet);
+                                  return (
+                                    <button
+                                      key={outlet}
+                                      onClick={() => {
+                                        const currentTags = activeBusiness.shareFilters?.tags || [];
+                                        const newTags = isSelected 
+                                          ? currentTags.filter(t => t !== outlet)
+                                          : [...currentTags, outlet];
+                                        handleUpdateField('shareFilters', { ...activeBusiness.shareFilters, tags: newTags });
+                                      }}
+                                      className={cn(
+                                        "px-2 py-1 rounded-lg text-[10px] font-bold transition-all border",
+                                        isSelected 
+                                          ? "bg-blue-500 border-blue-500 text-white" 
+                                          : "bg-white dark:bg-[#191919] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774]"
+                                      )}
+                                    >
+                                      {outlet}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97]">Date Range (Optional)</label>
+                              <div className="grid grid-cols-2 gap-2">
+                                <input 
+                                  type="date"
+                                  value={activeBusiness.shareFilters?.dateRange?.start || ''}
+                                  onChange={(e) => handleUpdateField('shareFilters', { 
+                                    ...activeBusiness.shareFilters, 
+                                    dateRange: { ...activeBusiness.shareFilters?.dateRange, start: e.target.value } 
+                                  })}
+                                  className="p-2 text-[10px] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919]"
+                                />
+                                <input 
+                                  type="date"
+                                  value={activeBusiness.shareFilters?.dateRange?.end || ''}
+                                  onChange={(e) => handleUpdateField('shareFilters', { 
+                                    ...activeBusiness.shareFilters, 
+                                    dateRange: { ...activeBusiness.shareFilters?.dateRange, end: e.target.value } 
+                                  })}
+                                  className="p-2 text-[10px] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919]"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="pt-4 flex flex-col gap-3">
+                      <button 
+                        onClick={handleGenerateShareLink} 
+                        className="w-full flex items-center justify-center gap-2 py-3 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-xl font-bold transition-all border border-blue-100 dark:border-blue-900/20"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Regenerate Link
+                      </button>
+                      <button 
+                        onClick={() => handleUpdateField('shareToken', null)} 
+                        className="w-full flex items-center justify-center gap-2 py-3 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl font-bold transition-all border border-red-100 dark:border-red-900/20"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Revoke Access
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-8 text-center space-y-6">
+                    <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/10 rounded-full flex items-center justify-center mx-auto">
+                      <Share2 className="w-10 h-10 text-blue-500" />
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-lg">Share your schedule</h4>
+                      <p className="text-sm text-[#787774] dark:text-[#9B9A97] max-w-[240px] mx-auto">Generate a secure link to share your content calendar with clients or team members.</p>
+                    </div>
+                    <button 
+                      onClick={handleGenerateShareLink} 
+                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-bold transition-all shadow-xl shadow-blue-500/20 active:scale-95"
+                    >
+                      Generate Secure Link
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

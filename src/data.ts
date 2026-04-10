@@ -87,6 +87,17 @@ export interface Business {
   logoUrl?: string;
   shareToken?: string;
   shareRestriction?: 'guest' | 'authenticated';
+  sharePassword?: string;
+  shareExpiresAt?: string;
+  shareFilters?: {
+    tags?: string[];
+    dateRange?: { start: string; end: string };
+  };
+  shareAnalytics?: {
+    views: number;
+    lastViewedAt?: string;
+  };
+  themePreset?: string;
   createdAt: string;
   updatedAt: string;
   oneDriveCredentials?: {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Database, Sparkles, Palette, BarChart3, ListTodo, LogIn, Building2, ChevronDown, CheckCircle2, MessageSquare, Image as ImageIcon, Users, Lightbulb, Pause, Square } from 'lucide-react';
+import { Calendar as CalendarIcon, Database, Sparkles, Palette, BarChart3, ListTodo, LogIn, Building2, ChevronDown, CheckCircle2, MessageSquare, Image as ImageIcon, Users, Lightbulb, Pause, Square, Eye, Share2, Lock } from 'lucide-react';
 import { ForgeLogo, GlowingScribbleLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
 import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
@@ -131,18 +131,33 @@ function FeaturePreview({ id }: { id: string }) {
       return (
         <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-6 overflow-hidden">
           <div className="flex gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex-1 bg-gray-50 dark:bg-[#202020] rounded-xl p-3 border border-gray-100 dark:border-gray-700">
-                <div className="w-12 h-2 bg-gray-300 dark:bg-gray-600 rounded-full mb-3" />
-                <div className="w-20 h-4 bg-gray-800 dark:bg-gray-200 rounded-full" />
+            <div className="flex-1 bg-brand/10 rounded-xl p-3 border border-brand/20">
+              <div className="w-12 h-2 bg-brand/30 rounded-full mb-3" />
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-brand" />
+                <div className="w-16 h-4 bg-gray-800 dark:bg-gray-200 rounded-full" />
               </div>
-            ))}
+            </div>
+            <div className="flex-1 bg-green-50 dark:bg-green-900/10 rounded-xl p-3 border border-green-100 dark:border-green-900/20">
+              <div className="w-12 h-2 bg-green-300 dark:bg-green-600 rounded-full mb-3" />
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-green-500" />
+                <div className="w-16 h-4 bg-gray-800 dark:bg-gray-200 rounded-full" />
+              </div>
+            </div>
+            <div className="flex-1 bg-purple-50 dark:bg-purple-900/10 rounded-xl p-3 border border-purple-100 dark:border-purple-900/20">
+              <div className="w-12 h-2 bg-purple-300 dark:bg-purple-600 rounded-full mb-3" />
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-500" />
+                <div className="w-16 h-4 bg-gray-800 dark:bg-gray-200 rounded-full" />
+              </div>
+            </div>
           </div>
           <div className="flex-1 flex items-end gap-2 px-2">
             {[40, 70, 45, 90, 65, 80, 55, 100, 75, 85].map((h, i) => (
-              <div key={i} className="flex-1 bg-green-100 dark:bg-green-900/30 rounded-t-md relative group">
+              <div key={i} className="flex-1 bg-brand/10 rounded-t-md relative group">
                 <div 
-                  className="absolute bottom-0 left-0 w-full bg-green-500 rounded-t-md transition-all duration-1000"
+                  className="absolute bottom-0 left-0 w-full bg-brand rounded-t-md transition-all duration-1000"
                   style={{ height: `${h}%` }}
                 />
               </div>
@@ -197,13 +212,13 @@ function FeaturePreview({ id }: { id: string }) {
     case 'workspace':
       return (
         <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-6 overflow-hidden">
-          <div className="flex items-center gap-4 p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-900/30">
-            <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">
+          <div className="flex items-center gap-4 p-4 bg-brand/10 rounded-xl border border-brand/30">
+            <div className="w-12 h-12 bg-brand rounded-xl flex items-center justify-center text-white font-bold text-xl">
               F
             </div>
             <div className="flex-1 space-y-2">
-              <div className="w-32 h-3 bg-indigo-900/80 dark:bg-indigo-100/80 rounded-full" />
-              <div className="w-20 h-2 bg-indigo-900/40 dark:bg-indigo-100/40 rounded-full" />
+              <div className="w-32 h-3 bg-brand/80 dark:bg-brand/80 rounded-full" />
+              <div className="w-20 h-2 bg-brand/40 dark:bg-brand/40 rounded-full" />
             </div>
             <div className="flex -space-x-2">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -214,15 +229,26 @@ function FeaturePreview({ id }: { id: string }) {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 flex-1">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="bg-gray-50 dark:bg-[#202020] rounded-xl p-4 border border-gray-100 dark:border-gray-700 flex flex-col justify-between">
-                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4" />
-                <div className="space-y-2">
-                  <div className="w-full h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
-                  <div className="w-1/2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                </div>
+            <div className="bg-gray-50 dark:bg-[#202020] rounded-xl p-4 border border-gray-100 dark:border-gray-700 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-4">
+                <Lock className="w-4 h-4 text-emerald-500" />
+                <div className="w-20 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
               </div>
-            ))}
+              <div className="space-y-2">
+                <div className="w-full h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
+                <div className="w-1/2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
+              </div>
+            </div>
+            <div className="bg-gray-50 dark:bg-[#202020] rounded-xl p-4 border border-gray-100 dark:border-gray-700 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-4">
+                <Share2 className="w-4 h-4 text-brand" />
+                <div className="w-20 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
+              </div>
+              <div className="space-y-2">
+                <div className="w-full h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
+                <div className="w-1/2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -257,55 +283,55 @@ const SECTIONS = [
   {
     id: 'calendar',
     icon: CalendarIcon,
-    title: 'Content Calendar',
-    description: 'Plan, schedule, and organize all your social media posts in one intuitive drag-and-drop calendar. Keep your team aligned and your content pipeline full with visual planning.',
-    color: 'text-blue-500',
-    bg: 'bg-blue-500/10'
+    title: 'Smart Content Calendar',
+    description: 'Plan, schedule, and organize all your social media posts in one intuitive drag-and-drop calendar. Keep your team aligned and your content pipeline full with visual planning and automated reminders.',
+    color: 'text-brand',
+    bg: 'bg-brand/10'
   },
   {
     id: 'localdb',
     icon: Database,
-    title: 'Local DB',
-    description: 'Store, organize, and retrieve your brand assets, product catalogs, and past content in a centralized local database.',
+    title: 'Intelligent Asset Library',
+    description: 'Store, organize, and retrieve your brand assets, product catalogs, and past content in a centralized local database. Use AI-powered search to find exactly what you need in seconds.',
     color: 'text-purple-500',
     bg: 'bg-purple-500/10'
   },
   {
     id: 'ideas',
     icon: Lightbulb,
-    title: 'Creative Hub',
-    description: 'Brainstorm, save, and organize your content ideas before they make it to the calendar. Never lose a spark of inspiration.',
+    title: 'Creative Spark Hub',
+    description: 'Brainstorm, save, and organize your content ideas before they make it to the calendar. Never lose a spark of inspiration with our dedicated ideation space.',
     color: 'text-yellow-500',
     bg: 'bg-yellow-500/10'
   },
   {
     id: 'ai',
     icon: Sparkles,
-    title: 'AI Content Generator',
-    description: 'Generate engaging captions, brainstorm ideas, and create variations of your best performing content instantly using advanced AI models tailored to your brand voice.',
+    title: 'AI-Powered Creation',
+    description: 'Generate engaging captions, brainstorm ideas, and create variations of your best performing content instantly using advanced AI models like Gemini and Groq, tailored to your brand voice.',
     color: 'text-amber-500',
     bg: 'bg-amber-500/10'
   },
   {
     id: 'studio',
     icon: Palette,
-    title: 'Creative Studio',
-    description: 'Design beautiful mockups, edit images, and create cohesive visual assets for your brand without leaving the platform. Everything you need for pixel-perfect posts.',
+    title: 'Pro Creative Studio',
+    description: 'Design beautiful mockups, edit images, and create cohesive visual assets for your brand without leaving the platform. Everything you need for pixel-perfect posts in one place.',
     color: 'text-pink-500',
     bg: 'bg-pink-500/10'
   },
   {
     id: 'analytics',
     icon: BarChart3,
-    title: 'Analytics & Insights',
-    description: 'Track your performance across platforms. Understand what works, when to post, and how to optimize your strategy for maximum engagement and growth.',
+    title: 'Predictive Analytics',
+    description: 'Track your performance across platforms. Understand what works, when to post, and how to optimize your strategy for maximum engagement and growth with data-driven insights.',
     color: 'text-green-500',
     bg: 'bg-green-500/10'
   },
   {
     id: 'tasks',
     icon: ListTodo,
-    title: 'Task Management',
+    title: 'Agile Task Management',
     description: 'Keep track of content creation tasks, approvals, and deadlines. Ensure nothing falls through the cracks with integrated to-do lists and team assignments.',
     color: 'text-orange-500',
     bg: 'bg-orange-500/10'
@@ -313,8 +339,8 @@ const SECTIONS = [
   {
     id: 'workspace',
     icon: Building2,
-    title: 'Workspace & Collaboration',
-    description: 'Manage multiple brands or clients from a single account. Invite team members, set roles, and streamline your approval workflows in dedicated workspaces.',
+    title: 'Enterprise Workspaces',
+    description: 'Manage multiple brands or clients from a single account. Invite team members, set roles, and streamline your approval workflows in dedicated, secure workspaces.',
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/10'
   }
@@ -398,87 +424,52 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const navSections = SECTIONS.filter(s => s.icon !== null);
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white">
-      {/* Sidebar (Desktop) / Bottom Bar (Mobile) */}
-      <aside className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto w-full md:w-16 h-[64px] md:h-full border-t md:border-t-0 md:border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] md:bg-[#F7F7F5] md:dark:bg-[#202020] flex md:flex-col items-center py-0 md:py-4 shrink-0 z-50 shadow-[0_-8px_24px_rgba(0,0,0,0.05)] md:shadow-none px-2 md:px-0">
-        <div className="hidden md:block mb-8">
-          <ForgeLogo size={28} className="p-1" />
+    <div className="flex flex-col md:flex-row h-screen bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-brand selection:text-white">
+      {/* Sidebar Navigation */}
+      <aside className="hidden md:flex w-72 flex-col border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#1A1A1A] p-8">
+        <div className="flex items-center gap-3 mb-12">
+          <ForgeLogo size={32} />
+          <span className="text-xl font-black tracking-tighter">FORGE</span>
         </div>
-        
-        <nav className="flex-1 flex flex-row md:flex-col justify-between md:justify-start gap-0 md:gap-2 w-full px-0 md:px-2 overflow-hidden md:overflow-visible items-center h-full md:h-auto">
-          {/* Desktop Nav Items */}
-          <div className="hidden md:flex flex-col gap-2 w-full">
-            {navSections.map((section) => {
-              const Icon = section.icon!;
-              const isActive = activeSection === section.id;
-              return (
-                <button
-                  key={section.id}
-                  onClick={() => scrollToSection(section.id)}
-                  className={cn(
-                    "flex p-2.5 rounded-xl items-center justify-center transition-all duration-200 relative group w-full",
-                    isActive 
-                      ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] shadow-sm" 
-                      : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] hover:bg-[#E9E9E7] md:dark:hover:bg-[#2E2E2E]"
-                  )}
-                  title={section.title}
-                >
-                  <Icon className="w-5 h-5" />
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTabIndicator"
-                      className="absolute left-0 w-1 h-5 bg-[#2383E2] rounded-r-full"
-                      initial={false}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
 
-          {/* Mobile Nav Items - Same as Registered User */}
-          <div className="md:hidden flex flex-1 flex-row justify-between w-full h-full items-center">
-            {[
-              { id: 'calendar', icon: CalendarIcon, title: 'Calendar' },
-              { id: 'todos', icon: ListTodo, title: 'Tasks' },
-              { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
-              { id: 'login', icon: LogIn, title: 'Log In', action: onLogin }
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeSection === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => tab.action ? tab.action() : scrollToSection(tab.id)}
-                  className={cn(
-                    "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
-                    isActive ? "text-[#2383E2]" : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                  )}
-                  title={tab.title}
-                >
-                  <Icon className="w-6 h-6" />
-                  {isActive && (
-                    <motion.div
-                      layoutId="mobileActiveTabIndicator"
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#2383E2] rounded-b-full"
-                      initial={false}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        <nav className="flex-1 flex flex-col gap-1">
+          {SECTIONS.filter(s => s.id !== 'hero').map((section) => {
+            const Icon = section.icon as any;
+            const isActive = activeSection === section.id;
+            return (
+              <button
+                key={section.id}
+                onClick={() => {
+                  setActiveSection(section.id);
+                  containerRef.current?.querySelector(`#${section.id}`)?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className={cn(
+                  "group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-left relative overflow-hidden",
+                  isActive 
+                    ? "bg-white dark:bg-[#2E2E2E] shadow-sm text-brand" 
+                    : "text-[#787774] dark:text-[#9B9A97] hover:bg-white/50 dark:hover:bg-[#2E2E2E]/50"
+                )}
+              >
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeSectionIndicator"
+                    className="absolute left-0 w-1 h-5 bg-brand rounded-r-full"
+                  />
+                )}
+                <Icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-brand" : "text-[#787774] dark:text-[#9B9A97]")} />
+                <span className="font-bold text-sm tracking-tight">{section.title}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="hidden md:flex mt-auto md:pt-4 flex-col gap-0 px-2 md:px-2 shrink-0 items-center border-t border-[#E9E9E7] dark:border-[#2E2E2E] py-4">
-          <button
+        <div className="mt-auto pt-8 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+          <button 
             onClick={onLogin}
-            className="flex p-2.5 rounded-xl items-center justify-center text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] md:hover:bg-[#E9E9E7] md:dark:hover:bg-[#2E2E2E] transition-colors"
-            title="Sign Up / Log In"
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-brand text-white rounded-2xl font-black text-sm hover:bg-brand-hover transition-all shadow-xl shadow-brand/20 active:scale-95"
           >
-            <LogIn className="w-5 h-5" />
+            <LogIn className="w-4 h-4" />
+            Get Started
           </button>
         </div>
       </aside>
@@ -494,85 +485,84 @@ export function LandingView({ onLogin }: LandingViewProps) {
       <main ref={containerRef} className="flex-1 overflow-y-auto scroll-smooth pb-24 md:pb-0">
         <div className="max-w-5xl mx-auto px-6 md:px-12 py-12 md:py-24 space-y-24 md:space-y-40">
           
-          {/* Hero Section */}
-          <section id="hero" className="min-h-[80vh] flex flex-col lg:flex-row items-center justify-between relative">
-            <motion.div 
+        {/* Hero Section */}
+        <section id="hero" className="min-h-screen flex flex-col items-center justify-center relative px-6 py-20 overflow-hidden">
+          {/* Background Accents */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none">
+            <div className="absolute top-1/4 -left-20 w-96 h-96 bg-brand/5 blur-[120px] rounded-full" />
+            <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/5 blur-[120px] rounded-full" />
+          </div>
+
+          <div className="max-w-5xl w-full flex flex-col items-center text-center relative z-10">
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-8 relative z-10 max-w-2xl lg:w-1/2"
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             >
-              <div className="flex items-center gap-4 mb-4">
-                <GlowingScribbleLogo size={40} />
-                <span className="font-bold text-3xl tracking-tight">Forge</span>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand/10 text-brand rounded-full text-xs font-black tracking-widest uppercase mb-8 border border-brand/20">
+                <Sparkles className="w-3 h-3" />
+                Next-Gen Content OS
               </div>
               
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.9] flex flex-col -space-y-1 md:-space-y-4">
-                <TypewriterText text="Sparks" delay={0} className="text-gray-900 dark:text-white" />
-                <TypewriterText text="into" delay={600} className="text-gray-400 dark:text-gray-500" />
-                <span className="text-[#2383E2] relative inline-block w-fit">
-                  <TypewriterText text="substance" delay={1000} />
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-                    className="inline-block -ml-1"
-                  >
-                    |
-                  </motion.span>
-                  <motion.svg 
-                    className="absolute -bottom-2 md:-bottom-4 left-0 w-full h-4 md:h-6 text-amber-400 pointer-events-none" 
-                    viewBox="0 0 200 20" 
-                    preserveAspectRatio="none"
-                  >
-                    <motion.path 
-                      d="M 0,10 Q 50,20 100,10 T 200,10" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="4" 
-                      strokeLinecap="round"
-                      initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: 1, opacity: 1 }}
-                      transition={{ duration: 1, delay: 1.5, ease: "easeInOut" }}
-                    />
-                  </motion.svg>
+              <h1 className="text-6xl md:text-8xl lg:text-[120px] font-black leading-[0.9] tracking-tighter text-[#37352F] dark:text-white mb-8">
+                FORGE YOUR <br />
+                <span className="text-brand relative inline-block">
+                  LEGACY.
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: '100%' }}
+                    transition={{ delay: 0.8, duration: 1 }}
+                    className="absolute -bottom-2 left-0 h-3 bg-brand/20 -z-10"
+                  />
                 </span>
               </h1>
-              <p className="text-lg md:text-2xl text-[#787774] dark:text-[#9B9A97] max-w-2xl leading-relaxed">
-                Capture endless ideas in your Creative Hub and transform them into a polished, high-performing social media strategy.
+
+              <p className="text-xl md:text-2xl text-[#787774] dark:text-[#9B9A97] max-w-2xl mx-auto mb-12 font-medium leading-relaxed">
+                The ultimate workspace for creators and brands. 
+                Plan, create, and scale your social presence with AI-powered precision.
               </p>
-              <div className="pt-4 flex flex-col gap-3">
-                {window !== window.top && (
-                  <button 
-                    onClick={() => window.open(window.location.href, '_blank')}
-                    className="text-sm text-[#787774] hover:text-[#2383E2] underline text-left w-fit transition-colors"
-                  >
-                    Having trouble logging in? Open app in a new tab
-                  </button>
-                )}
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button 
+                  onClick={onLogin}
+                  className="w-full sm:w-auto px-10 py-5 bg-brand text-white rounded-2xl font-black text-xl hover:bg-brand-hover transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-brand/30"
+                >
+                  Enter the Forge
+                </button>
+                <button 
+                  onClick={() => containerRef.current?.querySelector('#calendar')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="w-full sm:w-auto px-10 py-5 bg-white dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] text-[#37352F] dark:text-white rounded-2xl font-black text-xl hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] transition-all"
+                >
+                  Explore Features
+                </button>
               </div>
             </motion.div>
 
-            {/* Spline 3D Experience */}
-            <div className="w-full lg:w-1/2 h-[400px] lg:h-[700px] absolute lg:relative right-0 top-0 lg:top-auto -z-10 lg:z-0 opacity-40 lg:opacity-100 pointer-events-none lg:pointer-events-auto flex items-center justify-center">
-              <React.Suspense fallback={<div className="w-full h-full bg-blue-500/5 animate-pulse rounded-3xl" />}>
-                <Spline scene="https://prod.spline.design/6Wq1Q7YGyM-iab9i/scene.splinecode" />
-              </React.Suspense>
+            {/* Floating Elements */}
+            <div className="mt-20 w-full max-w-4xl relative aspect-video rounded-[40px] border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#1A1A1A] shadow-2xl overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent" />
+              <div className="absolute top-4 left-4 flex gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-400" />
+                <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                <div className="w-3 h-3 rounded-full bg-green-400" />
+              </div>
+              <div className="w-full h-full flex items-center justify-center p-12">
+                <div className="w-full h-full border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl bg-white dark:bg-[#2E2E2E] shadow-inner flex flex-col overflow-hidden">
+                  <div className="h-12 border-b border-[#E9E9E7] dark:border-[#3E3E3E] flex items-center px-4 gap-4">
+                    <div className="w-32 h-3 bg-gray-100 dark:bg-gray-700 rounded-full" />
+                    <div className="flex-1" />
+                    <div className="w-8 h-8 rounded-lg bg-brand/10" />
+                  </div>
+                  <div className="flex-1 p-6 grid grid-cols-3 gap-4">
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                      <div key={i} className="bg-gray-50 dark:bg-[#202020] rounded-xl border border-gray-100 dark:border-gray-700" />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-
-            {/* Bouncy Scroll Indicator */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, y: [0, 10, 0] }}
-              transition={{ delay: 2, duration: 1.5, repeat: Infinity }}
-              className="absolute bottom-10 left-1/2 -translate-x-1/2 text-[#787774] dark:text-[#9B9A97] cursor-pointer z-20"
-              onClick={startAutoScroll}
-            >
-              <ChevronDown className="w-8 h-8" />
-            </motion.div>
-
-            {/* Decorative background elements - Scribble Logo removed from here as it's now global */}
-          </section>
+          </div>
+        </section>
 
           <div className="space-y-16 md:space-y-20 py-12">
             {navSections.map((section, index) => {
@@ -620,7 +610,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className="bg-[#2383E2] rounded-3xl p-8 md:p-16 text-white text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 relative overflow-hidden"
+              className="bg-brand rounded-[40px] p-8 md:p-24 text-white text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden shadow-2xl shadow-brand/20"
             >
               <div className="absolute inset-0 opacity-10 pointer-events-none">
                 <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -634,17 +624,17 @@ export function LandingView({ onLogin }: LandingViewProps) {
               </div>
               
               <div className="space-y-6 max-w-2xl relative z-10">
-                <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to transform your workflow?</h2>
-                <p className="text-xl text-blue-100">
+                <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-tight">READY TO <br />FORGE AHEAD?</h2>
+                <p className="text-xl text-white/80 font-medium">
                   Join thousands of content creators who are already saving time and growing their audience with Forge.
                 </p>
               </div>
               <div className="shrink-0 relative z-10 w-full md:w-auto">
                 <button
                   onClick={onLogin}
-                  className="w-full md:w-auto px-10 py-5 bg-white text-[#2383E2] hover:bg-blue-50 rounded-xl font-bold text-xl transition-all hover:scale-105 active:scale-95 shadow-xl"
+                  className="w-full md:w-auto px-12 py-6 bg-white text-brand hover:bg-brand-bg rounded-2xl font-black text-2xl transition-all hover:scale-105 active:scale-95 shadow-2xl"
                 >
-                  Sign Up Now
+                  Start Now
                 </button>
               </div>
             </motion.div>

@@ -167,7 +167,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
         {isAdmin && (
           <button 
             onClick={onAddPost}
-            className="flex items-center gap-2 px-6 py-3 bg-[#2383E2] text-white rounded-2xl text-sm font-bold hover:bg-[#1D6EB8] transition-all shadow-lg shadow-blue-500/20 active:scale-95 shrink-0"
+            className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-2xl text-sm font-bold hover:bg-brand-hover transition-all shadow-lg shadow-brand/20 active:scale-95 shrink-0"
           >
             <Plus className="w-5 h-5" />
             Create Post

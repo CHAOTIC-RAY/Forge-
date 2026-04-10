@@ -4,7 +4,7 @@ import {
   User, Building2, Sparkles, BarChart3, Database, 
   Download, Save, Upload, RefreshCw, FileSpreadsheet, 
   Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
-  Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search
+  Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
@@ -73,7 +73,7 @@ const BentoCard = ({
       layout="position"
       className={cn(
         "bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl overflow-hidden flex flex-col h-full",
-        isExpanded && !isDesktop ? "border-[#2665fd] dark:border-[#2665fd]" : "hover:border-[#D9D9D7] dark:hover:border-[#3E3E3E] transition-colors"
+        isExpanded && !isDesktop ? "border-brand dark:border-brand" : "hover:border-[#D9D9D7] dark:hover:border-[#3E3E3E] transition-colors"
       )}
     >
       <div 
@@ -85,7 +85,7 @@ const BentoCard = ({
             {customIcon ? customIcon : <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
           </div>
           <div>
-            <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-base sm:text-lg group-hover:text-[#2665fd] transition-colors">{title}</h3>
+            <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-base sm:text-lg group-hover:text-brand transition-colors">{title}</h3>
             <p className="text-xs sm:text-sm text-[#787774] dark:text-[#9B9A97]">{subtitle}</p>
           </div>
         </div>
@@ -166,6 +166,7 @@ export function SettingsView({
   setActiveTab
 }: any) {
   const [expandedId, setExpandedId] = useState<string | null>('account');
+  const [themePreset, setThemePreset] = useState(() => localStorage.getItem('forge_theme_preset') || 'default');
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryType, setNewCategoryType] = useState('category');
@@ -402,13 +403,29 @@ export function SettingsView({
     }
   };
 
+  const handleThemePresetChange = (preset: string) => {
+    setThemePreset(preset);
+    localStorage.setItem('forge_theme_preset', preset);
+    document.documentElement.setAttribute('data-theme', preset);
+    toast.success(`Theme preset updated to ${preset}!`);
+  };
+
+  const THEME_PRESETS = [
+    { id: 'default', name: 'Notion Minimal', colors: ['#FFFFFF', '#37352F'], description: 'Clean, focused, and professional.' },
+    { id: 'midnight', name: 'Midnight Forge', colors: ['#0F172A', '#38BDF8'], description: 'Deep blues and vibrant highlights.' },
+    { id: 'forest', name: 'Forest Growth', colors: ['#064E3B', '#10B981'], description: 'Natural greens for a calm workspace.' },
+    { id: 'sunset', name: 'Golden Hour', colors: ['#7C2D12', '#F97316'], description: 'Warm oranges and deep browns.' },
+    { id: 'cyberpunk', name: 'Neon Pulse', colors: ['#1A1A1A', '#FF00FF'], description: 'High contrast neon aesthetics.' },
+    { id: 'nord', name: 'Nordic Frost', colors: ['#2E3440', '#88C0D0'], description: 'Cool, arctic-inspired palette.' }
+  ];
+
   return (
     <div className="flex flex-col bg-transparent relative">
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-2xl flex items-center justify-center">
-              <Settings className="w-6 h-6 text-[#2665fd]" />
+            <div className="w-12 h-12 bg-brand/10 rounded-2xl flex items-center justify-center">
+              <Settings className="w-6 h-6 text-brand" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] tracking-tight">Settings</h1>
@@ -540,7 +557,7 @@ export function SettingsView({
                       <button
                         onClick={handleUpdateName}
                         disabled={isUpdatingName}
-                        className="px-3 py-1.5 bg-[#2665fd] text-white rounded-lg text-xs font-bold hover:bg-[#1e52d0] transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 bg-brand text-white rounded-lg text-xs font-bold hover:bg-brand-hover transition-colors disabled:opacity-50"
                       >
                         {isUpdatingName ? 'Saving...' : 'Save'}
                       </button>
@@ -560,7 +577,7 @@ export function SettingsView({
                     <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{user?.displayName || 'User'}</h3>
                     <button
                       onClick={() => setIsEditingName(true)}
-                      className="text-xs text-[#2665fd] hover:underline"
+                      className="text-xs text-brand hover:underline"
                     >
                       Edit
                     </button>
@@ -578,21 +595,21 @@ export function SettingsView({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl">
+              <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl md:col-span-2">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-gray-600 dark:text-gray-400">
-                    <Settings className="w-5 h-5" />
+                    <Moon className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Dark Mode</h3>
-                    <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Toggle theme</p>
+                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Appearance</h3>
+                    <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Toggle dark mode</p>
                   </div>
                 </div>
                 <button
                   onClick={toggleDarkMode}
                   className={cn(
                     "w-12 h-6 rounded-full transition-colors relative",
-                    isDarkMode ? "bg-[#2383E2]" : "bg-gray-300 dark:bg-gray-600"
+                    isDarkMode ? "bg-brand" : "bg-gray-300 dark:bg-gray-600"
                   )}
                 >
                   <div className={cn(
@@ -600,6 +617,45 @@ export function SettingsView({
                     isDarkMode ? "left-7" : "left-1"
                   )} />
                 </button>
+              </div>
+
+              <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl md:col-span-2 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-xl flex items-center justify-center text-pink-600 dark:text-pink-400">
+                    <Palette className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Advanced Theme Settings</h3>
+                    <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Choose a visual preset for your workspace</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {THEME_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => handleThemePresetChange(preset.id)}
+                      className={cn(
+                        "p-3 rounded-xl border text-left transition-all group relative overflow-hidden",
+                        themePreset === preset.id 
+                          ? "border-brand bg-brand/10 ring-2 ring-brand/20" 
+                          : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50 bg-white dark:bg-[#191919]"
+                      )}
+                    >
+                      <div className="flex gap-1 mb-2">
+                        {preset.colors.map((c, i) => (
+                          <div key={i} className="w-4 h-4 rounded-full border border-black/5" style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
+                      <h4 className="text-xs font-bold truncate">{preset.name}</h4>
+                      {themePreset === preset.id && (
+                        <div className="absolute top-2 right-2">
+                          <CheckCircle2 className="w-3 h-3 text-brand" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <button
@@ -688,7 +744,7 @@ export function SettingsView({
               {googleTokens ? (
                 <button onClick={handleDisconnectGoogleDrive} className="text-xs font-bold text-red-500 hover:text-red-600 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg transition-colors border border-red-100 dark:border-red-900/30">Disconnect</button>
               ) : (
-                <button onClick={handleConnectGoogleDrive} className="text-xs font-bold text-white bg-[#2665fd] hover:bg-[#1e52d0] px-4 py-2 rounded-lg transition-colors">Connect</button>
+                <button onClick={handleConnectGoogleDrive} className="text-xs font-bold text-white bg-brand hover:bg-brand-hover px-4 py-2 rounded-lg transition-colors">Connect</button>
               )}
             </div>
 
@@ -1054,7 +1110,7 @@ export function SettingsView({
                   checked={analyticsSettings.autoRunAnalytics}
                   onChange={(e) => handleAnalyticsSettingChange('autoRunAnalytics', e.target.checked)}
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-[#2665fd]"></div>
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-brand"></div>
               </label>
             </div>
           </div>

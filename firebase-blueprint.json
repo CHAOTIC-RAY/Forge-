@@ -122,6 +122,30 @@
         },
         "logoUrl": { "type": "string" },
         "shareToken": { "type": "string" },
+        "shareRestriction": { "type": "string", "enum": ["guest", "authenticated"] },
+        "sharePassword": { "type": "string" },
+        "shareExpiresAt": { "type": "string", "format": "date-time" },
+        "shareFilters": {
+          "type": "object",
+          "properties": {
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "dateRange": {
+              "type": "object",
+              "properties": {
+                "start": { "type": "string", "format": "date" },
+                "end": { "type": "string", "format": "date" }
+              }
+            }
+          }
+        },
+        "shareAnalytics": {
+          "type": "object",
+          "properties": {
+            "views": { "type": "integer" },
+            "lastViewedAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        "themePreset": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
