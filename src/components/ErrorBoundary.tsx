@@ -35,20 +35,20 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-[#1A1C1E] flex items-center justify-center p-4">
-          <div className="bg-[#24262B] border border-red-500/20 p-8 rounded-3xl text-center max-w-md shadow-2xl">
+          <div className="bg-[#24262B] border border-red-500/20 p-8 rounded-[24px] text-center max-w-md ">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
             <p className="text-[#909094] mb-6 text-sm">
               The application encountered an unexpected error. This might be due to a temporary issue or a bug.
             </p>
-            <div className="bg-black/20 p-4 rounded-xl mb-6 text-left overflow-auto max-h-32">
+            <div className="bg-black/20 p-4 rounded-[12px] mb-6 text-left overflow-auto max-h-32">
               <code className="text-xs text-red-400 break-all">
                 {this.state.error?.message || 'Unknown error'}
               </code>
             </div>
             <button 
               onClick={() => window.location.reload()}
-              className="w-full px-6 py-3 bg-[#2383E2] text-white rounded-xl font-medium hover:bg-[#1C6AB8] transition-colors flex items-center justify-center gap-2"
+              className="w-full px-6 py-3 bg-[#2383E2] text-white rounded-[12px] font-medium hover:bg-[#1C6AB8] transition-colors flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
               Reload Application

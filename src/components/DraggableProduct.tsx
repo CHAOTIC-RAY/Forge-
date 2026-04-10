@@ -51,9 +51,9 @@ export function DraggableProduct({ product, onClick, isSelected, viewMode = 'gri
           if (onClick) onClick();
         }}
         className={cn(
-          "bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-md p-2 shadow-sm cursor-grab active:cursor-grabbing hover:border-[#2383E2] transition-all",
+          "bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[6px] p-2  cursor-grab active:cursor-grabbing hover:border-[#2383E2] transition-all",
           viewMode === 'grid' ? "flex flex-col gap-2" : "flex flex-row items-center gap-4",
-          isDragging && "opacity-50 shadow-lg scale-105",
+          isDragging && "opacity-50  scale-105",
           isSelected && "border-[#2383E2] ring-1 ring-[#2383E2] bg-blue-50/30 dark:bg-blue-900/10"
         )}
       >
@@ -64,7 +64,7 @@ export function DraggableProduct({ product, onClick, isSelected, viewMode = 'gri
               {product.type}
             </span>
             {(product.price || (dbMode === 'info' && product.stockInfo)) && (
-              <span className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97]">
+              <span className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97]">
                 {dbMode === 'info' ? 'Insight' : product.price}
               </span>
             )}
@@ -73,7 +73,7 @@ export function DraggableProduct({ product, onClick, isSelected, viewMode = 'gri
             {product.title}
           </h4>
           {dbMode === 'info' && product.stockInfo && (
-            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97] line-clamp-3 leading-relaxed mt-1">
+            <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] line-clamp-3 leading-relaxed mt-1">
               {product.stockInfo}
             </p>
           )}
@@ -96,7 +96,7 @@ export function DraggableProduct({ product, onClick, isSelected, viewMode = 'gri
                 {product.type}
               </span>
               {(product.price || (dbMode === 'info' && product.stockInfo)) && (
-                <span className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97] shrink-0">
+                <span className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] shrink-0">
                   {dbMode === 'info' ? 'Insight' : product.price}
                 </span>
               )}
@@ -105,7 +105,7 @@ export function DraggableProduct({ product, onClick, isSelected, viewMode = 'gri
               {product.title}
             </h4>
             {dbMode === 'info' && product.stockInfo && (
-              <p className="text-[10px] text-[#787774] dark:text-[#9B9A97] line-clamp-1 leading-relaxed">
+              <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] line-clamp-1 leading-relaxed">
                 {product.stockInfo}
               </p>
             )}

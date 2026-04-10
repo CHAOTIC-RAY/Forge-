@@ -4,51 +4,15 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   
-  --color-brand: var(--brand-color, #2383E2);
-  --color-brand-hover: var(--brand-color-hover, #1e52d0);
-  --color-brand-bg: var(--brand-color-bg, rgba(35, 131, 226, 0.1));
-  --color-brand-border: var(--brand-color-border, rgba(35, 131, 226, 0.2));
-  --color-brand-ring: var(--brand-color-ring, rgba(35, 131, 226, 0.4));
-}
-
-[data-theme="midnight"] {
-  --brand-color: #38BDF8;
-  --brand-color-hover: #0EA5E9;
-  --brand-color-bg: rgba(56, 189, 248, 0.1);
-  --brand-color-border: rgba(56, 189, 248, 0.2);
-  --brand-color-ring: rgba(56, 189, 248, 0.4);
-}
-
-[data-theme="forest"] {
-  --brand-color: #10B981;
-  --brand-color-hover: #059669;
-  --brand-color-bg: rgba(16, 185, 129, 0.1);
-  --brand-color-border: rgba(16, 185, 129, 0.2);
-  --brand-color-ring: rgba(16, 185, 129, 0.4);
-}
-
-[data-theme="sunset"] {
-  --brand-color: #F97316;
-  --brand-color-hover: #EA580C;
-  --brand-color-bg: rgba(249, 115, 22, 0.1);
-  --brand-color-border: rgba(249, 115, 22, 0.2);
-  --brand-color-ring: rgba(249, 115, 22, 0.4);
-}
-
-[data-theme="cyberpunk"] {
-  --brand-color: #FF00FF;
-  --brand-color-hover: #D900D9;
-  --brand-color-bg: rgba(255, 0, 255, 0.1);
-  --brand-color-border: rgba(255, 0, 255, 0.2);
-  --brand-color-ring: rgba(255, 0, 255, 0.4);
-}
-
-[data-theme="nord"] {
-  --brand-color: #88C0D0;
-  --brand-color-hover: #81A1C1;
-  --brand-color-bg: rgba(136, 192, 208, 0.1);
-  --brand-color-border: rgba(136, 192, 208, 0.2);
-  --brand-color-ring: rgba(136, 192, 208, 0.4);
+  --color-brand: #2665fd;
+  --color-brand-hover: #1e52d0;
+  --color-brand-bg: rgba(38, 101, 253, 0.1);
+  --color-brand-border: rgba(38, 101, 253, 0.2);
+  --color-brand-ring: rgba(38, 101, 253, 0.4);
+  
+  --color-secondary: #6074b9;
+  --color-tertiary: #bd3800;
+  --color-neutral: #757681;
 }
 
 body, html {

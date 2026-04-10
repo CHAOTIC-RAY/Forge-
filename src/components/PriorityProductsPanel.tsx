@@ -300,25 +300,25 @@ export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Bus
             <Package className="w-5 h-5 text-purple-500" />
             Priority Products
           </h3>
-          <p className="text-sm text-[#787774] dark:text-[#9B9A97]">AI will feature these items more frequently.</p>
+          <p className="text-sm text-[#757681] dark:text-[#9B9A97]">AI will feature these items more frequently.</p>
         </div>
         <div className="flex gap-2">
           <button 
             onClick={handleBackupPriorityProducts}
-            className="flex items-center justify-center w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-xl transition-all hover:bg-[#EFEFED] shadow-sm"
+            className="flex items-center justify-center w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[12px] transition-all hover:bg-[#EFEFED] "
             title="Backup Priority Products"
           >
             <Download className="w-5 h-5" />
           </button>
           <button 
             onClick={clearAllPriorityProducts}
-            className="flex items-center justify-center w-10 h-10 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-xl transition-all hover:bg-red-100 dark:hover:bg-red-900/20 shadow-sm"
+            className="flex items-center justify-center w-10 h-10 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-[12px] transition-all hover:bg-red-100 dark:hover:bg-red-900/20 "
             title="Clear All"
           >
             <Trash2 className="w-5 h-5" />
           </button>
           <label className={cn(
-            "flex items-center justify-center w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl cursor-pointer transition-all hover:bg-[#EFEFED] shadow-sm",
+            "flex items-center justify-center w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] cursor-pointer transition-all hover:bg-[#EFEFED] ",
             isProcessingScreenshot && "opacity-50 pointer-events-none"
           )} title="Screenshot to List">
             {isProcessingScreenshot ? <ForgeLoader size={20} /> : <ImageIcon className="w-5 h-5 text-[#37352F] dark:text-[#EBE9ED]" />}
@@ -327,7 +327,7 @@ export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Bus
           <button 
             onClick={() => setIsPasteOpen(!isPasteOpen)}
             className={cn(
-              "flex items-center justify-center w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl transition-all hover:bg-[#EFEFED] shadow-sm",
+              "flex items-center justify-center w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] transition-all hover:bg-[#EFEFED] ",
               isPasteOpen && "bg-purple-50 border-purple-200 text-purple-600"
             )}
             title="Paste Text/JSON"
@@ -338,21 +338,21 @@ export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Bus
       </div>
 
       {isPasteOpen && (
-        <div className="mb-6 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm">
+        <div className="mb-6 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] ">
           <div className="flex justify-between items-center mb-2">
             <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Paste Text or JSON</h4>
-            <button onClick={() => setIsPasteOpen(false)} className="text-[#787774] hover:text-[#37352F]"><CloseIcon className="w-4 h-4" /></button>
+            <button onClick={() => setIsPasteOpen(false)} className="text-[#757681] hover:text-[#37352F]"><CloseIcon className="w-4 h-4" /></button>
           </div>
           <textarea
             value={pasteContent}
             onChange={(e) => setPasteContent(e.target.value)}
             placeholder="Paste a list of products here..."
-            className="w-full h-32 p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-lg text-sm focus:outline-none focus:border-purple-500 resize-none mb-3"
+            className="w-full h-32 p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-sm focus:outline-none focus:border-purple-500 resize-none mb-3"
           />
           <button
             onClick={handlePasteSubmit}
             disabled={isProcessingScreenshot || !pasteContent.trim()}
-            className="w-full py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-[8px] font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {isProcessingScreenshot ? <ForgeLoader size={16} /> : <ClipboardPaste className="w-4 h-4" />}
             Extract Products
@@ -362,14 +362,14 @@ export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Bus
 
       <div className="flex-1 space-y-3 pb-8">
         {priorityProducts.length === 0 && (
-          <div className="text-center py-12 text-[#787774] dark:text-[#9B9A97] border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl">
+          <div className="text-center py-12 text-[#757681] dark:text-[#9B9A97] border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px]">
             <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No priority products added.</p>
             <p className="text-xs mt-1">Add items manually or upload a screenshot.</p>
           </div>
         )}
         {priorityProducts.map(product => (
-          <div key={product.id} className="group flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl hover:border-purple-200 dark:hover:border-purple-900/50 transition-colors shadow-sm">
+          <div key={product.id} className="group flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-purple-200 dark:hover:border-purple-900/50 transition-colors ">
             <div className="flex-1 min-w-0">
               <input
                 type="text"
@@ -403,7 +403,7 @@ export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Bus
                 value={product.priority}
                 onChange={(e) => updatePriorityProduct(product.id, { priority: e.target.value as 'high' | 'medium' | 'low' })}
                 className={cn(
-                  "text-xs font-bold px-2 py-1 rounded-lg border-none focus:outline-none cursor-pointer appearance-none",
+                  "text-xs font-bold px-2 py-1 rounded-[8px] border-none focus:outline-none cursor-pointer appearance-none",
                   product.priority === 'high' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
                   product.priority === 'medium' ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" :
                   "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
@@ -415,7 +415,7 @@ export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Bus
               </select>
               <button 
                 onClick={() => removePriorityProduct(product.id)}
-                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 active:scale-90"
+                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-[8px] transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 active:scale-90"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -425,7 +425,7 @@ export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Bus
       </div>
       <button
         onClick={addPriorityProduct}
-        className="mt-4 w-full py-3 border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-[#787774] dark:text-[#9B9A97] font-bold hover:border-purple-500 hover:text-purple-500 transition-colors flex items-center justify-center gap-2"
+        className="mt-4 w-full py-3 border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-[#757681] dark:text-[#9B9A97] font-bold hover:border-purple-500 hover:text-purple-500 transition-colors flex items-center justify-center gap-2"
       >
         + Add Priority Product
       </button>

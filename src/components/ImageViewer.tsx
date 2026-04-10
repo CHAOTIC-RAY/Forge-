@@ -26,7 +26,7 @@ export function ImageViewer({ isOpen, imageUrl, aiProvider, onClose }: ImageView
         <img
           src={imageUrl}
           alt="Full screen preview"
-          className="max-w-full max-h-full object-contain rounded-md shadow-2xl"
+          className="max-w-full max-h-full object-contain rounded-[6px] "
         />
         {auth.currentUser && aiProvider && imageUrl.startsWith('data:') && (
           <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-purple-500/80 text-white text-xs font-bold rounded uppercase tracking-widest pointer-events-none">

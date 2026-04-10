@@ -34,15 +34,15 @@ export function Login() {
 
   return (
     <div className="min-h-screen bg-[#1A1C1E] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-[#25282C] rounded-2xl p-8 border border-[#3F474F] shadow-2xl text-center">
-        <div className="w-20 h-20 bg-transparent rounded-2xl flex items-center justify-center mx-auto mb-6 overflow-hidden">
+      <div className="max-w-md w-full bg-[#25282C] rounded-[16px] p-8 border border-[#3F474F]  text-center">
+        <div className="w-20 h-20 bg-transparent rounded-[16px] flex items-center justify-center mx-auto mb-6 overflow-hidden">
           <ForgeLogo size={56} className="text-gray-300 p-2" />
         </div>
         <h1 className="text-3xl font-bold text-[#E3E2E6] mb-2">Forge</h1>
         <p className="text-[#909094] mb-8">Content Planner & Strategy Tool</p>
         
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-[12px] text-red-400 text-sm">
             {error}
           </div>
         )}
@@ -50,7 +50,7 @@ export function Login() {
         <button
           onClick={handleLogin}
           disabled={isSigningIn}
-          className="w-full py-4 px-6 bg-[#E3E2E6] text-[#1A1C1E] rounded-xl font-semibold flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-[0.98] disabled:opacity-50"
+          className="w-full py-4 px-6 bg-[#E3E2E6] text-[#1A1C1E] rounded-[12px] font-semibold flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-[0.98] disabled:opacity-50"
         >
           <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
           {isSigningIn ? 'Signing in...' : 'Continue with Google'}
@@ -77,7 +77,7 @@ export function Login() {
         </div>
 
         {showTroubleshooting && (
-          <div className="mt-6 p-4 bg-black/20 rounded-xl border border-white/5 text-left">
+          <div className="mt-6 p-4 bg-black/20 rounded-[12px] border border-white/5 text-left">
             <h3 className="text-xs font-bold text-[#E3E2E6] mb-3 uppercase tracking-wider">Migration Tool</h3>
             <p className="text-[10px] text-[#909094] mb-4">If your data is missing after a system update, use this tool to restore it from the legacy database.</p>
             <MigrationTool />

@@ -70,29 +70,29 @@ export function MigrationTool() {
   };
 
   return (
-    <div className="p-6 bg-white dark:bg-[#191919] rounded-xl border border-[#E9E9E7] dark:border-[#2F2F2F] shadow-sm">
+    <div className="p-6 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2F2F2F] ">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-[8px] text-blue-600 dark:text-blue-400">
           <ArrowRight className="w-5 h-5" />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-[#37352F] dark:text-[#FFFFFF]">Data Migration</h2>
-          <p className="text-sm text-[#787774] dark:text-[#9B9A97]">
+          <p className="text-sm text-[#757681] dark:text-[#9B9A97]">
             Move your data from the old Rainbow database to the new Forge project.
           </p>
         </div>
       </div>
 
       <div className="space-y-4">
-        <div className="p-4 bg-[#F7F6F3] dark:bg-[#252525] rounded-lg border border-[#E9E9E7] dark:border-[#2F2F2F]">
+        <div className="p-4 bg-[#F7F6F3] dark:bg-[#252525] rounded-[8px] border border-[#E9E9E7] dark:border-[#2F2F2F]">
           <h3 className="text-sm font-medium mb-2">Migration Details</h3>
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <span className="text-[#787774] dark:text-[#9B9A97]">Source Database:</span>
+              <span className="text-[#757681] dark:text-[#9B9A97]">Source Database:</span>
               <p className="font-mono mt-1 truncate">{OLD_DATABASE_ID}</p>
             </div>
             <div>
-              <span className="text-[#787774] dark:text-[#9B9A97]">Destination Database:</span>
+              <span className="text-[#757681] dark:text-[#9B9A97]">Destination Database:</span>
               <p className="font-mono mt-1">(default)</p>
             </div>
           </div>
@@ -101,7 +101,7 @@ export function MigrationTool() {
         {status === 'idle' && (
           <button
             onClick={startMigration}
-            className="w-full py-2.5 bg-[#37352F] dark:bg-[#FFFFFF] text-white dark:text-[#191919] rounded-lg font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-[#37352F] dark:bg-[#FFFFFF] text-white dark:text-[#191919] rounded-[8px] font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
           >
             Start Migration
           </button>
@@ -116,7 +116,7 @@ export function MigrationTool() {
             <div className="space-y-1">
               {COLLECTIONS.map(col => (
                 <div key={col} className="flex justify-between text-xs">
-                  <span className="text-[#787774] dark:text-[#9B9A97] capitalize">{col.replace(/_/g, ' ')}</span>
+                  <span className="text-[#757681] dark:text-[#9B9A97] capitalize">{col.replace(/_/g, ' ')}</span>
                   <span className="font-medium">{progress[col] || 0} items</span>
                 </div>
               ))}
@@ -125,7 +125,7 @@ export function MigrationTool() {
         )}
 
         {status === 'success' && (
-          <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-start gap-3">
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-[8px] flex items-start gap-3">
             <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-green-800 dark:text-green-300">Migration Successful</p>
@@ -137,7 +137,7 @@ export function MigrationTool() {
         )}
 
         {status === 'error' && (
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-[8px] flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-red-800 dark:text-red-300">Migration Failed</p>

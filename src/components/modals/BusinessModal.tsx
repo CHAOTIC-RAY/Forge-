@@ -43,10 +43,10 @@ export function BusinessModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#191919] w-full max-w-md rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-[#191919] w-full max-w-md rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]  overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Building2 className="w-5 h-5" />
             </div>
             <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">
@@ -65,36 +65,36 @@ export function BusinessModal({
           {isCreating ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest">Workspace Name</label>
+                <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest">Workspace Name</label>
                 <input
                   autoFocus
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. Forge Buildware"
-                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest">Industry / Niche</label>
+                <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest">Industry / Niche</label>
                 <input
                   type="text"
                   value={newIndustry}
                   onChange={(e) => setNewIndustry(e.target.value)}
                   placeholder="e.g. Retail & Construction"
-                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest">Your Position</label>
+                <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest">Your Position</label>
                 <input
                   type="text"
                   value={newPosition}
                   onChange={(e) => setNewPosition(e.target.value)}
                   placeholder="e.g. Marketing Manager"
-                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   required
                 />
               </div>
@@ -102,13 +102,13 @@ export function BusinessModal({
                 <button
                   type="button"
                   onClick={() => setIsCreating(false)}
-                  className="flex-1 py-3 px-4 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-xl font-bold transition-colors"
+                  className="flex-1 py-3 px-4 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[12px] font-bold transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 px-4 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-xl font-bold transition-colors shadow-lg shadow-blue-500/20"
+                  className="flex-1 py-3 px-4 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-[12px] font-bold transition-colors  "
                 >
                   Create
                 </button>
@@ -118,7 +118,7 @@ export function BusinessModal({
             <div className="space-y-3">
               {businesses.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-[#787774] dark:text-[#9B9A97] mb-4">No workspaces found. Create your first one to get started!</p>
+                  <p className="text-[#757681] dark:text-[#9B9A97] mb-4">No workspaces found. Create your first one to get started!</p>
                 </div>
               ) : (
                 businesses.map(biz => (
@@ -129,7 +129,7 @@ export function BusinessModal({
                         onClose();
                       }}
                       className={cn(
-                        "w-full flex items-center justify-between p-4 rounded-xl border transition-all group",
+                        "w-full flex items-center justify-between p-4 rounded-[12px] border transition-all group",
                         activeBusiness?.id === biz.id
                           ? "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30"
                           : "bg-white dark:bg-[#191919] border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-blue-200 dark:hover:border-blue-900/30"
@@ -137,10 +137,10 @@ export function BusinessModal({
                     >
                       <div className="flex items-center gap-4">
                         <div className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm transition-colors",
+                          "w-10 h-10 rounded-[8px] flex items-center justify-center font-bold text-sm transition-colors",
                           activeBusiness?.id === biz.id
                             ? "bg-blue-500 text-white"
-                            : "bg-[#F7F7F5] dark:bg-[#202020] text-[#787774] dark:text-[#9B9A97] group-hover:bg-blue-100 dark:group-hover:bg-blue-900/20 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                            : "bg-[#F7F7F5] dark:bg-[#202020] text-[#757681] dark:text-[#9B9A97] group-hover:bg-blue-100 dark:group-hover:bg-blue-900/20 group-hover:text-blue-600 dark:group-hover:text-blue-400"
                         )}>
                           {biz.name.substring(0, 2).toUpperCase()}
                         </div>
@@ -151,7 +151,7 @@ export function BusinessModal({
                           )}>
                             {biz.name}
                           </h3>
-                          <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">{biz.industry}</p>
+                          <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">{biz.industry}</p>
                         </div>
                       </div>
                       {activeBusiness?.id === biz.id && (
@@ -164,7 +164,7 @@ export function BusinessModal({
                         deletingId === biz.id ? "opacity-100" : "opacity-0 group-hover/item:opacity-100"
                       )}>
                         {deletingId === biz.id ? (
-                          <div className="flex items-center gap-2 bg-white dark:bg-[#191919] px-2 py-1 rounded-lg border border-red-200 dark:border-red-900/30 shadow-sm">
+                          <div className="flex items-center gap-2 bg-white dark:bg-[#191919] px-2 py-1 rounded-[8px] border border-red-200 dark:border-red-900/30 ">
                             <span className="text-xs text-red-500 font-medium">Delete?</span>
                             <button
                               onClick={(e) => {
@@ -192,7 +192,7 @@ export function BusinessModal({
                               e.stopPropagation();
                               setDeletingId(biz.id);
                             }}
-                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[8px] transition-colors"
                             title="Delete Workspace"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -206,13 +206,13 @@ export function BusinessModal({
               
               <button
                 onClick={() => setIsCreating(true)}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-blue-500/50 hover:bg-blue-500/5 transition-all group"
+                className="w-full flex items-center gap-4 p-4 rounded-[12px] border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-blue-500/50 hover:bg-blue-500/5 transition-all group"
               >
-                <div className="w-10 h-10 rounded-lg bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center text-[#787774] dark:text-[#9B9A97] group-hover:text-blue-500 transition-colors">
+                <div className="w-10 h-10 rounded-[8px] bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center text-[#757681] dark:text-[#9B9A97] group-hover:text-blue-500 transition-colors">
                   <Plus className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <h3 className="font-bold text-sm text-[#787774] dark:text-[#9B9A97] group-hover:text-blue-500 transition-colors">Add Workspace</h3>
+                  <h3 className="font-bold text-sm text-[#757681] dark:text-[#9B9A97] group-hover:text-blue-500 transition-colors">Add Workspace</h3>
                   <p className="text-[10px] text-[#9B9A97] dark:text-[#7D7C78]">Create a new business profile</p>
                 </div>
               </button>

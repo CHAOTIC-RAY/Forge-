@@ -193,8 +193,8 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={isFullPage ? { opacity: 1 } : { opacity: 0, y: 20, scale: 0.95 }}
             className={cn(
-              "bg-white dark:bg-[#191919] shadow-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-col overflow-hidden pointer-events-auto transition-all duration-300",
-              isFullPage ? "w-full h-full rounded-none border-none" : "hidden md:flex w-80 md:w-96 h-[500px] rounded-2xl",
+              "bg-white dark:bg-[#191919]  border border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-col overflow-hidden pointer-events-auto transition-all duration-300",
+              isFullPage ? "w-full h-full rounded-none border-none" : "hidden md:flex w-80 md:w-96 h-[500px] rounded-[16px]",
               isContainerOver && "ring-2 ring-green-500"
             )}
           >
@@ -207,24 +207,24 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                 {isFullPage && (
                   <button 
                     onClick={onClose}
-                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-lg text-[#787774] dark:text-[#9B9A97] transition-colors mr-1"
+                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors mr-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 )}
-                <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                <div className="w-8 h-8 rounded-[8px] bg-blue-500 flex items-center justify-center text-white  ">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-sm">Forge AI Assistant</h3>
-                  <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Always active</p>
+                  <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Always active</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
                 {!isFullPage && (
                   <button 
                     onClick={() => setIsMinimized(true)}
-                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-lg text-[#787774] dark:text-[#9B9A97] transition-colors"
+                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
                   >
                     <Minimize2 className="w-4 h-4" />
                   </button>
@@ -232,7 +232,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                 {!isFullPage && (
                   <button 
                     onClick={() => setIsOpen(false)}
-                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-lg text-[#787774] dark:text-[#9B9A97] transition-colors"
+                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -254,7 +254,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                   )}
                 >
                   <div className={cn(
-                    "p-3 rounded-2xl text-sm shadow-sm",
+                    "p-3 rounded-[16px] text-sm ",
                     msg.role === 'user' 
                       ? "bg-blue-500 text-white rounded-tr-none" 
                       : "bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-tl-none border border-[#E9E9E7] dark:border-[#2E2E2E]"
@@ -262,7 +262,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                     {msg.content}
                     
                     {msg.attachedItem && (
-                      <div className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded-lg border border-white/20 dark:border-white/5 flex items-center gap-2 text-xs">
+                      <div className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded-[8px] border border-white/20 dark:border-white/5 flex items-center gap-2 text-xs">
                         <Paperclip className="w-3 h-3" />
                         <span className="truncate">
                           {msg.attachedItem.type === 'post' ? msg.attachedItem.post.title : 
@@ -274,17 +274,17 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                   </div>
 
                   {msg.suggestedPost && (
-                    <div className="mt-2 w-full bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden shadow-md">
+                    <div className="mt-2 w-full bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
                       <div className="p-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#787774] dark:text-[#9B9A97]">Suggested Draft</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#757681] dark:text-[#9B9A97]">Suggested Draft</span>
                         <Edit3 className="w-3 h-3 text-blue-500" />
                       </div>
                       <div className="p-3 space-y-2">
                         <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">{msg.suggestedPost.title}</p>
-                        <p className="text-[11px] text-[#787774] dark:text-[#9B9A97] line-clamp-3">{msg.suggestedPost.caption}</p>
+                        <p className="text-[11px] text-[#757681] dark:text-[#9B9A97] line-clamp-3">{msg.suggestedPost.caption}</p>
                         <button 
                           onClick={() => applySuggestion(msg.suggestedPost!, msg.attachedItem)}
-                          className="w-full mt-2 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                          className="w-full mt-2 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-[8px] transition-all flex items-center justify-center gap-2"
                         >
                           <Check className="w-3 h-3" />
                           Apply Changes
@@ -295,7 +295,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                 </div>
               ))}
               {isTyping && (
-                <div className="flex items-center gap-2 text-[#787774] dark:text-[#9B9A97]">
+                <div className="flex items-center gap-2 text-[#757681] dark:text-[#9B9A97]">
                   <div className="flex gap-1">
                     <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                     <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -309,7 +309,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
             {/* Input */}
             <div className="p-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
               {attachedItem && (
-                <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30 flex items-center justify-between">
+                <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-[8px] border border-blue-100 dark:border-blue-800/30 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
                     <Paperclip className="w-3 h-3" />
                     <span className="truncate max-w-[180px]">
@@ -337,12 +337,12 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                     }
                   }}
                   placeholder="Type a message..."
-                  className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED]"
+                  className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-[#2665fd]/50 resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED]"
                 />
                 <button 
                   onClick={handleSend}
                   disabled={!input.trim() && !attachedItem}
-                  className="absolute right-2 bottom-2 p-2 bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:hover:bg-brand text-white rounded-lg transition-all"
+                  className="absolute right-2 bottom-2 p-2 bg-[#2665fd] hover:bg-[#2665fd]-hover disabled:opacity-50 disabled:hover:bg-[#2665fd] text-white rounded-[8px] transition-all"
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -362,8 +362,8 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
               setIsMinimized(false);
             }}
             className={cn(
-              "w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 group relative overflow-hidden",
-              isButtonOver ? "bg-green-500 scale-125" : "bg-brand hover:bg-brand-hover",
+              "w-14 h-14 rounded-full flex items-center justify-center  transition-all duration-300 group relative overflow-hidden",
+              isButtonOver ? "bg-green-500 scale-125" : "bg-[#2665fd] hover:bg-[#2665fd]-hover",
               isOpen && !isMinimized ? "rotate-90" : ""
             )}
           >
@@ -380,7 +380,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
             
             {/* Tooltip */}
             {!isOpen && (
-              <div className="absolute right-full mr-4 px-3 py-1.5 bg-[#37352F] text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              <div className="absolute right-full mr-4 px-3 py-1.5 bg-[#37352F] text-white text-xs rounded-[8px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                 AI Chat Assistant
               </div>
             )}

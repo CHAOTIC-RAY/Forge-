@@ -115,28 +115,28 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand/10 rounded-2xl flex items-center justify-center">
-              <CalendarIcon className="w-6 h-6 text-brand" />
+            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
+              <CalendarIcon className="w-6 h-6 text-[#2665fd]" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
                 Content Calendar
               </h2>
-              <p className="text-sm text-[#787774] dark:text-[#9B9A97] mt-1">
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
                 Plan and schedule your social media content.
               </p>
             </div>
           </div>
 
           {isAdmin && !isGuest && (
-            <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+            <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
               <button
                 onClick={() => onCalendarModeChange?.('work')}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                  "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
                   calendarMode === 'work' 
-                    ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
-                    : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                    ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] " 
+                    : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                 )}
               >
                 Work
@@ -144,10 +144,10 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               <button
                 onClick={() => onCalendarModeChange?.('personal')}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                  "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
                   calendarMode === 'personal' 
-                    ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
-                    : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                    ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] " 
+                    : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                 )}
               >
                 Personal
@@ -156,25 +156,27 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           )}
         </div>
       </div>
-      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] print:border-none print:h-auto print:block">
+      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] print:border-none print:h-auto print:block">
         <div className="flex-1 flex flex-col min-w-0">
         {/* Header & View Switcher */}
         <div className="flex items-center justify-between p-1 md:p-1.5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] shrink-0 print:border-none print:p-0 print:mb-4">
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] rounded-md border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:bg-transparent print:border-none">
+            <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:bg-transparent print:border-none">
             <button 
               onClick={onPrevMonth}
-              className="p-1 md:p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] transition-colors border-r border-[#E9E9E7] dark:border-[#2E2E2E] print:hidden"
+              aria-label="Previous Month"
+              className="p-1 md:p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#757681] transition-colors border-r border-[#E9E9E7] dark:border-[#2E2E2E] print:hidden min-h-[44px] min-w-[44px] flex items-center justify-center"
               title="Previous Month"
             >
-              <ChevronLeft className="w-3.5 h-3.5 md:w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
             <h2 className="px-1.5 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] min-w-[100px] md:min-w-[140px] text-center print:text-2xl print:text-black print:p-0 print:text-left uppercase tracking-tight">
               {format(currentDate, 'MMM yyyy')}
             </h2>
             <button 
               onClick={onNextMonth}
-              className="p-1 md:p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] transition-colors border-l border-[#E9E9E7] dark:border-[#2E2E2E] print:hidden"
+              aria-label="Next Month"
+              className="p-1 md:p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#757681] transition-colors border-l border-[#E9E9E7] dark:border-[#2E2E2E] print:hidden min-h-[44px] min-w-[44px] flex items-center justify-center"
               title="Next Month"
             >
               <ChevronRight className="w-4 h-4" />
@@ -187,7 +189,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           {isGuest && toggleDarkMode && (
             <button
               onClick={toggleDarkMode}
-              className="flex items-center justify-center p-1.5 md:p-2 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-md border border-[#E9E9E7] dark:border-[#2E2E2E] transition-colors text-[#787774] dark:text-[#9B9A97]"
+              aria-label="Toggle Dark Mode"
+              className="flex items-center justify-center p-1.5 md:p-2 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] transition-colors text-[#757681] min-h-[44px] min-w-[44px]"
               title="Toggle Dark Mode"
             >
               {isDarkMode ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>}
@@ -200,31 +203,33 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               </div>
               <button
                 onClick={() => onGenerateWithAi?.()}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#202020] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-[#2665fd] rounded-md text-sm font-medium transition-colors border border-[#2665fd]/20"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#202020] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-[#2665fd] rounded-[8px] text-sm font-medium transition-colors border border-[#2665fd]/20 min-h-[44px]"
               >
                 <Wand2 className="w-4 h-4" />
                 AI Generate
               </button>
               <button
                 onClick={() => onAddPost()}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-md text-sm font-medium transition-colors"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#2665fd] hover:bg-[#1e52d0] text-white rounded-[8px] text-sm font-medium transition-colors min-h-[44px]"
               >
                 <Plus className="w-4 h-4" />
                 New Post
               </button>
             </div>
           )}
-          <div className="flex bg-[#F7F7F5] dark:bg-[#202020] p-0.5 rounded-md border border-[#E9E9E7] dark:border-[#2E2E2E]">
+          <div className="flex bg-[#F7F7F5] dark:bg-[#202020] p-0.5 rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
           <button 
             onClick={() => setViewMode('grid')} 
-            className={cn("p-1.5 rounded-sm transition-colors", viewMode === 'grid' ? "bg-white dark:bg-[#2E2E2E] shadow-sm text-[#37352F] dark:text-[#EBE9ED]" : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
+            aria-label="Grid View"
+            className={cn("p-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center", viewMode === 'grid' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
             title="Grid View"
           >
             <Grid className="w-4 h-4" />
           </button>
           <button 
             onClick={() => setViewMode('timeline')} 
-            className={cn("p-1.5 rounded-sm transition-colors", viewMode === 'timeline' ? "bg-white dark:bg-[#2E2E2E] shadow-sm text-[#37352F] dark:text-[#EBE9ED]" : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
+            aria-label="Timeline View"
+            className={cn("p-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center", viewMode === 'timeline' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
             title="Timeline View"
           >
             <ListIcon className="w-4 h-4" />
@@ -248,7 +253,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               "grid grid-cols-7"
             )}>
               {weekDays.map((day) => (
-                <div key={day} className="py-1.5 md:py-3 text-center text-[9px] md:text-xs font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider print:text-black">
+                <div key={day} className="py-1.5 md:py-3 text-center text-[9px] md:text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider print:text-black">
                   <span className="md:hidden print:hidden">{day.substring(0, 1)}</span>
                   <span className="hidden md:inline print:inline">{day}</span>
                 </div>
@@ -260,7 +265,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           {viewMode === 'timeline' ? (
             <div className="flex-1 bg-white dark:bg-[#191919] p-4 md:p-6 print:p-0 print:block">
               {daysWithPosts.length === 0 ? (
-                <div className="text-center py-12 text-[#787774] dark:text-[#9B9A97]">
+                <div className="text-center py-12 text-[#757681] dark:text-[#9B9A97]">
                   No posts scheduled for this month.
                 </div>
               ) : (
@@ -271,7 +276,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                     <div key={dateStr} className="flex flex-col gap-4 mb-8 last:mb-0 print:break-inside-avoid print:mb-4">
                       <div className="flex items-center gap-3">
                         <div className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center text-base font-bold shadow-sm",
+                          "w-10 h-10 rounded-full flex items-center justify-center text-base font-bold ",
                           isToday(day) ? "bg-[#2383E2] text-white print:bg-gray-200 print:text-black" : "bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] print:bg-white print:border print:border-gray-300"
                         )}>
                           {format(day, 'd')}
@@ -352,13 +357,13 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => onGenerateWithAi?.(format(selectedDate, dateFormat))}
-                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-[#2665fd] rounded-2xl shadow-lg border border-[#2665fd]/20 flex items-center justify-center active:scale-90 transition-transform"
+                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-[#2665fd] rounded-[16px]  border border-[#2665fd]/20 flex items-center justify-center active:scale-90 transition-transform"
                 >
                   <Wand2 className="w-6 h-6" />
                 </button>
                 <button 
                   onClick={() => onAddPost(format(selectedDate, dateFormat))}
-                  className="w-12 h-12 bg-blue-500 text-white rounded-2xl shadow-lg shadow-blue-500/20 flex items-center justify-center active:scale-90 transition-transform"
+                  className="w-12 h-12 bg-blue-500 text-white rounded-[16px]   flex items-center justify-center active:scale-90 transition-transform"
                 >
                   <Plus className="w-6 h-6" />
                 </button>
@@ -371,14 +376,14 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="py-12 text-center bg-white dark:bg-[#1E1E1E] rounded-[24px] border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm"
+                className="py-12 text-center bg-white dark:bg-[#1E1E1E] rounded-[24px] border border-[#E9E9E7] dark:border-[#2E2E2E] "
               >
                 <div className="w-12 h-12 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-full flex items-center justify-center mx-auto mb-3">
                   <CalendarIcon className="w-6 h-6 text-[#9B9A97]" />
                 </div>
                 <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">No scheduled items</p>
                 {isAdmin && (
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97] mt-1">Tap the + button to add a post for this day.</p>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-1">Tap the + button to add a post for this day.</p>
                 )}
               </motion.div>
             ) : (
@@ -407,7 +412,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.05 }}
                     className={cn(
-                      "p-4 rounded-xl border flex flex-col gap-2 relative group overflow-hidden transition-all",
+                      "p-4 rounded-[12px] border flex flex-col gap-2 relative group overflow-hidden transition-all",
                       todo.completed ? "bg-gray-50 border-gray-200 text-gray-500 line-through" : "bg-yellow-50 border-yellow-200 text-yellow-800"
                     )}
                   >
@@ -542,11 +547,11 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
         }
       }}
       className={cn(
-        "transition-all cursor-pointer flex flex-col relative group min-h-0 overflow-hidden rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm hover:shadow-md",
+        "transition-all cursor-pointer flex flex-col relative group min-h-0 overflow-hidden rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-[#2665fd]/50",
         "aspect-square p-1.5 md:p-2.5 bg-white dark:bg-[#191919] gap-1 md:gap-1.5",
-        !isCurrentMonth && "flex bg-[#F7F7F5] dark:bg-[#202020] text-[#9B9A97] dark:text-[#7D7C78] opacity-40 print:opacity-100 print:bg-gray-50",
-        (isOver || isNativeDragOver) && "bg-[#EFEFED] dark:bg-[#2E2E2E] ring-2 ring-inset ring-[#2383E2]",
-        viewMode === 'grid' && isSelected && "ring-2 ring-inset ring-[#2383E2] bg-[#EFEFED]/50 dark:bg-[#2E2E2E]/50",
+        !isCurrentMonth && "flex bg-[#F7F7F5] dark:bg-[#202020] text-[#757681] opacity-40 print:opacity-100 print:bg-gray-50",
+        (isOver || isNativeDragOver) && "bg-[#EFEFED] dark:bg-[#2E2E2E] ring-2 ring-inset ring-[#2665fd]",
+        viewMode === 'grid' && isSelected && "ring-2 ring-inset ring-[#2665fd] bg-[#EFEFED]/50 dark:bg-[#2E2E2E]/50",
         "print:bg-white print:min-h-[120px] print:border-r print:border-b print:border-gray-300 print:p-1"
       )}
       style={backgroundImage ? {
@@ -558,12 +563,12 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
       <div className="flex justify-between items-center mb-1.5 md:mb-2 shrink-0 z-10 relative">
         <div className="flex items-center gap-1.5 flex-row">
           <span className={cn(
-            "text-xs md:text-sm font-bold flex items-center justify-center rounded-full transition-all",
+            "text-xs md:text-sm font-bold flex items-center justify-center rounded-[8px] transition-all",
             "w-6 h-6 md:w-8 md:h-8",
             isToday(day) 
-              ? "bg-[#2383E2] text-white shadow-md ring-2 ring-blue-200 dark:ring-blue-900/30" 
+              ? "bg-[#2665fd] text-white ring-2 ring-blue-200 dark:ring-blue-900/30" 
               : isSelected 
-                ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] shadow-sm"
+                ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919]"
                 : backgroundImage 
                   ? "text-white bg-black/40 backdrop-blur-sm"
                   : "text-[#37352F] dark:text-[#EBE9ED] bg-[#F7F7F5] dark:bg-[#202020] md:bg-transparent md:dark:bg-transparent"
@@ -575,21 +580,22 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
         <div className="flex items-center gap-1 pointer-events-auto">
           {/* Universal Post Indicator (Dot) - Hidden if background image is present to keep it clean */}
           {posts.length > 0 && !backgroundImage && (
-            <div className="w-1.5 h-1.5 rounded-full bg-[#2383E2] shadow-[0_0_8px_rgba(35,131,226,0.6)]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-[#2665fd]" />
           )}
           
           {/* Quick add button visible on hover on desktop */}
           {isAdmin && (
             <button 
               onClick={(e) => { e.stopPropagation(); onAddPost(dateStr); }}
+              aria-label="Add Post"
               className={cn(
-                "hidden sm:flex w-6 h-6 items-center justify-center rounded transition-all print:hidden",
+                "hidden sm:flex w-8 h-8 items-center justify-center rounded-[8px] transition-all print:hidden",
                 backgroundImage 
                   ? "bg-black/40 backdrop-blur-sm text-white hover:bg-black/60" 
-                  : "bg-[#EFEFED] dark:bg-[#2E2E2E] hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] text-[#787774] dark:text-[#9B9A97]"
+                  : "bg-[#EFEFED] dark:bg-[#2E2E2E] hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] text-[#757681]"
               )}
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -599,7 +605,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
       {viewMode === 'grid' && (
         <div className="md:hidden flex flex-wrap justify-center gap-0.5 mt-0.5 print:hidden">
           {posts.slice(0, 4).map(post => (
-            <div key={post.id} className="w-1 h-1 rounded-full bg-[#2383E2]/60" />
+            <div key={post.id} className="w-1 h-1 rounded-full bg-[#2665fd]/60" />
           ))}
         </div>
       )}
@@ -738,13 +744,13 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           }
         }}
         className={cn(
-          "text-left bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px] shadow-sm hover:shadow-md hover:border-blue-500 transition-all cursor-grab active:cursor-grabbing active:scale-95 flex flex-col",
+          "text-left bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-[#2665fd] transition-all cursor-grab active:cursor-grabbing active:scale-95 flex flex-col",
           viewMode === 'grid' ? "p-3 md:p-1.5 gap-2 md:gap-1" : "p-4 gap-3",
-          isDragging && "shadow-lg border-blue-500 scale-105 active:scale-105",
+          isDragging && "border-[#2665fd] scale-105 active:scale-105",
           "print:border-none print:shadow-none print:p-1 print:bg-transparent print:gap-1 print:break-inside-avoid"
         )}
       >
-      <div className={cn("flex items-center gap-2 text-[#787774] dark:text-[#9B9A97] print:text-sm print:text-black", viewMode === 'grid' ? "text-[11px] mb-1" : "text-xs mb-1")}>
+      <div className={cn("flex items-center gap-2 text-[#757681] print:text-sm print:text-black", viewMode === 'grid' ? "text-[11px] mb-1" : "text-xs mb-1")}>
         <span className={cn(viewMode === 'grid' ? "text-sm" : "text-sm")}>{emoji}</span>
         <span className="truncate font-bold text-[#37352F] dark:text-[#EBE9ED] print:whitespace-normal">{post.outlet}</span>
         {post.productCategory && <span className="hidden print:inline"> • {post.productCategory}</span>}
@@ -753,7 +759,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
         <div className="ml-auto flex gap-0.5">
           {post.approvalStatus && (
             <span className={cn(
-              "rounded font-bold uppercase",
+              "rounded-[4px] font-bold uppercase",
               viewMode === 'grid' ? "text-[7px] px-0.5" : "text-[9px] px-1",
               post.approvalStatus === 'approved' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : 
               post.approvalStatus === 'rejected' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
@@ -763,7 +769,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           )}
           {post.publishStatus && (
             <span className={cn(
-              "rounded font-bold uppercase",
+              "rounded-[4px] font-bold uppercase",
               viewMode === 'grid' ? "text-[7px] px-0.5" : "text-[9px] px-1",
               post.publishStatus === 'published' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : 
               post.publishStatus === 'failed' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
@@ -802,7 +808,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
             <div 
               key={idx} 
               className={cn(
-                "relative rounded overflow-hidden flex-shrink-0 border border-[#E9E9E7] dark:border-[#2E2E2E] cursor-pointer hover:opacity-80 transition-opacity print:w-48 print:h-48 print:border-gray-300 print:rounded-lg print:shadow-sm",
+                "relative rounded overflow-hidden flex-shrink-0 border border-[#E9E9E7] dark:border-[#2E2E2E] cursor-pointer hover:opacity-80 transition-opacity print:w-48 print:h-48 print:border-gray-300 print:rounded-[8px] print:",
                 viewMode === 'grid' ? "w-10 h-10 md:w-14 lg:w-16 md:h-14 lg:h-16" : "w-6 h-6 sm:w-8 sm:h-8"
               )}
               onClick={(e) => {
@@ -822,7 +828,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           <button
             onClick={handleRegenerate}
             disabled={isRegenerating}
-            className="flex items-center gap-1.5 text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] disabled:opacity-50 transition-colors"
             title="Regenerate with AI"
           >
             {isRegenerating ? <ForgeLoader size={14} /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -831,7 +837,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           <button
             onClick={handleGenerateMockup}
             disabled={isGeneratingMockup || !post.title || !post.brief || !post.caption}
-            className="flex items-center gap-1.5 text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] disabled:opacity-50 transition-colors"
             title={(!post.title || !post.brief || !post.caption) ? "Fill title, brief, and caption to generate mockup" : "Generate Mockup"}
           >
             {isGeneratingMockup ? <ForgeLoader size={14} /> : <Wand2 className="w-3.5 h-3.5" />}

@@ -911,14 +911,14 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-2xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
               <Database className="w-6 h-6 text-[#2665fd]" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
                 {dbMode === 'product' ? 'Product DB' : 'Info DB'}
               </h2>
-              <p className="text-sm text-[#787774] dark:text-[#9B9A97] mt-1">
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
                 {dbMode === 'product' 
                   ? 'Manage and analyze your inventory data.' 
                   : 'Manage and analyze your knowledge base and insights.'}
@@ -927,14 +927,14 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
           </div>
           
           {/* Mode Toggle */}
-          <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+          <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
             <button
               onClick={() => setDbMode('product')}
               className={cn(
-                "px-4 py-1.5 rounded-lg text-xs font-medium transition-all",
+                "px-4 py-1.5 rounded-[8px] text-xs font-medium transition-all",
                 dbMode === 'product' 
-                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] shadow-sm" 
-                  : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] " 
+                  : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
               )}
             >
               Product Mode
@@ -942,10 +942,10 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
             <button
               onClick={() => setDbMode('info')}
               className={cn(
-                "px-4 py-1.5 rounded-lg text-xs font-medium transition-all",
+                "px-4 py-1.5 rounded-[8px] text-xs font-medium transition-all",
                 dbMode === 'info' 
-                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] shadow-sm" 
-                  : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] " 
+                  : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
               )}
             >
               Info Mode
@@ -958,7 +958,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       {showScrollTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 z-50 p-3 bg-[#2383E2] text-white rounded-full shadow-xl hover:bg-blue-600 transition-all animate-in fade-in slide-in-from-bottom-4"
+          className="fixed bottom-8 right-8 z-50 p-3 bg-[#2383E2] text-white rounded-full  hover:bg-blue-600 transition-all animate-in fade-in slide-in-from-bottom-4"
           title="Scroll to Top"
         >
           <ChevronUp className="w-6 h-6" />
@@ -981,7 +981,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                     setManualUrl(manualUrlInput || aiSettings.targetUrl || '');
                   }
                 }}
-                className="w-full pl-4 pr-10 py-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm focus:ring-2 focus:ring-[#2383E2] outline-none transition-all shadow-sm"
+                className="w-full pl-4 pr-10 py-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-[#2383E2] outline-none transition-all "
               />
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                 <Globe className="w-4 h-4 text-[#9B9A97]" />
@@ -992,14 +992,14 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
             <button
               onClick={handleAutoCategorize}
               disabled={isAutoCategorizing}
-              className="flex-1 md:flex-none px-4 py-2.5 bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30 rounded-xl text-sm font-bold hover:bg-purple-100 dark:hover:bg-purple-900/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+              className="flex-1 md:flex-none px-4 py-2.5 bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30 rounded-[12px] text-sm font-bold hover:bg-purple-100 dark:hover:bg-purple-900/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 "
             >
               {isAutoCategorizing ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               Auto-Categorize
             </button>
             <button
               onClick={() => setIsManualMode(!isManualMode)}
-              className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
+              className={`flex-1 md:flex-none px-4 py-2.5 rounded-[12px] text-sm font-bold transition-all  ${
                 isManualMode
                   ? 'bg-[#2383E2] text-white'
                   : 'bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
@@ -1012,26 +1012,26 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
         {/* Multi-select bar */}
         {selectedProducts.length > 0 && (
-          <div className="sticky top-0 z-10 bg-white dark:bg-[#191919] p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl shadow-lg mb-6 flex items-center justify-between">
+          <div className="sticky top-0 z-10 bg-white dark:bg-[#191919] p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px]  mb-6 flex items-center justify-between">
             <span className="text-sm font-medium text-[#37352F] dark:text-[#EBE9ED]">
               {selectedProducts.length} products selected
             </span>
             <div className="flex gap-2">
               <button 
                 onClick={handleSelectAll}
-                className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-md"
+                className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[6px]"
               >
                 {selectedProducts.length === filteredProducts.length ? 'Deselect All' : 'Select All Filtered'}
               </button>
               <button 
                 onClick={() => setSelectedProducts([])}
-                className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] rounded-md"
+                className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] rounded-[6px]"
               >
                 Clear Selection
               </button>
               <button 
                 onClick={() => onAddPost(selectedProducts)}
-                className="px-3 py-1.5 text-xs bg-[#2383E2] text-white rounded-md"
+                className="px-3 py-1.5 text-xs bg-[#2383E2] text-white rounded-[6px]"
               >
                 Create Post with Selected
               </button>
@@ -1042,7 +1042,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         {/* Category Counts Section */}
         {!isManualMode && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white dark:bg-[#191919] p-6 rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm">
+            <div className="bg-white dark:bg-[#191919] p-6 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] ">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">
                   {dbMode === 'product' ? 'Inventory Overview' : 'Knowledge Overview'}
@@ -1051,7 +1051,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                   {isCrawling ? (
                     <button 
                       onClick={handleStopCrawl}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-lg text-[10px] font-bold hover:bg-red-100 dark:hover:bg-red-900/20 transition-all"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-[8px] text-[10px] font-bold hover:bg-red-100 dark:hover:bg-red-900/20 transition-all"
                     >
                       <Square className="w-3 h-3 fill-current" />
                       Stop Crawl
@@ -1060,7 +1060,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                     <button 
                       onClick={handleStartCrawl}
                       disabled={isCrawling}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 rounded-lg text-[10px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all disabled:opacity-50"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 rounded-[8px] text-[10px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all disabled:opacity-50"
                     >
                       <RefreshCw className="w-3 h-3" />
                       Crawl Website
@@ -1087,7 +1087,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               <button 
                 onClick={handleCheckCounts}
                     disabled={isCheckingCounts}
-                    className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-lg text-[#787774] dark:text-[#9B9A97] transition-colors disabled:opacity-50"
+                    className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors disabled:opacity-50"
                   >
                     {isCheckingCounts ? <ForgeLoader size={16} /> : <RefreshCw className="w-4 h-4" />}
                   </button>
@@ -1095,13 +1095,13 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               </div>
               
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-[12px] border border-blue-100 dark:border-blue-900/30">
                   <div className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
                     {dbMode === 'product' ? 'Total Items' : 'Total Insights'}
                   </div>
                   <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{products.length}</div>
                 </div>
-                <div className="p-4 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-100 dark:border-orange-900/30">
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/10 rounded-[12px] border border-orange-100 dark:border-orange-900/30">
                   <div className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-1">Uncategorized</div>
                   <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                     {products.filter(p => p.type === 'Uncategorized' || !p.type).length}
@@ -1112,17 +1112,17 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               {hasCheckedCounts ? (
                 <div className="space-y-3">
                   {categoryCounts.map((cat, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                    <div key={idx} className="flex items-center justify-between p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                       <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-green-500" />
                         <span className="text-sm font-medium text-[#37352F] dark:text-[#EBE9ED]">{cat.category}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">{cat.count} items</span>
+                        <span className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">{cat.count} items</span>
                         <button 
                           onClick={() => handleFetchCategory(cat.category)}
                           disabled={fetchingCategory === cat.category}
-                          className="px-3 py-1 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-[10px] font-bold rounded-md transition-colors disabled:opacity-50"
+                          className="px-3 py-1 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-[10px] font-bold rounded-[6px] transition-colors disabled:opacity-50"
                         >
                           {fetchingCategory === cat.category ? 'Fetching...' : 'Get Info'}
                         </button>
@@ -1133,16 +1133,16 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="w-12 h-12 rounded-full bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center mb-4">
-                    <Filter className="w-6 h-6 text-[#787774] dark:text-[#9B9A97]" />
+                    <Filter className="w-6 h-6 text-[#757681] dark:text-[#9B9A97]" />
                   </div>
-                  <p className="text-sm text-[#787774] dark:text-[#9B9A97] mb-4">
+                  <p className="text-sm text-[#757681] dark:text-[#9B9A97] mb-4">
                     {dbMode === 'product' 
                       ? 'Check inventory counts to see what\'s available.' 
                       : 'Check knowledge counts to see what\'s available.'}
                   </p>
                   <button 
                     onClick={handleCheckCounts}
-                    className="px-4 py-2 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20"
+                    className="px-4 py-2 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-sm font-bold rounded-[12px] transition-all  "
                   >
                     Check Now
                   </button>
@@ -1150,13 +1150,13 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               )}
             </div>
 
-            <div className="bg-white dark:bg-[#191919] p-6 rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm flex flex-col">
+            <div className="bg-white dark:bg-[#191919] p-6 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]  flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">Activity Logs</h3>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                    <Moon className="w-3 h-3 text-[#787774]" />
-                    <span className="text-[10px] font-bold text-[#787774]">Overnight</span>
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                    <Moon className="w-3 h-3 text-[#757681]" />
+                    <span className="text-[10px] font-bold text-[#757681]">Overnight</span>
                     <button 
                       onClick={() => setIsOvernightMode(!isOvernightMode)}
                       className={cn(
@@ -1172,13 +1172,13 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                   </div>
                   <button 
                     onClick={() => setLogs([])}
-                    className="p-1 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded text-[#787774] dark:text-[#9B9A97]"
+                    className="p-1 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded text-[#757681] dark:text-[#9B9A97]"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-              <div className="flex-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] p-3 font-mono text-[10px] overflow-y-auto max-h-[300px] no-scrollbar">
+              <div className="flex-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] p-3 font-mono text-[10px] overflow-y-auto max-h-[300px] no-scrollbar">
                 {logs.length === 0 ? (
                   <p className="text-[#9B9A97] italic">No activity yet...</p>
                 ) : (
@@ -1198,23 +1198,23 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         {/* Manual Scrape Mode */}
         {isManualMode && (
           <div className="flex flex-col gap-6 mb-8">
-            <div className="bg-white dark:bg-[#191919] p-6 rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm">
+            <div className="bg-white dark:bg-[#191919] p-6 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] ">
               <div className="flex items-center gap-2 mb-6">
                 <ClipboardPaste className="w-4 h-4 text-[#2383E2]" />
                 <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">Manual Scraper (Console Method)</h3>
               </div>
 
               {/* Console Paste Section */}
-              <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-6">
+              <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-6">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <ClipboardPaste className="w-4 h-4 text-[#2383E2]" />
                     <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Scraping via Console (Manual Method)</h4>
                   </div>
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97] mb-4">
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] mb-4">
                     If the automatic scraper is blocked by the target site, you can manually extract data using the browser console. Copy the snippet below, run it on the shop page, and paste the resulting JSON array here.
                   </p>
-                  <div className="relative bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl p-4 shadow-sm">
+                  <div className="relative bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] p-4 ">
                     <div className="overflow-x-auto no-scrollbar">
                       <code className="text-[10px] sm:text-xs font-mono text-[#37352F] dark:text-[#EBE9ED] whitespace-pre">
                         {dbMode === 'product' ? `const products = [...document.querySelectorAll('.product')].map(item => ({
@@ -1239,7 +1239,7 @@ JSON.stringify(items);`}
                         navigator.clipboard.writeText(snippet);
                         toast.success("Snippet copied to clipboard!");
                       }}
-                      className="absolute top-3 right-3 p-2 bg-[#F7F7F5] dark:bg-[#2E2E2E] hover:bg-[#E3E2E0] dark:hover:bg-[#3F3F3F] text-[#37352F] dark:text-[#EBE9ED] rounded-lg transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                      className="absolute top-3 right-3 p-2 bg-[#F7F7F5] dark:bg-[#2E2E2E] hover:bg-[#E3E2E0] dark:hover:bg-[#3F3F3F] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
                       title="Copy Snippet"
                     >
                       <ClipboardPaste className="w-4 h-4" />
@@ -1251,7 +1251,7 @@ JSON.stringify(items);`}
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Paste Console Output</h4>
                     <div className="flex items-center gap-2">
-                      <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">AI will auto-detect categories for these {dbMode === 'product' ? 'products' : 'items'}.</p>
+                      <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">AI will auto-detect categories for these {dbMode === 'product' ? 'products' : 'items'}.</p>
                     </div>
                   </div>
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -1259,12 +1259,12 @@ JSON.stringify(items);`}
                     value={consolePaste}
                     onChange={(e) => setConsolePaste(e.target.value)}
                     placeholder={dbMode === 'product' ? 'Paste the JSON array here (e.g., [{"name": "Product Name", ...}])' : 'Paste the JSON array here (e.g., [{"title": "Item Title", ...}])'}
-                    className="flex-1 h-24 px-4 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none shadow-sm"
+                    className="flex-1 h-24 px-4 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none "
                   />
                   <button
                     onClick={handleConsolePaste}
                     disabled={isProcessingPaste || !consolePaste.trim()}
-                    className="w-full sm:w-auto px-6 py-4 sm:py-2 bg-[#2383E2] hover:bg-blue-600 text-white text-sm font-bold rounded-xl transition-all disabled:opacity-50 flex flex-row sm:flex-col items-center justify-center gap-2 min-w-[120px] shadow-lg shadow-blue-500/20"
+                    className="w-full sm:w-auto px-6 py-4 sm:py-2 bg-[#2383E2] hover:bg-blue-600 text-white text-sm font-bold rounded-[12px] transition-all disabled:opacity-50 flex flex-row sm:flex-col items-center justify-center gap-2 min-w-[120px]  "
                   >
                     {isProcessingPaste ? (
                       <ForgeLoader size={20} />
@@ -1280,13 +1280,13 @@ JSON.stringify(items);`}
               </div>
 
               {/* Firecrawl JSON Upload Section */}
-              <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-4 mt-6">
+              <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-4 mt-6">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Upload className="w-4 h-4 text-[#2383E2]" />
                     <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Upload Firecrawl JSON</h4>
                   </div>
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97] mb-4">
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] mb-4">
                     If you downloaded a JSON output directly from the Firecrawl dashboard, you can upload it here. You can select multiple files at once.
                   </p>
                   <div className="flex items-center gap-3">
@@ -1300,7 +1300,7 @@ JSON.stringify(items);`}
                     />
                     <label
                       htmlFor="firecrawl-json-upload"
-                      className="cursor-pointer w-full sm:w-auto px-6 py-4 sm:py-2 bg-[#2383E2] hover:bg-blue-600 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                      className="cursor-pointer w-full sm:w-auto px-6 py-4 sm:py-2 bg-[#2383E2] hover:bg-blue-600 text-white text-sm font-bold rounded-[12px] transition-all flex items-center justify-center gap-2  "
                     >
                       <Upload className="w-5 h-5" />
                       Select JSON Files
@@ -1326,21 +1326,21 @@ JSON.stringify(items);`}
                     placeholder={dbMode === 'product' ? "Search products..." : "Search insights..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl sm:rounded-lg text-sm"
+                    className="w-full pl-9 pr-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] sm:rounded-[8px] text-sm"
                   />
                 </div>
                 <div className="flex gap-2 sm:gap-3">
                   <select
                     value={filterCategory}
                     onChange={(e) => setFilterCategory(e.target.value)}
-                    className="flex-1 sm:flex-none px-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl sm:rounded-lg text-sm"
+                    className="flex-1 sm:flex-none px-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] sm:rounded-[8px] text-sm"
                   >
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <select
                     value={filterOutlet}
                     onChange={(e) => setFilterOutlet(e.target.value)}
-                    className="flex-1 sm:flex-none px-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl sm:rounded-lg text-sm"
+                    className="flex-1 sm:flex-none px-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] sm:rounded-[8px] text-sm"
                   >
                     {outlets.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
@@ -1385,7 +1385,7 @@ JSON.stringify(items);`}
                             dbMode={dbMode}
                           />
                           {isSelected && (
-                            <div className="absolute top-2 right-2 z-20 bg-[#2383E2] text-white rounded-full p-1 shadow-lg scale-75 sm:scale-100">
+                            <div className="absolute top-2 right-2 z-20 bg-[#2383E2] text-white rounded-full p-1  scale-75 sm:scale-100">
                               <Check className="w-3 h-3 sm:w-4 sm:h-4" />
                             </div>
                           )}

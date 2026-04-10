@@ -100,12 +100,12 @@ export function ImageResizerTab() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold">Image Resizer</h3>
-            <p className="text-xs text-[#787774]">Auto-resize one image to all platform-specific dimensions.</p>
+            <p className="text-xs text-[#757681]">Auto-resize one image to all platform-specific dimensions.</p>
           </div>
           {resizedImages.length > 0 && (
             <button
               onClick={downloadAll}
-              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-[8px] text-xs font-bold hover:bg-indigo-700 transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               Download All
@@ -115,36 +115,36 @@ export function ImageResizerTab() {
       </div>
 
       <div className="flex-1 p-4 space-y-6">
-        <div className="bg-[#F7F7F5] dark:bg-[#202020] p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+        <div className="bg-[#F7F7F5] dark:bg-[#202020] p-4 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
           {!sourceImage ? (
-            <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl cursor-pointer hover:bg-white dark:hover:bg-[#191919] transition-colors bg-white dark:bg-[#191919]">
+            <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] cursor-pointer hover:bg-white dark:hover:bg-[#191919] transition-colors bg-white dark:bg-[#191919]">
               <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <Upload className="w-8 h-8 text-[#787774] dark:text-[#9B9A97] mb-2" />
+                <Upload className="w-8 h-8 text-[#757681] dark:text-[#9B9A97] mb-2" />
                 <p className="mb-1 text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Click to upload or drag and drop</p>
-                <p className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97]">PNG, JPG or WEBP (MAX. 10MB)</p>
+                <p className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97]">PNG, JPG or WEBP (MAX. 10MB)</p>
               </div>
               <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
             </label>
           ) : (
             <div className="space-y-4">
               <div className="flex flex-col gap-4 items-start">
-                <div className="relative w-full aspect-square bg-white dark:bg-[#191919] rounded-lg overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div className="relative w-full aspect-square bg-white dark:bg-[#191919] rounded-[8px] overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E]">
                   <img src={sourceImage} alt="Source" className="w-full h-full object-contain p-2" />
                   <button
                     onClick={() => { setSourceImage(null); setResizedImages([]); }}
-                    className="absolute top-2 right-2 p-1.5 bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-md text-[10px] font-bold hover:bg-white dark:hover:bg-black transition-colors"
+                    className="absolute top-2 right-2 p-1.5 bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-[6px] text-[10px] font-bold hover:bg-white dark:hover:bg-black transition-colors"
                   >
                     Change Image
                   </button>
                 </div>
                 <div className="w-full space-y-3">
                   <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Ready to Resize</h4>
-                  <p className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">
+                  <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">
                     We will automatically crop and scale your image to fit the following formats:
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {PLATFORMS.map(p => (
-                      <span key={p.name} className="px-2 py-1 bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#EBE9ED] text-[10px] font-bold rounded-md border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                      <span key={p.name} className="px-2 py-1 bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#EBE9ED] text-[10px] font-bold rounded-[6px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                         {p.name} ({p.ratio})
                       </span>
                     ))}
@@ -152,7 +152,7 @@ export function ImageResizerTab() {
                   <button
                     onClick={processImages}
                     disabled={isProcessing}
-                    className="mt-2 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 w-full"
+                    className="mt-2 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-[8px] text-xs font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 w-full"
                   >
                     {isProcessing ? <ForgeLoader size={16} /> : <Maximize className="w-4 h-4" />}
                     {isProcessing ? 'Processing...' : 'Auto-Resize Image'}
@@ -173,12 +173,12 @@ export function ImageResizerTab() {
             className="grid grid-cols-2 gap-4"
           >
             {resizedImages.map((img, idx) => (
-              <div key={idx} className="bg-[#F7F7F5] dark:bg-[#202020] p-3 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-col">
+              <div key={idx} className="bg-[#F7F7F5] dark:bg-[#202020] p-3 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-col">
                 <div className="flex items-center justify-between mb-2">
                   <h5 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-[10px] truncate pr-2">{img.name}</h5>
-                  <span className="text-[9px] font-bold text-[#787774] dark:text-[#9B9A97] shrink-0">{img.width}×{img.height}</span>
+                  <span className="text-[9px] font-bold text-[#757681] dark:text-[#9B9A97] shrink-0">{img.width}×{img.height}</span>
                 </div>
-                <div className="flex-1 bg-white dark:bg-[#191919] rounded-lg overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-center p-1.5 mb-3">
+                <div className="flex-1 bg-white dark:bg-[#191919] rounded-[8px] overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-center p-1.5 mb-3">
                   <img 
                     src={img.url} 
                     alt={img.name} 
@@ -187,7 +187,7 @@ export function ImageResizerTab() {
                 </div>
                 <button
                   onClick={() => downloadImage(img.url, img.name)}
-                  className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-lg hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors text-[10px] font-bold"
+                  className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors text-[10px] font-bold"
                 >
                   <Download className="w-3 h-3" />
                   Download

@@ -105,7 +105,7 @@ export function PublicCalendarView() {
             ) : (
               <button 
                 onClick={() => window.location.href = '/'}
-                className="px-3 py-1.5 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-md text-xs font-medium transition-colors"
+                className="px-3 py-1.5 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-[6px] text-xs font-medium transition-colors"
               >
                 Sign Up
               </button>

@@ -114,7 +114,7 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
       <div className="space-y-4">
         <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest px-1">Workspace Management</h2>
         {businesses.map(biz => (
-          <div key={biz.id} className="flex items-center justify-between p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl">
+          <div key={biz.id} className="flex items-center justify-between p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px]">
             {editingId === biz.id ? (
               <div className="flex-1 flex flex-col gap-2">
                 <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Name" className="p-2 rounded border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919]" />
@@ -135,10 +135,10 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
               <>
                 <div className="flex-1">
                   <h3 className="font-bold text-sm">{biz.name}</h3>
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97]">{biz.industry}</p>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">{biz.industry}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => handleEdit(biz)} className="p-2 text-[#787774] dark:text-[#9B9A97]"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleEdit(biz)} className="p-2 text-[#757681] dark:text-[#9B9A97]"><Edit2 className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(biz.id)} className="p-2 text-red-600"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </>

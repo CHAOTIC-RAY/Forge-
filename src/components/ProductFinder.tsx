@@ -259,7 +259,7 @@ export function ProductFinder() {
           <h2 className="text-xl font-bold">Product Finder</h2>
           <button
             onClick={() => setIsManualMode(!isManualMode)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-[8px] text-sm font-medium transition-colors ${
               isManualMode
                 ? 'bg-[#2383E2] text-white'
                 : 'bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
@@ -270,7 +270,7 @@ export function ProductFinder() {
         </div>
 
         {isManualMode ? (
-          <div className="bg-white dark:bg-[#191919] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] p-6">
+          <div className="bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] p-6">
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
@@ -282,7 +282,7 @@ export function ProductFinder() {
                     setManualScreenshot(null);
                   }
                 }}
-                className="flex-1 px-3 py-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-lg text-sm"
+                className="flex-1 px-3 py-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-sm"
                 placeholder="Enter URL to scrape"
               />
               <button
@@ -290,7 +290,7 @@ export function ProductFinder() {
                   setManualUrl(manualUrlInput);
                   setManualScreenshot(null);
                 }}
-                className="px-4 py-2 bg-[#2383E2] text-white rounded-lg text-sm font-medium"
+                className="px-4 py-2 bg-[#2383E2] text-white rounded-[8px] text-sm font-medium"
               >
                 Go
               </button>
@@ -339,10 +339,10 @@ export function ProductFinder() {
                 <iframe
                   id="manual-scraper-iframe"
                   src={`/api/proxy-html?url=${encodeURIComponent(manualUrl)}`}
-                  className="w-full h-[500px] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-lg"
+                  className="w-full h-[500px] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px]"
                   title="Manual Scraper Preview"
                 />
-                <div className="absolute bottom-4 left-4 right-4 p-3 bg-black/70 backdrop-blur-md rounded-lg border border-white/10 text-xs text-white/90 flex items-center gap-3">
+                <div className="absolute bottom-4 left-4 right-4 p-3 bg-black/70 backdrop-blur-md rounded-[8px] border border-white/10 text-xs text-white/90 flex items-center gap-3">
                   <div className="p-1.5 bg-[#2383E2] rounded-full">
                     <Camera className="w-3 h-3" />
                   </div>
@@ -352,7 +352,7 @@ export function ProductFinder() {
                 </div>
               </div>
             ) : (
-              <div className="w-full h-[500px] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-lg overflow-auto bg-[#F5F5F4] dark:bg-[#1A1A1A] flex items-center justify-center relative">
+              <div className="w-full h-[500px] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] overflow-auto bg-[#F5F5F4] dark:bg-[#1A1A1A] flex items-center justify-center relative">
                 {isCapturingScreenshot ? (
                   <div className="flex flex-col items-center gap-3">
                     <ForgeLoader size={32} />
@@ -383,7 +383,7 @@ export function ProductFinder() {
                       setIsCapturingScreenshot(false);
                     }
                   }}
-                  className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-black/80 rounded-full shadow-lg hover:scale-110 transition-transform"
+                  className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-black/80 rounded-full  hover:scale-110 transition-transform"
                   title="Recapture Screenshot"
                 >
                     {isCapturingScreenshot ? <ForgeLoader size={16} /> : <RefreshCw className="w-4 h-4" />}
@@ -432,7 +432,7 @@ export function ProductFinder() {
                   }
                 }}
                 disabled={isScrapingScreenshot}
-                className="px-4 py-2 bg-[#2383E2] text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-[#2383E2] text-white rounded-[8px] text-sm font-medium disabled:opacity-50 flex items-center gap-2"
               >
                 {isScrapingScreenshot ? (
                   <>
@@ -471,7 +471,7 @@ export function ProductFinder() {
                   }
                 }}
                 disabled={isScrapingScreenshot}
-                className="px-4 py-2 bg-[#8B5CF6] text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-[#8B5CF6] text-white rounded-[8px] text-sm font-medium disabled:opacity-50 flex items-center gap-2"
               >
                 <Camera className="w-4 h-4" />
                 Capture & Scrape (AI Vision)
@@ -481,7 +481,7 @@ export function ProductFinder() {
                   const iframe = document.getElementById('manual-scraper-iframe') as HTMLIFrameElement;
                   if (iframe) iframe.src = iframe.src;
                 }}
-                className="px-4 py-2 bg-[#F5F5F4] dark:bg-[#2E2E2E] text-[#1A1A1A] dark:text-white rounded-lg text-sm font-medium hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-[#F5F5F4] dark:bg-[#2E2E2E] text-[#1A1A1A] dark:text-white rounded-[8px] text-sm font-medium hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] transition-colors flex items-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
                 Refresh
@@ -490,7 +490,7 @@ export function ProductFinder() {
                 href={manualUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-[#F5F5F4] dark:bg-[#2E2E2E] text-[#1A1A1A] dark:text-white rounded-lg text-sm font-medium hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] transition-colors flex items-center gap-2 no-underline"
+                className="px-4 py-2 bg-[#F5F5F4] dark:bg-[#2E2E2E] text-[#1A1A1A] dark:text-white rounded-[8px] text-sm font-medium hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] transition-colors flex items-center gap-2 no-underline"
               >
                 <ExternalLink className="w-4 h-4" />
                 Open in New Tab
@@ -529,7 +529,7 @@ export function ProductFinder() {
                   }
                 }}
                 disabled={isRefining}
-                className="px-4 py-2 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-sm font-medium disabled:opacity-50"
               >
                 {isRefining ? 'Refining...' : 'Refine Unavailable'}
               </button>
@@ -543,13 +543,13 @@ export function ProductFinder() {
                   <Search className="w-10 h-10 text-[#37352F] dark:text-[#EBE9ED]" />
                 </div>
                 <h3 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] mb-3">Ready to check stock?</h3>
-                <p className="text-[#787774] dark:text-[#9B9A97] max-w-xs mb-8 text-lg">
+                <p className="text-[#757681] dark:text-[#9B9A97] max-w-xs mb-8 text-lg">
                   First, we'll get an accurate count of all products on the target website by category.
                 </p>
                 
                 <button
                   onClick={handleCheckCounts}
-                  className="w-full max-w-xs py-3 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-lg font-medium text-base transition-all flex items-center justify-center gap-2"
+                  className="w-full max-w-xs py-3 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-[8px] font-medium text-base transition-all flex items-center justify-center gap-2"
                 >
                   <Search className="w-5 h-5" />
                   Start Stock Check
@@ -561,23 +561,23 @@ export function ProductFinder() {
               <div className="flex flex-col items-center justify-center py-12 px-4">
                 <ForgeLoader size={48} className="mb-6" />
                 <p className="text-[#37352F] dark:text-[#EBE9ED] font-medium text-lg">Counting products...</p>
-                <p className="text-[#787774] dark:text-[#9B9A97] mt-2">This might take a few moments.</p>
+                <p className="text-[#757681] dark:text-[#9B9A97] mt-2">This might take a few moments.</p>
               </div>
             )}
 
             {hasCheckedCounts && !isCheckingCounts && (
               <div className="flex flex-col space-y-6">
                 {/* Category Counts Section */}
-                <div className="bg-white dark:bg-[#191919] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden">
+                <div className="bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden">
                   <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex justify-between items-center bg-[#F7F7F5] dark:bg-[#202020]">
                     <h3 className="font-semibold text-[#37352F] dark:text-[#EBE9ED]">Categories to Check</h3>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setIsOvernightMode(!isOvernightMode)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-[6px] transition-all ${
                           isOvernightMode 
                             ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' 
-                            : 'text-[#787774] dark:text-[#9B9A97] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E]'
+                            : 'text-[#757681] dark:text-[#9B9A97] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E]'
                         }`}
                         title={isOvernightMode ? "Overnight Mode is ON (Loops search)" : "Turn on Overnight Mode (Loops search)"}
                       >
@@ -586,7 +586,7 @@ export function ProductFinder() {
                       </button>
                       <button
                         onClick={handleCheckCounts}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#787774] dark:text-[#9B9A97] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-md transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#757681] dark:text-[#9B9A97] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-[6px] transition-colors"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                         Recheck
@@ -606,33 +606,33 @@ export function ProductFinder() {
                           <div className="flex justify-between items-start">
                             <div className="flex-1 pr-4">
                               <h4 className="font-medium text-[#37352F] dark:text-[#EBE9ED] text-base leading-tight">{cat.category}</h4>
-                              <p className="text-xs text-[#787774] dark:text-[#9B9A97] mt-1">
+                              <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-1">
                                 {fetchedCount} / {cat.count} products
                               </p>
                             </div>
                             
                             <div className="shrink-0">
                               {isFetching ? (
-                                <button disabled className="flex items-center justify-center px-3 py-1.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] rounded-md text-xs font-medium cursor-not-allowed">
+                                <button disabled className="flex items-center justify-center px-3 py-1.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] rounded-[6px] text-xs font-medium cursor-not-allowed">
                                   <ForgeLoader size={14} className="mr-1.5" />
                                   Fetching
                                 </button>
                               ) : isComplete ? (
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] rounded-md text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] rounded-[6px] text-xs font-medium">
                                   <Check className="w-3.5 h-3.5" />
                                   Done
                                 </div>
                               ) : fetchedCount > 0 ? (
                                 <button 
                                   onClick={() => handleFetchCategory(cat.category)}
-                                  className="flex items-center justify-center px-3 py-1.5 bg-[#EFEFED] dark:bg-[#2E2E2E] hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] text-[#37352F] dark:text-[#EBE9ED] rounded-md text-xs font-medium transition-colors"
+                                  className="flex items-center justify-center px-3 py-1.5 bg-[#EFEFED] dark:bg-[#2E2E2E] hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] text-[#37352F] dark:text-[#EBE9ED] rounded-[6px] text-xs font-medium transition-colors"
                                 >
                                   Continue
                                 </button>
                               ) : (
                                 <button 
                                   onClick={() => handleFetchCategory(cat.category)}
-                                  className="flex items-center justify-center px-3 py-1.5 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-md text-xs font-medium transition-colors"
+                                  className="flex items-center justify-center px-3 py-1.5 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-[6px] text-xs font-medium transition-colors"
                                 >
                                   Get Info
                                 </button>
@@ -651,7 +651,7 @@ export function ProductFinder() {
                       );
                     })}
                     {categoryCounts.length === 0 && (
-                      <div className="p-8 text-center text-[#787774] dark:text-[#9B9A97] text-sm">
+                      <div className="p-8 text-center text-[#757681] dark:text-[#9B9A97] text-sm">
                         No categories found. Try rechecking.
                       </div>
                     )}
@@ -664,7 +664,7 @@ export function ProductFinder() {
 
         {/* Live Preview Iframe */}
         {fetchingCategory && (
-          <div className="bg-white dark:bg-[#191919] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden flex flex-col mb-6">
+          <div className="bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden flex flex-col mb-6">
             <div className="p-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex justify-between items-center bg-[#F7F7F5] dark:bg-[#202020]">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -676,7 +676,7 @@ export function ProductFinder() {
                   className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
                     isAutoScraping 
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800' 
-                      : 'bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E]'
+                      : 'bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E]'
                   }`}
                   title={isAutoScraping ? "Auto-Scrape is ON (Every 15s)" : "Turn on Auto-Scrape"}
                 >
@@ -714,7 +714,7 @@ export function ProductFinder() {
                     }
                   }}
                   disabled={isScrapingScreenshot}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] rounded text-xs font-medium hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-2 py-1 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] rounded text-xs font-medium hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] transition-colors disabled:opacity-50"
                 >
                   {isScrapingScreenshot ? <ForgeLoader size={12} /> : <Search className="w-3 h-3" />}
                   Scrape View
@@ -726,7 +726,7 @@ export function ProductFinder() {
                       window.open(`https://image.thum.io/get/width/1200/crop/800/${iframe.src}`, '_blank');
                     }
                   }}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] rounded text-xs font-medium hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-1 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] rounded text-xs font-medium hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] transition-colors"
                 >
                   <Download className="w-3 h-3" />
                   Screenshot
@@ -741,7 +741,7 @@ export function ProductFinder() {
                   <X className="w-3 h-3" />
                   Close
                 </button>
-                <span className="text-xs text-[#787774] dark:text-[#9B9A97] ml-2">Bypassing bot detection...</span>
+                <span className="text-xs text-[#757681] dark:text-[#9B9A97] ml-2">Bypassing bot detection...</span>
               </div>
             </div>
             <div className="flex flex-row h-[400px]">
@@ -754,23 +754,23 @@ export function ProductFinder() {
                   sandbox="allow-scripts allow-same-origin"
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/5 dark:bg-black/20 pointer-events-none">
-                  <div className="bg-white/90 dark:bg-[#191919]/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center gap-2">
+                  <div className="bg-white/90 dark:bg-[#191919]/90 backdrop-blur-sm px-4 py-2 rounded-full  border border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center gap-2">
                     <ForgeLoader size={16} />
                     <span className="text-sm font-medium text-[#37352F] dark:text-[#EBE9ED]">Extracting data...</span>
                   </div>
                 </div>
               </div>
               <div className="w-1/3 h-full bg-[#F7F7F5] dark:bg-[#202020] overflow-y-auto p-4">
-                <h4 className="text-xs font-semibold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider mb-3">Live Extraction ({liveProducts.length})</h4>
+                <h4 className="text-xs font-semibold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-3">Live Extraction ({liveProducts.length})</h4>
                 <div className="space-y-2">
                   {liveProducts.slice(-10).reverse().map((p, i) => (
                     <div key={i} className="bg-white dark:bg-[#191919] p-2 rounded border border-[#E9E9E7] dark:border-[#2E2E2E] text-xs">
                       <div className="font-medium text-[#37352F] dark:text-[#EBE9ED] truncate" title={p.title}>{p.title}</div>
-                      <div className="text-[#787774] dark:text-[#9B9A97] mt-1">{p.stockInfo}</div>
+                      <div className="text-[#757681] dark:text-[#9B9A97] mt-1">{p.stockInfo}</div>
                     </div>
                   ))}
                   {liveProducts.length === 0 && (
-                    <div className="text-xs text-[#787774] dark:text-[#9B9A97] italic text-center mt-8">Waiting for products...</div>
+                    <div className="text-xs text-[#757681] dark:text-[#9B9A97] italic text-center mt-8">Waiting for products...</div>
                   )}
                 </div>
               </div>
@@ -780,12 +780,12 @@ export function ProductFinder() {
 
         {/* Logs Section */}
         {logs.length > 0 && (
-          <div className="mb-8 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden flex flex-col">
+          <div className="mb-8 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden flex flex-col">
             <div className="p-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex justify-between items-center">
               <h3 className="font-medium text-[#37352F] dark:text-[#EBE9ED] text-xs">Activity Log</h3>
-              <button onClick={() => setLogs([])} className="text-[#787774] hover:text-[#37352F] dark:hover:text-[#EBE9ED] text-xs">Clear</button>
+              <button onClick={() => setLogs([])} className="text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED] text-xs">Clear</button>
             </div>
-            <div className="p-4 max-h-48 overflow-y-auto font-mono text-xs text-[#787774] dark:text-[#9B9A97] space-y-1">
+            <div className="p-4 max-h-48 overflow-y-auto font-mono text-xs text-[#757681] dark:text-[#9B9A97] space-y-1">
               {logs.map((log, i) => (
                 <div key={i}>{log}</div>
               ))}
@@ -805,7 +805,7 @@ export function ProductFinder() {
                   <select
                     value={filterCategory}
                     onChange={(e) => setFilterCategory(e.target.value)}
-                    className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] text-sm rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] block pl-10 p-2.5 appearance-none shadow-sm outline-none transition-colors"
+                    className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] text-sm rounded-[8px] focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] block pl-10 p-2.5 appearance-none  outline-none transition-colors"
                   >
                     {categories.map(c => <option key={c} value={c}>{c === 'All' ? 'All Categories' : c}</option>)}
                   </select>
@@ -814,7 +814,7 @@ export function ProductFinder() {
                   <select
                     value={filterOutlet}
                     onChange={(e) => setFilterOutlet(e.target.value)}
-                    className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] text-sm rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] block p-2.5 appearance-none shadow-sm outline-none transition-colors"
+                    className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] text-sm rounded-[8px] focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] block p-2.5 appearance-none  outline-none transition-colors"
                   >
                     {outlets.map(o => <option key={o} value={o}>{o === 'All' ? 'All Outlets' : o}</option>)}
                   </select>
@@ -829,7 +829,7 @@ export function ProductFinder() {
             {/* Products Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-24">
               {filteredProducts.map((product, idx) => (
-                <div key={idx} className="bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl p-4 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
+                <div key={idx} className="bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] p-4  flex flex-col h-full hover: transition-shadow">
                   <div className="flex-1">
                     <div className="flex justify-between items-start gap-3 mb-3">
                       <h3 className="font-medium text-[#37352F] dark:text-[#EBE9ED] line-clamp-2 text-sm leading-tight">{product.title}</h3>
@@ -837,7 +837,7 @@ export function ProductFinder() {
                         href={product.link} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="p-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] rounded-md transition-colors flex-shrink-0"
+                        className="p-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] rounded-[6px] transition-colors flex-shrink-0"
                         title="View on target website"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -845,15 +845,15 @@ export function ProductFinder() {
                     </div>
                     
                     <div className="flex flex-wrap gap-2 mb-4">
-                      <span className="px-2 py-0.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] text-[11px] font-medium rounded">
+                      <span className="px-2 py-0.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] text-[11px] font-medium rounded">
                         {product.type}
                       </span>
                       {product.categories?.map((cat, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] text-[11px] font-medium rounded">
+                        <span key={i} className="px-2 py-0.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] text-[11px] font-medium rounded">
                           {cat}
                         </span>
                       ))}
-                      <span className="px-2 py-0.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] text-[11px] font-medium rounded">
+                      <span className="px-2 py-0.5 bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] text-[11px] font-medium rounded">
                         {product.outlet || 'Forge Enterprises'}
                       </span>
                     </div>
@@ -887,7 +887,7 @@ export function ProductFinder() {
               ))}
               
               {filteredProducts.length === 0 && (
-                <div className="col-span-full py-16 text-center text-[#787774] dark:text-[#9B9A97] bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div className="col-span-full py-16 text-center text-[#757681] dark:text-[#9B9A97] bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E]">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Filter className="w-6 h-6 text-[#9B9A97] mb-2 opacity-50" />
                     <p className="font-medium text-[#37352F] dark:text-[#EBE9ED] text-sm">No products match your filters</p>

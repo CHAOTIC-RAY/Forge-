@@ -72,8 +72,8 @@ const BentoCard = ({
     <motion.div 
       layout="position"
       className={cn(
-        "bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl overflow-hidden flex flex-col h-full",
-        isExpanded && !isDesktop ? "border-brand dark:border-brand" : "hover:border-[#D9D9D7] dark:hover:border-[#3E3E3E] transition-colors"
+        "bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] overflow-hidden flex flex-col h-full",
+        isExpanded && !isDesktop ? "border-[#2665fd] dark:border-[#2665fd]" : "hover:border-[#D9D9D7] dark:hover:border-[#3E3E3E] transition-colors"
       )}
     >
       <div 
@@ -81,18 +81,18 @@ const BentoCard = ({
         className={cn("p-5 sm:p-6 flex items-center justify-between group", !isDesktop && "cursor-pointer select-none")}
       >
         <div className="flex items-center gap-4">
-          <div className={cn("w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105", iconBg, iconColor)}>
+          <div className={cn("w-12 h-12 sm:w-14 sm:h-14 rounded-[12px] flex items-center justify-center shrink-0 transition-transform group-hover:scale-105", iconBg, iconColor)}>
             {customIcon ? customIcon : <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
           </div>
           <div>
-            <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-base sm:text-lg group-hover:text-brand transition-colors">{title}</h3>
-            <p className="text-xs sm:text-sm text-[#787774] dark:text-[#9B9A97]">{subtitle}</p>
+            <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-base sm:text-lg group-hover:text-[#2665fd] transition-colors">{title}</h3>
+            <p className="text-xs sm:text-sm text-[#757681] dark:text-[#9B9A97]">{subtitle}</p>
           </div>
         </div>
         {!isDesktop && (
           <motion.div 
             animate={{ rotate: isExpanded ? 180 : 0 }} 
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center text-[#787774] dark:text-[#9B9A97] shrink-0"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center text-[#757681] dark:text-[#9B9A97] shrink-0"
           >
             <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
           </motion.div>
@@ -424,27 +424,27 @@ export function SettingsView({
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand/10 rounded-2xl flex items-center justify-center">
-              <Settings className="w-6 h-6 text-brand" />
+            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
+              <Settings className="w-6 h-6 text-[#2665fd]" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] tracking-tight">Settings</h1>
-              <p className="text-sm text-[#787774] dark:text-[#9B9A97] mt-1">Manage your workspace, integrations, and preferences.</p>
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">Manage your workspace, integrations, and preferences.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] mr-2">Data Actions:</span>
-            <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-lg text-xs font-bold transition-colors">
+            <span className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] mr-2">Data Actions:</span>
+            <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
               <Printer className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Print PDF
             </button>
-            <button onClick={() => setDataAction({ type: 'restore' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-lg text-xs font-bold transition-colors">
-              <Upload className="w-3.5 h-3.5 text-[#787774] dark:text-[#9B9A97]" /> Restore JSON
+            <button onClick={() => setDataAction({ type: 'restore' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
+              <Upload className="w-3.5 h-3.5 text-[#757681] dark:text-[#9B9A97]" /> Restore JSON
             </button>
-            <button onClick={() => setDataAction({ type: 'export' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-lg text-xs font-bold transition-colors">
+            <button onClick={() => setDataAction({ type: 'export' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
               <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Export Excel
             </button>
-            <button onClick={() => setDataAction({ type: 'backup' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-lg text-xs font-bold transition-colors">
-              <Save className="w-3.5 h-3.5 text-[#787774] dark:text-[#9B9A97]" /> Backup JSON
+            <button onClick={() => setDataAction({ type: 'backup' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
+              <Save className="w-3.5 h-3.5 text-[#757681] dark:text-[#9B9A97]" /> Backup JSON
             </button>
             <input type="file" accept=".json" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
           </div>
@@ -455,9 +455,9 @@ export function SettingsView({
       <div className="md:hidden grid grid-cols-6 gap-2 mb-8">
         <button 
           onClick={() => setActiveTab?.('home')}
-          className="col-span-3 flex flex-col items-center justify-center p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm active:scale-95 transition-transform"
+          className="col-span-3 flex flex-col items-center justify-center p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
-          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 mb-2">
+          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[16px] flex items-center justify-center text-blue-600 dark:text-blue-400 mb-2">
             <Home className="w-5 h-5" />
           </div>
           <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Home</span>
@@ -465,9 +465,9 @@ export function SettingsView({
         
         <button 
           onClick={() => setActiveTab?.('brandkit')}
-          className="col-span-3 flex flex-col items-center justify-center p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm active:scale-95 transition-transform"
+          className="col-span-3 flex flex-col items-center justify-center p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
-          <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-2">
+          <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-[16px] flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-2">
             <Palette className="w-5 h-5" />
           </div>
           <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] text-center line-clamp-1">{industryConfig?.terminology?.assets || 'Brand Kit'}</span>
@@ -475,9 +475,9 @@ export function SettingsView({
 
         <button 
           onClick={() => setActiveTab?.('creative')}
-          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm active:scale-95 transition-transform"
+          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
-          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center text-purple-600 dark:text-purple-400 mb-1.5">
+          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-[12px] flex items-center justify-center text-purple-600 dark:text-purple-400 mb-1.5">
             <Sparkles className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Studio</span>
@@ -485,9 +485,9 @@ export function SettingsView({
 
         <button 
           onClick={() => setActiveTab?.('analytics')}
-          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm active:scale-95 transition-transform"
+          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
-          <div className="w-8 h-8 bg-pink-100 dark:bg-pink-900/30 rounded-xl flex items-center justify-center text-pink-600 dark:text-pink-400 mb-1.5">
+          <div className="w-8 h-8 bg-pink-100 dark:bg-pink-900/30 rounded-[12px] flex items-center justify-center text-pink-600 dark:text-pink-400 mb-1.5">
             <BarChart3 className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Insights</span>
@@ -495,9 +495,9 @@ export function SettingsView({
 
         <button 
           onClick={() => setActiveTab?.('ideas')}
-          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm active:scale-95 transition-transform"
+          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
-          <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1.5">
+          <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-[12px] flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1.5">
             <Lightbulb className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Ideas</span>
@@ -505,14 +505,14 @@ export function SettingsView({
 
         <button 
           onClick={() => setActiveTab?.('search')}
-          className="col-span-6 flex items-center gap-4 p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm active:scale-[0.98] transition-transform"
+          className="col-span-6 flex items-center gap-4 p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-[0.98] transition-transform"
         >
-          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400">
+          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[16px] flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Database className="w-5 h-5" />
           </div>
           <div className="flex flex-col items-start">
             <span className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Workspace Inventory</span>
-            <span className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Manage your product database</span>
+            <span className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Manage your product database</span>
           </div>
         </button>
       </div>
@@ -529,14 +529,14 @@ export function SettingsView({
           title="Account & App"
           subtitle="Profile, Theme"
           icon={User}
-          customIcon={user?.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover rounded-2xl" /> : null}
+          customIcon={user?.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover rounded-[16px]" /> : null}
           iconBg="bg-indigo-100 dark:bg-indigo-900/30"
           iconColor="text-indigo-600 dark:text-indigo-400"
           expandedId={expandedId}
           onToggle={toggleExpand}
         >
           <div className="space-y-6 pt-4">
-            <div className="p-4 sm:p-5 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <div className="p-4 sm:p-5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[16px] flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
               {!user?.photoURL && (
                 <div className="w-16 h-16 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-300 text-2xl font-bold shrink-0">
                   {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
@@ -549,7 +549,7 @@ export function SettingsView({
                       type="text"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      className="w-full sm:w-auto px-3 py-1.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-lg text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full sm:w-auto px-3 py-1.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-sm outline-none focus:border-[#2665fd]"
                       placeholder="Enter your name"
                       autoFocus
                     />
@@ -557,7 +557,7 @@ export function SettingsView({
                       <button
                         onClick={handleUpdateName}
                         disabled={isUpdatingName}
-                        className="px-3 py-1.5 bg-brand text-white rounded-lg text-xs font-bold hover:bg-brand-hover transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 bg-[#2665fd] text-white rounded-[8px] text-xs font-bold hover:bg-[#2665fd]-hover transition-colors disabled:opacity-50"
                       >
                         {isUpdatingName ? 'Saving...' : 'Save'}
                       </button>
@@ -566,7 +566,7 @@ export function SettingsView({
                           setIsEditingName(false);
                           setNewName(user?.displayName || '');
                         }}
-                        className="px-3 py-1.5 bg-[#E9E9E7] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-lg text-xs font-bold hover:bg-[#D9D9D7] dark:hover:bg-[#3E3E3E] transition-colors"
+                        className="px-3 py-1.5 bg-[#E9E9E7] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold hover:bg-[#D9D9D7] dark:hover:bg-[#3E3E3E] transition-colors"
                       >
                         Cancel
                       </button>
@@ -577,17 +577,17 @@ export function SettingsView({
                     <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{user?.displayName || 'User'}</h3>
                     <button
                       onClick={() => setIsEditingName(true)}
-                      className="text-xs text-brand hover:underline"
+                      className="text-xs text-[#2665fd] hover:underline"
                     >
                       Edit
                     </button>
                   </div>
                 )}
-                <p className="text-sm text-[#787774] dark:text-[#9B9A97]">{user?.email}</p>
+                <p className="text-sm text-[#757681] dark:text-[#9B9A97]">{user?.email}</p>
               </div>
               <button
                 onClick={() => signOut(auth)}
-                className="w-full sm:w-auto px-6 py-2.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-bold hover:bg-red-200 dark:hover:bg-red-900/50 transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-2.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-[12px] text-sm font-bold hover:bg-red-200 dark:hover:bg-red-900/50 transition-all flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
                 Sign Out
@@ -595,21 +595,21 @@ export function SettingsView({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl md:col-span-2">
+              <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] md:col-span-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-gray-600 dark:text-gray-400">
+                  <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-[12px] flex items-center justify-center text-gray-600 dark:text-gray-400">
                     <Moon className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Appearance</h3>
-                    <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Toggle dark mode</p>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Toggle dark mode</p>
                   </div>
                 </div>
                 <button
                   onClick={toggleDarkMode}
                   className={cn(
                     "w-12 h-6 rounded-full transition-colors relative",
-                    isDarkMode ? "bg-brand" : "bg-gray-300 dark:bg-gray-600"
+                    isDarkMode ? "bg-[#2665fd]" : "bg-gray-300 dark:bg-gray-600"
                   )}
                 >
                   <div className={cn(
@@ -619,14 +619,14 @@ export function SettingsView({
                 </button>
               </div>
 
-              <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl md:col-span-2 space-y-4">
+              <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] md:col-span-2 space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-xl flex items-center justify-center text-pink-600 dark:text-pink-400">
+                  <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-[12px] flex items-center justify-center text-pink-600 dark:text-pink-400">
                     <Palette className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Advanced Theme Settings</h3>
-                    <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Choose a visual preset for your workspace</p>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Choose a visual preset for your workspace</p>
                   </div>
                 </div>
                 
@@ -636,10 +636,10 @@ export function SettingsView({
                       key={preset.id}
                       onClick={() => handleThemePresetChange(preset.id)}
                       className={cn(
-                        "p-3 rounded-xl border text-left transition-all group relative overflow-hidden",
+                        "p-3 rounded-[12px] border text-left transition-all group relative overflow-hidden",
                         themePreset === preset.id 
-                          ? "border-brand bg-brand/10 ring-2 ring-brand/20" 
-                          : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50 bg-white dark:bg-[#191919]"
+                          ? "border-[#2665fd] bg-[#2665fd]/10 ring-2 ring-[#2665fd]/20" 
+                          : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-[#2665fd]/50 bg-white dark:bg-[#191919]"
                       )}
                     >
                       <div className="flex gap-1 mb-2">
@@ -650,7 +650,7 @@ export function SettingsView({
                       <h4 className="text-xs font-bold truncate">{preset.name}</h4>
                       {themePreset === preset.id && (
                         <div className="absolute top-2 right-2">
-                          <CheckCircle2 className="w-3 h-3 text-brand" />
+                          <CheckCircle2 className="w-3 h-3 text-[#2665fd]" />
                         </div>
                       )}
                     </button>
@@ -663,14 +663,14 @@ export function SettingsView({
                   if (isInstallable) handleInstallClick();
                   else setIsAddToHomeModalOpen(true);
                 }}
-                className="flex items-center gap-3 p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-all text-left group"
+                className="flex items-center gap-3 p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-all text-left group"
               >
-                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform shrink-0">
+                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-[12px] flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform shrink-0">
                   <Smartphone className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">{isInstallable ? 'Install App' : 'Add to Home Screen'}</h3>
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97]">{isInstallable ? 'Install on device' : 'Access like an app'}</p>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">{isInstallable ? 'Install on device' : 'Access like an app'}</p>
                 </div>
               </button>
 
@@ -682,14 +682,14 @@ export function SettingsView({
                     Notification.requestPermission();
                   }
                 }}
-                className="flex items-center gap-3 p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-all text-left group md:col-span-2"
+                className="flex items-center gap-3 p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-all text-left group md:col-span-2"
               >
-                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform shrink-0">
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-[12px] flex items-center justify-center text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform shrink-0">
                   <Bell className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Notifications</h3>
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Test background alerts</p>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Test background alerts</p>
                 </div>
               </button>
             </div>
@@ -731,40 +731,40 @@ export function SettingsView({
           onToggle={toggleExpand}
         >
           <div className="space-y-4 pt-4">
-            <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl bg-white dark:bg-[#191919]">
+            <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] bg-white dark:bg-[#191919]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                   <Globe className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Google Drive</h3>
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97]">{googleTokens ? 'Connected' : 'Not connected'}</p>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">{googleTokens ? 'Connected' : 'Not connected'}</p>
                 </div>
               </div>
               {googleTokens ? (
-                <button onClick={handleDisconnectGoogleDrive} className="text-xs font-bold text-red-500 hover:text-red-600 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg transition-colors border border-red-100 dark:border-red-900/30">Disconnect</button>
+                <button onClick={handleDisconnectGoogleDrive} className="text-xs font-bold text-red-500 hover:text-red-600 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-[8px] transition-colors border border-red-100 dark:border-red-900/30">Disconnect</button>
               ) : (
-                <button onClick={handleConnectGoogleDrive} className="text-xs font-bold text-white bg-brand hover:bg-brand-hover px-4 py-2 rounded-lg transition-colors">Connect</button>
+                <button onClick={handleConnectGoogleDrive} className="text-xs font-bold text-white bg-[#2665fd] hover:bg-[#2665fd]-hover px-4 py-2 rounded-[8px] transition-colors">Connect</button>
               )}
             </div>
 
-            <div className="p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl flex items-center justify-between">
+            <div className="p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/30 rounded-xl flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+                <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/30 rounded-[12px] flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.5 19.125h-11c-2.48 0-4.5-2.02-4.5-4.5 0-2.28 1.7-4.18 3.92-4.46.68-2.61 3.06-4.54 5.83-4.54 2.22 0 4.15 1.22 5.18 3.02 2.11.23 3.82 2.04 3.82 4.23 0 2.35-1.9 4.25-4.25 4.25z" />
                   </svg>
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Microsoft OneDrive</h3>
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97]">
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">
                     {activeBusiness?.oneDriveCredentials ? 'Connected' : 'Not connected'}
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsOneDriveOpen(true)}
-                className="px-4 py-2 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-xs font-bold rounded-lg transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                className="px-4 py-2 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-xs font-bold rounded-[8px] transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
               >
                 {activeBusiness?.oneDriveCredentials ? 'Manage' : 'Connect'}
               </button>
@@ -794,16 +794,16 @@ export function SettingsView({
           <div className="space-y-6 pt-4">
             <div className="space-y-3">
               <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Preferred AI Provider</label>
-              <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+              <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                 {['auto', 'gemini', 'groq', 'puter'].map((provider) => (
                   <button
                     key={provider}
                     onClick={() => handleAiSettingChange('preferredProvider', provider)}
                     className={cn(
-                      "flex-1 py-2 text-sm font-bold rounded-lg transition-all capitalize",
+                      "flex-1 py-2 text-sm font-bold rounded-[8px] transition-all capitalize",
                       aiSettings.preferredProvider === provider 
-                        ? "bg-white dark:bg-[#2E2E2E] shadow-sm text-[#2383E2]" 
-                        : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                        ? "bg-white dark:bg-[#2E2E2E]  text-[#2383E2]" 
+                        : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                     )}
                   >
                     {provider}
@@ -812,25 +812,25 @@ export function SettingsView({
               </div>
             </div>
 
-            <div className="p-4 sm:p-5 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl">
+            <div className="p-4 sm:p-5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[16px]">
               {aiSettings.preferredProvider === 'gemini' ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Custom Gemini API Key</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Gemini API Key</label>
                     <input 
                       type="password"
                       value={aiSettings.geminiApiKey || ''}
                       onChange={(e) => handleAiSettingChange('geminiApiKey', e.target.value)}
                       placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Gemini Model</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Gemini Model</label>
                     <select 
                       value={aiSettings.geminiModel}
                       onChange={(e) => handleAiSettingChange('geminiModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     >
                       {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -839,23 +839,23 @@ export function SettingsView({
               ) : aiSettings.preferredProvider === 'groq' ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Custom Groq API Key</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Groq API Key</label>
                     <input 
                       type="password"
                       value={aiSettings.groqApiKey || ''}
                       onChange={(e) => handleAiSettingChange('groqApiKey', e.target.value)}
                       placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Groq Model</label>
+                      <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Groq Model</label>
                     </div>
                     <select 
                       value={aiSettings.groqModel}
                       onChange={(e) => handleAiSettingChange('groqModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     >
                       {GROQ_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -864,22 +864,22 @@ export function SettingsView({
               ) : aiSettings.preferredProvider === 'puter' ? (
                 <div className="space-y-4">
                   {!isPuterSignedIn && (
-                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-xl">
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-[12px]">
                       <p className="text-xs text-amber-700 dark:text-amber-400 mb-2 font-medium">Puter.js requires authentication for AI services.</p>
                       <button 
                         onClick={handlePuterSignIn}
-                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors"
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-[8px] text-xs font-bold transition-colors"
                       >
                         Sign in to Puter.js
                       </button>
                     </div>
                   )}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Puter Text Model</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Puter Text Model</label>
                     <select 
                       value={aiSettings.puterTextModel || 'gpt-4o-mini'}
                       onChange={(e) => handleAiSettingChange('puterTextModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     >
                       {PUTER_TEXT_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -887,27 +887,27 @@ export function SettingsView({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97]">
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">
                     Auto mode will automatically select the best provider (Groq for fast text, Gemini for complex reasoning and vision).
                   </p>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Custom Gemini API Key</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Gemini API Key</label>
                     <input 
                       type="password"
                       value={aiSettings.geminiApiKey || ''}
                       onChange={(e) => handleAiSettingChange('geminiApiKey', e.target.value)}
                       placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Custom Groq API Key</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Groq API Key</label>
                     <input 
                       type="password"
                       value={aiSettings.groqApiKey || ''}
                       onChange={(e) => handleAiSettingChange('groqApiKey', e.target.value)}
                       placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     />
                   </div>
                 </div>
@@ -916,23 +916,23 @@ export function SettingsView({
 
             <div className="space-y-3 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
               <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Image Generation API</label>
-              <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+              <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                 {['gemini', 'pollination', 'puter'].map((provider) => (
                   <button
                     key={provider}
                     onClick={() => handleAiSettingChange('imageProvider', provider)}
                     className={cn(
-                      "flex-1 py-2 text-sm font-bold rounded-lg transition-all capitalize",
+                      "flex-1 py-2 text-sm font-bold rounded-[8px] transition-all capitalize",
                       aiSettings.imageProvider === provider 
-                        ? "bg-white dark:bg-[#2E2E2E] shadow-sm text-[#2383E2]" 
-                        : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                        ? "bg-white dark:bg-[#2E2E2E]  text-[#2383E2]" 
+                        : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                     )}
                   >
                     {provider === 'pollination' ? 'Pollination.ai' : provider === 'puter' ? 'Puter.js' : 'Gemini'}
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-[#787774] dark:text-[#9B9A97] mt-2">
+              <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-2">
                 {aiSettings.imageProvider === 'pollination' 
                   ? 'Using Pollination.ai for fast, free image generation.' 
                   : aiSettings.imageProvider === 'puter' ? 'Using Puter.js for image generation.' : 'Using Gemini Flash Image for high-quality, prompt-aligned images.'}
@@ -941,21 +941,21 @@ export function SettingsView({
               {aiSettings.imageProvider === 'pollination' && (
                 <div className="mt-4 space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Pollination.ai API Key (Optional)</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Pollination.ai API Key (Optional)</label>
                     <input 
                       type="password"
                       value={aiSettings.pollinationApiKey || ''}
                       onChange={(e) => handleAiSettingChange('pollinationApiKey', e.target.value)}
                       placeholder="Leave empty to use free tier"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Pollination Model</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Pollination Model</label>
                     <select 
                       value={aiSettings.pollinationModel || 'flux'}
                       onChange={(e) => handleAiSettingChange('pollinationModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     >
                       {POLLINATION_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -966,22 +966,22 @@ export function SettingsView({
               {aiSettings.imageProvider === 'puter' && (
                 <div className="mt-4 space-y-4">
                   {!isPuterSignedIn && (
-                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-xl">
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-[12px]">
                       <p className="text-xs text-amber-700 dark:text-amber-400 mb-2 font-medium">Puter.js requires authentication for AI services.</p>
                       <button 
                         onClick={handlePuterSignIn}
-                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors"
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-[8px] text-xs font-bold transition-colors"
                       >
                         Sign in to Puter.js
                       </button>
                     </div>
                   )}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Puter Image Model</label>
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Puter Image Model</label>
                     <select 
                       value={aiSettings.puterImageModel || 'dall-e-3'}
                       onChange={(e) => handleAiSettingChange('puterImageModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                     >
                       {PUTER_IMAGE_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -1003,7 +1003,7 @@ export function SettingsView({
                 setAiSettings(defaults);
                 toast.success('AI settings reset to defaults');
               }}
-              className="w-full py-3 px-4 border border-[#6074b9] text-[#6074b9] hover:bg-[#6074b9]/10 rounded-xl text-sm font-bold transition-colors"
+              className="w-full py-3 px-4 border border-[#6074b9] text-[#6074b9] hover:bg-[#6074b9]/10 rounded-[12px] text-sm font-bold transition-colors"
             >
               Reset to Defaults
             </button>
@@ -1024,26 +1024,26 @@ export function SettingsView({
           <div className="space-y-6 pt-4">
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Firecrawl API Key</label>
+                <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Firecrawl API Key</label>
                 <input 
                   type="password"
                   value={aiSettings.firecrawlApiKey || ''}
                   onChange={(e) => handleAiSettingChange('firecrawlApiKey', e.target.value)}
                   placeholder="Leave empty to use server default"
-                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                 />
-                <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Used for extracting products and content from websites.</p>
+                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Used for extracting products and content from websites.</p>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Global Target URL</label>
+                <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Global Target URL</label>
                 <input 
                   type="url"
                   value={aiSettings.targetUrl || ''}
                   onChange={(e) => handleAiSettingChange('targetUrl', e.target.value)}
                   placeholder="https://example.com"
-                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-sm outline-none focus:border-[#2665fd]"
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
                 />
-                <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">The default URL used by the whole app for crawling and AI analysis.</p>
+                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">The default URL used by the whole app for crawling and AI analysis.</p>
               </div>
             </div>
           </div>
@@ -1062,14 +1062,14 @@ export function SettingsView({
           <div className="space-y-6 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Instagram Account</label>
+                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Instagram Account</label>
                 <div className="relative group">
                   <input
                     type="url"
                     value={analyticsSettings.instagramUrl}
                     onChange={(e) => handleAnalyticsSettingChange('instagramUrl', e.target.value)}
                     placeholder="https://instagram.com/yourbrand"
-                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] focus:border-[#2665fd] rounded-xl outline-none dark:text-[#EBE9ED] transition-colors text-sm"
+                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] focus:border-[#2665fd] rounded-[12px] outline-none dark:text-[#EBE9ED] transition-colors text-sm"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <div className={cn("w-2 h-2 rounded-full", analyticsSettings.instagramUrl ? "bg-green-500" : "bg-gray-300")} />
@@ -1077,14 +1077,14 @@ export function SettingsView({
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#787774] dark:text-[#9B9A97]">Facebook Account</label>
+                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Facebook Account</label>
                 <div className="relative group">
                   <input
                     type="url"
                     value={analyticsSettings.facebookUrl}
                     onChange={(e) => handleAnalyticsSettingChange('facebookUrl', e.target.value)}
                     placeholder="https://facebook.com/yourbrand"
-                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] focus:border-[#2665fd] rounded-xl outline-none dark:text-[#EBE9ED] transition-colors text-sm"
+                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] focus:border-[#2665fd] rounded-[12px] outline-none dark:text-[#EBE9ED] transition-colors text-sm"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <div className={cn("w-2 h-2 rounded-full", analyticsSettings.facebookUrl ? "bg-green-500" : "bg-gray-300")} />
@@ -1093,9 +1093,9 @@ export function SettingsView({
               </div>
             </div>
             
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl flex items-center justify-between">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-[16px] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
@@ -1110,7 +1110,7 @@ export function SettingsView({
                   checked={analyticsSettings.autoRunAnalytics}
                   onChange={(e) => handleAnalyticsSettingChange('autoRunAnalytics', e.target.checked)}
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-brand"></div>
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-[#2665fd]"></div>
               </label>
             </div>
           </div>
@@ -1132,11 +1132,11 @@ export function SettingsView({
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] border-b border-[#E9E9E7] dark:border-[#2E2E2E] pb-2">Product Data</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button onClick={() => setIsExcelImportModalOpen(true)} className="flex flex-col items-center justify-center p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-all text-center group">
+                <button onClick={() => setIsExcelImportModalOpen(true)} className="flex flex-col items-center justify-center p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-all text-center group">
                   <FileSpreadsheet className="w-4 h-4 mb-1.5 text-green-600 dark:text-green-400" />
                   <span className="text-[10px] font-bold">AI Excel Import</span>
                 </button>
-                <button onClick={handleAutoCategorizeAll} disabled={isAutoCategorizing} className="flex flex-col items-center justify-center p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-all text-center group disabled:opacity-50">
+                <button onClick={handleAutoCategorizeAll} disabled={isAutoCategorizing} className="flex flex-col items-center justify-center p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-all text-center group disabled:opacity-50">
                   {isAutoCategorizing ? <ForgeLoader size={16} className="mb-1.5" /> : <Sparkles className="w-4 h-4 mb-1.5 text-purple-600 dark:text-purple-400" />}
                   <span className="text-[10px] font-bold">Categorize</span>
                 </button>
@@ -1177,7 +1177,7 @@ export function SettingsView({
                       toast.success('Schedule reset successfully');
                     }
                   })}
-                  className="flex items-center justify-center gap-2 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-xs font-bold"
+                  className="flex items-center justify-center gap-2 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-[12px] hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-xs font-bold"
                 >
                   <Trash2 className="w-4 h-4" /> Reset Schedule
                 </button>
@@ -1192,7 +1192,7 @@ export function SettingsView({
                       setTimeout(() => window.location.reload(), 1000);
                     }
                   })}
-                  className="flex items-center justify-center gap-2 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-xs font-bold"
+                  className="flex items-center justify-center gap-2 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-[12px] hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-xs font-bold"
                 >
                   <RefreshCw className="w-4 h-4" /> Reset Tracker
                 </button>
@@ -1205,7 +1205,7 @@ export function SettingsView({
                       toast.success('All products cleared.');
                     }
                   })}
-                  className="flex items-center justify-center gap-2 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-xs font-bold"
+                  className="flex items-center justify-center gap-2 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-[12px] hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-xs font-bold"
                 >
                   <Trash2 className="w-4 h-4" /> Clear Products
                 </button>
@@ -1226,7 +1226,7 @@ export function SettingsView({
           onToggle={toggleExpand}
         >
           <div className="pt-4">
-            <div className="bg-[#F7F7F5] dark:bg-[#202020] rounded-xl overflow-hidden flex flex-col h-64 border border-[#E9E9E7] dark:border-[#2E2E2E]">
+            <div className="bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] overflow-hidden flex flex-col h-64 border border-[#E9E9E7] dark:border-[#2E2E2E]">
               <div className="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-[11px] sm:text-xs">
                 {syncLogs.length === 0 ? (
                   <div className="text-[#9B9A97] italic">No sync activity yet...</div>
@@ -1259,21 +1259,21 @@ export function SettingsView({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-[#191919] rounded-2xl p-6 w-full max-w-sm border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-xl"
+              className="bg-white dark:bg-[#191919] rounded-[16px] p-6 w-full max-w-sm border border-[#E9E9E7] dark:border-[#2E2E2E] "
             >
               <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2">
                 {dataAction.type === 'restore' ? 'Restore JSON' : dataAction.type === 'export' ? 'Export Excel' : 'Backup JSON'}
               </h3>
-              <p className="text-sm text-[#787774] dark:text-[#9B9A97] mb-6">Select which data you want to {dataAction.type}.</p>
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mb-6">Select which data you want to {dataAction.type}.</p>
               <div className="space-y-3">
-                <button onClick={() => handleDataActionSelect('schedule')} className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors">
+                <button onClick={() => handleDataActionSelect('schedule')} className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors">
                   Calendar Schedule
                 </button>
-                <button onClick={() => handleDataActionSelect('product')} className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors">
+                <button onClick={() => handleDataActionSelect('product')} className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors">
                   Product Database
                 </button>
               </div>
-              <button onClick={() => setDataAction({ type: null })} className="mt-6 w-full p-3 text-[#787774] dark:text-[#9B9A97] font-bold hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-xl transition-colors">
+              <button onClick={() => setDataAction({ type: null })} className="mt-6 w-full p-3 text-[#757681] dark:text-[#9B9A97] font-bold hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[12px] transition-colors">
                 Cancel
               </button>
             </motion.div>

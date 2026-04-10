@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { AutoSuggest } from '../AutoSuggest';
 import { ForgeLoader } from '../ForgeLoader';
 import { X, Upload, Image as ImageIcon, Trash2, Wand2, MessageSquare, Send, Share2, CheckCircle2, AlertCircle, Clock, Repeat, BarChart3, Palette, Sparkles, Hash } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
@@ -36,6 +37,7 @@ interface PostModalProps {
   posts: Post[];
   dbMode?: 'product' | 'info';
 }
+
 
 export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelete, readOnly = false, user, googleTokens, initialProducts, activeBusiness, posts, dbMode = 'product' }: PostModalProps) {
   const [formData, setFormData] = useState<Partial<Post>>({});
@@ -468,15 +470,15 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6">
-      <div className="bg-white dark:bg-[#191919] rounded-xl shadow-xl border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* Header */}
         <div className="flex justify-between items-center p-4 sm:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
           <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">
             {post ? 'Edit Post' : 'New Post'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-full transition-colors">
-            <X className="w-5 h-5 text-[#787774] dark:text-[#9B9A97]" />
+          <button onClick={onClose} className="p-2 hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-[8px] transition-colors">
+            <X className="w-5 h-5 text-[#757681]" />
           </button>
         </div>
 
@@ -486,7 +488,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97] mb-1">Date</label>
+                <label className="block text-sm font-medium text-[#757681] mb-1">Date</label>
                 <input
                   type="date"
                   name="date"
@@ -494,48 +496,41 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   disabled={readOnly}
                   value={formData.date || ''}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
+                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97] mb-1">{workspaceTitles.outlet}</label>
-                <select
-                  name="outlet"
-                  disabled={readOnly}
-                  value={formData.outlet || ''}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
-                >
-                  {(workspaceCategories.filter(c => c.type === 'outlet').length > 0 
+              <AutoSuggest
+                name="outlet"
+                label={workspaceTitles.outlet}
+                value={formData.outlet || ''}
+                disabled={readOnly}
+                onChange={(val) => setFormData(prev => ({ ...prev, outlet: val }))}
+                options={[
+                  ...(workspaceCategories.filter(c => c.type === 'outlet').length > 0 
                     ? workspaceCategories.filter(c => c.type === 'outlet').map(c => c.name) 
-                    : OUTLETS).map(outlet => (
-                    <option key={outlet} value={outlet}>{outlet}</option>
-                  ))}
-                  <option value="All Outlets">All Outlets</option>
-                </select>
-              </div>
+                    : OUTLETS),
+                  'All Outlets'
+                ]}
+                placeholder="Select or type outlet..."
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97] mb-1">{workspaceTitles.category}</label>
-                <select
-                  name="productCategory"
-                  disabled={readOnly}
-                  value={formData.productCategory || ''}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
-                >
-                  <option value="">Select a category</option>
-                  {(workspaceCategories.filter(c => c.type === 'category').length > 0 
+              <AutoSuggest
+                name="productCategory"
+                label={workspaceTitles.category}
+                value={formData.productCategory || ''}
+                disabled={readOnly}
+                onChange={(val) => setFormData(prev => ({ ...prev, productCategory: val }))}
+                options={
+                  workspaceCategories.filter(c => c.type === 'category').length > 0 
                     ? workspaceCategories.filter(c => c.type === 'category').map(c => c.name) 
-                    : PRODUCT_CATEGORIES).map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
+                    : PRODUCT_CATEGORIES
+                }
+                placeholder="Select or type category..."
+              />
               <div>
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97] mb-1">Link (Optional)</label>
+                <label className="block text-sm font-medium text-[#757681] mb-1">Link (Optional)</label>
                 <input
                   type="text"
                   name="link"
@@ -543,46 +538,40 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   placeholder="e.g. https://example.com/..."
                   value={formData.link || ''}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
+                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97] mb-1">{workspaceTitles.type}</label>
-                <select
-                  name="type"
-                  disabled={readOnly}
-                  value={formData.type || ''}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
-                >
-                  {(workspaceCategories.filter(c => c.type === 'type').length > 0 
+              <AutoSuggest
+                name="type"
+                label={workspaceTitles.type}
+                value={formData.type || ''}
+                disabled={readOnly}
+                onChange={(val) => setFormData(prev => ({ ...prev, type: val }))}
+                options={
+                  workspaceCategories.filter(c => c.type === 'type').length > 0 
                     ? workspaceCategories.filter(c => c.type === 'type').map(c => c.name) 
-                    : ['Post', 'Reel', 'Story']).map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97] mb-1">{workspaceTitles.campaign}</label>
-                <select
-                  name="campaignType"
-                  disabled={readOnly}
-                  value={formData.campaignType || 'Non-Boosted'}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
-                >
-                  {(workspaceCategories.filter(c => c.type === 'campaign').length > 0 
+                    : ['Post', 'Reel', 'Story']
+                }
+                placeholder="Select or type format..."
+              />
+              <AutoSuggest
+                name="campaignType"
+                label={workspaceTitles.campaign}
+                value={formData.campaignType || 'Non-Boosted'}
+                disabled={readOnly}
+                onChange={(val) => setFormData(prev => ({ ...prev, campaignType: val }))}
+                options={
+                  workspaceCategories.filter(c => c.type === 'campaign').length > 0 
                     ? workspaceCategories.filter(c => c.type === 'campaign').map(c => c.name) 
-                    : ['Non-Boosted', 'Boosted', 'Campaign']).map(camp => (
-                    <option key={camp} value={camp}>{camp}</option>
-                  ))}
-                </select>
-              </div>
+                    : ['Non-Boosted', 'Boosted', 'Campaign']
+                }
+                placeholder="Select or type campaign..."
+              />
               <div>
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97] mb-2">Content Format</label>
+                <label className="block text-sm font-medium text-[#757681] mb-2">Content Format</label>
                 <div className="flex flex-wrap gap-2">
                   {['Post', 'Reel', 'Story'].map((format) => (
                     <button
@@ -597,10 +586,10 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                         setFormData(prev => ({ ...prev, contentFormats: next }));
                       }}
                       className={cn(
-                        "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                        "px-3 py-1.5 rounded-[8px] text-xs font-medium border transition-all",
                         (formData.contentFormats || []).includes(format as any)
-                          ? "bg-[#2383E2] border-[#2383E2] text-white"
-                          : "bg-[#F7F7F5] dark:bg-[#202020] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] hover:border-[#2383E2]"
+                          ? "bg-[#2665fd] border-[#2665fd] text-white"
+                          : "bg-[#F7F7F5] dark:bg-[#202020] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681] hover:border-[#2665fd]"
                       )}
                     >
                       {format}
@@ -612,7 +601,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
 
             {formData.campaignType?.toLowerCase() === 'campaign' && (
               <div>
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97] mb-1">Campaign Name</label>
+                <label className="block text-sm font-medium text-[#757681] mb-1">Campaign Name</label>
                 <input
                   type="text"
                   name="campaignName"
@@ -620,21 +609,21 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   value={formData.campaignName || ''}
                   onChange={handleChange}
                   placeholder="Enter campaign name..."
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
+                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
                 />
               </div>
             )}
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97]">Title</label>
+                <label className="block text-sm font-medium text-[#757681]">Title</label>
                 {!readOnly && (
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={handleSmartGenerate}
                       disabled={isGeneratingContent}
-                      className="flex items-center gap-1 text-xs font-medium text-[#2383E2] hover:text-[#1D6EB8] disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1 text-xs font-medium text-[#2665fd] hover:text-[#1e52d0] disabled:opacity-50 transition-colors"
                     >
                       <Wand2 className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
                       {isGeneratingContent ? 'Generating...' : 'Smart AI Generate'}
@@ -650,19 +639,19 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 value={formData.title || ''}
                 onChange={handleChange}
                 placeholder="e.g. NEW TILES JUST LANDED"
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
+                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97]">Graphic Brief</label>
+                <label className="block text-sm font-medium text-[#757681]">Graphic Brief</label>
                 {!readOnly && (
                   <button
                     type="button"
                     onClick={handleSmartBrief}
                     disabled={isGeneratingContent}
-                    className="flex items-center gap-1 text-xs font-medium text-[#2383E2] hover:text-[#1D6EB8] disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1 text-xs font-medium text-[#2665fd] hover:text-[#1e52d0] disabled:opacity-50 transition-colors"
                   >
                     <Sparkles className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
                     Smart Brief
@@ -676,17 +665,17 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 value={formData.brief || ''}
                 onChange={handleChange}
                 placeholder="Instructions for the designer..."
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none resize-none transition-colors disabled:opacity-70"
+                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none resize-none transition-colors disabled:opacity-70"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97]">Caption</label>
+                <label className="block text-sm font-medium text-[#757681]">Caption</label>
                 {!readOnly && (
                   <div className="flex items-center gap-2">
                     <select
-                      className="text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] rounded-lg px-2 py-1 outline-none"
+                      className="text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] px-2 py-1 outline-none text-[#37352F] dark:text-[#EBE9ED]"
                       onChange={(e) => setFormData(prev => ({ ...prev, framework: e.target.value as any }))}
                       value={formData.framework || 'AIDA'}
                     >
@@ -710,7 +699,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                         }
                       }}
                       disabled={isGeneratingContent}
-                      className="flex items-center gap-1 text-xs font-medium text-[#2383E2] hover:text-[#1D6EB8] disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1 text-xs font-medium text-[#2665fd] hover:text-[#1e52d0] disabled:opacity-50 transition-colors"
                     >
                       <Wand2 className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
                       Generate with Framework
@@ -725,19 +714,19 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 value={formData.caption || ''}
                 onChange={handleChange}
                 placeholder="Write your post caption here..."
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none resize-none transition-colors disabled:opacity-70"
+                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none resize-none transition-colors disabled:opacity-70"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97]">Hashtags</label>
+                <label className="block text-sm font-medium text-[#757681]">Hashtags</label>
                 {!readOnly && (
                   <button
                     type="button"
                     onClick={handleGenerateHashtags}
                     disabled={isGeneratingHashtags || !formData.caption}
-                    className="flex items-center gap-1 text-xs font-medium text-[#2383E2] hover:text-[#1D6EB8] disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1 text-xs font-medium text-[#2665fd] hover:text-[#1e52d0] disabled:opacity-50 transition-colors"
                   >
                     {isGeneratingHashtags ? <ForgeLoader size={12} /> : <Hash className="w-3 h-3" />}
                     Suggest Hashtags
@@ -751,7 +740,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 value={formData.hashtags || ''}
                 onChange={handleChange}
                 placeholder="#ForgeEnterprises #Maldives"
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] focus:border-[#2383E2] outline-none transition-colors disabled:opacity-70"
+                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
               />
             </div>
 
@@ -761,7 +750,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 {/* Approval Status */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#787774] dark:text-[#9B9A97]" />
+                    <CheckCircle2 className="w-4 h-4 text-[#757681]" />
                     <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Approval Status</h3>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -772,12 +761,12 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                         disabled={readOnly || (!isAdmin && status !== 'pending')}
                         onClick={() => setFormData(prev => ({ ...prev, approvalStatus: status }))}
                         className={cn(
-                          "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                          "px-3 py-1.5 rounded-[8px] text-xs font-medium border transition-all",
                           formData.approvalStatus === status
                             ? status === 'approved' ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
                               : status === 'rejected' ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
                               : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
-                            : "bg-white dark:bg-[#191919] text-[#787774] border-[#E9E9E7] dark:border-[#2E2E2E] hover:bg-[#F7F7F5]"
+                            : "bg-white dark:bg-[#191919] text-[#757681] border-[#E9E9E7] dark:border-[#2E2E2E] hover:bg-[#F7F7F5]"
                         )}
                       >
                         {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -789,7 +778,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       placeholder="Add approval note..."
                       value={formData.approvalNote || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, approvalNote: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] rounded-lg focus:ring-2 focus:ring-[#2383E2] outline-none resize-none"
+                      className="w-full px-3 py-2 text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] outline-none resize-none"
                       rows={2}
                     />
                   )}
@@ -798,7 +787,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 {/* Target Platforms */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Share2 className="w-4 h-4 text-[#787774] dark:text-[#9B9A97]" />
+                    <Share2 className="w-4 h-4 text-[#757681]" />
                     <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Target Platforms</h3>
                   </div>
                   <div className="flex flex-wrap gap-3">
@@ -815,9 +804,9 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                               : current.filter(p => p !== platform);
                             setFormData(prev => ({ ...prev, platforms: updated }));
                           }}
-                          className="w-4 h-4 rounded border-[#E9E9E7] dark:border-[#2E2E2E] text-[#2383E2] focus:ring-[#2383E2]"
+                          className="w-4 h-4 rounded border-[#E9E9E7] dark:border-[#2E2E2E] text-[#2665fd] focus:ring-[#2665fd]"
                         />
-                        <span className="text-xs font-medium text-[#37352F] dark:text-[#EBE9ED] group-hover:text-[#2383E2] transition-colors capitalize">
+                        <span className="text-xs font-medium text-[#37352F] dark:text-[#EBE9ED] group-hover:text-[#2665fd] transition-colors capitalize">
                           {platform}
                         </span>
                       </label>
@@ -831,7 +820,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   {/* Scheduling */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-[#787774] dark:text-[#9B9A97]" />
+                      <Clock className="w-4 h-4 text-[#757681]" />
                       <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Schedule Publish</h3>
                     </div>
                     <input
@@ -839,7 +828,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       disabled={readOnly}
                       value={formData.scheduledTime || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value, publishStatus: e.target.value ? 'scheduled' : 'draft' }))}
-                      className="w-full px-3 py-2 text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg focus:ring-2 focus:ring-[#2383E2] outline-none"
+                      className="w-full px-3 py-2 text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] outline-none"
                     />
                   </div>
                 </div>
@@ -848,7 +837,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               {/* Publish Status Banner */}
               {formData.publishStatus && formData.publishStatus !== 'draft' && (
                 <div className={cn(
-                  "p-3 rounded-lg flex items-center gap-3 text-xs font-medium",
+                  "p-3 rounded-[8px] flex items-center gap-3 text-xs font-medium",
                   formData.publishStatus === 'published' ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
                     : formData.publishStatus === 'failed' ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
                     : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
@@ -858,7 +847,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     <p className="capitalize">{formData.publishStatus}: {formData.publishedAt ? `Published on ${new Date(formData.publishedAt).toLocaleString()}` : formData.publishError || 'Waiting for scheduled time'}</p>
                   </div>
                   {formData.publishStatus === 'failed' && !readOnly && (
-                    <button onClick={handlePublish} className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">Retry</button>
+                    <button onClick={handlePublish} className="px-3 py-1 bg-red-600 text-white rounded-[6px] hover:bg-red-700 transition-colors">Retry</button>
                   )}
                 </div>
               )}
@@ -867,7 +856,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
             {/* Image Upload Zone */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-[#787774] dark:text-[#9B9A97]">Media</label>
+                <label className="block text-sm font-medium text-[#757681]">Media</label>
                 {!readOnly && (
                   <div className="flex items-center gap-3">
                     <button
@@ -886,7 +875,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                 {formData.images?.map((img, idx) => (
-                  <div key={idx} className="relative aspect-[4/5] rounded-lg overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] group cursor-pointer" onClick={() => setEnlargedImage(img)}>
+                  <div key={idx} className="relative aspect-[4/5] rounded-[8px] overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] group cursor-pointer" onClick={() => setEnlargedImage(img)}>
                     <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                     {!readOnly && (
                       <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -939,7 +928,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 ))}
                 
                 {!readOnly && (
-                  <label className="aspect-[4/5] rounded-lg border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-[#2383E2] dark:hover:border-[#1D6EB8] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] transition-colors flex flex-col items-center justify-center cursor-pointer text-[#787774] dark:text-[#9B9A97] hover:text-[#2383E2] dark:hover:text-[#1D6EB8]">
+                  <label className="aspect-[4/5] rounded-[8px] border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-[#2665fd] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] transition-colors flex flex-col items-center justify-center cursor-pointer text-[#757681] hover:text-[#2665fd]">
                     <Upload className="w-6 h-6 mb-2" />
                     <span className="text-xs font-medium">Upload</span>
                     <input
@@ -960,7 +949,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 <div className="pt-6 border-t border-[#E9E9E7] dark:border-[#2E2E2E] space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-[#787774] dark:text-[#9B9A97]" />
+                      <BarChart3 className="w-4 h-4 text-[#757681]" />
                       <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Post Analytics</h3>
                     </div>
                     <div className="flex gap-2">
@@ -969,7 +958,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                           type="button"
                           onClick={() => handleFetchAnalytics('instagram')}
                           disabled={isFetchingAnalytics}
-                          className="text-[10px] font-bold text-[#2383E2] hover:underline disabled:opacity-50"
+                          className="text-[10px] font-bold text-[#2665fd] hover:underline disabled:opacity-50"
                         >
                           Update Instagram
                         </button>
@@ -979,7 +968,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                           type="button"
                           onClick={() => handleFetchAnalytics('facebook')}
                           disabled={isFetchingAnalytics}
-                          className="text-[10px] font-bold text-[#2383E2] hover:underline disabled:opacity-50"
+                          className="text-[10px] font-bold text-[#2665fd] hover:underline disabled:opacity-50"
                         >
                           Update Facebook
                         </button>
@@ -989,21 +978,21 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
 
                   {formData.analytics ? (
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
-                        <p className="text-[10px] font-bold text-[#9B9A97] uppercase mb-1">Reach</p>
+                      <div className="p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
+                        <p className="text-[10px] font-bold text-[#757681] uppercase mb-1">Reach</p>
                         <p className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{formData.analytics.reach?.toLocaleString() || '0'}</p>
                       </div>
-                      <div className="p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
-                        <p className="text-[10px] font-bold text-[#9B9A97] uppercase mb-1">Engagement</p>
+                      <div className="p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
+                        <p className="text-[10px] font-bold text-[#757681] uppercase mb-1">Engagement</p>
                         <p className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{formData.analytics.engagement?.toLocaleString() || '0'}</p>
                       </div>
-                      <div className="p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
-                        <p className="text-[10px] font-bold text-[#9B9A97] uppercase mb-1">Likes</p>
+                      <div className="p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
+                        <p className="text-[10px] font-bold text-[#757681] uppercase mb-1">Likes</p>
                         <p className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{formData.analytics.likes?.toLocaleString() || '0'}</p>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-[#9B9A97] italic">No analytics data yet. Click update to fetch from Meta.</p>
+                    <p className="text-xs text-[#757681] italic">No analytics data yet. Click update to fetch from Meta.</p>
                   )}
                 </div>
               )}
@@ -1012,16 +1001,16 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
             <div className="pt-6 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-[#787774] dark:text-[#9B9A97]" />
+                  <MessageSquare className="w-4 h-4 text-[#757681]" />
                   <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Comments</h3>
                 </div>
-                <div className="flex bg-[#F7F7F5] dark:bg-[#2E2E2E] p-1 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div className="flex bg-[#F7F7F5] dark:bg-[#2E2E2E] p-1 rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                   <button 
                     type="button"
                     onClick={() => setCommentView('list')}
                     className={cn(
-                      "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
-                      commentView === 'list' ? "bg-white dark:bg-[#191919] shadow-sm text-[#37352F] dark:text-[#EBE9ED]" : "text-[#787774]"
+                      "px-2 py-1 text-[10px] font-bold rounded-[6px] transition-all",
+                      commentView === 'list' ? "bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681]"
                     )}
                   >
                     List
@@ -1030,8 +1019,8 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     type="button"
                     onClick={() => setCommentView('time')}
                     className={cn(
-                      "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
-                      commentView === 'time' ? "bg-white dark:bg-[#191919] shadow-sm text-[#37352F] dark:text-[#EBE9ED]" : "text-[#787774]"
+                      "px-2 py-1 text-[10px] font-bold rounded-[6px] transition-all",
+                      commentView === 'time' ? "bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681]"
                     )}
                   >
                     Time
@@ -1053,7 +1042,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                           {comment.userPhoto ? (
                             <img src={comment.userPhoto} alt={comment.userName} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[#787774]">
+                            <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[#757681]">
                               {comment.userName.charAt(0)}
                             </div>
                           )}
@@ -1063,7 +1052,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">{comment.userName}</span>
                               {commentView === 'time' && (
-                                <span className="text-[10px] text-[#9B9A97]">{format(new Date(comment.createdAt), 'HH:mm')}</span>
+                                <span className="text-[10px] text-[#757681]">{format(new Date(comment.createdAt), 'HH:mm')}</span>
                               )}
                             </div>
                             {isAdmin && (
@@ -1096,13 +1085,13 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       }
                     }}
                     placeholder="Add a comment..."
-                    className="flex-1 px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-lg text-sm focus:ring-2 focus:ring-[#2383E2] outline-none"
+                    className="flex-1 px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-sm focus:ring-2 focus:ring-[#2665fd] outline-none"
                   />
                   <button
                     type="button"
                     onClick={handleCommentSubmit}
                     disabled={isSubmittingComment || !newComment.trim()}
-                    className="p-2 bg-[#2383E2] text-white rounded-lg hover:bg-[#1D6EB8] disabled:opacity-50 transition-colors"
+                    className="p-2 bg-[#2665fd] text-white rounded-[8px] hover:bg-[#1e52d0] disabled:opacity-50 transition-colors"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -1121,7 +1110,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 onDelete(post.id);
                 onClose();
               }}
-              className="flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium text-sm"
+              className="flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[8px] transition-colors font-medium text-sm"
             >
               <Trash2 className="w-4 h-4" />
               Delete
@@ -1134,7 +1123,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] bg-white dark:bg-[#191919] rounded-lg transition-colors font-medium text-sm border border-[#E9E9E7] dark:border-[#2E2E2E]"
+              className="px-4 py-2 text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] bg-white dark:bg-[#191919] rounded-[8px] transition-colors font-medium text-sm border border-[#E9E9E7] dark:border-[#2E2E2E]"
             >
               {readOnly ? 'Close' : 'Cancel'}
             </button>
@@ -1142,7 +1131,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               <button
                 type="submit"
                 form="post-form"
-                className="px-6 py-2 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
+                className="px-6 py-2 bg-[#2665fd] hover:bg-[#1e52d0] text-white rounded-[8px] transition-colors font-medium text-sm"
               >
                 Save Post
               </button>
@@ -1160,11 +1149,11 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               <img 
                 src={enlargedImage} 
                 alt="Enlarged" 
-                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                className="max-w-full max-h-full object-contain rounded-[12px]"
               />
               <button 
                 onClick={() => setEnlargedImage(null)}
-                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-[8px] transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>

@@ -159,7 +159,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
           <h2 className="text-3xl font-black text-[#37352F] dark:text-[#EBE9ED] tracking-tight">
             {greeting || `Welcome back, ${user?.displayName || 'User'}`}
           </h2>
-          <p className="text-base text-[#787774] dark:text-[#9B9A97]">
+          <p className="text-base text-[#757681] dark:text-[#9B9A97]">
             {activeBusiness ? `Managing workspace: ${activeBusiness.name}` : "Here's what's happening with your brand today."}
           </p>
         </motion.div>
@@ -167,7 +167,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
         {isAdmin && (
           <button 
             onClick={onAddPost}
-            className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-2xl text-sm font-bold hover:bg-brand-hover transition-all shadow-lg shadow-brand/20 active:scale-95 shrink-0"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#2665fd] text-white rounded-[8px] text-sm font-bold hover:bg-[#1e52d0] transition-all active:scale-95 shrink-0 min-h-[44px]"
           >
             <Plus className="w-5 h-5" />
             Create Post
@@ -175,7 +175,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
         )}
       </div>
 
-      {/* Quick Stats - Square on Mobile */}
+      {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, index) => (
           <motion.div
@@ -183,13 +183,13 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] p-4 md:p-5 rounded-3xl shadow-sm flex flex-col justify-between aspect-square md:aspect-auto md:gap-4 hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] p-4 md:p-5 rounded-[12px] flex flex-col justify-between md:gap-4 transition-colors hover:border-[#2665fd]/50"
           >
-            <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center", stat.bg)}>
+            <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-[8px] flex items-center justify-center mb-2 md:mb-0", stat.bg)}>
               <stat.icon className={cn("w-5 h-5 md:w-6 md:h-6", stat.color)} />
             </div>
             <div className="flex flex-col">
-              <span className="text-[9px] md:text-[10px] font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest">
+              <span className="text-[9px] md:text-[10px] font-bold text-[#757681] uppercase tracking-widest">
                 {stat.label}
               </span>
               <span className="text-xl md:text-2xl font-black text-[#37352F] dark:text-[#EBE9ED]">
@@ -208,11 +208,11 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 + idx * 0.1 }}
-            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm overflow-hidden"
+            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] overflow-hidden"
           >
             <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-[#F7F7F5]/30 dark:bg-[#2E2E2E]/30">
               <div className="flex items-center gap-3">
-                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", platform.bg)}>
+                <div className={cn("w-10 h-10 rounded-[8px] flex items-center justify-center", platform.bg)}>
                   <platform.icon className={cn("w-5 h-5", platform.color)} />
                 </div>
                 <h3 className="font-black text-base">{platform.platform} Insights</h3>
@@ -222,7 +222,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             <div className="p-5 grid grid-cols-3 gap-4">
               {platform.metrics.map((metric) => (
                 <div key={metric.label} className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1.5 text-[#787774] dark:text-[#9B9A97]">
+                  <div className="flex items-center gap-1.5 text-[#757681]">
                     <metric.icon className="w-3 h-3" />
                     <span className="text-[10px] font-bold uppercase tracking-wider">{metric.label}</span>
                   </div>
@@ -241,18 +241,18 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm overflow-hidden h-full flex flex-col"
+            className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] overflow-hidden h-full flex flex-col"
           >
             <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-[#F7F7F5]/50 dark:bg-[#2E2E2E]/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                  <CalendarIcon className="w-5 h-5 text-[#2383E2]" />
+                <div className="w-10 h-10 rounded-[8px] bg-[#2665fd]/10 flex items-center justify-center">
+                  <CalendarIcon className="w-5 h-5 text-[#2665fd]" />
                 </div>
                 <h3 className="font-black text-lg">Today's Schedule</h3>
               </div>
               <button 
                 onClick={() => setActiveTab('schedule')}
-                className="px-4 py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl text-xs font-bold text-[#2383E2] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center gap-2 shadow-sm"
+                className="px-4 py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-xs font-bold text-[#2665fd] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center gap-2 min-h-[44px]"
               >
                 View Calendar <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -261,19 +261,19 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
               {todayPosts.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {todayPosts.map(post => (
-                    <div key={post.id} className="flex items-center gap-4 p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-2xl border border-[#E9E9E7] dark:border-[#3E3E3E] hover:border-[#2383E2] transition-colors group cursor-pointer">
-                      <div className="w-16 h-16 rounded-xl bg-white dark:bg-[#1E1E1E] flex items-center justify-center border border-[#E9E9E7] dark:border-[#3E3E3E] shrink-0 overflow-hidden shadow-sm">
+                    <div key={post.id} className="flex items-center gap-4 p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[12px] border border-[#E9E9E7] dark:border-[#3E3E3E] hover:border-[#2665fd] transition-colors group cursor-pointer">
+                      <div className="w-16 h-16 rounded-[8px] bg-white dark:bg-[#1E1E1E] flex items-center justify-center border border-[#E9E9E7] dark:border-[#3E3E3E] shrink-0 overflow-hidden">
                         {post.images && post.images[0] ? (
                           <img src={post.images[0]} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <MessageSquare className="w-6 h-6 text-[#787774]" />
+                          <MessageSquare className="w-6 h-6 text-[#757681]" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-black truncate group-hover:text-[#2383E2] transition-colors">{post.title}</h4>
-                        <p className="text-xs text-[#787774] dark:text-[#9B9A97] line-clamp-2 mt-1">{post.caption}</p>
+                        <h4 className="text-sm font-black truncate group-hover:text-[#2665fd] transition-colors">{post.title}</h4>
+                        <p className="text-xs text-[#757681] line-clamp-2 mt-1">{post.caption}</p>
                         <div className="flex items-center gap-1.5 mt-2">
-                           <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                           <CheckCircle2 className="w-3 h-3 text-green-500" />
                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">Scheduled for Today</span>
                         </div>
                       </div>
@@ -282,15 +282,15 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center h-full">
-                  <div className="w-20 h-20 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-full flex items-center justify-center mb-4">
-                    <CalendarIcon className="w-10 h-10 text-[#787774]/30" />
+                  <div className="w-20 h-20 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[8px] flex items-center justify-center mb-4">
+                    <CalendarIcon className="w-10 h-10 text-[#757681]/30" />
                   </div>
                   <h4 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2">Clear Schedule</h4>
-                  <p className="text-sm text-[#787774] dark:text-[#9B9A97] max-w-xs mx-auto mb-6">No posts scheduled for today. Use the AI Studio to generate some fresh content!</p>
+                  <p className="text-sm text-[#757681] max-w-xs mx-auto mb-6">No posts scheduled for today. Use the AI Studio to generate some fresh content!</p>
                   {isAdmin && (
                     <button 
                       onClick={onAddPost}
-                      className="px-6 py-3 bg-[#2383E2] text-white rounded-2xl text-sm font-bold hover:bg-[#1D6EB8] transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                      className="px-6 py-3 bg-[#2665fd] text-white rounded-[8px] text-sm font-bold hover:bg-[#1e52d0] transition-all flex items-center gap-2 min-h-[44px]"
                     >
                       <Plus className="w-4 h-4" /> Create First Post
                     </button>
@@ -310,33 +310,33 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             transition={{ delay: 0.4 }}
             className="space-y-4"
           >
-            <h3 className="text-xs font-black text-[#787774] dark:text-[#9B9A97] uppercase tracking-[0.2em] px-1">Quick Actions</h3>
+            <h3 className="text-xs font-black text-[#757681] uppercase tracking-[0.2em] px-1">Quick Actions</h3>
             <div className="grid grid-cols-1 gap-3">
               <button 
                 onClick={() => setActiveTab('creative')}
-                className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm hover:border-[#2383E2] hover:shadow-md transition-all flex items-center gap-4 group text-left"
+                className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-[#2665fd] transition-all flex items-center gap-4 group text-left min-h-[44px]"
               >
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <div className="w-12 h-12 rounded-[8px] bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
                   <Sparkles className="w-6 h-6 text-purple-500" />
                 </div>
                 <div>
                   <span className="block text-sm font-black">AI Studio</span>
-                  <span className="text-xs text-[#787774] dark:text-[#9B9A97]">Generate new content</span>
+                  <span className="text-xs text-[#757681]">Generate new content</span>
                 </div>
-                <ArrowRight className="w-4 h-4 ml-auto text-[#787774] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                <ArrowRight className="w-4 h-4 ml-auto text-[#757681] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
               </button>
               <button 
                 onClick={() => setActiveTab('ideas')}
-                className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm hover:border-[#2383E2] hover:shadow-md transition-all flex items-center gap-4 group text-left"
+                className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-[#2665fd] transition-all flex items-center gap-4 group text-left min-h-[44px]"
               >
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <div className="w-12 h-12 rounded-[8px] bg-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
                   <Lightbulb className="w-6 h-6 text-amber-500" />
                 </div>
                 <div>
                   <span className="block text-sm font-black">Ideas Bank</span>
-                  <span className="text-xs text-[#787774] dark:text-[#9B9A97]">Browse inspiration</span>
+                  <span className="text-xs text-[#757681]">Browse inspiration</span>
                 </div>
-                <ArrowRight className="w-4 h-4 ml-auto text-[#787774] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                <ArrowRight className="w-4 h-4 ml-auto text-[#757681] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
               </button>
             </div>
           </motion.div>
@@ -348,23 +348,23 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             transition={{ delay: 0.5 }}
             className="space-y-4"
           >
-            <h3 className="text-xs font-black text-[#787774] dark:text-[#9B9A97] uppercase tracking-[0.2em] px-1">Upcoming</h3>
-            <div className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-3xl shadow-sm overflow-hidden divide-y divide-[#E9E9E7] dark:divide-[#2E2E2E]">
+            <h3 className="text-xs font-black text-[#757681] uppercase tracking-[0.2em] px-1">Upcoming</h3>
+            <div className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] overflow-hidden divide-y divide-[#E9E9E7] dark:divide-[#2E2E2E]">
               {upcomingPosts.length > 0 ? (
                 upcomingPosts.map(post => (
-                  <div key={post.id} className="p-4 flex items-center justify-between group cursor-pointer hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors">
+                  <div key={post.id} className="p-4 flex items-center justify-between group cursor-pointer hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors min-h-[44px]">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-[#2383E2] uppercase tracking-wider">{format(parseISO(post.date), 'MMM d')}</span>
+                      <span className="text-[10px] font-black text-[#2665fd] uppercase tracking-wider">{format(parseISO(post.date), 'MMM d')}</span>
                       <span className="text-sm font-bold truncate max-w-[180px] mt-0.5">{post.title}</span>
                     </div>
-                    <div className="w-8 h-8 rounded-lg bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-1">
-                      <ArrowRight className="w-4 h-4 text-[#787774]" />
+                    <div className="w-8 h-8 rounded-[8px] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-1">
+                      <ArrowRight className="w-4 h-4 text-[#757681]" />
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="p-8 text-center">
-                  <p className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">No upcoming posts.</p>
+                  <p className="text-xs font-bold text-[#757681]">No upcoming posts.</p>
                 </div>
               )}
             </div>
@@ -378,7 +378,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setActiveTab('chat')}
-          className="w-14 h-14 bg-[#2383E2] text-white rounded-full shadow-2xl flex items-center justify-center border-4 border-white dark:border-[#191919]"
+          className="w-14 h-14 bg-[#2665fd] text-white rounded-[8px] flex items-center justify-center border-2 border-white dark:border-[#191919]"
         >
           <MessageSquare className="w-6 h-6" />
         </motion.button>

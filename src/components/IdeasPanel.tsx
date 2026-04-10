@@ -163,14 +163,14 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
           {isFullPage ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#2665fd]/10 rounded-2xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
                   <Lightbulb className="w-6 h-6 text-[#2665fd]" />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
                     Creative Hub
                   </h2>
-                  <p className="text-sm text-[#787774] dark:text-[#9B9A97] mt-1">
+                  <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
                     AI-powered strategy & product ideas.
                   </p>
                 </div>
@@ -179,12 +179,12 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
           ) : (
             <div className="flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#2665fd]/10 rounded-xl flex items-center justify-center text-[#2665fd]">
+                <div className="w-10 h-10 bg-[#2665fd]/10 rounded-[12px] flex items-center justify-center text-[#2665fd]">
                   <Lightbulb className="w-5 h-5" />
                 </div>
                 <div>
                   <h2 className="text-lg md:text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Creative Hub</h2>
-                  <p className="text-xs text-[#787774] dark:text-[#9B9A97]">AI-powered strategy & products</p>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">AI-powered strategy & products</p>
                 </div>
               </div>
               
@@ -192,7 +192,7 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                 {onClose && (
                   <button 
                     onClick={onClose}
-                    className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-full text-[#787774] dark:text-[#9B9A97] transition-colors"
+                    className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-full text-[#757681] dark:text-[#9B9A97] transition-colors"
                   >
                     <CloseIcon className="w-5 h-5" />
                   </button>
@@ -212,7 +212,7 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                 "py-3 text-sm font-bold flex items-center gap-2 transition-all border-b-2 relative -mb-[1px]",
                 sidebarTab === 'ideas' 
                   ? "border-[#2665fd] text-[#2665fd]" 
-                  : "border-transparent text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                  : "border-transparent text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
               )}
             >
               <Lightbulb className="w-4 h-4" />
@@ -224,7 +224,7 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                 "py-3 text-sm font-bold flex items-center gap-2 transition-all border-b-2 relative -mb-[1px]",
                 sidebarTab === 'priority_products' 
                   ? "border-[#2665fd] text-[#2665fd]" 
-                  : "border-transparent text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                  : "border-transparent text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
               )}
             >
               <Package className="w-4 h-4" />
@@ -245,13 +245,13 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
               >
                 <div className="p-6 flex flex-col gap-8 w-full">
                   {/* Generate Section */}
-                  <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                     <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED] mb-4">Generate Content Strategy</h3>
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-xl border border-transparent">
+                      <div className="flex items-center justify-between p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[12px] border border-transparent">
                         <div>
                           <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Use Priority Products</h4>
-                          <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Focus ideas on your high-priority items</p>
+                          <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Focus ideas on your high-priority items</p>
                         </div>
                         <button
                           onClick={() => setUsePriorityProducts(!usePriorityProducts)}
@@ -269,7 +269,7 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                       <button
                         onClick={handleGenerateIdeas}
                         disabled={isGeneratingIdeas}
-                        className="w-full py-4 bg-[#2665fd] hover:bg-[#2665fd]/90 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
+                        className="w-full py-4 bg-[#2665fd] hover:bg-[#2665fd]/90 text-white rounded-[12px] font-bold transition-all flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
                       >
                         {isGeneratingIdeas ? <ForgeLoader size={20} /> : <Wand2 className="w-5 h-5" />}
                         Generate Strategy Ideas
@@ -281,8 +281,8 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                   {ideas.length > 0 && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest">New Suggestions</h4>
-                        <button onClick={() => setIdeas([])} className="text-xs text-[#787774] dark:text-[#9B9A97] font-bold hover:text-red-500 transition-colors">Clear</button>
+                        <h4 className="text-sm font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest">New Suggestions</h4>
+                        <button onClick={() => setIdeas([])} className="text-xs text-[#757681] dark:text-[#9B9A97] font-bold hover:text-red-500 transition-colors">Clear</button>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {ideas.map((idea, idx) => (
@@ -303,7 +303,7 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Idea History</h3>
-                        <p className="text-sm text-[#787774] dark:text-[#9B9A97]">Your previous AI generations</p>
+                        <p className="text-sm text-[#757681] dark:text-[#9B9A97]">Your previous AI generations</p>
                       </div>
                       {history.length > 0 && (
                         <button 
@@ -318,11 +318,11 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
 
                     {history.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <div className="w-16 h-16 bg-white dark:bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 shadow-sm">
+                        <div className="w-16 h-16 bg-white dark:bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 ">
                           <History className="w-8 h-8 text-[#9B9A97]" />
                         </div>
                         <p className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">No history yet</p>
-                        <p className="text-xs text-[#787774] dark:text-[#9B9A97] mt-1">Generated ideas will appear here for you to reuse.</p>
+                        <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-1">Generated ideas will appear here for you to reuse.</p>
                       </div>
                     ) : (
                       <div className="grid gap-8">
@@ -335,14 +335,14 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                                   {new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 </span>
                                 {item.sourceUrl && (
-                                  <span className="text-[10px] text-[#787774] dark:text-[#9B9A97] bg-[#E9E9E7] dark:bg-[#2E2E2E] px-2 py-0.5 rounded-full truncate max-w-[200px]">
+                                  <span className="text-[10px] text-[#757681] dark:text-[#9B9A97] bg-[#E9E9E7] dark:bg-[#2E2E2E] px-2 py-0.5 rounded-full truncate max-w-[200px]">
                                     {item.sourceUrl}
                                   </span>
                                 )}
                               </div>
                               <button 
                                 onClick={() => deleteHistoryItem(item.id)}
-                                className="p-2 hover:bg-red-500/10 text-[#787774] hover:text-red-500 rounded-full transition-all"
+                                className="p-2 hover:bg-red-500/10 text-[#757681] hover:text-red-500 rounded-full transition-all"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -396,7 +396,7 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="bg-white dark:bg-[#1E1E1E] rounded-t-[32px] sm:rounded-[32px] shadow-2xl max-w-lg w-full p-6 sm:p-8 border-t sm:border border-[#E9E9E7] dark:border-[#2E2E2E] relative overflow-hidden"
+              className="bg-white dark:bg-[#1E1E1E] rounded-t-[32px] sm:rounded-[32px]  max-w-lg w-full p-6 sm:p-8 border-t sm:border border-[#E9E9E7] dark:border-[#2E2E2E] relative overflow-hidden"
             >
               <div className="w-12 h-1.5 bg-[#E9E9E7] dark:bg-[#2E2E2E] rounded-full mx-auto mb-6 sm:hidden" />
               
@@ -408,42 +408,42 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                   </div>
                   <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight">{selectedIdea.title}</h2>
                 </div>
-                <button onClick={() => setSelectedIdea(null)} className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-full text-[#787774] dark:text-[#9B9A97] transition-colors">
+                <button onClick={() => setSelectedIdea(null)} className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-full text-[#757681] dark:text-[#9B9A97] transition-colors">
                   <CloseIcon className="w-6 h-6" />
                 </button>
               </div>
               
               <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar pb-6">
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="p-3 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
-                    <div className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest mb-1">Feasibility</div>
+                  <div className="p-3 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
+                    <div className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-1">Feasibility</div>
                     <div className="text-lg font-bold text-emerald-500">{selectedIdea.feasibility || 0}/10</div>
                   </div>
-                  <div className="p-3 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
-                    <div className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest mb-1">Impact</div>
+                  <div className="p-3 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
+                    <div className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-1">Impact</div>
                     <div className="text-lg font-bold text-blue-500">{selectedIdea.impact || 0}/10</div>
                   </div>
-                  <div className="p-3 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
-                    <div className="text-[10px] font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-widest mb-1">{workspaceTitles.type}</div>
+                  <div className="p-3 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
+                    <div className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-1">{workspaceTitles.type}</div>
                     <div className="text-sm font-bold text-[#2665fd] dark:text-blue-400 mt-1">{selectedIdea.format || 'Post'}</div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">Campaign Brief</h4>
-                  <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] leading-relaxed bg-[#F7F7F5] dark:bg-[#2E2E2E] p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">{selectedIdea.brief}</p>
+                  <h4 className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">Campaign Brief</h4>
+                  <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] leading-relaxed bg-[#F7F7F5] dark:bg-[#2E2E2E] p-4 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">{selectedIdea.brief}</p>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">Social Caption</h4>
+                  <h4 className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">Social Caption</h4>
                   <div className="relative group">
-                    <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] whitespace-pre-wrap leading-relaxed bg-[#F7F7F5] dark:bg-[#2E2E2E] p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">{selectedIdea.caption}</p>
+                    <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] whitespace-pre-wrap leading-relaxed bg-[#F7F7F5] dark:bg-[#2E2E2E] p-4 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">{selectedIdea.caption}</p>
                     <button 
                       onClick={() => {
                         navigator.clipboard.writeText(selectedIdea.caption);
                         toast.success("Caption copied!");
                       }}
-                      className="absolute top-2 right-2 p-2 bg-white dark:bg-[#3E3E3E] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                      className="absolute top-2 right-2 p-2 bg-white dark:bg-[#3E3E3E] rounded-[8px] opacity-0 group-hover:opacity-100 transition-opacity border border-[#E9E9E7] dark:border-[#2E2E2E]"
                     >
                       <LayoutGrid className="w-4 h-4 text-[#2665fd]" />
                     </button>
@@ -451,15 +451,15 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">Recommended Hashtags</h4>
-                  <p className="text-sm text-[#2665fd] font-medium bg-[#2665fd]/5 p-4 rounded-xl border border-[#2665fd]/10">{selectedIdea.hashtags}</p>
+                  <h4 className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">Recommended Hashtags</h4>
+                  <p className="text-sm text-[#2665fd] font-medium bg-[#2665fd]/5 p-4 rounded-[12px] border border-[#2665fd]/10">{selectedIdea.hashtags}</p>
                 </div>
               </div>
               
               <div className="mt-4 flex gap-3">
                 <button
                   onClick={() => setSelectedIdea(null)}
-                  className="flex-1 py-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-xl text-sm font-bold hover:opacity-90 transition-all active:scale-95 border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                  className="flex-1 py-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[12px] text-sm font-bold hover:opacity-90 transition-all active:scale-95 border border-[#E9E9E7] dark:border-[#2E2E2E]"
                 >
                   Close
                 </button>
@@ -469,7 +469,7 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
                     toast.info("Drag the card from the list to schedule it!");
                     setSelectedIdea(null);
                   }}
-                  className="flex-1 py-4 bg-[#2665fd] text-white rounded-xl text-sm font-bold hover:opacity-90 transition-all active:scale-95"
+                  className="flex-1 py-4 bg-[#2665fd] text-white rounded-[12px] text-sm font-bold hover:opacity-90 transition-all active:scale-95"
                 >
                   Schedule Now
                 </button>
@@ -518,13 +518,13 @@ const DraggableIdea: React.FC<{ idea: any, id: string, onClick: () => void, work
           }
         }}
         className={cn(
-          "bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl p-5 cursor-grab active:cursor-grabbing hover:border-[#2665fd] transition-all flex flex-col gap-4 relative group",
+          "bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] p-5 cursor-grab active:cursor-grabbing hover:border-[#2665fd] transition-all flex flex-col gap-4 relative group",
           isDragging && "opacity-50 scale-105"
         )}
       >
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap gap-1.5">
-          <span className="text-[9px] font-black text-white uppercase tracking-widest bg-[#2665fd] px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+          <span className="text-[9px] font-black text-white uppercase tracking-widest bg-[#2665fd] px-2.5 py-1 rounded-full  flex items-center gap-1">
             <Sparkles className="w-2.5 h-2.5" />
             {idea.format || 'Post'}
           </span>
@@ -536,20 +536,20 @@ const DraggableIdea: React.FC<{ idea: any, id: string, onClick: () => void, work
           </span>
         </div>
         <div className="w-7 h-7 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <Search className="w-3 h-3 text-[#787774] dark:text-[#9B9A97]" />
+          <Search className="w-3 h-3 text-[#757681] dark:text-[#9B9A97]" />
         </div>
       </div>
       <div className="flex-1">
         <h4 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight mb-2 group-hover:text-[#2665fd] dark:group-hover:text-blue-400 transition-colors">
           {idea.title}
         </h4>
-        <p className="text-xs text-[#787774] dark:text-[#9B9A97] line-clamp-2 leading-relaxed mb-4">
+        <p className="text-xs text-[#757681] dark:text-[#9B9A97] line-clamp-2 leading-relaxed mb-4">
           {idea.brief}
         </p>
 
         <div className="flex items-center gap-4">
           <div className="flex-1 flex flex-col gap-1">
-            <div className="flex items-center justify-between text-[9px] font-medium text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">
+            <div className="flex items-center justify-between text-[9px] font-medium text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">
               <span>Feasibility</span>
               <span>{idea.feasibility || 0}/10</span>
             </div>
@@ -561,7 +561,7 @@ const DraggableIdea: React.FC<{ idea: any, id: string, onClick: () => void, work
             </div>
           </div>
           <div className="flex-1 flex flex-col gap-1">
-            <div className="flex items-center justify-between text-[9px] font-medium text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">
+            <div className="flex items-center justify-between text-[9px] font-medium text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">
               <span>Impact</span>
               <span>{idea.impact || 0}/10</span>
             </div>
@@ -600,7 +600,7 @@ const FypIdeaCard: React.FC<{ idea: any, onSelect: () => void }> = ({ idea, onSe
       <div className="absolute inset-0 p-6 md:p-8 flex flex-col justify-end pb-24 md:pb-12">
         <div className="max-w-2xl pr-16">
           <div className="flex flex-wrap gap-2 mb-4">
-            <span className="text-[10px] font-black text-white uppercase tracking-widest bg-[#2665fd] px-4 py-2 rounded-full shadow-lg flex items-center gap-1.5 border border-white/20">
+            <span className="text-[10px] font-black text-white uppercase tracking-widest bg-[#2665fd] px-4 py-2 rounded-full  flex items-center gap-1.5 border border-white/20">
               <Sparkles className="w-3 h-3" />
               {idea.format || 'Post'}
             </span>
@@ -612,18 +612,18 @@ const FypIdeaCard: React.FC<{ idea: any, onSelect: () => void }> = ({ idea, onSe
             </span>
           </div>
           
-          <h2 className="text-3xl md:text-5xl font-black text-white leading-tight mb-4 tracking-tight drop-shadow-md">
+          <h2 className="text-3xl md:text-5xl font-black text-white leading-tight mb-4 tracking-tight drop-">
             {idea.title}
           </h2>
           
-          <p className="text-sm md:text-base text-white/90 line-clamp-3 mb-6 leading-relaxed max-w-xl drop-shadow-sm">
+          <p className="text-sm md:text-base text-white/90 line-clamp-3 mb-6 leading-relaxed max-w-xl drop-">
             {idea.brief}
           </p>
           
           <div className="flex flex-wrap items-center gap-3">
             <button 
               onClick={onSelect} 
-              className="px-6 py-3 bg-white text-black rounded-full font-bold text-sm hover:scale-105 transition-transform shadow-xl flex items-center gap-2"
+              className="px-6 py-3 bg-white text-black rounded-full font-bold text-sm hover:scale-105 transition-transform  flex items-center gap-2"
             >
               <LayoutGrid className="w-4 h-4" />
               View Details
@@ -633,7 +633,7 @@ const FypIdeaCard: React.FC<{ idea: any, onSelect: () => void }> = ({ idea, onSe
                 navigator.clipboard.writeText(idea.caption);
                 toast.success("Caption copied!");
               }}
-              className="px-6 py-3 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full font-bold text-sm hover:bg-white/30 transition-colors shadow-xl flex items-center gap-2"
+              className="px-6 py-3 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full font-bold text-sm hover:bg-white/30 transition-colors  flex items-center gap-2"
             >
               <ClipboardPaste className="w-4 h-4" />
               Copy Caption
@@ -650,14 +650,14 @@ const FypIdeaCard: React.FC<{ idea: any, onSelect: () => void }> = ({ idea, onSe
            <div className="w-12 h-12 bg-black/20 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-white group-hover/btn:bg-white/20 transition-colors">
              <Heart className="w-6 h-6" />
            </div>
-           <span className="text-white text-[10px] font-bold drop-shadow-md">Like</span>
+           <span className="text-white text-[10px] font-bold drop-">Like</span>
          </button>
          
          <button onClick={onSelect} className="flex flex-col items-center gap-1 group/btn">
            <div className="w-12 h-12 bg-black/20 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-white group-hover/btn:bg-white/20 transition-colors">
              <MessageSquare className="w-6 h-6" />
            </div>
-           <span className="text-white text-[10px] font-bold drop-shadow-md">Details</span>
+           <span className="text-white text-[10px] font-bold drop-">Details</span>
          </button>
 
          <button 
@@ -667,10 +667,10 @@ const FypIdeaCard: React.FC<{ idea: any, onSelect: () => void }> = ({ idea, onSe
            <div className="w-12 h-12 bg-black/20 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-white group-hover/btn:bg-white/20 transition-colors">
              <Bookmark className="w-6 h-6" />
            </div>
-           <span className="text-white text-[10px] font-bold drop-shadow-md">Save</span>
+           <span className="text-white text-[10px] font-bold drop-">Save</span>
          </button>
          
-         <div className="w-12 h-12 mt-2 rounded-full border-2 border-white overflow-hidden shadow-xl flex items-center justify-center bg-white">
+         <div className="w-12 h-12 mt-2 rounded-full border-2 border-white overflow-hidden  flex items-center justify-center bg-white">
            <Sparkles className="w-6 h-6 text-blue-500" />
          </div>
       </div>

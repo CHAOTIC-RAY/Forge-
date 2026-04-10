@@ -110,7 +110,7 @@ export function ContextMenu({ items, children, className, x, y, isOpen: controll
             left: position.x,
             zIndex: 9999
           }}
-          className="min-w-[180px] bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl shadow-2xl py-1.5 overflow-hidden"
+          className="min-w-[180px] bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px]  py-1.5 overflow-hidden"
         >
           {items.map((item, index) => (
             <button

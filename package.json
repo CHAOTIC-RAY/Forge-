@@ -31,6 +31,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^11.10.0",
+    "glob": "^13.0.6",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "multer": "^2.1.1",

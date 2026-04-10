@@ -113,21 +113,21 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-[#191919] rounded-[16px]  border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-[8px]">
               <FileSpreadsheet className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Excel Import</h2>
-              <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Bulk import posts and map columns using AI</p>
+              <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Bulk import posts and map columns using AI</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-full transition-colors">
-            <X className="w-5 h-5 text-[#787774] dark:text-[#9B9A97]" />
+            <X className="w-5 h-5 text-[#757681] dark:text-[#9B9A97]" />
           </button>
         </div>
 
@@ -136,14 +136,14 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
           {step === 'upload' && (
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl p-12 flex flex-col items-center justify-center gap-4 hover:border-[#2383E2] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-all cursor-pointer group"
+              className="border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-12 flex flex-col items-center justify-center gap-4 hover:border-[#2383E2] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-all cursor-pointer group"
             >
               <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-full group-hover:scale-110 transition-transform">
-                <Upload className="w-10 h-10 text-[#787774] dark:text-[#9B9A97]" />
+                <Upload className="w-10 h-10 text-[#757681] dark:text-[#9B9A97]" />
               </div>
               <div className="text-center">
                 <p className="text-lg font-semibold text-[#37352F] dark:text-[#EBE9ED]">Click to upload Excel or CSV</p>
-                <p className="text-sm text-[#787774] dark:text-[#9B9A97]">Supports .xlsx, .xls, and .csv files</p>
+                <p className="text-sm text-[#757681] dark:text-[#9B9A97]">Supports .xlsx, .xls, and .csv files</p>
               </div>
               <input 
                 type="file" 
@@ -157,7 +157,7 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
 
           {step === 'map' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+              <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-4 rounded-[12px] border border-blue-100 dark:border-blue-800/50">
                 <div className="flex items-center gap-3">
                   <Wand2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <div>
@@ -168,7 +168,7 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
                 <button
                   onClick={handleAutoMap}
                   disabled={isMapping}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-[8px] text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
                   {isMapping ? <ForgeLoader size={16} /> : <Wand2 className="w-4 h-4" />}
                   Auto-Map with AI
@@ -183,7 +183,7 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
                   </h3>
                   <div className="space-y-3">
                     {excelColumns.map(col => (
-                      <div key={col} className="flex items-center gap-3 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                      <div key={col} className="flex items-center gap-3 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                         <span className="flex-1 text-sm font-medium text-[#37352F] dark:text-[#EBE9ED] truncate" title={col}>
                           {col}
                         </span>
@@ -209,7 +209,7 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
                   </h3>
                   <div className="space-y-3">
                     {data.slice(0, 3).map((row, idx) => (
-                      <div key={idx} className="p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-lg text-[10px] font-mono overflow-x-auto whitespace-pre">
+                      <div key={idx} className="p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-mono overflow-x-auto whitespace-pre">
                         {JSON.stringify(row, null, 2)}
                       </div>
                     ))}
@@ -225,7 +225,7 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
           <button
             onClick={() => setStep('upload')}
             className={cn(
-              "px-4 py-2 text-sm font-medium text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors",
+              "px-4 py-2 text-sm font-medium text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors",
               step === 'upload' && "invisible"
             )}
           >
@@ -234,7 +234,7 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="px-6 py-2 text-sm font-medium text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-lg transition-colors"
+              className="px-6 py-2 text-sm font-medium text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] transition-colors"
             >
               Cancel
             </button>
@@ -242,7 +242,7 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
               <button
                 onClick={handleImport}
                 disabled={isImporting || Object.values(mapping).every(v => v === 'none')}
-                className="px-8 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-600/20 flex items-center gap-2 disabled:opacity-50"
+                className="px-8 py-2 bg-green-600 text-white rounded-[8px] text-sm font-bold hover:bg-green-700 transition-all   flex items-center gap-2 disabled:opacity-50"
               >
                 {isImporting ? <ForgeLoader size={16} /> : <Save className="w-4 h-4" />}
                 Import {data.length} Posts

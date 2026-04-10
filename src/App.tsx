@@ -92,6 +92,7 @@ import { cn, readFileAsDataURL, createImageCollage, getAnalyticsSettings, setAna
 import { WorkspacesSettings } from './components/WorkspacesSettings';
 import { ForgeLoader } from './components/ForgeLoader';
 import { ForgeLogo } from './components/ForgeLogo';
+import { Login } from './components/Login';
 import { LandingView } from './components/LandingView';
 
 type SyncLog = {
@@ -122,7 +123,7 @@ function DroppableZone({ id, label, icon, color }: { id: string, label: string, 
     <div 
       ref={setNodeRef}
       className={cn(
-        "pointer-events-auto flex items-center gap-2 px-6 py-3 rounded-full text-white font-bold shadow-xl transition-all",
+        "pointer-events-auto flex items-center gap-2 px-6 py-3 rounded-full text-white font-bold  transition-all",
         color,
         isOver ? "scale-110 ring-4 ring-white/50" : "opacity-80"
       )}
@@ -2327,14 +2328,14 @@ export default function App() {
   if (loading && authTimeout) {
     return (
       <div className="min-h-screen bg-[#1A1C1E] flex items-center justify-center p-4">
-        <div className="bg-[#24262B] border border-[#33353B] p-8 rounded-3xl text-center max-w-md shadow-2xl">
+        <div className="bg-[#24262B] border border-[#33353B] p-8 rounded-[24px] text-center max-w-md ">
           <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Connection is slow</h2>
           <p className="text-[#909094] mb-6">We're having trouble connecting to the cloud. This might be due to a slow network or a temporary service issue.</p>
           <div className="flex flex-col gap-3">
             <button 
               onClick={() => window.location.reload()}
-              className="w-full px-6 py-3 bg-[#2383E2] text-white rounded-xl font-medium hover:bg-[#1C6AB8] transition-colors flex items-center justify-center gap-2"
+              className="w-full px-6 py-3 bg-[#2383E2] text-white rounded-[12px] font-medium hover:bg-[#1C6AB8] transition-colors flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
               Retry Connection
@@ -2344,7 +2345,7 @@ export default function App() {
                 localStorage.clear();
                 window.location.reload();
               }}
-              className="w-full px-6 py-3 bg-white/5 text-white rounded-xl font-medium hover:bg-white/10 transition-colors"
+              className="w-full px-6 py-3 bg-white/5 text-white rounded-[12px] font-medium hover:bg-white/10 transition-colors"
             >
               Clear Cache & Restart
             </button>
@@ -2357,13 +2358,13 @@ export default function App() {
   if (authError) {
     return (
       <div className="min-h-screen bg-[#1A1C1E] flex items-center justify-center p-4">
-        <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl text-center max-w-md">
+        <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[16px] text-center max-w-md">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-red-400 mb-2">Authentication Error</h2>
           <p className="text-red-300/70 mb-6">{authError.message}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors"
+            className="px-6 py-2 bg-red-500 text-white rounded-[12px] font-medium hover:bg-red-600 transition-colors"
           >
             Retry
           </button>
@@ -2373,7 +2374,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <LandingView onLogin={handleLogin} />;
+    return <Login />;
   }
   
   if (isGuest && loading) {
@@ -2546,7 +2547,7 @@ export default function App() {
       <aside className="hidden md:flex sticky top-0 h-screen w-20 bg-[#F7F7F5] dark:bg-[#202020] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
         <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
           {/* Logo */}
-          <div className="w-10 h-10 bg-transparent rounded-xl flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
+          <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
             <ForgeLogo size={28} className="p-1" />
           </div>
 
@@ -2558,7 +2559,7 @@ export default function App() {
                 <button
                   onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
                   title={activeBusiness.name}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-brand text-white border-brand-hover shadow-md hover:scale-105"
+                  className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-[#2665fd] text-white border-[#1e52d0]  hover:scale-105"
                 >
                   {activeBusiness.name.substring(0, 2).toUpperCase()}
                 </button>
@@ -2570,8 +2571,8 @@ export default function App() {
                     className="fixed inset-0 z-[100]" 
                     onClick={() => setIsWorkspaceDropdownOpen(false)}
                   />
-                  <div className="fixed top-20 left-20 ml-2 w-56 bg-white dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-xl shadow-xl z-[101] py-2 overflow-hidden flex flex-col max-h-[60vh]">
-                    <div className="px-3 py-2 text-xs font-bold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">
+                  <div className="fixed top-20 left-20 ml-2 w-56 bg-white dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px]  z-[101] py-2 overflow-hidden flex flex-col max-h-[60vh]">
+                    <div className="px-3 py-2 text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">
                       Workspaces
                     </div>
                     <div className="overflow-y-auto no-scrollbar flex-1">
@@ -2584,7 +2585,7 @@ export default function App() {
                           }}
                           className={cn(
                             "w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] transition-colors",
-                            activeBusiness?.id === biz.id ? "text-brand font-medium" : "text-[#37352F] dark:text-[#EBE9ED]"
+                            activeBusiness?.id === biz.id ? "text-[#2665fd] font-medium" : "text-[#37352F] dark:text-[#EBE9ED]"
                           )}
                         >
                           <span className="truncate">{biz.name}</span>
@@ -2598,7 +2599,7 @@ export default function App() {
                           setIsWorkspaceDropdownOpen(false);
                           setIsBusinessModalOpen(true);
                         }}
-                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-lg transition-colors text-[#787774] dark:text-[#9B9A97]"
+                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-[#757681] dark:text-[#9B9A97]"
                       >
                         <Settings className="w-4 h-4" />
                         Manage Workspaces
@@ -2608,7 +2609,7 @@ export default function App() {
                           setIsWorkspaceDropdownOpen(false);
                           setIsBusinessModalOpen(true);
                         }}
-                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-lg transition-colors text-brand"
+                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-[#2665fd]"
                       >
                         <Plus className="w-4 h-4" />
                         Add New Workspace
@@ -2627,8 +2628,8 @@ export default function App() {
               onClick={() => setActiveTab('home')} 
               title="Home"
               className={cn(
-                "w-full flex items-center justify-center p-2.5 rounded-xl transition-colors", 
-                activeTab === 'home' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#787774] dark:text-[#9B9A97]"
+                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
+                activeTab === 'home' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
               )}
             >
               <LayoutGrid className="w-5 h-5 shrink-0" />
@@ -2638,8 +2639,8 @@ export default function App() {
               onClick={() => setActiveTab('schedule')} 
               title={industryConfig.terminology.calendar}
               className={cn(
-                "w-full flex items-center justify-center p-2.5 rounded-xl transition-colors", 
-                activeTab === 'schedule' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#787774] dark:text-[#9B9A97]"
+                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
+                activeTab === 'schedule' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
               )}
             >
               <CalendarIcon className="w-5 h-5 shrink-0" />
@@ -2650,8 +2651,8 @@ export default function App() {
                   onClick={() => setActiveTab('search')} 
                   title={industryConfig.terminology.products}
                   className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-xl transition-colors", 
-                    activeTab === 'search' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#787774] dark:text-[#9B9A97]"
+                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
+                    activeTab === 'search' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                   )}
                 >
                   <Database className="w-5 h-5 shrink-0" />
@@ -2660,8 +2661,8 @@ export default function App() {
                   onClick={() => setActiveTab('ideas')} 
                   title={industryConfig.terminology.ideas}
                   className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-xl transition-colors", 
-                    activeTab === 'ideas' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#787774] dark:text-[#9B9A97]"
+                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
+                    activeTab === 'ideas' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                   )}
                 >
                   <Lightbulb className="w-5 h-5 shrink-0" />
@@ -2670,8 +2671,8 @@ export default function App() {
                   onClick={() => setActiveTab('brandkit')} 
                   title={industryConfig.terminology.assets}
                   className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-xl transition-colors", 
-                    activeTab === 'brandkit' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#787774] dark:text-[#9B9A97]"
+                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
+                    activeTab === 'brandkit' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                   )}
                 >
                   <Palette className="w-5 h-5 shrink-0" />
@@ -2680,8 +2681,8 @@ export default function App() {
                   onClick={() => setActiveTab('creative')} 
                   title="AI Studio"
                   className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-xl transition-colors", 
-                    activeTab === 'creative' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#787774] dark:text-[#9B9A97]"
+                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
+                    activeTab === 'creative' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                   )}
                 >
                   <Sparkles className="w-5 h-5 shrink-0" />
@@ -2690,8 +2691,8 @@ export default function App() {
                   onClick={() => setActiveTab('analytics')} 
                   title="Insights & Analytics"
                   className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-xl transition-colors", 
-                    activeTab === 'analytics' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#787774] dark:text-[#9B9A97]"
+                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
+                    activeTab === 'analytics' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                   )}
                 >
                   <BarChart3 className="w-5 h-5 shrink-0" />
@@ -2703,7 +2704,7 @@ export default function App() {
                 onClick={handleLogin}
                 disabled={isSigningIn}
                 title="Sign In (Admin)"
-                className="w-full flex items-center justify-center p-2.5 rounded-xl transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400 disabled:opacity-50"
+                className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400 disabled:opacity-50"
               >
                 <Smartphone className="w-5 h-5 shrink-0" />
               </button>
@@ -2727,7 +2728,7 @@ export default function App() {
           {user ? (
             <button 
               onClick={() => setActiveTab('more')}
-              className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand"
+              className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#2665fd]"
               title="Settings"
             >
               <img 
@@ -2736,7 +2737,7 @@ export default function App() {
                 className="w-full h-full object-cover transition-opacity duration-200 group-hover:opacity-30" 
               />
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/20">
-                <Settings className="w-5 h-5 text-white drop-shadow-md" />
+                <Settings className="w-5 h-5 text-white drop-" />
               </div>
             </button>
           ) : (
@@ -2761,7 +2762,7 @@ export default function App() {
                 {user && !isViewOnly && (
                   <button
                     onClick={() => setIsBusinessModalOpen(true)}
-                    className="w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl flex items-center justify-center font-bold text-xs text-brand shadow-sm active:scale-95 transition-transform"
+                    className="w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] flex items-center justify-center font-bold text-xs text-[#2665fd]  active:scale-95 transition-transform"
                   >
                     {activeBusiness?.name.substring(0, 2).toUpperCase() || '??'}
                   </button>
@@ -2784,7 +2785,7 @@ export default function App() {
                     ) : (
                       <CheckCircle2 className="w-3 h-3 text-green-500" />
                     )}
-                    <span className="text-[10px] font-medium text-[#787774] dark:text-[#9B9A97]">
+                    <span className="text-[10px] font-medium text-[#757681] dark:text-[#9B9A97]">
                       {isSyncing ? 'Syncing...' : 'Cloud Synced'}
                     </span>
                   </div>
@@ -2792,13 +2793,13 @@ export default function App() {
               </div>
               <div className="flex items-center gap-2 md:gap-3">
                 {/* Desktop Sync Indicator (redundant but nice to have in header too) */}
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                   {isSyncing ? (
                     <ForgeLoader size={14} />
                   ) : (
                     <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
                   )}
-                  <span className="text-xs font-medium text-[#787774] dark:text-[#9B9A97]">
+                  <span className="text-xs font-medium text-[#757681] dark:text-[#9B9A97]">
                     {isSyncing ? 'Syncing' : 'Synced'}
                   </span>
                 </div>
@@ -2959,20 +2960,20 @@ export default function App() {
           }),
         }}>
           {activeDragItem ? (
-            <div className="opacity-80 scale-105 shadow-2xl pointer-events-none">
+            <div className="opacity-80 scale-105  pointer-events-none">
               {activeDragItem.type === 'product' && (
-                <div className="bg-white dark:bg-[#191919] border border-brand rounded-md p-3 w-64 shadow-xl">
-                  <div className="text-[10px] font-bold text-brand uppercase mb-1">{activeDragItem.product.type}</div>
+                <div className="bg-white dark:bg-[#191919] border border-[#2665fd] rounded-[6px] p-3 w-64 ">
+                  <div className="text-[10px] font-bold text-[#2665fd] uppercase mb-1">{activeDragItem.product.type}</div>
                   <div className="text-sm font-bold">{activeDragItem.product.title}</div>
                 </div>
               )}
               {activeDragItem.type === 'image' && (
-                <div className="w-20 h-20 rounded-md overflow-hidden border-2 border-brand">
+                <div className="w-20 h-20 rounded-[6px] overflow-hidden border-2 border-[#2665fd]">
                   <img src={activeDragItem.imageUrl} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
               {activeDragItem.type === 'idea' && (
-                <div className="bg-white dark:bg-[#1E1E1E] border border-brand rounded-[24px] p-5 shadow-xl w-64">
+                <div className="bg-white dark:bg-[#1E1E1E] border border-[#2665fd] rounded-[24px] p-5  w-64">
                   <div className="flex gap-2 mb-2">
                     <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">
                       {activeDragItem.idea.type}
@@ -3006,7 +3007,7 @@ export default function App() {
 
     {/* Mobile Bottom Navigation */}
       <div className={cn(
-        "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white dark:bg-[#191919] border-t border-[#E9E9E7] dark:border-[#2E2E2E] h-[64px] flex items-center px-2 shadow-[0_-8px_24px_rgba(0,0,0,0.05)]"
+        "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white dark:bg-[#191919] border-t border-[#E9E9E7] dark:border-[#2E2E2E] h-[64px] flex items-center px-2"
       )}>
         {isAdmin ? (
           <nav className="flex-1 flex flex-row justify-between w-full h-full items-center">
@@ -3026,7 +3027,7 @@ export default function App() {
                   onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
                     "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
-                    isActive ? "text-brand" : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                    isActive ? "text-[#2665fd]" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                   )}
                   title={tab.title}
                 >
@@ -3034,7 +3035,7 @@ export default function App() {
                   {isActive && (
                     <motion.div
                       layoutId="mobileActiveTabIndicator"
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#2665fd] rounded-b-full"
                       initial={false}
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
@@ -3049,14 +3050,14 @@ export default function App() {
               onClick={() => setActiveTab('schedule')}
               className={cn(
                 "flex flex-col items-center justify-center transition-all duration-200 relative h-full px-4",
-                activeTab === 'schedule' ? "text-brand" : "text-[#787774] dark:text-[#9B9A97]"
+                activeTab === 'schedule' ? "text-[#2665fd]" : "text-[#757681] dark:text-[#9B9A97]"
               )}
             >
               <CalendarIcon className="w-6 h-6" />
               {activeTab === 'schedule' && (
                 <motion.div
                   layoutId="mobileActiveTabIndicatorGuest"
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
+                  className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#2665fd] rounded-b-full"
                   initial={false}
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 />
@@ -3067,7 +3068,7 @@ export default function App() {
               <button 
                 onClick={handleLogin}
                 disabled={isSigningIn}
-                className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-xl font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-[#2665fd] text-white rounded-[12px] font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
               >
                 <Smartphone className="w-4 h-4" />
                 {isSigningIn ? '...' : 'Sign In'}
@@ -3080,27 +3081,27 @@ export default function App() {
       {/* Modals */}
       {dropActionPrompt && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#191919] rounded-xl shadow-xl max-w-md w-full p-6 border border-[#E9E9E7] dark:border-[#2E2E2E]">
+          <div className="bg-white dark:bg-[#191919] rounded-[12px]  max-w-md w-full p-6 border border-[#E9E9E7] dark:border-[#2E2E2E]">
             <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED] mb-4">Multiple Images Dropped</h2>
-            <p className="text-[#787774] dark:text-[#9B9A97] mb-6">
+            <p className="text-[#757681] dark:text-[#9B9A97] mb-6">
               You dropped {dropActionPrompt.files.length} images. How would you like to add them?
             </p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => processDroppedFiles(dropActionPrompt.dateStr, dropActionPrompt.files, 'single')}
-                className="w-full py-2.5 px-4 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-lg font-medium transition-colors"
+                className="w-full py-2.5 px-4 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-[8px] font-medium transition-colors"
               >
                 Create as one single post (Carousel)
               </button>
               <button
                 onClick={() => processDroppedFiles(dropActionPrompt.dateStr, dropActionPrompt.files, 'separate')}
-                className="w-full py-2.5 px-4 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-lg font-medium transition-colors"
+                className="w-full py-2.5 px-4 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] font-medium transition-colors"
               >
                 Create as separate tasks
               </button>
               <button
                 onClick={() => setDropActionPrompt(null)}
-                className="w-full py-2.5 px-4 text-[#787774] dark:text-[#9B9A97] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-lg font-medium transition-colors mt-2"
+                className="w-full py-2.5 px-4 text-[#757681] dark:text-[#9B9A97] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] font-medium transition-colors mt-2"
               >
                 Cancel
               </button>
@@ -3111,10 +3112,10 @@ export default function App() {
 
       {isAddToHomeModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#191919] w-full max-w-md rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white dark:bg-[#191919] w-full max-w-md rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]  overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400">
+                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-[12px] flex items-center justify-center text-amber-600 dark:text-amber-400">
                   <Smartphone className="w-5 h-5" />
                 </div>
                 <h2 className="text-xl font-bold">Add to Home Screen</h2>
@@ -3131,7 +3132,7 @@ export default function App() {
                   <p className="text-sm text-[#37352F] dark:text-[#EBE9ED]">Open this site in your mobile browser (Safari for iOS, Chrome for Android).</p>
                 </div>
                 
-                <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                   <h3 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest mb-3">On iPhone (Safari)</h3>
                   <ol className="text-sm space-y-2 list-decimal pl-4">
                     <li>Tap the <span className="font-bold">Share</span> button (square with arrow up) at the bottom.</li>
@@ -3140,7 +3141,7 @@ export default function App() {
                   </ol>
                 </div>
 
-                <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                   <h3 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest mb-3">On Android (Chrome)</h3>
                   <ol className="text-sm space-y-2 list-decimal pl-4">
                     <li>Tap the <span className="font-bold">Menu</span> (three dots) in the top right.</li>
@@ -3150,7 +3151,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/30">
+              <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-[12px] border border-blue-100 dark:border-blue-900/30">
                 <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <p className="text-xs text-blue-700 dark:text-blue-300">
                   This creates a shortcut on your home screen for instant access. It doesn't use extra storage like a regular app.
@@ -3165,7 +3166,7 @@ export default function App() {
                     handleInstallClick();
                     setIsAddToHomeModalOpen(false);
                   }}
-                  className="w-full py-3 bg-amber-500 text-white rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-amber-500 text-white rounded-[12px] font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                 >
                   <Smartphone className="w-5 h-5" />
                   Install Now
@@ -3173,7 +3174,7 @@ export default function App() {
               )}
               <button 
                 onClick={() => setIsAddToHomeModalOpen(false)}
-                className="w-full py-3 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-xl font-bold hover:opacity-90 transition-opacity"
+                className="w-full py-3 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-[12px] font-bold hover:opacity-90 transition-opacity"
               >
                 {isInstallable ? 'Maybe Later' : 'Got it'}
               </button>
@@ -3212,15 +3213,15 @@ export default function App() {
       {/* Confirmation Modal */}
       {confirmAction && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-md p-6">
+          <div className="bg-white dark:bg-[#191919] rounded-[12px]  border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-md p-6">
             <h3 className="text-lg font-bold mb-2">Confirm Action</h3>
-            <p className="text-[#787774] dark:text-[#9B9A97] mb-6">
+            <p className="text-[#757681] dark:text-[#9B9A97] mb-6">
               Are you sure you want to {confirmAction.type.toLowerCase()}? This action cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setConfirmAction(null)}
-                className="px-4 py-2 text-sm font-medium text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-[8px] transition-colors"
               >
                 Cancel
               </button>
@@ -3229,7 +3230,7 @@ export default function App() {
                   await confirmAction.onConfirm();
                   setConfirmAction(null);
                 }}
-                className="px-4 py-2 text-sm font-medium bg-[#EB5757] text-white rounded-lg hover:bg-[#D43D3D] transition-colors shadow-sm"
+                className="px-4 py-2 text-sm font-medium bg-[#EB5757] text-white rounded-[8px] hover:bg-[#D43D3D] transition-colors "
               >
                 Confirm
               </button>
@@ -3243,14 +3244,14 @@ export default function App() {
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-[#191919] p-8 rounded-3xl shadow-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] max-w-md w-full space-y-6"
+            className="bg-white dark:bg-[#191919] p-8 rounded-[24px]  border border-[#E9E9E7] dark:border-[#2E2E2E] max-w-md w-full space-y-6"
           >
             <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto text-blue-600 dark:text-blue-400">
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-[16px] flex items-center justify-center mx-auto text-blue-600 dark:text-blue-400">
                 <Lock className="w-8 h-8" />
               </div>
               <h2 className="text-2xl font-bold">Protected Calendar</h2>
-              <p className="text-sm text-[#787774] dark:text-[#9B9A97]">This calendar is password protected. Please enter the password to view.</p>
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97]">This calendar is password protected. Please enter the password to view.</p>
             </div>
             <div className="space-y-4">
               <input 
@@ -3259,12 +3260,12 @@ export default function App() {
                 onChange={(e) => setSharePassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
                 placeholder="Enter password"
-                className="w-full p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 text-center text-lg font-bold tracking-widest"
+                className="w-full p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] outline-none focus:ring-2 focus:ring-blue-500/20 text-center text-lg font-bold tracking-widest"
                 autoFocus
               />
               <button 
                 onClick={handlePasswordSubmit}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/20 active:scale-95"
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-[16px] font-bold transition-all   active:scale-95"
               >
                 Access Calendar
               </button>
