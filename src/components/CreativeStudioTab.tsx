@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 import { Post, Business } from '../data';
 import { writeBatch, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useWorkspaceConfig } from '../lib/workspaceConfig';
 import { generateBulkPosts, generateGenericText, generateCampaignFromUrl } from '../lib/gemini';
 import { CheckCircle2, Search } from 'lucide-react';
@@ -214,6 +214,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
           setBrandKitCategories(names);
         }
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
     });
     return () => unsubscribe();
   }, [activeBusiness?.id]);

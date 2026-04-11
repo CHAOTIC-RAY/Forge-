@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { generateGenericJson, generateGenericText, getAi } from '../lib/gemini';
 import { PRODUCT_CATEGORIES, OUTLETS, PriorityProduct, Business } from '../data';
 import { Type } from '@google/genai';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
 
 export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Business | null }) {
@@ -40,6 +40,8 @@ export function PriorityProductsPanel({ activeBusiness }: { activeBusiness?: Bus
         products.push({ id: doc.id, ...doc.data() } as PriorityProduct);
       });
       setPriorityProducts(products);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'priority_products');
     });
 
     return () => unsubscribe();

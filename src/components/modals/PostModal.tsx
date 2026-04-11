@@ -7,7 +7,7 @@ import { Post, OUTLETS, PRODUCT_CATEGORIES } from '../../data';
 import { v4 as uuidv4 } from 'uuid';
 import { generatePostContent, generateMockupImage, generatePostFromImage, generateAiImage, generateHashtagSuggestions, generatePostWithFramework, findProductsByCategory, HighStockProduct, generateSmartPost, generatePostVisuals, generateSmartBrief, getAiSettings } from '../../lib/gemini';
 import { createImageCollage, cn, getAnalyticsSettings } from '../../lib/utils';
-import { db } from '../../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { format, parseISO, isValid } from 'date-fns';
@@ -94,6 +94,8 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
             type: 'Type'
           });
         }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
       });
       return () => unsubscribe();
     }
@@ -115,6 +117,8 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
           ...doc.data()
         })) as Comment[];
         setComments(commentsData);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'comments');
       });
 
       return () => unsubscribe();

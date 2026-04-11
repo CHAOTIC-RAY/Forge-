@@ -183,6 +183,46 @@
         "impact": { "type": "number" }
       },
       "required": ["id", "businessId"]
+    },
+    "Notebook": {
+      "title": "Notebook",
+      "description": "An infinite canvas notebook for visual strategy",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "businessId": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["text", "image", "prompt", "graph"] },
+              "content": { "type": "string" },
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "width": { "type": "number" },
+              "height": { "type": "number" },
+              "color": { "type": "string" }
+            }
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "from": { "type": "string" },
+              "to": { "type": "string" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "businessId", "userId", "blocks", "links"]
     }
   },
   "firestore": {
@@ -229,6 +269,10 @@
     "/categories/{businessId}": {
       "schema": "Business",
       "description": "Category settings for a business"
+    },
+    "/notebooks/{notebookId}": {
+      "schema": "Notebook",
+      "description": "User's infinite canvas notebooks"
     }
   }
 }

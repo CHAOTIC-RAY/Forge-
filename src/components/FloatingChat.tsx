@@ -18,13 +18,14 @@ interface FloatingChatProps {
   posts: Post[];
   onUpdatePost: (post: Post) => void;
   onCreatePost: (post: Post, date?: string) => void;
+  onPreviewPost?: (post: Partial<Post>) => void;
   droppedItem: any;
   onClearDroppedItem: () => void;
   isFullPage?: boolean;
   onClose?: () => void;
 }
 
-export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, onClearDroppedItem, isFullPage, onClose }: FloatingChatProps) {
+export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost, droppedItem, onClearDroppedItem, isFullPage, onClose }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -274,16 +275,22 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, droppedItem, o
                   </div>
 
                   {msg.suggestedPost && (
-                    <div className="mt-2 w-full bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
+                    <div 
+                      onClick={() => onPreviewPost?.(msg.suggestedPost!)}
+                      className="mt-2 w-full bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-blue-500/50 transition-colors group/card"
+                    >
                       <div className="p-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#757681] dark:text-[#9B9A97]">Suggested Draft</span>
-                        <Edit3 className="w-3 h-3 text-blue-500" />
+                        <Edit3 className="w-3 h-3 text-blue-500 group-hover/card:scale-110 transition-transform" />
                       </div>
                       <div className="p-3 space-y-2">
                         <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">{msg.suggestedPost.title}</p>
                         <p className="text-[11px] text-[#757681] dark:text-[#9B9A97] line-clamp-3">{msg.suggestedPost.caption}</p>
                         <button 
-                          onClick={() => applySuggestion(msg.suggestedPost!, msg.attachedItem)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            applySuggestion(msg.suggestedPost!, msg.attachedItem);
+                          }}
                           className="w-full mt-2 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-[8px] transition-all flex items-center justify-center gap-2"
                         >
                           <Check className="w-3 h-3" />

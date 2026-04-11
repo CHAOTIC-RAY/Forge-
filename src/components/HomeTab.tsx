@@ -23,7 +23,7 @@ import { Post, Business } from '../data';
 import { cn } from '../lib/utils';
 import { generateDailyGreetings, HighStockProduct } from '../lib/gemini';
 import { User } from 'firebase/auth';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 interface HomeTabProps {
@@ -50,6 +50,8 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
         cloudProducts.push(doc.data() as HighStockProduct);
       });
       setProducts(cloudProducts);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'rainbow_products');
     });
 
     return () => unsubscribe();

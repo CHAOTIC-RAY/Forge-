@@ -8,7 +8,7 @@ import { cn } from '../lib/utils';
 import { HighStockProduct, getCategoryProductCounts, CategoryCount, findProductsByCategory, scrapeScreenshot, getAi, extractProductsFromMarkdown, extractInfoFromMarkdown, getAiSettings } from '../lib/gemini';
 import { Type } from "@google/genai";
 import { DraggableProduct } from './DraggableProduct';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, setDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Business } from '../data';
@@ -217,6 +217,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         setProducts(cloudProducts);
         setHasSearched(true);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'rainbow_products');
     });
 
     return () => unsubscribe();
@@ -237,6 +239,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         setCategoryCounts(cloudCounts);
         setHasCheckedCounts(true);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'rainbow_counts');
     });
 
     return () => unsubscribe();
@@ -255,6 +259,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
           setBrandKitCategories(names);
         }
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `categories/${businessId}`);
     });
     return () => unsubscribe();
   }, [businessId]);

@@ -21,7 +21,7 @@ import {
   getDocs,
   writeBatch
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { scrapeBuyRainbow, HighStockProduct } from '../lib/gemini';
@@ -31,6 +31,7 @@ interface BrandKit {
   fonts: { heading: string; body: string };
   logos: string[];
   designs: string[];
+  customFonts?: { name: string; url: string; format: string }[];
 }
 
 const defaultBrandKit: BrandKit = {
@@ -42,6 +43,7 @@ const defaultBrandKit: BrandKit = {
   fonts: { heading: 'Inter', body: 'Inter' },
   logos: [],
   designs: [],
+  customFonts: [],
 };
 
 interface Category {
@@ -249,7 +251,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
         setBrandKit(defaultBrandKit);
       }
     }, (error) => {
-      console.error("[BrandKit] onSnapshot error:", error);
+      handleFirestoreError(error, OperationType.GET, `brand_kits/${activeBusiness.id}`);
     });
 
     // Load Categories & Platforms
@@ -267,7 +269,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
         setTargetPlatforms(['instagram', 'facebook', 'viber', 'tiktok']);
       }
     }, (error) => {
-      console.error("[Categories] onSnapshot error:", error);
+      handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
     });
 
     return () => {
@@ -275,6 +277,31 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
       unsubCategories();
     };
   }, [activeBusiness]);
+
+  // Inject custom fonts
+  useEffect(() => {
+    if (brandKit.customFonts && brandKit.customFonts.length > 0) {
+      const styleId = 'forge-custom-fonts';
+      let styleEl = document.getElementById(styleId) as HTMLStyleElement;
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+      }
+      
+      const fontFaces = brandKit.customFonts.map(font => `
+        @font-face {
+          font-family: '${font.name}';
+          src: url('${font.url}') format('${font.format}');
+          font-weight: normal;
+          font-style: normal;
+          font-display: swap;
+        }
+      `).join('\n');
+      
+      styleEl.innerHTML = fontFaces;
+    }
+  }, [brandKit.customFonts]);
 
   const saveTitles = async (newTitles: Record<string, string>) => {
     if (!activeBusiness?.id) return;
@@ -329,6 +356,25 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
         setBrandKit(prev => ({
           ...prev,
           [type]: [...prev[type], reader.result as string]
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleFontUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const fontName = file.name.split('.')[0];
+        const format = file.name.endsWith('.woff2') ? 'woff2' : file.name.endsWith('.woff') ? 'woff' : 'truetype';
+        setBrandKit(prev => ({
+          ...prev,
+          customFonts: [...(prev.customFonts || []), { name: fontName, url: reader.result as string, format }]
         }));
       };
       reader.readAsDataURL(file);
@@ -693,9 +739,16 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
 
               {/* Typography Card */}
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <Type className="w-5 h-5 text-[#2665fd]" />
-                  <h3 className="text-base font-bold">Typography</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <Type className="w-5 h-5 text-[#2665fd]" />
+                    <h3 className="text-base font-bold">Typography</h3>
+                  </div>
+                  <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-[#2665fd]/10 text-[#2665fd] rounded-[8px] text-xs font-bold hover:bg-[#2665fd]/20 transition-all">
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload Font
+                    <input type="file" multiple accept=".ttf,.otf,.woff,.woff2" className="hidden" onChange={handleFontUpload} />
+                  </label>
                 </div>
                 <div className="space-y-4">
                   <div>
@@ -710,6 +763,9 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                       <option value="Playfair Display">Playfair Display</option>
                       <option value="Montserrat">Montserrat</option>
                       <option value="Outfit">Outfit</option>
+                      {brandKit.customFonts?.map(font => (
+                        <option key={font.name} value={font.name}>{font.name} (Custom)</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -723,6 +779,9 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                       <option value="Roboto">Roboto</option>
                       <option value="Open Sans">Open Sans</option>
                       <option value="Lato">Lato</option>
+                      {brandKit.customFonts?.map(font => (
+                        <option key={font.name} value={font.name}>{font.name} (Custom)</option>
+                      ))}
                     </select>
                   </div>
                   <div className="mt-6 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">

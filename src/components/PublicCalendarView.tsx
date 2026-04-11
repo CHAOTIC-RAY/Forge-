@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { addMonths, subMonths } from 'date-fns';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Post, Business } from '../data';
 import { Calendar } from './Calendar';
@@ -66,6 +66,8 @@ export function PublicCalendarView() {
           const postsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
           setPosts(postsList);
           setLoading(false);
+        }, (error) => {
+          handleFirestoreError(error, OperationType.GET, 'posts');
         });
         return unsubscribe;
       } catch (e) {

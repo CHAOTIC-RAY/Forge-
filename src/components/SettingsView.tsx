@@ -4,7 +4,8 @@ import {
   User, Building2, Sparkles, BarChart3, Database, 
   Download, Save, Upload, RefreshCw, FileSpreadsheet, 
   Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
-  Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2
+  Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2,
+  FileText, MessageSquareText
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
 
 const GEMINI_MODELS = [
@@ -263,6 +265,8 @@ export function SettingsView({
         if (docSnap.exists()) {
           setCategories(docSnap.data().categories || []);
         }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
       });
       return () => unsubscribe();
     } else {
@@ -419,6 +423,19 @@ export function SettingsView({
     { id: 'nord', name: 'Nordic Frost', colors: ['#2E3440', '#88C0D0'], description: 'Cool, arctic-inspired palette.' }
   ];
 
+  const [isAiInstructionModalOpen, setIsAiInstructionModalOpen] = useState(false);
+  const [instructionText, setInstructionText] = useState(aiSettings.systemInstructions || '');
+
+  useEffect(() => {
+    setInstructionText(aiSettings.systemInstructions || '');
+  }, [aiSettings.systemInstructions]);
+
+  const handleSaveInstructions = () => {
+    handleAiSettingChange('systemInstructions', instructionText);
+    setIsAiInstructionModalOpen(false);
+    toast.success("AI System Instructions updated!");
+  };
+
   return (
     <div className="flex flex-col bg-transparent relative">
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
@@ -450,6 +467,69 @@ export function SettingsView({
           </div>
         </div>
       </div>
+
+      {/* AI Instruction Modal */}
+      <AnimatePresence>
+        {isAiInstructionModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px] w-full max-w-2xl overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-[#F7F7F5] dark:bg-[#202020]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-[12px] flex items-center justify-center text-purple-600 dark:text-purple-400">
+                    <MessageSquareText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED]">AI System Instructions</h3>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Define how the AI should behave across the entire app.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsAiInstructionModalOpen(false)}
+                  className="p-2 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-[#757681]" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Instructions (Markdown)</label>
+                    <span className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">Saved to Cloud</span>
+                  </div>
+                  <textarea 
+                    value={instructionText}
+                    onChange={(e) => setInstructionText(e.target.value)}
+                    placeholder="# Your Custom AI Instructions&#10;Define tone, style, and specific business rules here...&#10;&#10;Example:&#10;- Always use a professional yet friendly tone.&#10;- Focus on sustainable materials.&#10;- Never mention competitors."
+                    className="w-full h-[300px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] text-sm font-mono outline-none focus:border-[#2665fd] transition-colors resize-none"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-3 pt-2">
+                  <button 
+                    onClick={handleSaveInstructions}
+                    className="flex-1 py-3 bg-[#2665fd] hover:bg-[#2665fd]-hover text-white font-bold rounded-[12px] transition-all shadow-lg shadow-[#2665fd]/20 flex items-center justify-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Instructions
+                  </button>
+                  <button 
+                    onClick={() => setIsAiInstructionModalOpen(false)}
+                    className="px-6 py-3 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] font-bold rounded-[12px] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Hidden Tabs Bento Grid */}
       <div className="md:hidden grid grid-cols-6 gap-2 mb-8">
@@ -791,7 +871,16 @@ export function SettingsView({
           expandedId={expandedId}
           onToggle={toggleExpand}
         >
-          <div className="space-y-6 pt-4">
+          <div className="relative space-y-6 pt-4">
+            <div className="absolute -top-12 right-0">
+              <button 
+                onClick={() => setIsAiInstructionModalOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
+              >
+                <MessageSquareText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                AI Instructions
+              </button>
+            </div>
             <div className="space-y-3">
               <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Preferred AI Provider</label>
               <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">

@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { PriorityProductsPanel } from './PriorityProductsPanel';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 interface IdeasPanelProps {
   onClose?: () => void;
@@ -54,6 +54,8 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
           setWorkspaceTitles(prev => ({ ...prev, ...data.titles }));
         }
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
     });
     return () => unsub();
   }, [activeBusiness]);
@@ -73,6 +75,8 @@ export function IdeasPanel({ onClose, isFullPage, activeBusiness }: IdeasPanelPr
         ...doc.data()
       })) as IdeaHistoryItem[];
       setHistory(historyData.sort((a, b) => b.timestamp - a.timestamp));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'idea_history');
     });
 
     return () => unsubscribe();

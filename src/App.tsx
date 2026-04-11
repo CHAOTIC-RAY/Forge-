@@ -39,7 +39,7 @@ import { Post, initialPosts, Business } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
-import { HighStockProduct, getAi } from './lib/gemini';
+import { HighStockProduct, getAi, isGeminiKeyAvailable, fetchServerConfig } from './lib/gemini';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
 import { CalendarSharing } from './components/CalendarSharing';
@@ -55,6 +55,7 @@ import { CreativeStudioTab } from './components/CreativeStudioTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { SettingsView } from './components/SettingsView';
 import { BrandKitTab } from './components/BrandKitTab';
+import { NotebookTab } from './components/NotebookTab';
 import { FloatingChat } from './components/FloatingChat';
 import { 
   generatePostContent, 
@@ -65,7 +66,8 @@ import {
   getAiSettings,
   setAiSettings,
   getExcelMappingWithAi,
-  generateBulkPosts
+  generateBulkPosts,
+  fetchServerConfig
 } from './lib/gemini';
 import { db, auth, storage, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
 import { uploadBase64Image } from './lib/storage';
@@ -138,6 +140,7 @@ export default function App() {
   // Clean redeploy after restoring Electron, PWA, and simplifying build scripts
   const [user, loading, authError] = useAuthState(auth);
   const [authTimeout, setAuthTimeout] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     if (loading) {
@@ -152,6 +155,11 @@ export default function App() {
   const isAdmin = !!user;
   const isGuest = !user;
   const [aiSettings, setAiSettingsState] = useState(getAiSettings());
+  
+  useEffect(() => {
+    fetchServerConfig().catch(console.error);
+  }, []);
+
   const [analyticsSettings, setAnalyticsSettingsState] = useState(getAnalyticsSettings());
   const [isSigningIn, setIsSigningIn] = useState(false);
   
@@ -214,7 +222,7 @@ export default function App() {
   });
   const [confirmAction, setConfirmAction] = useState<{ type: string; onConfirm: () => Promise<void> | void } | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook'>('home');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -274,6 +282,24 @@ export default function App() {
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
   const userProfileSynced = useRef<string | null>(null);
+
+  // Sync AI settings from Firestore
+  useEffect(() => {
+    if (!user) return;
+    
+    const userRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.aiSettings) {
+          setAiSettingsState(data.aiSettings);
+          setAiSettings(data.aiSettings); // Sync to localStorage for lib/gemini.ts
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Migration logic for 2003ray.dark@gmail.com
   // Migration completed. Legacy code removed.
@@ -484,6 +510,10 @@ export default function App() {
       if (uncategorized.length === 0) {
         toast.info("All products are already categorized.");
         return;
+      }
+
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
       }
 
       const ai = getAi();
@@ -2374,7 +2404,8 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login />;
+    if (showLogin) return <Login />;
+    return <LandingView onLogin={() => setShowLogin(true)} />;
   }
   
   if (isGuest && loading) {
@@ -2668,6 +2699,16 @@ export default function App() {
                   <Lightbulb className="w-5 h-5 shrink-0" />
                 </button>
                 <button 
+                  onClick={() => setActiveTab('notebook')} 
+                  title="Notebook"
+                  className={cn(
+                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
+                    activeTab === 'notebook' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                  )}
+                >
+                  <PenTool className="w-5 h-5 shrink-0" />
+                </button>
+                <button 
                   onClick={() => setActiveTab('brandkit')} 
                   title={industryConfig.terminology.assets}
                   className={cn(
@@ -2776,6 +2817,7 @@ export default function App() {
                     {activeTab === 'creative' && 'AI Studio'}
                     {activeTab === 'analytics' && 'Insights & Analytics'}
                     {activeTab === 'ideas' && industryConfig.terminology.ideas}
+                    {activeTab === 'notebook' && 'Notebook'}
                     {activeTab === 'more' && 'Settings'}
                   </h1>
                   {/* Mobile Sync Indicator */}
@@ -2891,6 +2933,12 @@ export default function App() {
                 <IdeasPanel isFullPage activeBusiness={activeBusiness} />
               </div>
             )}
+
+            {isAdmin && (
+              <div className={cn("flex-1", activeTab === 'notebook' ? 'block' : 'hidden')}>
+                <NotebookTab activeBusiness={activeBusiness} />
+              </div>
+            )}
             
             {isAdmin && (
               <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' ? 'block' : 'hidden')}>
@@ -2995,6 +3043,23 @@ export default function App() {
             }}
             onCreatePost={(newPost, date) => {
               handleSavePost({ ...newPost, date: date || newPost.date });
+            }}
+            onPreviewPost={(partialPost) => {
+              setSelectedPost({
+                id: 'preview-' + Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                images: [],
+                outlet: 'Rainbow Enterprises',
+                type: '🔴 General',
+                title: '',
+                brief: '',
+                caption: '',
+                hashtags: '',
+                userId: user?.uid || '',
+                businessId: activeBusiness?.id || '',
+                ...partialPost
+              } as Post);
+              setIsPostModalOpen(true);
             }}
             droppedItem={droppedToChat}
             onClearDroppedItem={() => setDroppedToChat(null)}

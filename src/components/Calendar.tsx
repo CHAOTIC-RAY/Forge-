@@ -21,7 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
 interface Todo {
   id: string;
@@ -80,7 +80,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
       })) as Todo[];
       setTodos(todosData);
     }, (error) => {
-      console.error("Error fetching todos in calendar:", error);
+      handleFirestoreError(error, OperationType.GET, 'todos');
     });
 
     return () => unsubscribe();

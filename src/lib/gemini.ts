@@ -7,9 +7,51 @@ import { getIndustryConfig } from './industryConfig';
 
 declare const puter: any;
 
+let serverConfig: { geminiApiKey?: string; groqApiKey?: string } | null = null;
+
+export const fetchServerConfig = async () => {
+  try {
+    const response = await fetch('/api/config');
+    if (response.ok) {
+      serverConfig = await response.json();
+    }
+  } catch (error) {
+    console.error('[AI Config] Failed to fetch server config:', error);
+  }
+};
+
+// Initial fetch
+if (typeof window !== 'undefined') {
+  fetchServerConfig();
+}
+
+export const isGeminiKeyAvailable = () => {
+  const settings = getAiSettings();
+  const apiKey = settings.geminiApiKey || 
+                 serverConfig?.geminiApiKey ||
+                 process.env.GEMINI_API_KEY || 
+                 (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY);
+  
+  return !!apiKey && apiKey !== 'undefined';
+};
+
 export const getAi = () => {
   const settings = getAiSettings();
-  const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
+  // Prioritize settings, then serverConfig, then process.env (Vite defined), then import.meta.env
+  let apiKey = settings.geminiApiKey || 
+               serverConfig?.geminiApiKey ||
+               process.env.GEMINI_API_KEY || 
+               (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY) || 
+               '';
+  
+  // Handle the case where Vite might have stringified 'undefined' or it's otherwise invalid
+  if (apiKey === 'undefined' || !apiKey) {
+    apiKey = 'missing_api_key';
+  }
+  
+  // If we still don't have a key, we'll return the instance but it might fail later.
+  // However, we want to avoid the "An API Key must be set when running in a browser" 
+  // error during instantiation if possible, though the SDK usually throws it.
   return new GoogleGenAI({ apiKey });
 };
 
@@ -126,7 +168,8 @@ export const getAiSettings = () => {
     targetUrl: '',
     geminiApiKey: '',
     groqApiKey: '',
-    firecrawlApiKey: ''
+    firecrawlApiKey: '',
+    systemInstructions: ''
   };
 };
 
@@ -156,24 +199,27 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
     let response: any;
     console.log(`[Puter] Calling model ${model} with prompt:`, prompt.substring(0, 100) + "...");
     
+    const messages: any[] = [];
+    
+    const fullPrompt = settings.systemInstructions 
+      ? `System Instructions:\n${settings.systemInstructions}\n\nUser Request:\n${prompt}`
+      : prompt;
+
     if (images && images.length > 0) {
-      const messages = [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            ...images.map(img => ({
-              type: 'image_url',
-              image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
-            }))
-          ]
-        }
-      ];
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: fullPrompt },
+          ...images.map(img => ({
+            type: 'image_url',
+            image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+          }))
+        ]
+      });
       console.log("[Puter] Sending messages with images:", messages);
       response = await puterInstance.ai.chat(messages, { model });
     } else {
-      // Use messages format even for text-only for consistency
-      const messages = [{ role: 'user', content: prompt }];
+      messages.push({ role: 'user', content: fullPrompt });
       console.log("[Puter] Sending text-only messages:", messages);
       response = await puterInstance.ai.chat(messages, { model });
     }
@@ -216,8 +262,18 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
 
 async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
   const settings = getAiSettings();
-  const apiKey = settings.groqApiKey || GROQ_API_KEY;
+  
+  if (!settings.groqApiKey && !serverConfig?.groqApiKey && !GROQ_API_KEY) {
+    await fetchServerConfig();
+  }
+  
+  const apiKey = settings.groqApiKey || serverConfig?.groqApiKey || GROQ_API_KEY;
   const messages: any[] = [];
+  
+  if (settings.systemInstructions) {
+    messages.push({ role: 'system', content: settings.systemInstructions });
+  }
+
   const content: any[] = [{ type: 'text', text: prompt }];
 
   if (images && images.length > 0) {
@@ -233,18 +289,24 @@ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType
 
   messages.push({ role: 'user', content });
 
+  const isJsonExpected = prompt.toLowerCase().includes('json');
+  const body: any = {
+    model: images && images.length > 0 ? settings.groqVisionModel : settings.groqModel,
+    messages,
+    temperature: 0.7,
+  };
+
+  if (isJsonExpected) {
+    body.response_format = { type: 'json_object' };
+  }
+
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify({
-      model: images && images.length > 0 ? settings.groqVisionModel : settings.groqModel,
-      messages,
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
-    })
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
@@ -285,11 +347,13 @@ export async function generatePostContent(outlet: string, productCategory?: stri
   const randomAngle = angles[Math.floor(Math.random() * angles.length)];
 
   const safeOutlet = outlet.length > 2000 ? outlet.substring(0, 2000) + "..." : outlet;
+  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
 
   const prompt = `Create a cohesive social media carousel post.
     ${businessContext}
     Outlet: "${safeOutlet}"${categoryPrompt}. 
     ${productContext}
+    ${systemInstruction}
     
     CRITICAL: Focus ONLY on products that are currently IN STOCK.${avoidPrompt}
     
@@ -331,6 +395,18 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     } catch (error) {
       console.warn("Puter.js failed. Cascading to Gemini...");
     }
+  } else if (settings.preferredProvider === 'groq') {
+    try {
+      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.");
+      const parsed = safeParseJSON(groqResponse || '{}');
+      if (parsed && parsed.title) return parsed;
+    } catch (error) {
+      console.warn("Groq failed. Cascading to Gemini...");
+    }
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
   }
 
   // Hierarchy 1: Gemini Public API
@@ -393,6 +469,9 @@ export async function generatePostContent(outlet: string, productCategory?: stri
 
 export async function generateMockupImage(title: string, brief: string, caption: string, referenceImageBase64?: string, business?: Business): Promise<{ url: string, provider: string }> {
   const settings = getAiSettings();
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
   const ai = getAi();
   
   // Fetch brand kit
@@ -418,11 +497,14 @@ export async function generateMockupImage(title: string, brief: string, caption:
     console.error('Failed to load brand kit', e);
   }
 
+  const style = `vibrant promotional graphic, clean product photography on realistic backgrounds, modern layout, high-end professional ad. ${brandContext}`;
+  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
+
   const prompt = `A professional social media promotional graphic for ${business?.name || 'Forge Enterprises'}, a leading business in the ${business?.industry || 'retail'} industry.
   Text on image: "${title}".
   Visual instructions: ${brief}.
   Context: ${caption}.
-  Style: vibrant promotional graphic, clean product photography on realistic backgrounds, modern layout, high-end professional ad. ${brandContext}`;
+  Style: ${style}. ${systemInstruction}`;
 
   if (settings.imageProvider === 'pollination') {
     const encodedPrompt = encodeURIComponent(prompt);
@@ -492,6 +574,9 @@ export async function generateMockupImage(title: string, brief: string, caption:
       }
     }
   } else {
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -515,13 +600,15 @@ export async function generateMockupImage(title: string, brief: string, caption:
 }
 
 export async function generateSmartBrief(title: string, recentPosts: Post[]): Promise<string> {
-  const ai = getAi();
   const recentContext = recentPosts.slice(0, 3).map(p => `- ${p.title}: ${p.brief}`).join('\n');
+  const settings = getAiSettings();
+  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
   
   const prompt = `Generate a detailed graphic design brief for a social media post titled "${title}".
   
   Context from recent posts:
   ${recentContext}
+  ${systemInstruction}
   
   The brief should include:
   1. Visual Style (Design language based on recent posts)
@@ -536,7 +623,6 @@ export async function generateSmartBrief(title: string, recentPosts: Post[]): Pr
   const cached = getCachedResponse(cacheKey);
   if (cached) return cached.text;
 
-  const settings = getAiSettings();
   if (settings.preferredProvider === 'puter') {
     try {
       const puterResponse = await fetchFromPuter(prompt);
@@ -547,8 +633,22 @@ export async function generateSmartBrief(title: string, recentPosts: Post[]): Pr
     } catch (error) {
       console.warn("Puter failed for smart brief, falling back:", error);
     }
+  } else if (settings.preferredProvider === 'groq') {
+    try {
+      const groqResponse = await fetchFromGroq(prompt);
+      if (groqResponse) {
+        setCachedResponse(cacheKey, { text: groqResponse });
+        return groqResponse;
+      }
+    } catch (error) {
+      console.warn("Groq failed for smart brief, falling back:", error);
+    }
   }
 
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+  const ai = getAi();
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: [{ parts: [{ text: prompt }] }],
@@ -559,8 +659,9 @@ export async function generateSmartBrief(title: string, recentPosts: Post[]): Pr
 }
 
 export async function generateSmartPost(title: string, category: string, outlet: string, type: string, link: string, localDB: any[], mode: 'product' | 'info' = 'product'): Promise<Partial<Post>> {
-  const ai = getAi();
   const dbContext = localDB.slice(0, 5).map(p => `- ${p.title}: ${p.type} (${mode === 'product' ? (p.price || 'N/A') : (p.stockInfo || 'N/A')})`).join('\n');
+  const settings = getAiSettings();
+  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
   
   const prompt = `Generate a social media post based on the following information:
   Title: ${title}
@@ -568,6 +669,7 @@ export async function generateSmartPost(title: string, category: string, outlet:
   Outlet: ${outlet}
   Type: ${type}
   Link/Reference: ${link}
+  ${systemInstruction}
   
   Local Database Context (Recent/Related ${mode === 'product' ? 'Products' : 'Information Pieces'}):
   ${dbContext}
@@ -586,7 +688,6 @@ export async function generateSmartPost(title: string, category: string, outlet:
   
   Make it professional and high-converting.`;
 
-  const settings = getAiSettings();
   if (settings.preferredProvider === 'puter') {
     try {
       const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
@@ -595,8 +696,20 @@ export async function generateSmartPost(title: string, category: string, outlet:
     } catch (error) {
       console.warn("Puter failed for smart post, falling back:", error);
     }
+  } else if (settings.preferredProvider === 'groq') {
+    try {
+      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
+      const parsed = safeParseJSON(groqResponse || '{}');
+      if (parsed && parsed.title) return parsed;
+    } catch (error) {
+      console.warn("Groq failed for smart post, falling back:", error);
+    }
   }
 
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+  const ai = getAi();
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: [{ parts: [{ text: prompt }] }],
@@ -632,6 +745,10 @@ export async function generatePostVisuals(title: string, brief: string, brandKit
     const style = brandKit?.style || 'photorealistic';
     const image = await generateAiImage(`${title}. ${brief}`, style);
     return [image];
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
   }
 
   const ai = getAi();
@@ -673,12 +790,15 @@ export async function generatePostFromImage(base64Data: string, mimeType: string
   const outletContext = outlet ? ` for the outlet "${outlet}"` : '';
   const businessName = business?.name || 'Forge Enterprises';
   const businessIndustry = business?.industry || 'professional business';
+  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
   
   const promptText = isVideo 
     ? `Analyze this 2x2 collage of frames extracted from a video and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
        Treat this as a video analysis by looking at the sequence of frames.
+       ${systemInstruction}
        Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`
     : `Analyze this image and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
+       ${systemInstruction}
        Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`;
   
   try {
@@ -706,6 +826,10 @@ export async function generatePostFromImage(base64Data: string, mimeType: string
       ]);
       const response = await result.response;
       return JSON.parse(response.text() || '{}');
+    }
+
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
     }
 
     const ai = getAi();
@@ -896,6 +1020,9 @@ export async function generateTaskIdeas(
   }
 
   try {
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: settings.geminiModel,
@@ -969,6 +1096,10 @@ export async function getCategoryProductCounts(targetUrlParam?: string): Promise
       text = text.substring(start, end + 1);
     }
     return JSON.parse(text);
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
   }
 
   const ai = getAi();
@@ -1061,6 +1192,10 @@ export async function extractInfoFromMarkdown(markdown: string): Promise<HighSto
     } catch (e) {
       return [];
     }
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
   }
 
   const ai = getAi();
@@ -1163,6 +1298,10 @@ export async function extractProductsFromMarkdown(markdown: string): Promise<Hig
       console.error("Failed to parse AI product extraction:", e);
       return [];
     }
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
   }
 
   const ai = getAi();
@@ -1321,6 +1460,10 @@ export async function scrapeScreenshot(url: string, category: string, targetUrlP
       return [];
     }
 
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
+
     const ai = getAi();
     const aiResponse = await ai.models.generateContent({
       model: settings.geminiModel,
@@ -1394,6 +1537,9 @@ export async function findProductsByCategory(
           if (onProgress) onProgress([...scrapedProducts, ...aiProducts]);
         }
       } else {
+        if (!isGeminiKeyAvailable()) {
+          await fetchServerConfig();
+        }
         const ai = getAi();
         const response = await ai.models.generateContent({
           model: settings.geminiModel,
@@ -1638,6 +1784,10 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
     return response.text() || '';
   }
 
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+
   const ai = getAi();
   const response = await ai.models.generateContent({
     model: settings.geminiModel,
@@ -1674,6 +1824,10 @@ export async function generateGenericJson(prompt: string, systemInstruction?: st
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
     return JSON.parse(response.text() || '{}');
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
   }
 
   const ai = getAi();
@@ -1906,6 +2060,10 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
     return response.text() || '';
   }
 
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+
   const ai = getAi();
   const response = await ai.models.generateContent({
     model: settings.geminiModel,
@@ -1959,6 +2117,9 @@ export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<str
       const response = await res.response;
       result = JSON.parse(response.text() || '{}');
     } else {
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
       const ai = getAi();
       const response = await ai.models.generateContent({
         model: settings.geminiModel,
@@ -1982,7 +2143,7 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
   const industryConfig = getIndustryConfig(business?.industry);
   const businessContext = business ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || 'General'}.` : 'Business: Forge Enterprises (Professional Services)';
   
-  const aiContext = systemInstruction || `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`;
+  const aiContext = systemInstruction || (settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`);
 
   const promptText = `Generate ${count} unique and creative social media post ideas for ${business?.name || 'Forge Enterprises'} (a ${business?.industry || 'professional business'}) in the category "${category}".
     ${aiContext}
@@ -2013,6 +2174,10 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
       const result = await model.generateContent(promptText);
       const response = await result.response;
       return JSON.parse(response.text() || '[]');
+    }
+
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
     }
 
     const ai = getAi();
@@ -2153,6 +2318,10 @@ export async function generateHashtagSuggestions(content: string): Promise<strin
       return JSON.parse(text);
     }
 
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
+
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: settings.geminiModel,
@@ -2186,6 +2355,11 @@ export async function generateGreeting(userName: string, timeOfDay: string): Pro
       const puterResponse = await fetchFromPuter(prompt);
       if (puterResponse) return puterResponse.replace(/["']/g, '').trim();
     }
+    
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
+
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -2216,6 +2390,9 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
     if (settings.preferredProvider === 'puter') {
       text = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
     } else {
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
       const ai = getAi();
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",

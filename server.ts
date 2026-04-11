@@ -51,6 +51,14 @@ async function startServer() {
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use("/api", scraperRouter);
 
+  // Expose Gemini API Key to client if set in environment
+  app.get("/api/config", (req, res) => {
+    res.json({
+      geminiApiKey: process.env.GEMINI_API_KEY || null,
+      groqApiKey: process.env.GROQ_API_KEY || null,
+    });
+  });
+
   // Proxy image endpoint to bypass CORS
   app.get("/api/proxy-image", async (req, res) => {
     const { url } = req.query;
