@@ -29,7 +29,7 @@ export const isGeminiKeyAvailable = () => {
   const settings = getAiSettings();
   const apiKey = settings.geminiApiKey || 
                  serverConfig?.geminiApiKey ||
-                 process.env.GEMINI_API_KEY || 
+                 (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || 
                  (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY);
   
   return !!apiKey && apiKey !== 'undefined';
@@ -40,7 +40,7 @@ export const getAi = () => {
   // Prioritize settings, then serverConfig, then process.env (Vite defined), then import.meta.env
   let apiKey = settings.geminiApiKey || 
                serverConfig?.geminiApiKey ||
-               process.env.GEMINI_API_KEY || 
+               (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || 
                (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY) || 
                '';
   
@@ -59,7 +59,7 @@ const getVertexModel = (modelName: string) => {
   return getGenerativeModel(vertexAI, { model: modelName });
 };
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
+const GROQ_API_KEY = (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) || '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';
 
 export const GEMINI_MODELS = [
   { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Latest)' },
@@ -260,6 +260,60 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
   }
 }
 
+export async function generateTextWithCascade(prompt: string, expectJson: boolean = false): Promise<string> {
+  const settings = getAiSettings();
+  const fullPrompt = expectJson ? prompt + "\n\nYou MUST return ONLY a valid JSON object or array." : prompt;
+
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const resp = await fetchFromPuter(fullPrompt);
+      if (resp) return resp;
+    } catch (e) {
+      console.warn('Puter failed, cascading...');
+    }
+  } else if (settings.preferredProvider === 'groq') {
+    try {
+      const resp = await fetchFromGroq(fullPrompt);
+      if (resp) return resp;
+    } catch (e) {
+      console.warn('Groq failed, cascading...');
+    }
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+
+  try {
+    const ai = getAi();
+    const config: any = { temperature: 0.7 };
+    if (expectJson) {
+      config.responseMimeType = "application/json";
+    }
+
+    const response = await ai.models.generateContent({
+      model: settings.geminiModel || "gemini-2.5-flash",
+      contents: fullPrompt,
+      config
+    });
+    
+    if (response.text) {
+      return response.text;
+    } else if (response.candidates?.[0]?.content?.parts) {
+      return response.candidates[0].content.parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
+    }
+    return '';
+  } catch (error) {
+    console.warn("Gemini failed, cascading fallback...");
+  }
+
+  try {
+    return await fetchFromGroq(fullPrompt);
+  } catch (e) {
+    throw new Error("All AI providers failed to generate text.");
+  }
+}
+
 async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
   const settings = getAiSettings();
   
@@ -274,9 +328,10 @@ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType
     messages.push({ role: 'system', content: settings.systemInstructions });
   }
 
-  const content: any[] = [{ type: 'text', text: prompt }];
+  let content: string | any[] = prompt;
 
   if (images && images.length > 0) {
+    content = [{ type: 'text', text: prompt }];
     for (const img of images) {
       content.push({
         type: 'image_url',
@@ -645,17 +700,9 @@ export async function generateSmartBrief(title: string, recentPosts: Post[]): Pr
     }
   }
 
-  if (!isGeminiKeyAvailable()) {
-    await fetchServerConfig();
-  }
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ parts: [{ text: prompt }] }],
-  });
-
-  setCachedResponse(cacheKey, { text: response.text || '' });
-  return response.text || '';
+  const text = await generateTextWithCascade(prompt, false);
+  setCachedResponse(cacheKey, { text: text || '' });
+  return text || '';
 }
 
 export async function generateSmartPost(title: string, category: string, outlet: string, type: string, link: string, localDB: any[], mode: 'product' | 'info' = 'product'): Promise<Partial<Post>> {
@@ -706,32 +753,10 @@ export async function generateSmartPost(title: string, category: string, outlet:
     }
   }
 
-  if (!isGeminiKeyAvailable()) {
-    await fetchServerConfig();
-  }
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          brief: { type: Type.STRING },
-          caption: { type: Type.STRING },
-          hashtags: { type: Type.STRING },
-          type: { type: Type.STRING },
-          outlet: { type: Type.STRING }
-        },
-        required: ["title", "brief", "caption", "hashtags", "type", "outlet"]
-      }
-    }
-  });
+  const text = await generateTextWithCascade(prompt, true);
 
   try {
-    return JSON.parse(response.text || '{}');
+    return JSON.parse(text || '{}');
   } catch (e) {
     console.error("Failed to parse AI response", e);
     return {};
