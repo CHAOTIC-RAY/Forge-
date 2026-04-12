@@ -16,7 +16,8 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   collection, 
@@ -29,6 +30,20 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { generateTextWithCascade, safeParseJSONArray, isGeminiKeyAvailable, fetchServerConfig } from '../lib/gemini';
+import { toast } from 'sonner';
+
+/**
+ * Utility for joining tailwind classes safely.
+ * Locally defined to prevent "cn is not defined" issues in specific build environments.
+ */
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+/**
+ * Shorthand for generating unique IDs
+ */
+const uuidv4 = () => Math.random().toString(36).substr(2, 9) + '-' + Math.random().toString(36).substr(2, 9);
 
 interface Block {
   id: string;
@@ -64,6 +79,7 @@ interface Folder {
   color?: string;
   x?: number;
   y?: number;
+  width?: number;
 }
 
 interface Link {
@@ -76,7 +92,7 @@ interface NotebookTabProps {
   activeBusiness: any;
 }
 
-function DraggableBlock({ block, children, isSelected }: { block: Block, children: React.ReactNode, isSelected: boolean }) {
+function DraggableBlock({ block, children, isSelected, onClick }: { block: Block, children: React.ReactNode, isSelected: boolean, onClick: () => void }) {
   const {
     attributes,
     listeners,
@@ -104,6 +120,7 @@ function DraggableBlock({ block, children, isSelected }: { block: Block, childre
       style={style} 
       {...attributes} 
       {...listeners}
+      onClick={onClick}
       className={cn(
         "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-grab active:cursor-grabbing group transition-colors",
         isSelected ? "bg-[#E9E9E7] dark:bg-[#2E2E2E]" : "hover:bg-[#E9E9E7]/50 dark:hover:bg-[#2E2E2E]/50"
@@ -266,14 +283,6 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
     });
   };
 
-  const updateFolder = (id: string, updates: Partial<Folder>) => {
-    setFolders(prev => {
-      const updated = prev.map(f => f.id === id ? { ...f, ...updates } : f);
-      saveNotebook(blocks, links, updated);
-      return updated;
-    });
-  };
-
   const toggleFolder = (id: string) => {
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -337,7 +346,6 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               }
             };
           } else if (ideaMode === 'postcard') {
-            // For postcard mode, we generate the image immediately to make it "live"
             const { generateAiImage } = await import('../lib/gemini');
             const imageResult = await generateAiImage(idea.imagePrompt, 'photorealistic', activeBusiness);
             
@@ -446,7 +454,6 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
       const text = await generateTextWithCascade(prompt, true, activeBusiness.id);
       const data = JSON.parse(text);
 
-      // Import from gemini.ts dynamically or assuming it's available
       const { generateAiImage } = await import('../lib/gemini');
       const imageResult = await generateAiImage(data.imagePrompt, 'photorealistic', activeBusiness);
 
@@ -481,16 +488,13 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
     }
   };
 
-  // Helper for generating unique IDs (simulating uuidv4 if not imported)
-  const uuidv4 = () => Math.random().toString(36).substr(2, 9) + '-' + Math.random().toString(36).substr(2, 9);
-
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
   const childBlocks = selectedBlock 
     ? blocks.filter(b => links.some(l => l.from === selectedBlock.id && l.to === b.id))
     : [];
 
   return (
-    <div className="h-full flex overflow-hidden bg-white dark:bg-[#151515] text-[#37352F] dark:text-[#EBE9ED]">
+    <div className="h-full flex overflow-hidden bg-white dark:bg-[#151515] text-[#37352F] dark:text-[#EBE9ED] relative">
       
       {/* Sidebar Navigation */}
       <div className="w-72 border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] flex flex-col shrink-0 relative">
@@ -535,7 +539,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
             <button 
               onClick={generateIdeas}
               disabled={isAiLoading || !aiPrompt.trim()}
-              className="absolute bottom-12 right-2 p-1.5 bg-transparent text-[#2665fd] hover:scale-110 disabled:opacity-40 transition-all pointer-events-auto"
+              className="absolute bottom-12 right-2 p-1.5 bg-transparent text-[#2665fd] hover:scale-110 disabled:opacity-40 transition-all"
               title="Generate with AI"
             >
               <Sparkles className="w-5 h-5" />
@@ -548,7 +552,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
           
           {/* Inbox / Uncategorized area */}
           <div className="px-2 mb-4">
-            <div className="flex items-center justify-between px-2 mb-1 group cursor-pointer" onClick={() => {}}>
+            <div className="flex items-center justify-between px-2 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#757681]">Inbox</span>
             </div>
             {blocks.filter(b => b.status === 'inbox').map(block => (
@@ -569,7 +573,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#757681]">Folders</span>
               <button 
                 onClick={addFolder}
-                className="text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED] opacity-0 group-hover:opacity-100 transition-opacity"
+                className="text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                 title="Add Folder"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -590,7 +594,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                     <FolderIcon className="w-4 h-4 text-blue-400 shrink-0" />
                     <span className="flex-1 truncate font-medium">{folder.name}</span>
                     <button 
-                      onClick={(e) => { e.stopPropagation(); addBlock(folder.id); expandedFolders[folder.id] = true; }}
+                      onClick={(e) => { e.stopPropagation(); addBlock(folder.id); toggleFolder(folder.id); }}
                       className="p-1 opacity-0 group-hover:opacity-100 text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                       title="Add document"
                     >
@@ -685,214 +689,213 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
         </div>
 
         <div className="px-8 pb-12 lg:px-32 xl:px-48">
-        {selectedBlock ? (
-          <div className="max-w-3xl mx-auto flex flex-col min-h-full">
-            {/* Document Header Controls */}
-            <div className="flex items-center gap-3 mb-6">
-              {selectedBlock.status === 'inbox' && (
+          {selectedBlock ? (
+            <div className="max-w-3xl mx-auto flex flex-col min-h-full">
+              {/* Document Header Controls */}
+              <div className="flex items-center gap-3 mb-6">
+                {selectedBlock.status === 'inbox' && (
+                  <button 
+                    onClick={() => updateBlock(selectedBlock.id, { status: 'organized' })}
+                    className="px-3 py-1.5 bg-[#E9E9E7] dark:bg-[#2E2E2E] hover:bg-[#D5D5D3] dark:hover:bg-[#3E3E3E] rounded-md text-xs font-semibold tracking-wide transition-colors text-[#37352F] dark:text-[#EBE9ED]"
+                  >
+                    Move out of Inbox
+                  </button>
+                )}
+                {selectedBlock.folderId && (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#757681] bg-[#F7F7F5] dark:bg-[#2E2E2E] px-2.5 py-1 rounded-md">
+                    <FolderIcon className="w-3.5 h-3.5 text-blue-400" />
+                    {folders.find(f => f.id === selectedBlock.folderId)?.name || 'Unknown Folder'}
+                  </div>
+                )}
+                <div className="flex-1" />
+                {selectedBlock.type !== 'postcard' && (
+                  <button 
+                    onClick={() => generatePostcard(selectedBlock)}
+                    disabled={isAiLoading}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    Generate Postcard
+                  </button>
+                )}
                 <button 
-                  onClick={() => updateBlock(selectedBlock.id, { status: 'organized' })}
-                  className="px-3 py-1.5 bg-[#E9E9E7] dark:bg-[#2E2E2E] hover:bg-[#D5D5D3] dark:hover:bg-[#3E3E3E] rounded-md text-xs font-semibold tracking-wide transition-colors text-[#37352F] dark:text-[#EBE9ED]"
-                >
-                  Move out of Inbox
-                </button>
-              )}
-              {selectedBlock.folderId && (
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#757681] bg-[#F7F7F5] dark:bg-[#2E2E2E] px-2.5 py-1 rounded-md">
-                  <FolderIcon className="w-3.5 h-3.5 text-blue-400" />
-                  {folders.find(f => f.id === selectedBlock.folderId)?.name || 'Unknown Folder'}
-                </div>
-              )}
-              <div className="flex-1" />
-              {selectedBlock.type !== 'postcard' && (
-                <button 
-                  onClick={() => generatePostcard(selectedBlock)}
+                  onClick={() => expandWithAi(selectedBlock)}
                   disabled={isAiLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[#2665fd]/10 text-[#2665fd] hover:bg-[#2665fd]/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
                 >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  Generate Postcard
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Expand Idea with AI
                 </button>
-              )}
-              <button 
-                onClick={() => expandWithAi(selectedBlock)}
-                disabled={isAiLoading}
-                className="flex items-center gap-2 px-3 py-1.5 bg-[#2665fd]/10 text-[#2665fd] hover:bg-[#2665fd]/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Expand Idea with AI
-              </button>
-              <button 
-                onClick={() => deleteBlock(selectedBlock.id)}
-                className="p-1.5 text-[#757681] hover:text-red-500 rounded-md transition-colors"
-                title="Delete Document"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Metadata Bar (Visible if strategy data exists) */}
-            {selectedBlock.metadata && (
-              <div className="flex flex-wrap items-center gap-4 mb-8 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
-                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#757681]">
-                    <span>Feasibility</span>
-                    <span className="text-[#37352F] dark:text-[#EBE9ED]">{selectedBlock.metadata.feasibility}/10</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-[#E9E9E7] dark:bg-[#2E2E2E] rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(selectedBlock.metadata.feasibility || 0) * 10}%` }}
-                      className="h-full bg-emerald-500 rounded-full"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
-                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#757681]">
-                    <span>Strategic Impact</span>
-                    <span className="text-[#37352F] dark:text-[#EBE9ED]">{selectedBlock.metadata.impact}/10</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-[#E9E9E7] dark:bg-[#2E2E2E] rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(selectedBlock.metadata.impact || 0) * 10}%` }}
-                      className="h-full bg-blue-500 rounded-full"
-                    />
-                  </div>
-                </div>
-
-                {selectedBlock.metadata.format && (
-                  <div className="px-3 py-1 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#1A1A1A] rounded-md text-[10px] font-black uppercase tracking-widest">
-                    {selectedBlock.metadata.format}
-                  </div>
-                )}
+                <button 
+                  onClick={() => deleteBlock(selectedBlock.id)}
+                  className="p-1.5 text-[#757681] hover:text-red-500 rounded-md transition-colors"
+                  title="Delete Document"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-            )}
 
-            {/* Document Title */}
-            <textarea
-              value={selectedBlock.title || ''}
-              onChange={(e) => updateBlock(selectedBlock.id, { title: e.target.value })}
-              placeholder="Untitled"
-              className="text-4xl md:text-5xl font-bold bg-transparent text-[#37352F] dark:text-[#EBE9ED] placeholder-[#D5D5D3] dark:placeholder-[#3E3E3E] resize-none focus:outline-none mb-6 leading-tight break-words overflow-visible"
-              rows={1}
-              style={{ minHeight: '64px' }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                target.style.height = `${target.scrollHeight}px`;
-              }}
-            />
-
-            {/* Document Content or Postcard View */}
-            {selectedBlock.type === 'postcard' && selectedBlock.postcardData ? (
-              <div className="flex-1">
-                <div className="relative aspect-[4/3] w-full max-w-2xl mx-auto rounded-2xl overflow-hidden shadow-2xl group border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                  <img 
-                    src={selectedBlock.postcardData.imageUrl} 
-                    alt="Postcard Background" 
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div className="absolute inset-0 p-8 flex flex-col justify-end">
-                    <h2 className="text-3xl md:text-4xl font-black text-white mb-2 leading-tight uppercase tracking-tight">
-                      {selectedBlock.postcardData.frontText}
-                    </h2>
-                    <div className="h-1 w-24 bg-purple-500 rounded-full mb-4" />
-                  </div>
-                </div>
-                
-                <div className="mt-8 p-8 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] max-w-2xl mx-auto">
-                  <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest text-[#757681]">
-                    <Sparkles className="w-4 h-4 text-purple-500" />
-                    Message from AI
-                  </div>
-                  <p className="text-lg leading-relaxed italic text-[#37352F] dark:text-[#EBE9ED]">
-                    "{selectedBlock.postcardData.backText}"
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {selectedBlock.metadata?.brief && (
-                  <div className="p-5 rounded-2xl border border-[#2665fd]/10 bg-[#2665fd]/5">
-                    <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#2665fd] mb-3">
-                      <ImageIcon className="w-3.5 h-3.5" />
-                      Visual Brief for Designers
-                    </h4>
-                    <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] leading-relaxed">
-                      {selectedBlock.metadata.brief}
-                    </p>
-                  </div>
-                )}
-                
-                <div className="flex flex-col gap-2">
-                   {selectedBlock.metadata && (
-                     <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#757681]">
-                       <FileText className="w-3.5 h-3.5" />
-                       Content Caption
-                     </h4>
-                   )}
-                   <textarea
-                    value={selectedBlock.content || ''}
-                    onChange={(e) => updateBlock(selectedBlock.id, { content: e.target.value })}
-                    placeholder={selectedBlock.metadata ? "Refine the caption..." : "Start writing your brilliant idea..."}
-                    className="w-full min-h-[200px] text-base leading-relaxed bg-transparent text-[#37352F] dark:text-[#EBE9ED] placeholder-[#E9E9E7] dark:placeholder-[#3E3E3E] resize-none focus:outline-none"
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      target.style.height = 'auto';
-                      target.style.height = `${target.scrollHeight}px`;
-                    }}
-                  />
-                </div>
-
-                {selectedBlock.metadata?.hashtags && (
-                  <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-                    <p className="text-xs text-[#2665fd] font-medium tracking-tight">
-                      {selectedBlock.metadata.hashtags}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Sub-Ideas / Brainstorming Links */}
-            {childBlocks.length > 0 && (
-              <div className="mt-8 pt-8 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-                <h3 className="text-sm font-bold text-[#757681] mb-4 flex items-center gap-2">
-                  <LinkIcon className="w-4 h-4" />
-                  AI Linked Sub-Ideas
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {childBlocks.map(child => (
-                    <div 
-                      key={child.id}
-                      onClick={() => setSelectedBlockId(child.id)}
-                      className="p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] hover:border-[#2665fd]/50 cursor-pointer transition-all flex flex-col"
-                    >
-                      <h4 className="font-bold text-sm mb-1 line-clamp-1">{child.title || 'Untitled'}</h4>
-                      <p className="text-xs text-[#757681] line-clamp-2">{child.content}</p>
+              {/* Metadata Bar */}
+              {selectedBlock.metadata && (
+                <div className="flex flex-wrap items-center gap-4 mb-8 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#757681]">
+                      <span>Feasibility</span>
+                      <span className="text-[#37352F] dark:text-[#EBE9ED]">{selectedBlock.metadata.feasibility}/10</span>
                     </div>
-                  ))}
+                    <div className="h-1.5 w-full bg-[#E9E9E7] dark:bg-[#2E2E2E] rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(selectedBlock.metadata.feasibility || 0) * 10}%` }}
+                        className="h-full bg-emerald-500 rounded-full"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#757681]">
+                      <span>Strategic Impact</span>
+                      <span className="text-[#37352F] dark:text-[#EBE9ED]">{selectedBlock.metadata.impact}/10</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-[#E9E9E7] dark:bg-[#2E2E2E] rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(selectedBlock.metadata.impact || 0) * 10}%` }}
+                        className="h-full bg-blue-500 rounded-full"
+                      />
+                    </div>
+                  </div>
+
+                  {selectedBlock.metadata.format && (
+                    <div className="px-3 py-1 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#1A1A1A] rounded-md text-[10px] font-black uppercase tracking-widest">
+                      {selectedBlock.metadata.format}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-            
-          </div>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
-            <div className="w-16 h-16 mb-4 rounded-2xl bg-[#E9E9E7] dark:bg-[#2E2E2E] flex items-center justify-center">
-              <FileText className="w-8 h-8 text-[#757681]" />
+              )}
+
+              {/* Document Title */}
+              <textarea
+                value={selectedBlock.title || ''}
+                onChange={(e) => updateBlock(selectedBlock.id, { title: e.target.value })}
+                placeholder="Untitled"
+                className="text-4xl md:text-5xl font-bold bg-transparent text-[#37352F] dark:text-[#EBE9ED] placeholder-[#D5D5D3] dark:placeholder-[#3E3E3E] resize-none focus:outline-none mb-6 leading-tight break-words overflow-visible"
+                rows={1}
+                style={{ minHeight: '64px' }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = `${target.scrollHeight}px`;
+                }}
+              />
+
+              {/* Document Content or Postcard View */}
+              {selectedBlock.type === 'postcard' && selectedBlock.postcardData ? (
+                <div className="flex-1">
+                  <div className="relative aspect-[4/3] w-full max-w-2xl mx-auto rounded-2xl overflow-hidden shadow-2xl group border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                    <img 
+                      src={selectedBlock.postcardData.imageUrl} 
+                      alt="Postcard Background" 
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <div className="absolute inset-0 p-8 flex flex-col justify-end">
+                      <h2 className="text-3xl md:text-4xl font-black text-white mb-2 leading-tight uppercase tracking-tight">
+                        {selectedBlock.postcardData.frontText}
+                      </h2>
+                      <div className="h-1 w-24 bg-purple-500 rounded-full mb-4" />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-8 p-8 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] max-w-2xl mx-auto">
+                    <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest text-[#757681]">
+                      <Sparkles className="w-4 h-4 text-purple-500" />
+                      Message from AI
+                    </div>
+                    <p className="text-lg leading-relaxed italic text-[#37352F] dark:text-[#EBE9ED]">
+                      "{selectedBlock.postcardData.backText}"
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {selectedBlock.metadata?.brief && (
+                    <div className="p-5 rounded-2xl border border-[#2665fd]/10 bg-[#2665fd]/5">
+                      <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#2665fd] mb-3">
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        Visual Brief for Designers
+                      </h4>
+                      <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] leading-relaxed">
+                        {selectedBlock.metadata.brief}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-col gap-2">
+                     {selectedBlock.metadata && (
+                       <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#757681]">
+                         <FileText className="w-3.5 h-3.5" />
+                         Content Caption
+                       </h4>
+                     )}
+                     <textarea
+                      value={selectedBlock.content || ''}
+                      onChange={(e) => updateBlock(selectedBlock.id, { content: e.target.value })}
+                      placeholder={selectedBlock.metadata ? "Refine the caption..." : "Start writing your brilliant idea..."}
+                      className="w-full min-h-[200px] text-base leading-relaxed bg-transparent text-[#37352F] dark:text-[#EBE9ED] placeholder-[#E9E9E7] dark:placeholder-[#3E3E3E] resize-none focus:outline-none"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = `${target.scrollHeight}px`;
+                      }}
+                    />
+                  </div>
+
+                  {selectedBlock.metadata?.hashtags && (
+                    <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+                      <p className="text-xs text-[#2665fd] font-medium tracking-tight">
+                        {selectedBlock.metadata.hashtags}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub-Ideas / Brainstorming Links */}
+              {childBlocks.length > 0 && (
+                <div className="mt-8 pt-8 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <h3 className="text-sm font-bold text-[#757681] mb-4 flex items-center gap-2">
+                    <LinkIcon className="w-4 h-4" />
+                    AI Linked Sub-Ideas
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {childBlocks.map(child => (
+                      <div 
+                        key={child.id}
+                        onClick={() => setSelectedBlockId(child.id)}
+                        className="p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] hover:border-[#2665fd]/50 cursor-pointer transition-all flex flex-col"
+                      >
+                        <h4 className="font-bold text-sm mb-1 line-clamp-1">{child.title || 'Untitled'}</h4>
+                        <p className="text-xs text-[#757681] line-clamp-2">{child.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <h2 className="text-xl font-bold mb-2">No Document Selected</h2>
-            <p className="text-sm text-[#757681] max-w-sm">
-              Select an idea from the sidebar, create a new one, or ask the Idea Generator to brainstorm.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+              <div className="w-16 h-16 mb-4 rounded-2xl bg-[#E9E9E7] dark:bg-[#2E2E2E] flex items-center justify-center">
+                <FileText className="w-8 h-8 text-[#757681]" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">No Document Selected</h2>
+              <p className="text-sm text-[#757681] max-w-sm">
+                Select an idea from the sidebar, create a new one, or ask the Idea Generator to brainstorm.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
 
       {/* Fullscreen AI Loading Overlay */}
       <AnimatePresence>
