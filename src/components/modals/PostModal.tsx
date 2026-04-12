@@ -647,10 +647,10 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-[#757681]">Graphic Brief</label>
-                {!readOnly && (
+            {!readOnly && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-[#757681]">Graphic Brief</label>
                   <button
                     type="button"
                     onClick={handleSmartBrief}
@@ -660,18 +660,18 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     <Sparkles className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
                     Smart Brief
                   </button>
-                )}
+                </div>
+                <textarea
+                  name="brief"
+                  rows={3}
+                  disabled={readOnly}
+                  value={formData.brief || ''}
+                  onChange={handleChange}
+                  placeholder="Instructions for the designer..."
+                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none resize-none transition-colors disabled:opacity-70"
+                />
               </div>
-              <textarea
-                name="brief"
-                rows={3}
-                disabled={readOnly}
-                value={formData.brief || ''}
-                onChange={handleChange}
-                placeholder="Instructions for the designer..."
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none resize-none transition-colors disabled:opacity-70"
-              />
-            </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-1">
