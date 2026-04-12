@@ -14,6 +14,19 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // Handle CORS Preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+          'Access-Control-Max-Age': '86400',
+        }
+      });
+    }
+
     // Validate Environment Variables
     const requiredEnv = [
       'CLOUDINARY_CLOUD_NAME', 
@@ -28,10 +41,13 @@ export default {
       if (path.startsWith('/api/')) {
         return new Response(JSON.stringify({ 
           error: "Server Configuration Error", 
-          details: `Missing environment variables: ${missingEnv.join(', ')}` 
+          details: `Missing environment variables: ${missingEnv.join(', ')}. Please set these in your Cloudflare Dashboard (Settings > Variables).` 
         }), { 
           status: 500,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Access-Control-Allow-Origin': '*' 
+          }
         });
       }
     }
@@ -40,9 +56,13 @@ export default {
         if (path === '/api/config' && request.method === 'GET') {
           return new Response(JSON.stringify({
             geminiApiKey: env.GEMINI_API_KEY,
-            groqApiKey: env.GROQ_API_KEY
+            groqApiKey: env.GROQ_API_KEY,
+            cloudinaryCloudName: env.CLOUDINARY_CLOUD_NAME
           }), {
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
           });
         }
 
@@ -142,7 +162,10 @@ export default {
           });
 
           return new Response(JSON.stringify({ products, count: products.length }), {
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
           });
         }
 
@@ -151,7 +174,10 @@ export default {
       } catch (err: any) {
         return new Response(JSON.stringify({ error: "Internal Server Error", details: err.message }), { 
           status: 500,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
         });
       }
 
