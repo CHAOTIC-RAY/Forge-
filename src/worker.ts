@@ -27,47 +27,39 @@ export default {
       });
     }
 
-    // Validate Environment Variables
-    const requiredEnv = [
-      'CLOUDINARY_CLOUD_NAME', 
-      'CLOUDINARY_API_KEY', 
-      'CLOUDINARY_API_SECRET',
-      'GEMINI_API_KEY'
-    ];
-    const missingEnv = requiredEnv.filter(k => !env[k as keyof Env]);
-    
-    if (missingEnv.length > 0) {
-      console.error(`[Worker] Missing Environment Variables: ${missingEnv.join(', ')}`);
-      if (path.startsWith('/api/')) {
-        return new Response(JSON.stringify({ 
-          error: "Server Configuration Error", 
-          details: `Missing environment variables: ${missingEnv.join(', ')}. Please set these in your Cloudflare Dashboard (Settings > Variables).` 
-        }), { 
-          status: 500,
+    // We won't globally block all /api/ routes anymore.
+    // Instead, we'll check required variables per-route.
+    const missingCloudinary = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].filter(k => !env[k as keyof Env]);
+    const missingGemini = !env.GEMINI_API_KEY;
+
+    try {
+      // GET /api/config
+      if (path === '/api/config' && request.method === 'GET') {
+        return new Response(JSON.stringify({
+          geminiApiKey: env.GEMINI_API_KEY || null,
+          groqApiKey: env.GROQ_API_KEY || null,
+          cloudinaryCloudName: env.CLOUDINARY_CLOUD_NAME || null,
+          _missingCloudinary: missingCloudinary,
+          _missingGemini: missingGemini
+        }), {
           headers: { 
-            'Content-Type': 'application/json', 
-            'Access-Control-Allow-Origin': '*' 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
           }
         });
       }
-    }
-      try {
-        // GET /api/config
-        if (path === '/api/config' && request.method === 'GET') {
-          return new Response(JSON.stringify({
-            geminiApiKey: env.GEMINI_API_KEY,
-            groqApiKey: env.GROQ_API_KEY,
-            cloudinaryCloudName: env.CLOUDINARY_CLOUD_NAME
-          }), {
-            headers: { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
-            }
+
+      // POST /api/cloudinary/upload
+      if (path === '/api/cloudinary/upload' && request.method === 'POST') {
+        if (missingCloudinary.length > 0) {
+          return new Response(JSON.stringify({ 
+            error: "Server Configuration Error", 
+            details: `Missing Cloudinary variables: ${missingCloudinary.join(', ')}. Please set these in your Cloudflare Dashboard (Settings > Variables).` 
+          }), { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
           });
         }
-
-        // POST /api/cloudinary/upload
-        if (path === '/api/cloudinary/upload' && request.method === 'POST') {
           const formData = await request.formData();
           const image = formData.get('image') as File;
 
