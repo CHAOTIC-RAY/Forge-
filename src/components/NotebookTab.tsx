@@ -12,6 +12,8 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
   Check,
+  History,
+  Archive
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -60,7 +62,7 @@ interface Block {
   color?: string;
   title?: string;
   folderId?: string | null;
-  status?: 'inbox' | 'organized';
+  status?: 'inbox' | 'organized' | 'history';
   parentId?: string | null; // useful for nested structure
 }
 
@@ -278,6 +280,16 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const archiveBlock = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setBlocks(prev => {
+      const updated = prev.map(b => b.id === id ? { ...b, status: 'history' as const, folderId: null } : b);
+      saveNotebook(updated, links, folders);
+      return updated;
+    });
+    toast.success('Idea archived to History');
+  };
+
   const generateIdeas = async () => {
     if (!aiPrompt.trim() || isAiLoading) return;
     setIsAiLoading(true);
@@ -309,7 +321,8 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
          Return the result as a JSON array of objects, each with: "title" (a name for the concept), "front", "back", "imagePrompt".`;
       } else {
         prompt = `You are a creative strategist. Based on this prompt: "${aiPrompt}", generate 3-5 distinct creative ideas for a business in the ${activeBusiness.industry} industry. 
-        Return the result as a JSON array of objects, each with "title" and "description".`;
+        
+        Return the result as a JSON array of objects, each with: "title", "brief", "caption", "hashtags", "feasibility", "impact", "format", "description".`;
       }
 
       const text = await generateTextWithCascade(prompt, true, activeBusiness.id);
@@ -353,14 +366,21 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                 imageUrl: imageResult.url
               }
             };
-          } else {
             return {
               id,
               type: 'text' as const,
               title: idea.title,
-              content: idea.description,
+              content: idea.description || idea.caption,
               status: 'inbox' as const,
-              folderId: null
+              folderId: null,
+              metadata: {
+                feasibility: idea.feasibility,
+                impact: idea.impact,
+                brief: idea.brief,
+                caption: idea.caption,
+                hashtags: idea.hashtags,
+                format: idea.format
+              }
             };
           }
         }));
@@ -485,7 +505,34 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
     : [];
 
   return (
-    <div className="h-full flex overflow-hidden bg-white dark:bg-[#151515] text-[#37352F] dark:text-[#EBE9ED] relative">
+    <div className="h-full flex flex-col overflow-hidden bg-white dark:bg-[#151515] text-[#37352F] dark:text-[#EBE9ED] relative">
+      
+      {/* Header section (Matches Calendar style) */}
+      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-[#2665fd]" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
+                Strategy Lab
+              </h2>
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
+                Collaborative workspace for brainstorming and strategy development.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+             <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+               <span className="text-xs font-medium text-[#757681] dark:text-[#9B9A97]">Lab Active</span>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden relative">
       
       {/* Sidebar Navigation */}
       <div className="w-72 border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] flex flex-col shrink-0 relative">
@@ -598,24 +645,61 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  
-                  {isExpanded && (
-                    <div className="pl-6 pr-2">
-                      {folderBlocks.length === 0 && (
-                        <div className="px-2 py-1.5 text-xs text-[#757681] italic">Empty</div>
-                      )}
-                      {folderBlocks.map(block => (
-                        <DraggableBlock 
-                          key={block.id} 
-                          block={block} 
-                          isSelected={selectedBlockId === block.id}
-                          onClick={() => setSelectedBlockId(block.id)}
-                        >
-                          {block.type === 'postcard' ? <ImageIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" /> : <FileText className="w-3.5 h-3.5 text-[#757681] shrink-0" />}
-                          <span className="truncate">{block.title || 'Untitled'}</span>
-                        </DraggableBlock>
-                      ))}
-                    </div>
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        {folderBlocks.length === 0 && (
+                          <div className="pl-10 py-1.5 text-[10px] text-[#757681]/50 italic">Empty folder</div>
+                        )}
+                        {folderBlocks.map(block => (
+                          <div key={block.id} className="pl-6">
+                            <DraggableBlock 
+                              block={block} 
+                              isSelected={selectedBlockId === block.id}
+                              onClick={() => setSelectedBlockId(block.id)}
+                            >
+                              {block.type === 'postcard' ? <ImageIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" /> : <FileText className="w-3.5 h-3.5 text-[#757681] shrink-0" />}
+                              <span className="truncate">{block.title || 'Untitled'}</span>
+                            </DraggableBlock>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* History Section */}
+          <div className="px-2 mt-4 pb-20">
+            <div className="flex items-center justify-between px-2 mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#757681] flex items-center gap-1.5">
+                <History className="w-3 h-3" />
+                History
+              </span>
+            </div>
+            {blocks.filter(b => b.status === 'history').length === 0 && (
+              <div className="px-3 py-2 text-[10px] text-[#757681]/50 italic text-center">No archived items</div>
+            )}
+            {blocks.filter(b => b.status === 'history').map(block => (
+              <DraggableBlock 
+                key={block.id} 
+                block={block} 
+                isSelected={selectedBlockId === block.id}
+                onClick={() => setSelectedBlockId(block.id)}
+              >
+                <Archive className="w-3.5 h-3.5 text-[#757681] shrink-0" />
+                <span className="truncate opacity-60">{block.title || 'Untitled'}</span>
+              </DraggableBlock>
+            ))}
+          </div>
+        </div>
                   )}
                 </div>
               );
@@ -716,6 +800,13 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   Expand Idea with AI
+                </button>
+                <button 
+                  onClick={() => archiveBlock(selectedBlock.id)}
+                  className="p-1.5 text-[#757681] hover:text-amber-500 rounded-md transition-colors"
+                  title="Archive to History"
+                >
+                  <Archive className="w-4 h-4" />
                 </button>
                 <button 
                   onClick={() => deleteBlock(selectedBlock.id)}

@@ -309,6 +309,7 @@ export default function App() {
   const [pendingShareData, setPendingShareData] = useState<Business | null>(null);
 
   const completeShareAccess = async (bizData: Business) => {
+    setSharedBusiness(bizData);
     setActiveBusiness(bizData);
     setIsViewOnly(true);
     
@@ -2594,9 +2595,19 @@ export default function App() {
         </AnimatePresence>
 
         <ContextMenu items={[
-          { label: 'New Post', icon: <Plus className="w-3.5 h-3.5" />, onClick: () => openNewPostModal() },
+          { 
+            label: 'New Post', 
+            icon: <Plus className="w-3.5 h-3.5" />, 
+            disabled: activeTab === 'notebook' || activeTab === 'brandkit' || activeTab === 'analytics',
+            onClick: () => openNewPostModal() 
+          },
           { label: 'Refresh Data', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => window.location.reload() },
-          { label: 'Export to Excel', icon: <FileSpreadsheet className="w-3.5 h-3.5" />, onClick: () => setIsExportModalOpen(true) },
+          { 
+            label: 'Export to Excel', 
+            icon: <FileSpreadsheet className="w-3.5 h-3.5" />, 
+            disabled: activeTab === 'notebook' || activeTab === 'brandkit',
+            onClick: () => setIsExportModalOpen(true) 
+          },
           { label: 'Manage Workspaces', icon: <Settings className="w-3.5 h-3.5" />, onClick: () => setIsBusinessModalOpen(true) },
           { label: 'Sign Out', icon: <LogOut className="w-3.5 h-3.5" />, variant: 'danger', onClick: () => signOut(auth) },
         ]}>
