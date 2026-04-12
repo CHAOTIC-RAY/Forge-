@@ -128,8 +128,23 @@ export function generateCacheKey(model: string, contents: any, config?: any) {
 }
 // --------------------------------------
 
+export async function fetchBrandKitDesignGuide(businessId: string): Promise<string> {
+  try {
+    const docRef = doc(db, 'brand_kits', businessId);
+    const docSnap = await getDocs(query(collection(db, 'brand_kits'), where('__name__', '==', businessId)));
+    
+    if (!docSnap.empty) {
+      const data = docSnap.docs[0].data();
+      return data.designGuide || '';
+    }
+  } catch (error) {
+    console.error("Error fetching design guide:", error);
+  }
+  return '';
+}
+
 export const getAiSettings = () => {
-  const saved = localStorage.getItem('rainbow_ai_settings');
+  const saved = localStorage.getItem('forge_ai_settings');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -174,7 +189,7 @@ export const getAiSettings = () => {
 };
 
 export const setAiSettings = (settings: any) => {
-  localStorage.setItem('rainbow_ai_settings', JSON.stringify(settings));
+  localStorage.setItem('forge_ai_settings', JSON.stringify(settings));
 };
 
 async function fetchFromPuter(prompt: string, images?: { base64: string, mimeType: string }[]) {
@@ -260,9 +275,18 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
   }
 }
 
-export async function generateTextWithCascade(prompt: string, expectJson: boolean = false): Promise<string> {
+export async function generateTextWithCascade(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
   const settings = getAiSettings();
-  const fullPrompt = expectJson ? prompt + "\n\nYou MUST return ONLY a valid JSON object or array." : prompt;
+  
+  let designContext = '';
+  if (businessId) {
+    const guide = await fetchBrandKitDesignGuide(businessId);
+    if (guide) {
+      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE:\n${guide}\nRefer to the above guide for style, tone, and formatting consistency.\n`;
+    }
+  }
+
+  const fullPrompt = expectJson ? prompt + designContext + "\n\nYou MUST return ONLY a valid JSON object or array." : prompt + designContext;
 
   if (settings.preferredProvider === 'puter') {
     try {
@@ -379,7 +403,7 @@ export async function generatePostContent(outlet: string, productCategory?: stri
   const businessContext = business ? `\nBUSINESS CONTEXT: This post is for "${business.name}", which operates in the "${business.industry}" industry.` : 'This post is for a professional business.';
   
   // Fetch real products from our Google Search Engine scraper first
-  const { products } = await scrapeBuyRainbow(category, undefined, business?.targetUrl);
+  const { products } = await scrapeWooCommerce(category, undefined, business?.targetUrl);
   const productContext = products.length > 0 
     ? `\nHere are some REAL products currently in stock for this category:\n${products.slice(0, 10).map(p => `- ${p.title} (${p.stockInfo})`).join('\n')}`
     : '';
@@ -404,8 +428,17 @@ export async function generatePostContent(outlet: string, productCategory?: stri
   const safeOutlet = outlet.length > 2000 ? outlet.substring(0, 2000) + "..." : outlet;
   const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
 
+  let designContext = '';
+  if (business?.id) {
+    const guide = await fetchBrandKitDesignGuide(business.id);
+    if (guide) {
+      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE (Follow this style closely):\n${guide}\n`;
+    }
+  }
+
   const prompt = `Create a cohesive social media carousel post.
     ${businessContext}
+    ${designContext}
     Outlet: "${safeOutlet}"${categoryPrompt}. 
     ${productContext}
     ${systemInstruction}
@@ -924,8 +957,8 @@ export async function generateTaskIdeas(
         const productsPriority = snapshotPriority.docs.map(doc => doc.data());
         
         if (productsPriority.length > 0) {
-          const highPriority = productsPriority.filter(p => p.priority === 'high').map(p => p.name).join(', ');
-          const mediumPriority = productsPriority.filter(p => p.priority === 'medium').map(p => p.name).join(', ');
+          const highPriority = productsPriority.filter(p => p.priority === 'high').map(p => p.name || p.title).join(', ');
+          const mediumPriority = productsPriority.filter(p => p.priority === 'medium').map(p => p.name || p.title).join(', ');
           priorityContext = `\nPRIORITY PRODUCTS (Focus on these): High Priority: ${highPriority}. Medium Priority: ${mediumPriority}.`;
         }
       }
@@ -948,18 +981,18 @@ export async function generateTaskIdeas(
     } else {
       // Local storage fallback (Legacy or Guest)
       if (usePriorityProducts) {
-        const savedPriority = localStorage.getItem('rainbow_priority_products');
+        const savedPriority = localStorage.getItem('forge_priority_products');
         if (savedPriority) {
           const productsPriority = JSON.parse(savedPriority);
           if (productsPriority.length > 0) {
-            const highPriority = productsPriority.filter((p: any) => p.priority === 'high').map((p: any) => p.name).join(', ');
-            const mediumPriority = productsPriority.filter((p: any) => p.priority === 'medium').map((p: any) => p.name).join(', ');
+            const highPriority = productsPriority.filter((p: any) => p.priority === 'high').map((p: any) => p.name || p.title).join(', ');
+            const mediumPriority = productsPriority.filter((p: any) => p.priority === 'medium').map((p: any) => p.name || p.title).join(', ');
             priorityContext = `\nPRIORITY PRODUCTS (Focus on these): High Priority: ${highPriority}. Medium Priority: ${mediumPriority}.`;
           }
         }
       }
       
-      const savedGeneral = localStorage.getItem('rainbowStockCheck');
+      const savedGeneral = localStorage.getItem('forge_inventory_cache');
       if (savedGeneral) {
         const productsGeneral = JSON.parse(savedGeneral);
         if (productsGeneral.length > 0) {
@@ -1367,10 +1400,11 @@ export async function extractProductsFromMarkdown(markdown: string): Promise<Hig
   }
 }
 
-export async function scrapeBuyRainbow(
+export async function scrapeWooCommerce(
   category: string,
   onProgress?: (products: HighStockProduct[]) => void,
-  targetUrlParam?: string
+  targetUrlParam?: string,
+  business?: Business
 ): Promise<{ products: HighStockProduct[], logs: string[] }> {
   const logs: string[] = [];
   const allProducts: HighStockProduct[] = [];
@@ -1404,7 +1438,7 @@ export async function scrapeBuyRainbow(
             type: p.type || category,
             link: p.link || targetUrl,
             stockInfo: p.stockInfo || "High Stock",
-            outlet: "Rainbow Enterprises",
+            outlet: business?.name || "Store",
             price: p.price
           });
         });
@@ -1464,7 +1498,7 @@ export async function scrapeScreenshot(url: string, category: string, targetUrlP
             Return ONLY a JSON array of objects with these fields: title, type, link, stockInfo, outlet, sku, price, categories.
             The "stockInfo" field should combine stock and price (e.g., "In Stock - MVR 1,200").
             The "type" field should be the category "${category}".
-            The "outlet" field should be "Rainbow Enterprises".
+            The "outlet" field should be the business name.
 
             Do not include markdown formatting like \`\`\`json, just the raw JSON array.`;
 
@@ -1525,10 +1559,11 @@ export async function findProductsByCategory(
   category: string, 
   existingTitles: string[] = [],
   onProgress?: (products: HighStockProduct[]) => void,
-  targetUrlParam?: string
+  targetUrlParam?: string,
+  business?: Business
 ): Promise<FetchResult> {
   const settings = getAiSettings();
-  const scraperResult = await scrapeBuyRainbow(category, onProgress, targetUrlParam);
+  const scraperResult = await scrapeWooCommerce(category, onProgress, targetUrlParam, business);
   const scrapedProducts = scraperResult.products;
   const scraperLogs = scraperResult.logs;
   
@@ -2011,9 +2046,10 @@ export async function generateCampaignFromUrl(url: string, systemInstruction?: s
   }
 }
 
-export async function generateCaption(topic: string): Promise<string> {
+export async function generateCaption(topic: string, business?: Business): Promise<string> {
   const settings = getAiSettings();
-  const prompt = `Write an engaging, professional Instagram/Facebook caption for a professional business (Forge Enterprises) about the following topic: "${topic}". Include relevant emojis and a call to action. Do not include hashtags (we have a separate bank for that).`;
+  const businessName = business?.name || 'our business';
+  const prompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". Include relevant emojis and a call to action. Do not include hashtags.`;
 
   if (settings.preferredProvider === 'puter') {
     try {
@@ -2048,7 +2084,7 @@ export async function generateCaption(topic: string): Promise<string> {
   return response.text || '';
 }
 
-export async function generatePostWithFramework(topic: string, framework: 'AIDA' | 'PAS' | 'BAB'): Promise<string> {
+export async function generatePostWithFramework(topic: string, framework: 'AIDA' | 'PAS' | 'BAB', business?: Business): Promise<string> {
   const settings = getAiSettings();
   const frameworkPrompts = {
     AIDA: "Attention, Interest, Desire, Action",
@@ -2056,7 +2092,8 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
     BAB: "Before, After, Bridge"
   };
   
-  const prompt = `Write an engaging, professional Instagram/Facebook caption for a professional business (Forge Enterprises) about the following topic: "${topic}". 
+  const businessName = business?.name || 'our business';
+  const prompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". 
   Use the ${framework} marketing framework: ${frameworkPrompts[framework]}.
   Include relevant emojis and a clear call to action. Do not include hashtags.`;
 
@@ -2170,9 +2207,18 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
   
   const aiContext = systemInstruction || (settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`);
 
+  let designContext = '';
+  if (business?.id) {
+    const guide = await fetchBrandKitDesignGuide(business.id);
+    if (guide) {
+      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE (Follow this style closely):\n${guide}\n`;
+    }
+  }
+
   const promptText = `Generate ${count} unique and creative social media post ideas for ${business?.name || 'Forge Enterprises'} (a ${business?.industry || 'professional business'}) in the category "${category}".
     ${aiContext}
     ${businessContext}
+    ${designContext}
     Return a JSON array of ${count} objects. Each object must have exactly these fields:
     - title: A short, catchy title for the post
     - brief: Visual instructions for the graphic designer
@@ -2235,8 +2281,9 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
   }
 }
 
-export async function generateAiImage(prompt: string, style: string = 'photorealistic'): Promise<{ url: string, provider: string }> {
-  const fullPrompt = `${prompt}. Style: ${style}. High quality, professional social media content for Forge Enterprises.`;
+export async function generateAiImage(prompt: string, style: string = 'photorealistic', business?: Business): Promise<{ url: string, provider: string }> {
+  const businessName = business?.name || 'Forge';
+  const fullPrompt = `${prompt}. Style: ${style}. High quality, professional social media content for ${businessName}.`;
   const settings = getAiSettings();
 
   if (settings.imageProvider === 'pollination') {
@@ -2317,10 +2364,11 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
   throw new Error("No image generated");
 }
 
-export async function generateHashtagSuggestions(content: string): Promise<string[]> {
+export async function generateHashtagSuggestions(content: string, business?: Business): Promise<string[]> {
   const settings = getAiSettings();
+  const industry = business?.industry || 'general';
   const prompt = `Generate 15 relevant and trending hashtags for a social media post with this content: "${content}". 
-  Focus on home improvement, furniture, and Maldives context. 
+  Focus on the "${industry}" industry context. 
   Return ONLY a JSON array of strings.`;
 
   try {

@@ -1321,6 +1321,33 @@ export default function App() {
       return;
     }
 
+    // Case 3.5: Dragging a block from the Notebook to create a new post
+    if (activeData?.type === 'notebook-block') {
+      const block = activeData.block;
+      const newPost: Post = {
+        id: uuidv4(),
+        date: targetDate,
+        outlet: activeBusiness?.name || 'Forge Enterprises',
+        type: block.type === 'postcard' ? '🎨 Postcard' : '📝 Note',
+        title: block.title || 'New Post from Notebook',
+        brief: block.content || '',
+        caption: block.postcardData?.backText || block.content || '',
+        hashtags: activeBusiness?.industry ? `#${activeBusiness.industry.replace(/\s+/g, '')}` : '',
+        images: block.postcardData?.imageUrl ? [block.postcardData.imageUrl] : [],
+        userId: user.uid,
+        businessId: activeBusiness?.id
+      };
+      
+      // If it's a postcard, we might want to use the frontText as the title
+      if (block.type === 'postcard' && block.postcardData) {
+        newPost.title = block.postcardData.frontText;
+      }
+
+      handleSavePost(newPost);
+      toast.success(`Created post from ${block.type === 'postcard' ? 'postcard' : 'notebook block'}`);
+      return;
+    }
+
     // Case 4: Rescheduling an existing post
     const activePost = posts.find(p => p.id === activeId);
     if (!activePost) return;
@@ -3030,6 +3057,22 @@ export default function App() {
                   <h4 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight mb-2">
                     {activeDragItem.idea.title}
                   </h4>
+                </div>
+              )}
+              {activeDragItem.type === 'notebook-block' && (
+                <div className="bg-white dark:bg-[#1E1E1E] border border-purple-500 rounded-xl p-4 w-64 shadow-2xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                    <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest">
+                      {activeDragItem.block.type}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">
+                    {activeDragItem.block.title || 'Untitled Block'}
+                  </h4>
+                  <p className="text-[10px] text-[#757681] truncate mt-1">
+                    {activeDragItem.block.content}
+                  </p>
                 </div>
               )}
             </div>

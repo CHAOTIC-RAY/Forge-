@@ -9,8 +9,12 @@ import {
   FileText,
   Plus,
   MoreVertical,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Check,
 } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -28,8 +32,21 @@ import { generateTextWithCascade, safeParseJSONArray, isGeminiKeyAvailable, fetc
 
 interface Block {
   id: string;
-  type: 'text' | 'image' | 'prompt' | 'graph';
+  type: 'text' | 'image' | 'prompt' | 'graph' | 'postcard';
   content: string;
+  postcardData?: {
+    frontText: string;
+    backText: string;
+    imageUrl: string;
+  };
+  metadata?: {
+    feasibility?: number;
+    impact?: number;
+    brief?: string;
+    caption?: string;
+    hashtags?: string;
+    format?: string;
+  };
   x?: number; // Kept for schema backwards compatibility
   y?: number;
   width?: number;
@@ -59,6 +76,44 @@ interface NotebookTabProps {
   activeBusiness: any;
 }
 
+function DraggableBlock({ block, children, isSelected }: { block: Block, children: React.ReactNode, isSelected: boolean }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ 
+    id: block.id,
+    data: {
+      type: 'notebook-block',
+      block
+    }
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      className={cn(
+        "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-grab active:cursor-grabbing group transition-colors",
+        isSelected ? "bg-[#E9E9E7] dark:bg-[#2E2E2E]" : "hover:bg-[#E9E9E7]/50 dark:hover:bg-[#2E2E2E]/50"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function NotebookTab({ activeBusiness }: NotebookTabProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -69,6 +124,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
   const [isReady, setIsReady] = useState(false);
   const isInitialLoad = useRef(true);
   const [aiPrompt, setAiPrompt] = useState('');
+  const [ideaMode, setIdeaMode] = useState<'quick' | 'strategy' | 'postcard'>('quick');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -231,20 +287,83 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
         await fetchServerConfig();
       }
 
-      const prompt = `You are a creative strategist. Based on this prompt: "${aiPrompt}", generate 3-5 distinct creative ideas for a business in the ${activeBusiness.industry} industry. 
-      Return the result as a JSON array of objects, each with "title" and "description".`;
+      let prompt = '';
+      if (ideaMode === 'strategy') {
+        prompt = `You are a world-class creative strategist. Based on this prompt: "${aiPrompt}", generate 3-5 high-impact content strategies/ideas for a business in the ${activeBusiness.industry} industry. 
+        For each idea, provide:
+        - A catchy title
+        - A visual brief for designers
+        - A compelling caption using a marketing framework (AIDA/PAS)
+        - Targeted hashtags
+        - A feasibility score (1-10) and an impact score (1-10)
+        - Content format (Post, Reel, Story, or Carousel)
+        
+        Return the result as a JSON array of objects, each with: "title", "brief", "caption", "hashtags", "feasibility", "impact", "format".`;
+      } else if (ideaMode === 'postcard') {
+         prompt = `You are a creative director. Based on this prompt: "${aiPrompt}", generate 3 distinct "Postcard" concepts for a business in the ${activeBusiness.industry} industry. 
+         Each postcard needs:
+         - A headline for the front
+         - A short message for the back
+         - A detailed image description for a photorealistic background
+         
+         Return the result as a JSON array of objects, each with: "title" (a name for the concept), "front", "back", "imagePrompt".`;
+      } else {
+        prompt = `You are a creative strategist. Based on this prompt: "${aiPrompt}", generate 3-5 distinct creative ideas for a business in the ${activeBusiness.industry} industry. 
+        Return the result as a JSON array of objects, each with "title" and "description".`;
+      }
 
-      const text = await generateTextWithCascade(prompt, true);
+      const text = await generateTextWithCascade(prompt, true, activeBusiness.id);
       const ideas = safeParseJSONArray(text);
 
       if (ideas && Array.isArray(ideas)) {
-        const newBlocks: Block[] = ideas.map((idea: any) => ({
-          id: Math.random().toString(36).substr(2, 9),
-          type: 'text',
-          title: idea.title,
-          content: idea.description,
-          status: 'inbox',
-          folderId: null
+        const newBlocks: Block[] = await Promise.all(ideas.map(async (idea: any) => {
+          const id = Math.random().toString(36).substr(2, 9);
+          
+          if (ideaMode === 'strategy') {
+            return {
+              id,
+              type: 'text' as const,
+              title: idea.title,
+              content: idea.caption,
+              status: 'inbox' as const,
+              folderId: null,
+              metadata: {
+                feasibility: idea.feasibility,
+                impact: idea.impact,
+                brief: idea.brief,
+                caption: idea.caption,
+                hashtags: idea.hashtags,
+                format: idea.format
+              }
+            };
+          } else if (ideaMode === 'postcard') {
+            // For postcard mode, we generate the image immediately to make it "live"
+            const { generateAiImage } = await import('../lib/gemini');
+            const imageResult = await generateAiImage(idea.imagePrompt, 'photorealistic', activeBusiness);
+            
+            return {
+              id,
+              type: 'postcard' as const,
+              title: `Postcard: ${idea.title}`,
+              content: idea.back,
+              status: 'inbox' as const,
+              folderId: null,
+              postcardData: {
+                frontText: idea.front,
+                backText: idea.back,
+                imageUrl: imageResult.url
+              }
+            };
+          } else {
+            return {
+              id,
+              type: 'text' as const,
+              title: idea.title,
+              content: idea.description,
+              status: 'inbox' as const,
+              folderId: null
+            };
+          }
         }));
 
         setBlocks(prev => {
@@ -272,7 +391,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
       Generate 3 highly actionable, related sub-strategies or expansions for a business in the ${activeBusiness.industry} industry. 
       Return the result as a JSON array of objects, each with "title" and "description" fields.`;
 
-      const text = await generateTextWithCascade(prompt, true);
+      const text = await generateTextWithCascade(prompt, true, activeBusiness.id);
       const ideas = safeParseJSONArray(text);
 
       if (ideas && Array.isArray(ideas)) {
@@ -311,6 +430,60 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
     }
   };
 
+  const generatePostcard = async (block: Block) => {
+    setIsAiLoading(true);
+    try {
+      const prompt = `Convert this idea into a professional social media "Postcard". 
+      Idea: "${block.title} - ${block.content}"
+      
+      Generate:
+      1. A catchy headline for the front.
+      2. A short, persuasive message for the back (50-80 words).
+      3. A detailed image description for a photorealistic background image.
+      
+      Return as a JSON object: { "front": "...", "back": "...", "imagePrompt": "..." }`;
+
+      const text = await generateTextWithCascade(prompt, true, activeBusiness.id);
+      const data = JSON.parse(text);
+
+      // Import from gemini.ts dynamically or assuming it's available
+      const { generateAiImage } = await import('../lib/gemini');
+      const imageResult = await generateAiImage(data.imagePrompt, 'photorealistic', activeBusiness);
+
+      const newBlock: Block = {
+        id: Math.random().toString(36).substr(2, 9),
+        type: 'postcard',
+        title: `Postcard: ${data.front}`,
+        content: data.back,
+        status: 'organized',
+        folderId: block.folderId,
+        parentId: block.id,
+        postcardData: {
+          frontText: data.front,
+          backText: data.back,
+          imageUrl: imageResult.url
+        }
+      };
+
+      const updatedBlocks = [...blocks, newBlock];
+      const updatedLinks = [...links, { id: uuidv4(), from: block.id, to: newBlock.id }];
+      
+      setBlocks(updatedBlocks);
+      setLinks(updatedLinks);
+      saveNotebook(updatedBlocks, updatedLinks, folders);
+      setSelectedBlockId(newBlock.id);
+      
+    } catch (error) {
+       console.error('Postcard generation error:', error);
+       toast.error('Failed to generate postcard');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  // Helper for generating unique IDs (simulating uuidv4 if not imported)
+  const uuidv4 = () => Math.random().toString(36).substr(2, 9) + '-' + Math.random().toString(36).substr(2, 9);
+
   const selectedBlock = blocks.find(b => b.id === selectedBlockId);
   const childBlocks = selectedBlock 
     ? blocks.filter(b => links.some(l => l.from === selectedBlock.id && l.to === b.id))
@@ -341,12 +514,31 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               placeholder="Brainstorm new campaigns..."
               className="w-full bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl p-3 text-sm focus:outline-none focus:border-[#2665fd] resize-none h-20 shadow-sm"
             />
+            
+            <div className="mt-3 flex items-center gap-1.5 p-1 bg-white/50 dark:bg-black/20 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
+              {['quick', 'strategy', 'postcard'].map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setIdeaMode(mode as any)}
+                  className={cn(
+                    "flex-1 px-2 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-tighter transition-all",
+                    ideaMode === mode 
+                      ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#1A1A1A] shadow-sm" 
+                      : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+
             <button 
               onClick={generateIdeas}
               disabled={isAiLoading || !aiPrompt.trim()}
-              className="absolute bottom-2 right-2 p-1.5 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#1A1A1A] rounded-lg hover:opacity-80 disabled:opacity-40 transition-opacity"
+              className="absolute bottom-12 right-2 p-1.5 bg-transparent text-[#2665fd] hover:scale-110 disabled:opacity-40 transition-all pointer-events-auto"
+              title="Generate with AI"
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -360,17 +552,15 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#757681]">Inbox</span>
             </div>
             {blocks.filter(b => b.status === 'inbox').map(block => (
-              <div 
-                key={block.id}
+              <DraggableBlock 
+                key={block.id} 
+                block={block} 
+                isSelected={selectedBlockId === block.id}
                 onClick={() => setSelectedBlockId(block.id)}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer group transition-colors",
-                  selectedBlockId === block.id ? "bg-[#E9E9E7] dark:bg-[#2E2E2E]" : "hover:bg-[#E9E9E7]/50 dark:hover:bg-[#2E2E2E]/50"
-                )}
               >
-                <Zap className="w-4 h-4 text-yellow-500 shrink-0" />
+                {block.type === 'postcard' ? <Zap className="w-4 h-4 text-purple-500 shrink-0" /> : <Zap className="w-4 h-4 text-yellow-500 shrink-0" />}
                 <span className="truncate">{block.title || 'Untitled'}</span>
-              </div>
+              </DraggableBlock>
             ))}
           </div>
 
@@ -420,17 +610,15 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                         <div className="px-2 py-1.5 text-xs text-[#757681] italic">Empty</div>
                       )}
                       {folderBlocks.map(block => (
-                        <div 
-                          key={block.id}
+                        <DraggableBlock 
+                          key={block.id} 
+                          block={block} 
+                          isSelected={selectedBlockId === block.id}
                           onClick={() => setSelectedBlockId(block.id)}
-                          className={cn(
-                            "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer group transition-colors",
-                            selectedBlockId === block.id ? "bg-[#E9E9E7] dark:bg-[#2E2E2E]" : "hover:bg-[#E9E9E7]/50 dark:hover:bg-[#2E2E2E]/50"
-                          )}
                         >
-                          <FileText className="w-3.5 h-3.5 text-[#757681] shrink-0" />
+                          {block.type === 'postcard' ? <ImageIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" /> : <FileText className="w-3.5 h-3.5 text-[#757681] shrink-0" />}
                           <span className="truncate">{block.title || 'Untitled'}</span>
-                        </div>
+                        </DraggableBlock>
                       ))}
                     </div>
                   )}
@@ -446,17 +634,15 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                 </button>
               </div>
               {blocks.filter(b => !b.folderId && b.status === 'organized').map(block => (
-                <div 
-                  key={block.id}
+                <DraggableBlock 
+                  key={block.id} 
+                  block={block} 
+                  isSelected={selectedBlockId === block.id}
                   onClick={() => setSelectedBlockId(block.id)}
-                  className={cn(
-                    "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer group transition-colors",
-                    selectedBlockId === block.id ? "bg-[#E9E9E7] dark:bg-[#2E2E2E]" : "hover:bg-[#E9E9E7]/50 dark:hover:bg-[#2E2E2E]/50"
-                  )}
                 >
-                  <FileText className="w-3.5 h-3.5 text-[#757681] shrink-0" />
+                  {block.type === 'postcard' ? <ImageIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" /> : <FileText className="w-3.5 h-3.5 text-[#757681] shrink-0" />}
                   <span className="truncate">{block.title || 'Untitled'}</span>
-                </div>
+                </DraggableBlock>
               ))}
             </div>
 
@@ -465,7 +651,40 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
       </div>
 
       {/* Main Document Workspace */}
-      <div className="flex-1 bg-white dark:bg-[#151515] overflow-y-auto relative py-12 px-16 lg:px-32 xl:px-48">
+      <div className="flex-1 bg-white dark:bg-[#151515] overflow-y-auto relative p-0">
+        <div className="p-8 md:p-12 border-b border-[#E9E9E7] dark:border-[#202020] bg-white dark:bg-[#1A1A1A] mb-8">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-yellow-500/10 rounded-[16px] flex items-center justify-center">
+                <Zap className="w-6 h-6 text-yellow-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-[#37352F] dark:text-[#EBE9ED] tracking-tight">
+                  Strategy Lab
+                </h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-[#757681] font-medium flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    AI Strategy Workspace
+                  </span>
+                  <span className="w-1 h-1 rounded-full bg-[#D9D9D7] dark:bg-[#3E3E3E]" />
+                  <span className="text-xs text-[#757681] font-medium">
+                    {blocks.length} Ideas Captured
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-[#757681] uppercase tracking-wider">Lab Active</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-8 pb-12 lg:px-32 xl:px-48">
         {selectedBlock ? (
           <div className="max-w-3xl mx-auto flex flex-col min-h-full">
             {/* Document Header Controls */}
@@ -485,6 +704,16 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                 </div>
               )}
               <div className="flex-1" />
+              {selectedBlock.type !== 'postcard' && (
+                <button 
+                  onClick={() => generatePostcard(selectedBlock)}
+                  disabled={isAiLoading}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Generate Postcard
+                </button>
+              )}
               <button 
                 onClick={() => expandWithAi(selectedBlock)}
                 disabled={isAiLoading}
@@ -502,6 +731,45 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               </button>
             </div>
 
+            {/* Metadata Bar (Visible if strategy data exists) */}
+            {selectedBlock.metadata && (
+              <div className="flex flex-wrap items-center gap-4 mb-8 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#757681]">
+                    <span>Feasibility</span>
+                    <span className="text-[#37352F] dark:text-[#EBE9ED]">{selectedBlock.metadata.feasibility}/10</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-[#E9E9E7] dark:bg-[#2E2E2E] rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(selectedBlock.metadata.feasibility || 0) * 10}%` }}
+                      className="h-full bg-emerald-500 rounded-full"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#757681]">
+                    <span>Strategic Impact</span>
+                    <span className="text-[#37352F] dark:text-[#EBE9ED]">{selectedBlock.metadata.impact}/10</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-[#E9E9E7] dark:bg-[#2E2E2E] rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(selectedBlock.metadata.impact || 0) * 10}%` }}
+                      className="h-full bg-blue-500 rounded-full"
+                    />
+                  </div>
+                </div>
+
+                {selectedBlock.metadata.format && (
+                  <div className="px-3 py-1 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#1A1A1A] rounded-md text-[10px] font-black uppercase tracking-widest">
+                    {selectedBlock.metadata.format}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Document Title */}
             <textarea
               value={selectedBlock.title || ''}
@@ -517,13 +785,77 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               }}
             />
 
-            {/* Document Content */}
-            <textarea
-              value={selectedBlock.content || ''}
-              onChange={(e) => updateBlock(selectedBlock.id, { content: e.target.value })}
-              placeholder="Start writing your brilliant idea, or paste some text here..."
-              className="flex-1 text-base leading-relaxed bg-transparent text-[#37352F] dark:text-[#EBE9ED] placeholder-[#E9E9E7] dark:placeholder-[#3E3E3E] resize-none focus:outline-none mb-8"
-            />
+            {/* Document Content or Postcard View */}
+            {selectedBlock.type === 'postcard' && selectedBlock.postcardData ? (
+              <div className="flex-1">
+                <div className="relative aspect-[4/3] w-full max-w-2xl mx-auto rounded-2xl overflow-hidden shadow-2xl group border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <img 
+                    src={selectedBlock.postcardData.imageUrl} 
+                    alt="Postcard Background" 
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute inset-0 p-8 flex flex-col justify-end">
+                    <h2 className="text-3xl md:text-4xl font-black text-white mb-2 leading-tight uppercase tracking-tight">
+                      {selectedBlock.postcardData.frontText}
+                    </h2>
+                    <div className="h-1 w-24 bg-purple-500 rounded-full mb-4" />
+                  </div>
+                </div>
+                
+                <div className="mt-8 p-8 bg-[#F7F7F5] dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] max-w-2xl mx-auto">
+                  <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest text-[#757681]">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    Message from AI
+                  </div>
+                  <p className="text-lg leading-relaxed italic text-[#37352F] dark:text-[#EBE9ED]">
+                    "{selectedBlock.postcardData.backText}"
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {selectedBlock.metadata?.brief && (
+                  <div className="p-5 rounded-2xl border border-[#2665fd]/10 bg-[#2665fd]/5">
+                    <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#2665fd] mb-3">
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      Visual Brief for Designers
+                    </h4>
+                    <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] leading-relaxed">
+                      {selectedBlock.metadata.brief}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex flex-col gap-2">
+                   {selectedBlock.metadata && (
+                     <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#757681]">
+                       <FileText className="w-3.5 h-3.5" />
+                       Content Caption
+                     </h4>
+                   )}
+                   <textarea
+                    value={selectedBlock.content || ''}
+                    onChange={(e) => updateBlock(selectedBlock.id, { content: e.target.value })}
+                    placeholder={selectedBlock.metadata ? "Refine the caption..." : "Start writing your brilliant idea..."}
+                    className="w-full min-h-[200px] text-base leading-relaxed bg-transparent text-[#37352F] dark:text-[#EBE9ED] placeholder-[#E9E9E7] dark:placeholder-[#3E3E3E] resize-none focus:outline-none"
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = `${target.scrollHeight}px`;
+                    }}
+                  />
+                </div>
+
+                {selectedBlock.metadata?.hashtags && (
+                  <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+                    <p className="text-xs text-[#2665fd] font-medium tracking-tight">
+                      {selectedBlock.metadata.hashtags}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Sub-Ideas / Brainstorming Links */}
             {childBlocks.length > 0 && (

@@ -57,6 +57,14 @@ export type Post = {
     shares?: number;
     lastUpdated?: string;
   };
+
+  // Postcard specific data
+  postcardData?: {
+    frontText: string;
+    backText: string;
+    imagePrompt: string;
+    imageUrl?: string;
+  };
 };
 
 export interface PriorityProduct {

@@ -8,23 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
-import { Business, Post, PRODUCT_CATEGORIES, OUTLETS } from '../data';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  onSnapshot,
-  query,
-  collection,
-  where,
-  getDocs,
-  writeBatch
-} from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { cn } from '../lib/utils';
-import { v4 as uuidv4 } from 'uuid';
-import { scrapeBuyRainbow, HighStockProduct } from '../lib/gemini';
+import { scrapeWooCommerce, HighStockProduct } from '../lib/gemini';
 
 interface BrandKit {
   colors: { name: string; hex: string }[];
@@ -32,6 +16,7 @@ interface BrandKit {
   logos: string[];
   designs: string[];
   customFonts?: { name: string; url: string; format: string }[];
+  designGuide?: string; // Markdown content
 }
 
 const defaultBrandKit: BrandKit = {
@@ -81,7 +66,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
       toast.info(`Scraping categories from ${aiSettings.targetUrl}...`);
       
       // Scrape "All Products" to get a broad range of categories
-      const { products, logs } = await scrapeBuyRainbow("All Products");
+      const { products, logs } = await scrapeWooCommerce("All Products", undefined, undefined, activeBusiness || undefined);
       
       if (products.length === 0) {
         toast.error("No products or categories found on the target website.");
@@ -222,7 +207,50 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
   }, [activeBusiness, categories.length]);
 
   // UI State
-  const [activeSection, setActiveSection] = useState<'identity' | 'workspace'>('identity');
+  const [activeSection, setActiveSection] = useState<'identity' | 'workspace' | 'designs'>('identity');
+
+  const handleSyncDesignGuide = async () => {
+    if (!activeBusiness?.id) return;
+    setIsSaving(true);
+    try {
+      // Get recent high-quality posts
+      const recentPosts = [...posts]
+        .filter(p => (p.caption && p.caption.length > 20) || p.postcardData)
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 5);
+
+      if (recentPosts.length === 0) {
+        toast.error("No high-quality recent posts found to sync.");
+        return;
+      }
+
+      let markdown = `# Design Guide & Brand Consistency\n\n`;
+      markdown += `Generated on: ${new Date().toLocaleDateString()}\n`;
+      markdown += `This guide contains successful past designs and content styles to maintain brand voice.\n\n---\n\n`;
+
+      recentPosts.forEach(post => {
+        markdown += `## ${post.title}\n`;
+        markdown += `- **Context**: ${post.type} | ${post.outlet}\n`;
+        if (post.postcardData) {
+          markdown += `- **Postcard Style**: ${post.postcardData.frontText} / ${post.postcardData.backText}\n`;
+        }
+        markdown += `- **Caption**: ${post.caption}\n`;
+        markdown += `- **Hashtags**: ${post.hashtags}\n\n`;
+        markdown += `--- \n\n`;
+      });
+
+      const updatedBrandKit = { ...brandKit, designGuide: markdown };
+      setBrandKit(updatedBrandKit);
+      await setDoc(doc(db, 'brand_kits', activeBusiness.id), updatedBrandKit);
+      
+      toast.success('AI Design Guide (design.md) updated successfully!');
+    } catch (error) {
+      console.error("Sync design guide failed:", error);
+      toast.error("Failed to sync design guide.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
   const [newColorName, setNewColorName] = useState('');
   const [newColorHex, setNewColorHex] = useState('#2665fd');
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -622,6 +650,18 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
             <Settings2 className="w-3.5 h-3.5" />
             Workspace Config
           </button>
+          <button
+            onClick={() => setActiveSection('designs')}
+            className={cn(
+              "px-4 py-2 rounded-[8px] text-xs font-bold transition-all flex items-center gap-2",
+              activeSection === 'designs' 
+                ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]  border border-[#E9E9E7] dark:border-[#3E3E3E]" 
+                : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+            )}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Design Intelligence
+          </button>
         </div>
       </div>
 
@@ -651,6 +691,17 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
             >
               Workspace
             </button>
+            <button
+              onClick={() => setActiveSection('designs')}
+              className={cn(
+                "px-3 py-1.5 rounded-[8px] text-[10px] font-bold transition-all",
+                activeSection === 'designs' 
+                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] " 
+                  : "text-[#757681]"
+              )}
+            >
+              Designs
+            </button>
           </div>
           {activeSection === 'identity' && (
             <button
@@ -668,7 +719,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-8">
         <AnimatePresence mode="wait">
-          {activeSection === 'identity' ? (
+          {activeSection === 'identity' && (
             <motion.div
               key="identity"
               initial={{ opacity: 0, y: 10 }}
@@ -862,7 +913,9 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                 </div>
               </div>
             </motion.div>
-          ) : (
+          )}
+
+          {activeSection === 'workspace' && (
             <motion.div
               key="workspace"
               initial={{ opacity: 0, y: 10 }}
@@ -1167,6 +1220,102 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeSection === 'designs' && (
+            <motion.div
+              key="designs"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6 w-full max-w-4xl mx-auto"
+            >
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-2">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-[#2665fd]" />
+                    AI Design Guide (design.md)
+                  </h3>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-1">
+                    Capture your best posts and postcards to train the AI on your unique brand style.
+                  </p>
+                </div>
+                <button
+                  onClick={handleSyncDesignGuide}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-[#2665fd] text-white rounded-[12px] text-sm font-bold hover:bg-[#2665fd]-hover transition-all active:scale-95 disabled:opacity-50  "
+                >
+                  {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  Sync Design Guide
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[20px] overflow-hidden">
+                <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F56]" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F]" />
+                    </div>
+                    <span className="text-[10px] font-mono text-[#757681] ml-2">design.md — Read Only</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-[#2665fd] bg-[#2665fd]/10 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                      AI Active context
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="p-0 h-[600px] overflow-y-auto">
+                  {brandKit.designGuide ? (
+                    <pre className="p-8 text-xs font-mono text-[#37352F] dark:text-[#EBE9ED] whitespace-pre-wrap leading-relaxed">
+                      {brandKit.designGuide}
+                    </pre>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center p-12">
+                      <div className="w-16 h-16 bg-[#2665fd]/5 rounded-[24px] flex items-center justify-center mb-4">
+                        <Sparkles className="w-8 h-8 text-[#2665fd] opacity-20" />
+                      </div>
+                      <h4 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2">No Design Guide Existing</h4>
+                      <p className="text-sm text-[#757681] dark:text-[#9B9A97] max-w-sm">
+                        Click "Sync Design Guide" above to analyze your recent posts and create a persistent design intelligence for your AI.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-[#2665fd]/5 dark:bg-[#2665fd]/10 p-5 rounded-[20px] border border-[#2665fd]/10 dark:border-[#2665fd]/20">
+                  <h4 className="text-xs font-bold text-[#2665fd] mb-2 flex items-center gap-2 uppercase tracking-wider">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    How it works
+                  </h4>
+                  <p className="text-[11px] text-[#2665fd]/80 dark:text-[#2665fd]/60 leading-relaxed">
+                    The system analyzes captions and visual data from your most recent high-quality posts to build a style profile.
+                  </p>
+                </div>
+                <div className="bg-emerald-500/5 dark:bg-emerald-500/10 p-5 rounded-[20px] border border-emerald-500/10 dark:border-emerald-500/20">
+                  <h4 className="text-xs font-bold text-emerald-500 mb-2 flex items-center gap-2 uppercase tracking-wider">
+                    <Target className="w-3.5 h-3.5" />
+                    AI Memory
+                  </h4>
+                  <p className="text-[11px] text-emerald-500/80 dark:text-emerald-500/60 leading-relaxed">
+                    Once synced, this guide is automatically injected into all future AI prompts to ensure visual and textual alignment.
+                  </p>
+                </div>
+                <div className="bg-purple-500/5 dark:bg-purple-500/10 p-5 rounded-[20px] border border-purple-500/10 dark:border-purple-500/20">
+                  <h4 className="text-xs font-bold text-purple-500 mb-2 flex items-center gap-2 uppercase tracking-wider">
+                    <Layers className="w-3.5 h-3.5" />
+                    Consistency
+                  </h4>
+                  <p className="text-[11px] text-purple-500/80 dark:text-purple-500/60 leading-relaxed">
+                    Use postcards frequently? Syncing will help the AI learn the specific layout and tone of your favorite postcards.
+                  </p>
                 </div>
               </div>
             </motion.div>
