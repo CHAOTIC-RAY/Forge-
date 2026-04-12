@@ -49,15 +49,22 @@ export async function startServer(forcePort?: number) {
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
-  app.use("/api", scraperRouter);
 
   // Expose Gemini API Key to client if set in environment
+  // Move this ABOVE other api routes to avoid conflicts
   app.get("/api/config", (req, res) => {
-    res.json({
-      geminiApiKey: process.env.GEMINI_API_KEY || null,
-      groqApiKey: process.env.GROQ_API_KEY || null,
-    });
+    try {
+      res.json({
+        geminiApiKey: process.env.GEMINI_API_KEY || null,
+        groqApiKey: process.env.GROQ_API_KEY || null,
+      });
+    } catch (error) {
+      console.error("Error in /api/config:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
   });
+
+  app.use("/api", scraperRouter);
 
   // Proxy image endpoint to bypass CORS
   app.get("/api/proxy-image", async (req, res) => {

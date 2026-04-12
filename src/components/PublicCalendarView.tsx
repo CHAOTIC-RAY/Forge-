@@ -42,19 +42,31 @@ export function PublicCalendarView() {
   useEffect(() => {
     if (!businessId || !shareToken) return;
 
+    console.log("[PublicView] Fetching shared calendar:", businessId, "token:", shareToken);
+
     const fetchData = async () => {
       try {
         const bizDoc = await getDoc(doc(db, 'businesses', businessId));
-        if (!bizDoc.exists() || bizDoc.data().shareToken !== shareToken) {
+        if (!bizDoc.exists()) {
+          console.error("[PublicView] Business not found:", businessId);
+          setError("Invalid or expired share link.");
+          setLoading(false);
+          return;
+        }
+
+        const bizData = bizDoc.data();
+        if (bizData.shareToken !== shareToken) {
+          console.error("[PublicView] Token mismatch. Expected:", bizData.shareToken, "Got:", shareToken);
           setError("Invalid or expired share link.");
           setLoading(false);
           return;
         }
         
-        const bizData = bizDoc.data();
+        console.log("[PublicView] Business data found:", bizData.name, "Restriction:", bizData.shareRestriction);
         
         // Check restriction
         if (bizData.shareRestriction === 'authenticated' && !user) {
+          console.log("[PublicView] Login required for this business");
           setError("You must be logged in to view this calendar.");
           setLoading(false);
           return;
@@ -62,20 +74,22 @@ export function PublicCalendarView() {
 
         setBusiness({ id: bizDoc.id, ...bizData } as Business);
 
+        console.log("[PublicView] Setting up posts listener for business:", businessId);
         const q = query(collection(db, 'posts'), where('businessId', '==', businessId));
         const unsubscribe = onSnapshot(q, (snapshot) => {
+          console.log("[PublicView] Posts snapshot received. Count:", snapshot.docs.length);
           const postsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
           setPosts(postsList);
           setLoading(false);
         }, (error) => {
-          console.error("Posts listener failed:", error);
+          console.error("[PublicView] Posts listener failed:", error);
           handleFirestoreError(error, OperationType.GET, 'posts');
           setError("Failed to sync calendar posts. Please refresh.");
           setLoading(false);
         });
         return unsubscribe;
       } catch (e) {
-        console.error("Error fetching shared calendar", e);
+        console.error("[PublicView] Error fetching shared calendar:", e);
         setError("Failed to load shared calendar.");
         setLoading(false);
       }

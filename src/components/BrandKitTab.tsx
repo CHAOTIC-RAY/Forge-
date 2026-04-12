@@ -5,7 +5,7 @@ import {
   Palette, Type, Image as ImageIcon, Upload, Save, Trash2, 
   Plus, Download, LayoutTemplate, Tag, Globe, Settings2,
   ChevronDown, ChevronUp, X, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Search as SearchIcon,
-  PenTool, Copy, Layers
+  PenTool, Copy, Layers, Target
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -22,7 +22,7 @@ import {
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
-import { Post, Business } from '../data';
+import { Post, Business, OUTLETS, PRODUCT_CATEGORIES } from '../data';
 
 interface BrandKit {
   colors: { name: string; hex: string }[];

@@ -85,7 +85,7 @@ interface NotebookTabProps {
   activeBusiness: any;
 }
 
-function DraggableBlock({ block, children, isSelected, onClick }: { block: Block, children: React.ReactNode, isSelected: boolean, onClick: () => void }) {
+function DraggableBlock({ block, children, isSelected, onClick }: { block: Block, children: React.ReactNode, isSelected: boolean, onClick: () => void, key?: React.Key }) {
   const {
     attributes,
     listeners,

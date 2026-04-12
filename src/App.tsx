@@ -39,7 +39,7 @@ import { Post, initialPosts, Business } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
-import { HighStockProduct, getAi, isGeminiKeyAvailable, fetchServerConfig } from './lib/gemini';
+import { HighStockProduct, getAi, isGeminiKeyAvailable } from './lib/gemini';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
 import { CalendarSharing } from './components/CalendarSharing';
