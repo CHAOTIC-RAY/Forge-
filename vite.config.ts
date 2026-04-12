@@ -4,8 +4,6 @@ import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-import { cloudflare } from "@cloudflare/vite-plugin";
-
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
@@ -45,7 +43,7 @@ export default defineConfig(({mode}) => {
           }
         ]
       }
-    }), cloudflare()],
+    })],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY),
     },

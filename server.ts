@@ -23,13 +23,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configure Cloudinary
+const requiredCloudinaryEnv = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+const missingCloudinaryEnv = requiredCloudinaryEnv.filter(k => !process.env[k]);
+
 try {
   if (process.env.CLOUDINARY_URL) {
     console.log("[Server] Configuring Cloudinary with URL");
     cloudinary.config({
       cloudinary_url: process.env.CLOUDINARY_URL,
     });
-  } else if (process.env.CLOUDINARY_CLOUD_NAME) {
+  } else if (missingCloudinaryEnv.length === 0) {
     console.log("[Server] Configuring Cloudinary with credentials");
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -37,7 +40,7 @@ try {
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
   } else {
-    console.warn("[Server] Cloudinary credentials not found in environment");
+    console.warn("[Server] Cloudinary credentials missing:", missingCloudinaryEnv.join(', '));
   }
 } catch (error) {
   console.error("[Server] Failed to configure Cloudinary:", error);
@@ -82,6 +85,9 @@ export async function startServer(forcePort?: number) {
   // Expose config to client
   app.get("/api/config", (req, res) => {
     console.log("[Server] GET /api/config requested");
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn("[Server] GEMINI_API_KEY is missing from environment");
+    }
     try {
       const config = {
         geminiApiKey: process.env.GEMINI_API_KEY || null,
@@ -472,6 +478,16 @@ app.post('/api/onedrive/upload', async (req, res) => {
 
 app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res) => {
   console.log("[Server] POST /api/cloudinary/upload requested");
+  
+  // Check for required environment variables
+  const missing = requiredCloudinaryEnv.filter(k => !process.env[k]);
+  if (missing.length > 0 && !process.env.CLOUDINARY_URL) {
+    return res.status(500).json({ 
+      error: "Server Configuration Error", 
+      details: `Missing environment variables: ${missing.join(', ')}` 
+    });
+  }
+
   try {
     if (!req.file) {
       console.warn("[Server] No image file provided in request");
