@@ -699,32 +699,25 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               </DraggableBlock>
             ))}
           </div>
-        </div>
-                  )}
-                </div>
-              );
-            })}
 
-            <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-              <div className="flex items-center justify-between px-2 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#757681]">General Documents</span>
-                <button onClick={() => addBlock(null)} className="text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]">
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              {blocks.filter(b => !b.folderId && b.status === 'organized').map(block => (
-                <DraggableBlock 
-                  key={block.id} 
-                  block={block} 
-                  isSelected={selectedBlockId === block.id}
-                  onClick={() => setSelectedBlockId(block.id)}
-                >
-                  {block.type === 'postcard' ? <ImageIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" /> : <FileText className="w-3.5 h-3.5 text-[#757681] shrink-0" />}
-                  <span className="truncate">{block.title || 'Untitled'}</span>
-                </DraggableBlock>
-              ))}
+          <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+            <div className="flex items-center justify-between px-2 mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#757681]">General Documents</span>
+              <button onClick={() => addBlock(null)} className="text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]">
+                <Plus className="w-3.5 h-3.5" />
+              </button>
             </div>
-
+            {blocks.filter(b => !b.folderId && b.status === 'organized').map(block => (
+              <DraggableBlock 
+                key={block.id} 
+                block={block} 
+                isSelected={selectedBlockId === block.id}
+                onClick={() => setSelectedBlockId(block.id)}
+              >
+                {block.type === 'postcard' ? <ImageIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" /> : <FileText className="w-3.5 h-3.5 text-[#757681] shrink-0" />}
+                <span className="truncate">{block.title || 'Untitled'}</span>
+              </DraggableBlock>
+            ))}
           </div>
         </div>
       </div>
@@ -978,8 +971,9 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
           )}
         </div>
       </div>
+    </div>
 
-      {/* Fullscreen AI Loading Overlay */}
+    {/* Fullscreen AI Loading Overlay */}
       <AnimatePresence>
         {isAiLoading && (
           <motion.div 
