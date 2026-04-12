@@ -13,13 +13,13 @@ function createWindow() {
     width: 1280,
     height: 800,
     title: 'Forge - AI Social Media',
-    icon: path.join(__dirname, 'public', 'logo.png'), // Fallback if logo.png exists
+    icon: path.join(__dirname, '..', 'public', 'logo.png'), 
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    titleBarStyle: 'hiddenInset', // premium look for macOS
-    autoHideMenuBar: true, // cleaner look for Windows
+    titleBarStyle: 'hiddenInset',
+    autoHideMenuBar: true,
   });
 
   // Load the backend server URL
@@ -39,18 +39,15 @@ function createWindow() {
 function startBackend() {
   console.log('Starting backend server...');
   
-  // We use the bundled server.js in production or server.ts via tsx in dev
-  // For simplicity in the EXE, we assume dist/server.js exists (built via npm run build)
-  const serverPath = path.join(__dirname, 'dist', 'server.js');
+  // Point to the root dist folder
+  const serverPath = path.join(__dirname, '..', 'dist', 'server.js');
   
-  // Start the server as a background process
-  // We use the same executable (process.execPath) for consistency
   serverProcess = spawn(process.execPath, [serverPath], {
     env: { 
       ...process.env, 
       NODE_ENV: 'production',
       PORT: PORT.toString(),
-      ELECTRON_RUN_AS_NODE: '1' // Tell Electron to act as a Node process
+      ELECTRON_RUN_AS_NODE: '1'
     }
   });
 
@@ -62,7 +59,6 @@ function startBackend() {
     console.error(`Server Error: ${data}`);
   });
 
-  // Wait for server to be ready before creating window
   const checkServer = () => {
     http.get(`http://localhost:${PORT}`, (res) => {
       createWindow();

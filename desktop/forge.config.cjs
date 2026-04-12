@@ -6,12 +6,12 @@ module.exports = {
   packagerConfig: {
     name: 'Forge',
     executableName: 'forge',
-    icon: path.join(__dirname, 'public', 'logo'), // Forge will look for .ico on Windows
-    asar: true, // Package into asar for security and performance
+    icon: path.join(__dirname, '..', 'public', 'logo'), 
+    asar: true,
     extraResource: [
-      './dist', // Include the built frontend/server
-      './server', // Include secondary routes if needed
-      '.env' // Optional: include env if user chooses
+      '../dist', 
+      '../server',
+      '../.env'
     ],
   },
   rebuildConfig: {},
@@ -22,7 +22,7 @@ module.exports = {
         name: 'Forge',
         authors: 'Forge Team',
         description: 'AI-powered social media management platform',
-        setupIcon: path.join(__dirname, 'public', 'logo.ico'),
+        setupIcon: path.join(__dirname, '..', 'public', 'logo.ico'),
       },
     },
     {
@@ -30,6 +30,4 @@ module.exports = {
       platforms: ['darwin'],
     },
   ],
-  publishers: [],
-  plugins: [],
 };
