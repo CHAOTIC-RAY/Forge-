@@ -1,4 +1,5 @@
 import express from "express";
+import "dotenv/config";
 import path from "path";
 import axios from "axios";
 import { fileURLToPath } from "url";
@@ -6,20 +7,31 @@ import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { scraperRouter } from "./server/routes/api";
 
+console.log("[Server] Starting initialization...");
+console.log("[Server] Environment:", process.env.NODE_ENV);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configure Cloudinary
-if (process.env.CLOUDINARY_URL) {
-  cloudinary.config({
-    cloudinary_url: process.env.CLOUDINARY_URL,
-  });
-} else {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
+try {
+  if (process.env.CLOUDINARY_URL) {
+    console.log("[Server] Configuring Cloudinary with URL");
+    cloudinary.config({
+      cloudinary_url: process.env.CLOUDINARY_URL,
+    });
+  } else if (process.env.CLOUDINARY_CLOUD_NAME) {
+    console.log("[Server] Configuring Cloudinary with credentials");
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  } else {
+    console.warn("[Server] Cloudinary credentials not found in environment");
+  }
+} catch (error) {
+  console.error("[Server] Failed to configure Cloudinary:", error);
 }
 
 const storage = multer.memoryStorage();
@@ -53,14 +65,18 @@ export async function startServer(forcePort?: number) {
   // Expose Gemini API Key to client if set in environment
   // Move this ABOVE other api routes to avoid conflicts
   app.get("/api/config", (req, res) => {
+    console.log("[Server] GET /api/config requested");
     try {
-      res.json({
+      const config = {
         geminiApiKey: process.env.GEMINI_API_KEY || null,
         groqApiKey: process.env.GROQ_API_KEY || null,
-      });
-    } catch (error) {
-      console.error("Error in /api/config:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+        cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
+      };
+      console.log("[Server] Returning config (keys hidden)");
+      res.json(config);
+    } catch (error: any) {
+      console.error("[Server] Error in /api/config:", error);
+      res.status(500).json({ error: "Internal Server Error", details: error.message });
     }
   });
 
@@ -439,10 +455,14 @@ app.post('/api/onedrive/upload', async (req, res) => {
 // ============================================================
 
 app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res) => {
+  console.log("[Server] POST /api/cloudinary/upload requested");
   try {
     if (!req.file) {
+      console.warn("[Server] No image file provided in request");
       return res.status(400).json({ error: "No image file provided" });
     }
+
+    console.log(`[Server] Uploading file to Cloudinary: ${req.file.originalname} (${req.file.size} bytes)`);
 
     // Use upload_stream for better memory efficiency (avoids extra base64 conversion)
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -452,12 +472,13 @@ app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res)
       },
       (error, result) => {
         if (error) {
-          console.error("Cloudinary upload error:", error);
+          console.error("[Server] Cloudinary upload error:", error);
           return res.status(500).json({ 
             error: "Failed to upload image to Cloudinary", 
             details: error.message 
           });
         }
+        console.log("[Server] Cloudinary upload successful:", result?.secure_url);
         res.json({
           url: result?.secure_url,
           public_id: result?.public_id,
@@ -467,7 +488,7 @@ app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res)
 
     uploadStream.end(req.file.buffer);
   } catch (error: any) {
-    console.error("Cloudinary upload error:", error);
+    console.error("[Server] Cloudinary upload route error:", error);
     res.status(500).json({ error: "Failed to upload image to Cloudinary", details: error.message });
   }
 });
@@ -510,11 +531,22 @@ app.post("/api/cloudinary/delete", async (req, res) => {
     });
   }
 
+  // Global error handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("[Server] Unhandled Error:", err);
+    res.status(500).json({ 
+      error: "Internal Server Error", 
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`[Server] Server running on http://localhost:${PORT}`);
   });
 }
 
-if (process.argv[1] && (process.argv[1].endsWith('server.ts') || process.argv[1].endsWith('server.js'))) {
-  startServer();
-}
+// Start server
+startServer().catch(err => {
+  console.error("[Server] Critical failure during startup:", err);
+});

@@ -43,7 +43,7 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
         // If not JSON, get text (could be Cloudflare error page)
         try {
           const errorText = await uploadResponse.text();
-          console.error('[Storage] Server returned error text:', errorText);
+          console.error('[Storage] Server returned error text (truncated):', errorText.substring(0, 500));
           if (errorText.includes('413 Request Entity Too Large')) {
             errorMessage = 'Image is too large for the current server configuration.';
           } else if (errorText.includes('524')) {

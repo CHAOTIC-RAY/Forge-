@@ -25,7 +25,7 @@ export const fetchServerConfig = async () => {
     if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
       if (text.includes('<!doctype html>') || text.includes('<!DOCTYPE html>')) {
-        console.warn('[AI Config] API route returned HTML fallback. Ensure backend is deployed.');
+        console.warn('[AI Config] API route returned HTML fallback (truncated):', text.substring(0, 200));
         return;
       }
       throw new Error(`Unexpected content type: ${contentType}`);

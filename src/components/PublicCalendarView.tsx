@@ -82,7 +82,7 @@ export function PublicCalendarView() {
           setPosts(postsList);
           setLoading(false);
         }, (error) => {
-          console.error("[PublicView] Posts listener failed:", error);
+          console.error("[PublicView] Posts listener failed:", error.message);
           handleFirestoreError(error, OperationType.GET, 'posts');
           setError("Failed to sync calendar posts. Please refresh.");
           setLoading(false);

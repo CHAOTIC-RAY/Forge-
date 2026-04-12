@@ -112,50 +112,52 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           ]}
         />
       )}
-      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
-              <CalendarIcon className="w-6 h-6 text-[#2665fd]" />
+      {!isGuest && (
+        <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
+                <CalendarIcon className="w-6 h-6 text-[#2665fd]" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
+                  Content Calendar
+                </h2>
+                <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
+                  Plan and schedule your social media content.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
-                Content Calendar
-              </h2>
-              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
-                Plan and schedule your social media content.
-              </p>
-            </div>
-          </div>
 
-          {isAdmin && !isGuest && (
-            <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-              <button
-                onClick={() => onCalendarModeChange?.('work')}
-                className={cn(
-                  "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
-                  calendarMode === 'work' 
-                    ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] " 
-                    : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                )}
-              >
-                Work
-              </button>
-              <button
-                onClick={() => onCalendarModeChange?.('personal')}
-                className={cn(
-                  "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
-                  calendarMode === 'personal' 
-                    ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] " 
-                    : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                )}
-              >
-                Personal
-              </button>
-            </div>
-          )}
+            {isAdmin && !isGuest && (
+              <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <button
+                  onClick={() => onCalendarModeChange?.('work')}
+                  className={cn(
+                    "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
+                    calendarMode === 'work' 
+                      ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] " 
+                      : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                  )}
+                >
+                  Work
+                </button>
+                <button
+                  onClick={() => onCalendarModeChange?.('personal')}
+                  className={cn(
+                    "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
+                    calendarMode === 'personal' 
+                      ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] " 
+                      : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                  )}
+                >
+                  Personal
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] print:border-none print:h-auto print:block">
         <div className="flex-1 flex flex-col min-w-0">
         {/* Header & View Switcher */}
