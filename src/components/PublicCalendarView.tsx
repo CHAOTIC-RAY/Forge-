@@ -67,7 +67,10 @@ export function PublicCalendarView() {
           setPosts(postsList);
           setLoading(false);
         }, (error) => {
+          console.error("Posts listener failed:", error);
           handleFirestoreError(error, OperationType.GET, 'posts');
+          setError("Failed to sync calendar posts. Please refresh.");
+          setLoading(false);
         });
         return unsubscribe;
       } catch (e) {
@@ -79,8 +82,31 @@ export function PublicCalendarView() {
     fetchData();
   }, [businessId, shareToken, user]);
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED]">Loading...</div>;
-  if (error) return <div className="flex items-center justify-center h-screen bg-[#F7F7F5] dark:bg-[#202020] text-red-500">{error}</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-screen bg-[#F7F7F5] dark:bg-[#151515] text-[#37352F] dark:text-[#EBE9ED] gap-6">
+      <ForgeLoader size={60} />
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-[#757681] dark:text-[#9B9A97] font-medium animate-pulse">Syncing shared calendar...</p>
+        <p className="text-[10px] font-bold text-[#757681]/40 uppercase tracking-widest">Forge Secure Share</p>
+      </div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center h-screen bg-[#F7F7F5] dark:bg-[#151515] p-6 text-center">
+      <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mb-6 text-red-600 dark:text-red-400">
+        <ForgeLogo size={32} />
+      </div>
+      <h2 className="text-xl font-bold mb-2">Access Denied</h2>
+      <p className="text-[#757681] dark:text-[#9B9A97] max-w-sm mb-8">{error}</p>
+      <button 
+        onClick={() => window.location.href = '/'}
+        className="px-6 py-3 bg-[#2383E2] text-white rounded-[12px] font-bold shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
+      >
+        Go to Homepage
+      </button>
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white">

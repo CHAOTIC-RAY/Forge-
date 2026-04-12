@@ -145,15 +145,16 @@ service cloud.firestore {
     // ===============================================================
     
     match /businesses/{businessId} {
-      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow get: if resource.data.shareToken != null;
+      allow read: if (isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin())) || 
+                   (resource.data.shareToken != null);
       allow create: if isAuthenticated() && isValidBusiness(request.resource.data, false);
       allow update: if isAuthenticated() && resource.data.ownerId == request.auth.uid && isValidBusiness(request.resource.data, true);
       allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
     }
 
     match /posts/{postId} {
-      allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
+      allow read: if (isAuthenticated() && canAccessBusiness(resource.data.businessId)) || 
+                   isBusinessShared(resource.data.businessId);
       allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidPost(request.resource.data, false);
       allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidPost(request.resource.data, true);
       allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());

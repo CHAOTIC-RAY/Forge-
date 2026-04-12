@@ -9,7 +9,12 @@ declare const puter: any;
 
 let serverConfig: { geminiApiKey?: string; groqApiKey?: string } | null = null;
 
+let isFetchingConfig = false;
+
 export const fetchServerConfig = async () => {
+  if (isFetchingConfig) return;
+  isFetchingConfig = true;
+  
   try {
     const response = await fetch('/api/config');
     if (!response.ok) {
@@ -19,15 +24,22 @@ export const fetchServerConfig = async () => {
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
-      if (text.includes('<!doctype html>')) {
-        throw new Error('Received HTML instead of JSON. Ensure API routes are correctly handled and not intercepted by Service Worker.');
+      if (text.includes('<!doctype html>') || text.includes('<!DOCTYPE html>')) {
+        console.warn('[AI Config] API route returned HTML fallback. Ensure backend is deployed.');
+        return;
       }
       throw new Error(`Unexpected content type: ${contentType}`);
     }
 
-    serverConfig = await response.json();
+    const data = await response.json();
+    if (data && typeof data === 'object') {
+      serverConfig = data;
+      console.log('[AI Config] Server configuration loaded successfully.');
+    }
   } catch (error) {
     console.error('[AI Config] Failed to fetch server config:', error);
+  } finally {
+    isFetchingConfig = false;
   }
 };
 

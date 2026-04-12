@@ -17,7 +17,7 @@ export default defineConfig(({mode}) => {
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
-        navigateFallbackDenylist: [/^\/api/]
+        navigateFallbackDenylist: [/^\/api/, /firestore\.googleapis\.com/]
       },
       manifest: {
         name: 'Forge App',

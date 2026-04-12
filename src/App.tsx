@@ -192,6 +192,7 @@ export default function App() {
   const [calendarMode, setCalendarMode] = useState<'work' | 'personal'>('work');
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
+  const [isCheckingShare, setIsCheckingShare] = useState(true);
 
   const industryConfig = useMemo(() => getIndustryConfig(activeBusiness?.industry), [activeBusiness?.industry]);
 
@@ -398,6 +399,7 @@ export default function App() {
               // Check expiration
               if (bizData.shareExpiresAt && isAfter(new Date(), parseISO(bizData.shareExpiresAt))) {
                 toast.error("This share link has expired.");
+                setIsCheckingShare(false);
                 return;
               }
 
@@ -405,10 +407,11 @@ export default function App() {
               if (bizData.sharePassword) {
                 setPendingShareData(bizData);
                 setIsPasswordModalOpen(true);
+                setIsCheckingShare(false);
                 return;
               }
 
-              completeShareAccess(bizData);
+              await completeShareAccess(bizData);
             } else {
               toast.error("Invalid or expired share link.");
             }
@@ -416,9 +419,13 @@ export default function App() {
         } catch (e) {
           console.error("Error fetching shared business", e);
           toast.error("Failed to load shared calendar.");
+        } finally {
+          setIsCheckingShare(false);
         }
       };
       fetchShared();
+    } else {
+      setIsCheckingShare(false);
     }
   }, []);
 
@@ -2431,12 +2438,12 @@ export default function App() {
     );
   }
 
-  if (!user) {
+  if (!user && !isCheckingShare && !isViewOnly) {
     if (showLogin) return <Login />;
     return <LandingView onLogin={() => setShowLogin(true)} />;
   }
   
-  if (isGuest && loading) {
+  if (isGuest && (loading || isCheckingShare) && !isViewOnly) {
     return (
       <div className="min-h-screen bg-white dark:bg-[#191919] flex items-center justify-center">
         <ForgeLoader size={48} />
