@@ -10,6 +10,14 @@ import { scraperRouter } from "./server/routes/api";
 console.log("[Server] Starting initialization...");
 console.log("[Server] Environment:", process.env.NODE_ENV);
 
+process.on('uncaughtException', (err) => {
+  console.error('[Server] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Server] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -59,11 +67,18 @@ export async function startServer(forcePort?: number) {
   const app = express();
   const PORT = forcePort || Number(process.env.PORT) || 3000;
 
+  console.log(`[Server] Initializing startServer on port ${PORT}`);
+
+  app.use(cors());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-  // Expose Gemini API Key to client if set in environment
-  // Move this ABOVE other api routes to avoid conflicts
+  // Health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", uptime: process.uptime(), timestamp: new Date().toISOString() });
+  });
+
+  // Expose config to client
   app.get("/api/config", (req, res) => {
     console.log("[Server] GET /api/config requested");
     try {

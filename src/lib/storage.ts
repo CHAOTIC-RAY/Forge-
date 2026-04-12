@@ -22,16 +22,21 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
     const startTime = Date.now();
 
     // Convert base64 to Blob to send as multipart/form-data
+    console.log("[Storage] Converting base64 to blob...");
     const response = await fetch(base64Data);
+    if (!response.ok) throw new Error(`Failed to fetch base64 data: ${response.statusText}`);
     const blob = await response.blob();
+    console.log(`[Storage] Blob created: ${blob.size} bytes, type: ${blob.type}`);
     
     const formData = new FormData();
     formData.append('image', blob, 'upload.png');
 
+    console.log("[Storage] Sending POST request to /api/cloudinary/upload...");
     const uploadResponse = await fetch('/api/cloudinary/upload', {
       method: 'POST',
       body: formData,
     });
+    console.log(`[Storage] Server responded with status: ${uploadResponse.status}`);
 
     if (!uploadResponse.ok) {
       let errorMessage = 'Failed to upload to Cloudinary';
