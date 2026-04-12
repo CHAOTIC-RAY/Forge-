@@ -154,9 +154,8 @@ export default {
           headers: { 'Content-Type': 'application/json' }
         });
       }
-    }
 
-    // Pass everything else to Assets
-    return env.ASSETS.fetch(request);
-  }
-};
+      // Pass everything else to Assets
+      return env.ASSETS.fetch(request);
+    }
+  };
