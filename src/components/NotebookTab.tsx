@@ -892,6 +892,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
           </div>
         )}
       </div>
+    </div>
 
       {/* Fullscreen AI Loading Overlay */}
       <AnimatePresence>

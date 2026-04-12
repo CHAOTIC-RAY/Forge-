@@ -43,9 +43,9 @@ interface CachedProduct {
 
 
 
-async function startServer() {
+export async function startServer(forcePort?: number) {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = forcePort || Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -491,7 +491,12 @@ app.post("/api/cloudinary/delete", async (req, res) => {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    // Robust pathing for both dev and production
+    const isPackaged = process.argv[1] && process.argv[1].endsWith('server.js');
+    const distPath = isPackaged 
+      ? path.dirname(fileURLToPath(import.meta.url)) 
+      : path.join(process.cwd(), "dist");
+      
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
@@ -503,4 +508,6 @@ app.post("/api/cloudinary/delete", async (req, res) => {
   });
 }
 
-startServer();
+if (process.argv[1] && (process.argv[1].endsWith('server.ts') || process.argv[1].endsWith('server.js'))) {
+  startServer();
+}
