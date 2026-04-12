@@ -9,6 +9,7 @@ import { Calendar } from './Calendar';
 import { PostModal } from './modals/PostModal';
 import { ImageViewer } from './ImageViewer';
 import { ForgeLogo } from './ForgeLogo';
+import { ForgeLoader } from './ForgeLoader';
 import { cn } from '../lib/utils';
 
 export function PublicCalendarView() {

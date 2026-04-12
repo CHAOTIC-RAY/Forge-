@@ -37,11 +37,13 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
       let errorMessage = 'Failed to upload to Cloudinary';
       try {
         const errorData = await uploadResponse.json();
-        errorMessage = errorData.error || errorData.details || errorMessage;
+        console.error('[Storage] Server returned error JSON:', errorData);
+        errorMessage = errorData.error?.message || errorData.error || errorData.details || errorMessage;
       } catch (e) {
         // If not JSON, get text (could be Cloudflare error page)
         try {
           const errorText = await uploadResponse.text();
+          console.error('[Storage] Server returned error text:', errorText);
           if (errorText.includes('413 Request Entity Too Large')) {
             errorMessage = 'Image is too large for the current server configuration.';
           } else if (errorText.includes('524')) {
