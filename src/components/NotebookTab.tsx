@@ -16,8 +16,6 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'motion/react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   collection, 
@@ -31,14 +29,7 @@ import {
 } from 'firebase/firestore';
 import { generateTextWithCascade, safeParseJSONArray, isGeminiKeyAvailable, fetchServerConfig } from '../lib/gemini';
 import { toast } from 'sonner';
-
-/**
- * Utility for joining tailwind classes safely.
- * Locally defined to prevent "cn is not defined" issues in specific build environments.
- */
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../lib/utils';
 
 /**
  * Shorthand for generating unique IDs
@@ -702,7 +693,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                   </button>
                 )}
                 {selectedBlock.folderId && (
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#757681] bg-[#F7F7F5] dark:bg-[#2E2E2E] px-2.5 py-1 rounded-md">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#757681] bg-[#F7F7F5] dark:bg-[#202020] px-2.5 py-1 rounded-md">
                     <FolderIcon className="w-3.5 h-3.5 text-blue-400" />
                     {folders.find(f => f.id === selectedBlock.folderId)?.name || 'Unknown Folder'}
                   </div>
