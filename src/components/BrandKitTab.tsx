@@ -10,6 +10,19 @@ import {
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { scrapeWooCommerce, HighStockProduct } from '../lib/gemini';
+import { 
+  doc, 
+  setDoc, 
+  query, 
+  collection, 
+  where, 
+  getDocs, 
+  writeBatch, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { v4 as uuidv4 } from 'uuid';
+import { Post, Business } from '../data';
 
 interface BrandKit {
   colors: { name: string; hex: string }[];

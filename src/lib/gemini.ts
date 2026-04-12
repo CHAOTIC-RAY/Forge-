@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { getGenerativeModel } from 'firebase/vertexai';
 import { vertexAI, auth, db } from './firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
 
@@ -12,9 +12,20 @@ let serverConfig: { geminiApiKey?: string; groqApiKey?: string } | null = null;
 export const fetchServerConfig = async () => {
   try {
     const response = await fetch('/api/config');
-    if (response.ok) {
-      serverConfig = await response.json();
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
     }
+    
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      if (text.includes('<!doctype html>')) {
+        throw new Error('Received HTML instead of JSON. Ensure API routes are correctly handled and not intercepted by Service Worker.');
+      }
+      throw new Error(`Unexpected content type: ${contentType}`);
+    }
+
+    serverConfig = await response.json();
   } catch (error) {
     console.error('[AI Config] Failed to fetch server config:', error);
   }

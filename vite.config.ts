@@ -18,6 +18,7 @@ export default defineConfig(({mode}) => {
         },
         workbox: {
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
+          navigateFallbackDenylist: [/^\/api/]
         },
         manifest: {
           name: 'Forge App',
