@@ -3662,6 +3662,7 @@ export default function App() {
         onSelect={setActiveBusiness}
         onCreate={handleCreateBusiness}
         onDelete={handleDeleteBusiness}
+        onAddNewWorkspace={() => setShowOnboarding(true)}
       />
     </div>
   </DndContext>

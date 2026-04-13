@@ -11,6 +11,7 @@ interface BusinessModalProps {
   onSelect: (biz: Business) => void;
   onCreate: (name: string, industry: string, position: string) => void;
   onDelete?: (bizId: string) => void;
+  onAddNewWorkspace?: () => void;
 }
 
 export function BusinessModal({ 
@@ -20,7 +21,8 @@ export function BusinessModal({
   activeBusiness, 
   onSelect, 
   onCreate,
-  onDelete
+  onDelete,
+  onAddNewWorkspace
 }: BusinessModalProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -205,7 +207,14 @@ export function BusinessModal({
               )}
               
               <button
-                onClick={() => setIsCreating(true)}
+                onClick={() => {
+                  if (onAddNewWorkspace) {
+                    onClose();
+                    onAddNewWorkspace();
+                  } else {
+                    setIsCreating(true);
+                  }
+                }}
                 className="w-full flex items-center gap-4 p-4 rounded-[12px] border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-blue-500/50 hover:bg-blue-500/5 transition-all group"
               >
                 <div className="w-10 h-10 rounded-[8px] bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center text-[#757681] dark:text-[#9B9A97] group-hover:text-blue-500 transition-colors">
