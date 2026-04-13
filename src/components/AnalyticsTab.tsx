@@ -91,8 +91,8 @@ Ensure the response is a valid JSON object.`;
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
-              <BarChart3 className="w-6 h-6 text-[#2665fd]" />
+            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
+              <BarChart3 className="w-6 h-6 text-brand" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">

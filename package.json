@@ -36,6 +36,7 @@
     "express": "^4.21.2",
     "firebase": "^11.10.0",
     "glob": "^13.0.6",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "multer": "^1.4.5-lts.1",

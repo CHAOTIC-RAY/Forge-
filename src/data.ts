@@ -26,6 +26,7 @@ export type Post = {
   platforms?: string[];
 
   isAiGenerated?: boolean;
+  isHiddenForOthers?: boolean;
   aiProvider?: string;
   createdAt?: string;
 

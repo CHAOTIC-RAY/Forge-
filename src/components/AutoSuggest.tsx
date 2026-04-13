@@ -94,7 +94,7 @@ export function AutoSuggest({ value, onChange, options, placeholder, label, disa
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
+          className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition-colors disabled:opacity-70"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
           <ChevronDown className={cn("w-4 h-4 text-[#9B9A97] transition-transform", isOpen && "rotate-180")} />
@@ -116,7 +116,7 @@ export function AutoSuggest({ value, onChange, options, placeholder, label, disa
                 className={cn(
                   "w-full text-left px-4 py-2 text-sm transition-colors",
                   idx === selectedIndex 
-                    ? "bg-[#2665fd]/10 text-[#2665fd]" 
+                    ? "bg-brand-bg text-brand" 
                     : "hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]"
                 )}
               >

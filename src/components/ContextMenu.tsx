@@ -32,6 +32,7 @@ export function ContextMenu({ items, children, className, x, y, isOpen: controll
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     if (isControlled) return;
     e.preventDefault();
+    e.stopPropagation();
     setInternalIsOpen(true);
     setPosition({ x: e.clientX, y: e.clientY });
   }, [isControlled]);

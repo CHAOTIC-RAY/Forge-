@@ -557,8 +557,8 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
-              <Notebook className="w-6 h-6 text-[#2665fd]" />
+            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
+              <Notebook className="w-6 h-6 text-brand" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
@@ -578,7 +578,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative pb-20 md:pb-0">
       
       {/* Sidebar Navigation */}
       <div className={cn(
@@ -588,7 +588,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
         
         {!isReady && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm">
-             <div className="w-6 h-6 border-2 border-[#2665fd] border-t-transparent rounded-full animate-spin" />
+             <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
@@ -603,7 +603,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               placeholder="Brainstorm new campaigns..."
-              className="w-full bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl p-3 text-sm focus:outline-none focus:border-[#2665fd] resize-none h-20 shadow-sm"
+              className="w-full bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl p-3 text-sm focus:outline-none focus:border-brand resize-none h-20 shadow-sm"
             />
             
             <div className="mt-3 flex items-center gap-1.5 p-1 bg-white/50 dark:bg-black/20 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
@@ -626,7 +626,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
             <button 
               onClick={generateIdeas}
               disabled={isAiLoading || !aiPrompt.trim()}
-              className="absolute bottom-12 right-2 p-1.5 bg-transparent text-[#2665fd] hover:scale-110 disabled:opacity-40 transition-all"
+              className="absolute bottom-12 right-2 p-1.5 bg-transparent text-brand hover:scale-110 disabled:opacity-40 transition-all"
               title="Generate with AI"
             >
               <Sparkles className="w-5 h-5" />
@@ -834,7 +834,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                 <button 
                   onClick={() => expandWithAi(selectedBlock)}
                   disabled={isAiLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-[#2665fd]/10 text-[#2665fd] hover:bg-[#2665fd]/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-brand-bg text-brand hover:bg-brand/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   Expand Idea with AI
@@ -940,8 +940,8 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               ) : (
                 <div className="flex flex-col gap-6">
                   {selectedBlock.metadata?.brief && (
-                    <div className="p-5 rounded-2xl border border-[#2665fd]/10 bg-[#2665fd]/5">
-                      <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#2665fd] mb-3">
+                    <div className="p-5 rounded-2xl border border-brand/10 bg-brand/5">
+                      <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand mb-3">
                         <ImageIcon className="w-3.5 h-3.5" />
                         Visual Brief for Designers
                       </h4>
@@ -973,7 +973,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
 
                   {selectedBlock.metadata?.hashtags && (
                     <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-                      <p className="text-xs text-[#2665fd] font-medium tracking-tight">
+                      <p className="text-xs text-brand font-medium tracking-tight">
                         {selectedBlock.metadata.hashtags}
                       </p>
                     </div>
@@ -993,7 +993,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                       <div 
                         key={child.id}
                         onClick={() => setSelectedBlockId(child.id)}
-                        className="p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] hover:border-[#2665fd]/50 cursor-pointer transition-all flex flex-col"
+                        className="p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] hover:border-brand/50 cursor-pointer transition-all flex flex-col"
                       >
                         <h4 className="font-bold text-sm mb-1 line-clamp-1">{child.title || 'Untitled'}</h4>
                         <p className="text-xs text-[#757681] line-clamp-2">{child.content}</p>
@@ -1029,8 +1029,8 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
           >
             <div className="bg-white dark:bg-[#2E2E2E] p-6 rounded-2xl shadow-2xl border border-[#E9E9E7] dark:border-[#3E3E3E] flex flex-col items-center gap-4">
               <div className="relative">
-                <div className="w-12 h-12 border-4 border-[#2665fd]/20 border-t-[#2665fd] rounded-full animate-spin" />
-                <Sparkles className="w-6 h-6 text-[#2665fd] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                <div className="w-12 h-12 border-4 border-brand-border border-t-[#2665fd] rounded-full animate-spin" />
+                <Sparkles className="w-6 h-6 text-brand absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
               </div>
               <div className="text-center">
                 <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED]">AI is thinking...</h3>

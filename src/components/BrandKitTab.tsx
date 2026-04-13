@@ -685,7 +685,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               <button
                 onClick={handleSaveBrandKit}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-6 py-3 bg-[#2665fd] text-white rounded-[12px] text-sm font-bold hover:bg-\[#1e52d0\] transition-all active:scale-95 disabled:opacity-50  "
+                className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-[12px] text-sm font-bold hover:bg-\[#1e52d0\] transition-all active:scale-95 disabled:opacity-50  "
               >
                 {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save Identity
@@ -777,7 +777,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
             <button
               onClick={handleSaveBrandKit}
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#2665fd] text-white rounded-[12px] text-[10px] font-bold   active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white rounded-[12px] text-[10px] font-bold   active:scale-95 disabled:opacity-50"
             >
               {isSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
               Save
@@ -800,7 +800,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               {/* Colors Card */}
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
                 <div className="flex items-center gap-2 mb-6">
-                  <Palette className="w-5 h-5 text-[#2665fd]" />
+                  <Palette className="w-5 h-5 text-brand" />
                   <h3 className="text-base font-bold">Brand Colors</h3>
                 </div>
                 <div className="space-y-6">
@@ -832,7 +832,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                         placeholder="Color Name"
                         value={newColorName}
                         onChange={(e) => setNewColorName(e.target.value)}
-                        className="flex-1 px-4 py-2 text-sm font-medium bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:border-[#2665fd] transition-all"
+                        className="flex-1 px-4 py-2 text-sm font-medium bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:border-brand transition-all"
                       />
                       <div className="relative w-10 h-10 shrink-0">
                         <input
@@ -849,7 +849,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                       <button
                         onClick={addColor}
                         disabled={!newColorName}
-                        className="p-2.5 bg-[#2665fd] text-white rounded-[12px] hover:bg-[#2665fd]-hover transition-all disabled:opacity-50"
+                        className="p-2.5 bg-brand text-white rounded-[12px] hover:bg-brand-hover transition-all disabled:opacity-50"
                       >
                         <Plus className="w-5 h-5" />
                       </button>
@@ -862,10 +862,10 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
-                    <Type className="w-5 h-5 text-[#2665fd]" />
+                    <Type className="w-5 h-5 text-brand" />
                     <h3 className="text-base font-bold">Typography</h3>
                   </div>
-                  <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-[#2665fd]/10 text-[#2665fd] rounded-[8px] text-xs font-bold hover:bg-[#2665fd]/20 transition-all">
+                  <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-brand-bg text-brand rounded-[8px] text-xs font-bold hover:bg-brand/20 transition-all">
                     <Upload className="w-3.5 h-3.5" />
                     Upload Font
                     <input type="file" multiple accept=".ttf,.otf,.woff,.woff2" className="hidden" onChange={handleFontUpload} />
@@ -877,7 +877,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     <select
                       value={brandKit.fonts.heading}
                       onChange={(e) => setBrandKit({ ...brandKit, fonts: { ...brandKit.fonts, heading: e.target.value } })}
-                      className="w-full px-4 py-2.5 text-sm font-bold bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:border-[#2665fd] transition-all"
+                      className="w-full px-4 py-2.5 text-sm font-bold bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:border-brand transition-all"
                     >
                       <option value="Inter">Inter</option>
                       <option value="Roboto">Roboto</option>
@@ -894,7 +894,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     <select
                       value={brandKit.fonts.body}
                       onChange={(e) => setBrandKit({ ...brandKit, fonts: { ...brandKit.fonts, body: e.target.value } })}
-                      className="w-full px-4 py-2.5 text-sm font-bold bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:border-[#2665fd] transition-all"
+                      className="w-full px-4 py-2.5 text-sm font-bold bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:border-brand transition-all"
                     >
                       <option value="Inter">Inter</option>
                       <option value="Roboto">Roboto</option>
@@ -917,10 +917,10 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-[#2665fd]" />
+                    <ImageIcon className="w-5 h-5 text-brand" />
                     <h3 className="text-base font-bold">Logos</h3>
                   </div>
-                  <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-[#2665fd]/10 text-[#2665fd] rounded-[8px] text-xs font-bold hover:bg-[#2665fd]/20 transition-all">
+                  <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-brand-bg text-brand rounded-[8px] text-xs font-bold hover:bg-brand/20 transition-all">
                     <Upload className="w-3.5 h-3.5" />
                     Upload
                     <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'logos')} />
@@ -929,7 +929,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {brandKit.logos.map((logo, idx) => (
-                    <div key={idx} className="relative group aspect-square rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center p-4 hover:border-[#2665fd] transition-all">
+                    <div key={idx} className="relative group aspect-square rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center p-4 hover:border-brand transition-all">
                       <img src={logo} alt={`Logo ${idx}`} className="max-w-full max-h-full object-contain" />
                       <button
                         onClick={() => removeImage(idx, 'logos')}
@@ -952,10 +952,10 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
-                    <LayoutTemplate className="w-5 h-5 text-[#2665fd]" />
+                    <LayoutTemplate className="w-5 h-5 text-brand" />
                     <h3 className="text-base font-bold">Brand Assets</h3>
                   </div>
-                  <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-[#2665fd]/10 text-[#2665fd] rounded-[8px] text-xs font-bold hover:bg-[#2665fd]/20 transition-all">
+                  <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-brand-bg text-brand rounded-[8px] text-xs font-bold hover:bg-brand/20 transition-all">
                     <Upload className="w-3.5 h-3.5" />
                     Upload
                     <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'designs')} />
@@ -964,7 +964,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {brandKit.designs.map((design, idx) => (
-                    <div key={idx} className="relative group aspect-video rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden bg-[#F7F7F5] dark:bg-[#202020] hover:border-[#2665fd] transition-all">
+                    <div key={idx} className="relative group aspect-video rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden bg-[#F7F7F5] dark:bg-[#202020] hover:border-brand transition-all">
                       <img src={design} alt={`Asset ${idx}`} className="w-full h-full object-cover" />
                       <button
                         onClick={() => removeImage(idx, 'designs')}
@@ -997,7 +997,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-[#2665fd]" />
+                    <Globe className="w-5 h-5 text-brand" />
                     <h3 className="text-base font-bold">Target Platforms</h3>
                   </div>
                   <span className="text-[10px] font-bold text-[#757681] uppercase tracking-widest bg-[#F7F7F5] dark:bg-[#202020] px-2 py-1 rounded border border-[#E9E9E7] dark:border-[#2E2E2E]">
@@ -1006,7 +1006,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {targetPlatforms.map((platform, idx) => (
-                    <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] group hover:border-[#2665fd] transition-all">
+                    <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] group hover:border-brand transition-all">
                       <span className="text-sm font-bold capitalize">{platform}</span>
                       <button 
                         onClick={() => removeTargetPlatform(platform)}
@@ -1020,7 +1020,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     <input 
                       type="text"
                       placeholder="Add platform... (Enter)"
-                      className="px-4 py-2 text-sm font-bold bg-white dark:bg-[#1A1A1A] border border-dashed border-[#D9D9D7] dark:border-[#3E3E3E] rounded-[12px] outline-none focus:border-[#2665fd] transition-all w-48"
+                      className="px-4 py-2 text-sm font-bold bg-white dark:bg-[#1A1A1A] border border-dashed border-[#D9D9D7] dark:border-[#3E3E3E] rounded-[12px] outline-none focus:border-brand transition-all w-48"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           addTargetPlatform((e.target as HTMLInputElement).value);
@@ -1036,8 +1036,8 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden ">
                 <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-white dark:bg-[#1A1A1A]">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#2665fd]/10 rounded-[12px] flex items-center justify-center">
-                      <Tag className="w-5 h-5 text-[#2665fd]" />
+                    <div className="w-10 h-10 bg-brand-bg rounded-[12px] flex items-center justify-center">
+                      <Tag className="w-5 h-5 text-brand" />
                     </div>
                     <div>
                       <h3 className="text-base font-bold">Category Editor</h3>
@@ -1048,7 +1048,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     <button
                       onClick={syncFromCalendar}
                       disabled={isSyncing}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2665fd]/10 text-[#2665fd] rounded-[12px] text-xs font-bold hover:bg-[#2665fd]/20 transition-all active:scale-95 disabled:opacity-50 border border-[#2665fd]/20"
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-bg text-brand rounded-[12px] text-xs font-bold hover:bg-brand/20 transition-all active:scale-95 disabled:opacity-50 border border-brand-border"
                       title="Sync categories from existing calendar posts"
                     >
                       {isSyncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -1057,7 +1057,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     <button
                       onClick={scrapFromWeb}
                       disabled={isScraping}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2665fd] text-white rounded-[12px] text-xs font-bold hover:bg-[#2665fd]-hover transition-all active:scale-95 disabled:opacity-50  "
+                      className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-[12px] text-xs font-bold hover:bg-brand-hover transition-all active:scale-95 disabled:opacity-50  "
                     >
                       {isScraping ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
                       Scrap from Web
@@ -1104,12 +1104,12 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                             className={cn(
                               "w-full flex items-center justify-between px-3 py-2.5 rounded-[12px] text-xs md:text-sm font-bold transition-all whitespace-nowrap cursor-pointer",
                               selectedCategoryType === type.id
-                                ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd]  border border-[#E9E9E7] dark:border-[#3E3E3E]"
+                                ? "bg-white dark:bg-[#2E2E2E] text-brand  border border-[#E9E9E7] dark:border-[#3E3E3E]"
                                 : "text-[#757681] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                             )}
                           >
                             <div className="flex items-center gap-3 overflow-hidden">
-                              <type.icon className={cn("w-4 h-4 shrink-0", selectedCategoryType === type.id ? "text-[#2665fd]" : "text-[#757681]")} />
+                              <type.icon className={cn("w-4 h-4 shrink-0", selectedCategoryType === type.id ? "text-brand" : "text-[#757681]")} />
                               {editingTitle === type.id ? (
                                 <input
                                   autoFocus
@@ -1134,7 +1134,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                                     }
                                     if (e.key === 'Escape') setEditingTitle(null);
                                   }}
-                                  className="bg-transparent border-none outline-none text-[#2665fd] w-full p-0"
+                                  className="bg-transparent border-none outline-none text-brand w-full p-0"
                                   onClick={(e) => e.stopPropagation()}
                                 />
                               ) : (
@@ -1164,9 +1164,9 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     </div>
 
                     <div className="mt-8 pt-8 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-                      <div className="p-4 bg-[#2665fd]/5 dark:bg-[#2665fd]/10 rounded-[16px] border border-[#2665fd]/10 dark:border-[#2665fd]/20">
-                        <p className="text-[10px] font-bold text-[#2665fd] uppercase tracking-wider mb-2">Quick Tip</p>
-                        <p className="text-[11px] text-[#2665fd]/80 dark:text-[#2665fd]/60 leading-relaxed">
+                      <div className="p-4 bg-brand/5 dark:bg-brand-bg rounded-[16px] border border-brand/10 dark:border-brand-border">
+                        <p className="text-[10px] font-bold text-brand uppercase tracking-wider mb-2">Quick Tip</p>
+                        <p className="text-[11px] text-brand/80 dark:text-brand/60 leading-relaxed">
                           Categories help the AI generate more relevant posts for your business.
                         </p>
                       </div>
@@ -1185,7 +1185,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                             placeholder="Search items..."
                             value={categorySearch}
                             onChange={(e) => setCategorySearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm font-medium outline-none focus:border-[#2665fd] transition-all"
+                            className="w-full pl-10 pr-4 py-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm font-medium outline-none focus:border-brand transition-all"
                           />
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1197,13 +1197,13 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                               setNewCategoryName(e.target.value);
                               setNewCategoryType(selectedCategoryType);
                             }}
-                            className="flex-1 sm:w-48 px-4 py-2 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm font-bold outline-none focus:border-[#2665fd] transition-all"
+                            className="flex-1 sm:w-48 px-4 py-2 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm font-bold outline-none focus:border-brand transition-all"
                             onKeyDown={(e) => e.key === 'Enter' && addCategory()}
                           />
                           <button
                             onClick={addCategory}
                             disabled={!newCategoryName}
-                            className="p-2 bg-[#2665fd] text-white rounded-[12px] hover:bg-[#2665fd]-hover transition-all disabled:opacity-50"
+                            className="p-2 bg-brand text-white rounded-[12px] hover:bg-brand-hover transition-all disabled:opacity-50"
                           >
                             <Plus className="w-5 h-5" />
                           </button>
@@ -1253,7 +1253,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
 
                             return (
                               <ContextMenu key={cat.id} items={contextMenuItems}>
-                                <div className="bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] p-3 hover:border-[#2665fd] transition-all group  hover:">
+                                <div className="bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] p-3 hover:border-brand transition-all group  hover:">
                                   <div className="flex items-center justify-between gap-3">
                                     <div className="flex items-center gap-3 flex-1">
                                       <div className="relative flex items-center justify-center">
@@ -1262,7 +1262,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                                           id={`cat-${cat.id}`}
                                           checked={cat.enabled}
                                           onChange={() => toggleCategory(cat.id)}
-                                          className="peer appearance-none w-4 h-4 rounded-[6px] border-2 border-[#E9E9E7] dark:border-[#2E2E2E] checked:bg-[#2665fd] checked:border-[#2665fd] transition-all cursor-pointer"
+                                          className="peer appearance-none w-4 h-4 rounded-[6px] border-2 border-[#E9E9E7] dark:border-[#2E2E2E] checked:bg-brand checked:border-brand transition-all cursor-pointer"
                                         />
                                         <CheckCircle2 className="w-2.5 h-2.5 text-white absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
                                       </div>
@@ -1271,7 +1271,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                                         value={cat.name}
                                         onChange={(e) => updateCategory(cat.id, e.target.value)}
                                         className={cn(
-                                          "flex-1 bg-transparent text-xs font-bold outline-none focus:text-[#2665fd] transition-colors",
+                                          "flex-1 bg-transparent text-xs font-bold outline-none focus:text-brand transition-colors",
                                           !cat.enabled && "text-[#757681] opacity-50"
                                         )}
                                       />
@@ -1313,7 +1313,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-2">
                 <div>
                   <h3 className="text-xl font-bold flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-[#2665fd]" />
+                    <Sparkles className="w-5 h-5 text-brand" />
                     AI Design Guide (design.md)
                   </h3>
                   <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-1">
@@ -1339,7 +1339,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                   <button
                     onClick={handleSyncDesignGuide}
                     disabled={isSaving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-[#2665fd] text-white rounded-[12px] text-sm font-bold hover:bg-[#2665fd]-hover transition-all active:scale-95 disabled:opacity-50  "
+                    className="flex items-center gap-2 px-6 py-2.5 bg-brand text-white rounded-[12px] text-sm font-bold hover:bg-brand-hover transition-all active:scale-95 disabled:opacity-50  "
                   >
                     {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                     Sync Design Guide
@@ -1385,7 +1385,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     <span className="text-[10px] font-mono text-[#757681] ml-2">design.md — Read Only</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-bold text-[#2665fd] bg-[#2665fd]/10 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                    <span className="text-[9px] font-bold text-brand bg-brand-bg px-2 py-0.5 rounded-full uppercase tracking-tighter">
                       AI Active context
                     </span>
                   </div>
@@ -1398,8 +1398,8 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     </pre>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center p-12">
-                      <div className="w-16 h-16 bg-[#2665fd]/5 rounded-[24px] flex items-center justify-center mb-4">
-                        <Sparkles className="w-8 h-8 text-[#2665fd] opacity-20" />
+                      <div className="w-16 h-16 bg-brand/5 rounded-[24px] flex items-center justify-center mb-4">
+                        <Sparkles className="w-8 h-8 text-brand opacity-20" />
                       </div>
                       <h4 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2">No Design Guide Existing</h4>
                       <p className="text-sm text-[#757681] dark:text-[#9B9A97] max-w-sm">
@@ -1411,12 +1411,12 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-[#2665fd]/5 dark:bg-[#2665fd]/10 p-5 rounded-[20px] border border-[#2665fd]/10 dark:border-[#2665fd]/20">
-                  <h4 className="text-xs font-bold text-[#2665fd] mb-2 flex items-center gap-2 uppercase tracking-wider">
+                <div className="bg-brand/5 dark:bg-brand-bg p-5 rounded-[20px] border border-brand/10 dark:border-brand-border">
+                  <h4 className="text-xs font-bold text-brand mb-2 flex items-center gap-2 uppercase tracking-wider">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     How it works
                   </h4>
-                  <p className="text-[11px] text-[#2665fd]/80 dark:text-[#2665fd]/60 leading-relaxed">
+                  <p className="text-[11px] text-brand/80 dark:text-brand/60 leading-relaxed">
                     The system analyzes captions and visual data from your most recent high-quality posts to build a style profile.
                   </p>
                 </div>

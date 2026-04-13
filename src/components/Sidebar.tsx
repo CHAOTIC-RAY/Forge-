@@ -69,7 +69,7 @@ export function Sidebar({
                 }}
                 className="flex items-center gap-3 px-4 py-3 bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] font-medium text-sm transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
               >
-                <MessageSquare className="w-5 h-5 text-[#2665fd]" />
+                <MessageSquare className="w-5 h-5 text-brand" />
                 Caption Maker
               </button>
               <button
@@ -80,7 +80,7 @@ export function Sidebar({
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-[8px] font-medium text-sm transition-colors border",
                   activeTab === 'search'
-                    ? "bg-[#2665fd]/10 text-[#2665fd] border-[#2665fd]/20"
+                    ? "bg-brand-bg text-brand border-brand-border"
                     : "bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] border-[#E9E9E7] dark:border-[#2E2E2E]"
                 )}
               >
@@ -120,7 +120,7 @@ export function Sidebar({
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-[8px] font-medium text-sm transition-colors border sm:hidden",
                   activeTab === 'schedule'
-                    ? "bg-[#2665fd]/10 text-[#2665fd] border-[#2665fd]/20"
+                    ? "bg-brand-bg text-brand border-brand-border"
                     : "bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] border-[#E9E9E7] dark:border-[#2E2E2E]"
                 )}
               >
@@ -153,7 +153,7 @@ export function Sidebar({
             <ul className="space-y-3">
               {strategyNotes.map((note, idx) => (
                 <li key={idx} className="flex items-start gap-2 text-sm text-[#37352F] dark:text-[#EBE9ED]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#2665fd] mt-1.5 flex-shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand mt-1.5 flex-shrink-0" />
                   <span>{note}</span>
                 </li>
               ))}
@@ -185,7 +185,7 @@ export function Sidebar({
               onExport();
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2665fd] text-white hover:bg-[#1e52d0] rounded-[8px] font-medium text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand text-white hover:bg-brand-hover rounded-[8px] font-medium text-sm transition-colors"
           >
             <Download className="w-4 h-4" />
             Export Schedule to Excel

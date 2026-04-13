@@ -1,65 +1,39 @@
-import * as fs from 'fs';
+import fs from 'fs';
+import path from 'path';
 
-const content = fs.readFileSync('src/App.tsx', 'utf8');
-
-const startIndex = content.indexOf('{isAdmin && (\n              <div className={cn("flex-1 pb-32 md:pb-12", activeTab === \'more\' ? \'block\' : \'hidden\')}>\n                <div className="max-w-5xl mx-auto px-4">');
-const endIndex = content.indexOf('  )}\n</div>\n</main>');
-
-if (startIndex !== -1 && endIndex !== -1) {
-  const newContent = content.substring(0, startIndex) + `{isAdmin && (
-              <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' ? 'block' : 'hidden')}>
-                <SettingsView 
-                  user={user}
-                  settingsTab={settingsTab}
-                  setSettingsTab={setSettingsTab}
-                  isDarkMode={isDarkMode}
-                  toggleDarkMode={toggleDarkMode}
-                  isInstallable={isInstallable}
-                  handleInstallClick={handleInstallClick}
-                  setIsAddToHomeModalOpen={setIsAddToHomeModalOpen}
-                  businesses={businesses}
-                  activeBusiness={activeBusiness}
-                  setBusinesses={setBusinesses}
-                  setActiveBusiness={setActiveBusiness}
-                  aiSettings={aiSettings}
-                  handleAiSettingChange={handleAiSettingChange}
-                  setAiSettingsState={setAiSettingsState}
-                  setAiSettings={setAiSettings}
-                  analyticsSettings={analyticsSettings}
-                  handleAnalyticsSettingChange={handleAnalyticsSettingChange}
-                  setIsExportModalOpen={setIsExportModalOpen}
-                  exportScheduleJson={exportScheduleJson}
-                  importScheduleJson={importScheduleJson}
-                  importScheduleExcel={importScheduleExcel}
-                  initialPosts={initialPosts}
-                  handleSavePost={handleSavePost}
-                  setIsSyncing={setIsSyncing}
-                  addSyncLog={addSyncLog}
-                  setIsExcelImportModalOpen={setIsExcelImportModalOpen}
-                  exportProductExcel={exportProductExcel}
-                  handleAutoCategorizeAll={handleAutoCategorizeAll}
-                  isAutoCategorizing={isAutoCategorizing}
-                  exportProductJson={exportProductJson}
-                  importProductJson={importProductJson}
-                  googleTokens={googleTokens}
-                  handleDisconnectGoogleDrive={handleDisconnectGoogleDrive}
-                  handleConnectGoogleDrive={handleConnectGoogleDrive}
-                  setConfirmAction={setConfirmAction}
-                  syncLogs={syncLogs}
-                  signOut={signOut}
-                  auth={auth}
-                  db={db}
-                  setPosts={setPosts}
-                  query={query}
-                  collection={collection}
-                  where={where}
-                  getDocs={getDocs}
-                  writeBatch={writeBatch}
-                />
-              </div>
-            )}\n` + content.substring(endIndex);
-  fs.writeFileSync('src/App.tsx', newContent);
-  console.log('Replaced successfully');
-} else {
-  console.log('Markers not found', startIndex, endIndex);
+function replaceInFile(filePath: string) {
+  let content = fs.readFileSync(filePath, 'utf-8');
+  let originalContent = content;
+  
+  content = content.replace(/bg-\[\#2665fd\]\/10/g, 'bg-brand-bg');
+  content = content.replace(/bg-\[\#2665fd\]\/60/g, 'bg-brand/60');
+  content = content.replace(/bg-\[\#2665fd\]/g, 'bg-brand');
+  content = content.replace(/text-\[\#2665fd\]/g, 'text-brand');
+  content = content.replace(/border-\[\#2665fd\]\/20/g, 'border-brand-border');
+  content = content.replace(/border-\[\#2665fd\]\/50/g, 'border-brand/50');
+  content = content.replace(/border-\[\#2665fd\]/g, 'border-brand');
+  content = content.replace(/ring-\[\#2665fd\]/g, 'ring-brand');
+  content = content.replace(/hover:bg-\[\#1e52d0\]/g, 'hover:bg-brand-hover');
+  content = content.replace(/border-\[\#1e52d0\]/g, 'border-brand-hover');
+  content = content.replace(/text-\[\#1e52d0\]/g, 'text-brand-hover');
+  
+  if (content !== originalContent) {
+    fs.writeFileSync(filePath, content, 'utf-8');
+    console.log(`Updated ${filePath}`);
+  }
 }
+
+function walkDir(dir: string) {
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+    if (stat.isDirectory()) {
+      walkDir(filePath);
+    } else if (filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
+      replaceInFile(filePath);
+    }
+  }
+}
+
+walkDir('./src');

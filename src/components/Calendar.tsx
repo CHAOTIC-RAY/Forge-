@@ -45,6 +45,7 @@ interface CalendarProps {
   onImageClick: (url: string, aiProvider?: string) => void;
   onRegeneratePost?: (post: Post) => void;
   onGenerateMockup?: (post: Post) => void;
+  onUpdatePost?: (post: Post) => void;
   onPrevMonth?: () => void;
   onNextMonth?: () => void;
   onFileDrop?: (date: string, files: File[]) => void;
@@ -59,7 +60,7 @@ interface CalendarProps {
   onCalendarModeChange?: (mode: 'work' | 'personal') => void;
 }
 
-export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange }: CalendarProps) {
+export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange }: CalendarProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedDate, setSelectedDate] = useState<Date>(currentDate);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; dateStr: string } | null>(null);
@@ -116,8 +117,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
         <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
-                <CalendarIcon className="w-6 h-6 text-[#2665fd]" />
+              <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
+                <CalendarIcon className="w-6 h-6 text-brand" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
@@ -136,7 +137,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                   className={cn(
                     "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
                     calendarMode === 'work' 
-                      ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] " 
+                      ? "bg-white dark:bg-[#2E2E2E] text-brand " 
                       : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                   )}
                 >
@@ -147,7 +148,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                   className={cn(
                     "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
                     calendarMode === 'personal' 
-                      ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd] " 
+                      ? "bg-white dark:bg-[#2E2E2E] text-brand " 
                       : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                   )}
                 >
@@ -205,14 +206,14 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               </div>
               <button
                 onClick={() => onGenerateWithAi?.()}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#202020] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-[#2665fd] rounded-[8px] text-sm font-medium transition-colors border border-[#2665fd]/20 min-h-[44px]"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#202020] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-brand rounded-[8px] text-sm font-medium transition-colors border border-brand-border min-h-[44px]"
               >
                 <Wand2 className="w-4 h-4" />
                 AI Generate
               </button>
               <button
                 onClick={() => onAddPost()}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#2665fd] hover:bg-[#1e52d0] text-white rounded-[8px] text-sm font-medium transition-colors min-h-[44px]"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand-hover text-white rounded-[8px] text-sm font-medium transition-colors min-h-[44px]"
               >
                 <Plus className="w-4 h-4" />
                 New Post
@@ -333,6 +334,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                       onImageClick={onImageClick}
                       onRegeneratePost={onRegeneratePost}
                       onGenerateMockup={onGenerateMockup}
+                      onUpdatePost={onUpdatePost}
                       onFileDrop={onFileDrop}
                       isAdmin={isAdmin}
                       setContextMenu={setContextMenu}
@@ -359,7 +361,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => onGenerateWithAi?.(format(selectedDate, dateFormat))}
-                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-[#2665fd] rounded-[16px]  border border-[#2665fd]/20 flex items-center justify-center active:scale-90 transition-transform"
+                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-brand rounded-[16px]  border border-brand-border flex items-center justify-center active:scale-90 transition-transform"
                 >
                   <Wand2 className="w-6 h-6" />
                 </button>
@@ -483,12 +485,13 @@ interface DroppableDayProps {
   onImageClick: (url: string) => void;
   onRegeneratePost?: (post: Post) => void;
   onGenerateMockup?: (post: Post) => void;
+  onUpdatePost?: (post: Post) => void;
   onFileDrop?: (date: string, files: File[]) => void;
   isAdmin?: boolean;
   setContextMenu: (menu: { x: number; y: number; dateStr: string } | null) => void;
 }
 
-function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMode, isSelected, onSelect, onEditPost, onAddPost, onImageClick, onRegeneratePost, onGenerateMockup, onFileDrop, isAdmin, setContextMenu }: DroppableDayProps) {
+function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMode, isSelected, onSelect, onEditPost, onAddPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onFileDrop, isAdmin, setContextMenu }: DroppableDayProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: dateStr,
   });
@@ -549,11 +552,11 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
         }
       }}
       className={cn(
-        "transition-all cursor-pointer flex flex-col relative group min-h-0 overflow-hidden rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-[#2665fd]/50",
+        "transition-all cursor-pointer flex flex-col relative group min-h-0 overflow-hidden rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50",
         "aspect-square p-1.5 md:p-2.5 bg-white dark:bg-[#191919] gap-1 md:gap-1.5",
         !isCurrentMonth && "flex bg-[#F7F7F5] dark:bg-[#202020] text-[#757681] opacity-40 print:opacity-100 print:bg-gray-50",
-        (isOver || isNativeDragOver) && "bg-[#EFEFED] dark:bg-[#2E2E2E] ring-2 ring-inset ring-[#2665fd]",
-        viewMode === 'grid' && isSelected && "ring-2 ring-inset ring-[#2665fd] bg-[#EFEFED]/50 dark:bg-[#2E2E2E]/50",
+        (isOver || isNativeDragOver) && "bg-[#EFEFED] dark:bg-[#2E2E2E] ring-2 ring-inset ring-brand",
+        viewMode === 'grid' && isSelected && "ring-2 ring-inset ring-brand bg-[#EFEFED]/50 dark:bg-[#2E2E2E]/50",
         "print:bg-white print:min-h-[120px] print:border-r print:border-b print:border-gray-300 print:p-1"
       )}
       style={backgroundImage ? {
@@ -568,7 +571,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
             "text-xs md:text-sm font-bold flex items-center justify-center rounded-[8px] transition-all",
             "w-6 h-6 md:w-8 md:h-8",
             isToday(day) 
-              ? "bg-[#2665fd] text-white ring-2 ring-blue-200 dark:ring-blue-900/30" 
+              ? "bg-brand text-white ring-2 ring-blue-200 dark:ring-blue-900/30" 
               : isSelected 
                 ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919]"
                 : backgroundImage 
@@ -582,7 +585,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
         <div className="flex items-center gap-1 pointer-events-auto">
           {/* Universal Post Indicator (Dot) - Hidden if background image is present to keep it clean */}
           {posts.length > 0 && !backgroundImage && (
-            <div className="w-1.5 h-1.5 rounded-full bg-[#2665fd]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-brand" />
           )}
           
           {/* Quick add button visible on hover on desktop */}
@@ -607,7 +610,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
       {viewMode === 'grid' && (
         <div className="md:hidden flex flex-wrap justify-center gap-0.5 mt-0.5 print:hidden">
           {posts.slice(0, 4).map(post => (
-            <div key={post.id} className="w-1 h-1 rounded-full bg-[#2665fd]/60" />
+            <div key={post.id} className="w-1 h-1 rounded-full bg-brand/60" />
           ))}
         </div>
       )}
@@ -627,6 +630,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
               onImageClick={onImageClick}
               onRegenerate={() => onRegeneratePost?.(post)}
               onGenerateMockup={() => onGenerateMockup?.(post)}
+              onUpdate={(updatedPost) => onUpdatePost?.(updatedPost)}
               isAdmin={isAdmin}
             />
           ))}
@@ -655,10 +659,11 @@ interface DraggablePostProps {
   onImageClick: (url: string, aiProvider?: string) => void;
   onRegenerate?: () => void;
   onGenerateMockup?: () => void;
+  onUpdate?: (post: Post) => void;
   isAdmin?: boolean;
 }
 
-function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onGenerateMockup, isAdmin }: DraggablePostProps) {
+function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onGenerateMockup, onUpdate, isAdmin }: DraggablePostProps) {
   const [isRegenerating, setIsRegenerating] = React.useState(false);
   const [isGeneratingMockup, setIsGeneratingMockup] = React.useState(false);
 
@@ -718,17 +723,25 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
       disabled: !post.link,
       onClick: () => post.link && window.open(post.link, '_blank') 
     },
-    { 
+    ...(isAdmin ? [{ 
+      label: post.isHiddenForOthers ? 'Show for others' : 'Hide for others', 
+      icon: post.isHiddenForOthers ? <ExternalLink className="w-3.5 h-3.5" /> : <CloseIcon className="w-3.5 h-3.5" />, 
+      onClick: () => {
+        onUpdate?.({ ...post, isHiddenForOthers: !post.isHiddenForOthers });
+        toast.success(post.isHiddenForOthers ? "Post is now visible to others" : "Post is now hidden from others");
+      }
+    }] : []),
+    ...(isAdmin ? [{ 
       label: 'Delete Post', 
       icon: <Trash2 className="w-3.5 h-3.5" />, 
-      variant: 'danger',
+      variant: 'danger' as const,
       onClick: () => {
         if (window.confirm("Are you sure you want to delete this post?")) {
           // This would ideally trigger a delete flow
           toast.info("Delete functionality would be triggered here");
         }
       }
-    },
+    }] : []),
   ];
 
   return (
@@ -746,9 +759,9 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           }
         }}
         className={cn(
-          "text-left bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-[#2665fd] transition-all cursor-grab active:cursor-grabbing active:scale-95 flex flex-col",
+          "text-left bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing active:scale-95 flex flex-col",
           viewMode === 'grid' ? "p-3 md:p-1.5 gap-2 md:gap-1" : "p-4 gap-3",
-          isDragging && "border-[#2665fd] scale-105 active:scale-105",
+          isDragging && "border-brand scale-105 active:scale-105",
           "print:border-none print:shadow-none print:p-1 print:bg-transparent print:gap-1 print:break-inside-avoid"
         )}
       >
@@ -758,7 +771,13 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
         {post.productCategory && <span className="hidden print:inline"> • {post.productCategory}</span>}
         
         {/* Status Indicators */}
-        <div className="ml-auto flex gap-0.5">
+        <div className="ml-auto flex gap-0.5 items-center">
+          {post.isHiddenForOthers && (
+            <span className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 rounded-[4px] font-bold uppercase text-[7px] px-1 flex items-center gap-0.5" title="Hidden from other viewers">
+              <CloseIcon className="w-2 h-2" />
+              Private
+            </span>
+          )}
           {post.approvalStatus && (
             <span className={cn(
               "rounded-[4px] font-bold uppercase",

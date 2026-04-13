@@ -330,12 +330,50 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const handleCheckCounts = async () => {
     setIsCheckingCounts(true);
     try {
-      const counts = await getCategoryProductCounts(activeBusiness?.targetUrl);
-      setCategoryCounts(counts);
-      setHasCheckedCounts(true);
-    } catch (error) {
+      const urlToMap = activeBusiness?.targetUrl || manualUrl;
+      if (!urlToMap) {
+        toast.error("Please enter a URL first.");
+        return;
+      }
+
+      addLog(`🗺️ Fetching map for ${urlToMap}...`);
+      const mapRes = await fetch('/api/map', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlToMap, limit: 5000, apiKey: aiSettings.firecrawlApiKey })
+      });
+      
+      const mapData = await mapRes.json();
+      if (mapData.success && mapData.links) {
+        const categoryMap: Record<string, number> = {};
+        mapData.links.forEach((link: any) => {
+          try {
+            const urlObj = new URL(link.url);
+            const pathSegments = urlObj.pathname.split('/').filter(Boolean);
+            const category = pathSegments.length > 0 ? pathSegments[0] : 'Home';
+            categoryMap[category] = (categoryMap[category] || 0) + 1;
+          } catch (e) {
+            // Ignore invalid URLs
+          }
+        });
+
+        const newCounts: CategoryCount[] = Object.entries(categoryMap).map(([category, count]) => ({
+          category: category.charAt(0).toUpperCase() + category.slice(1),
+          count: count as number,
+          url: urlToMap
+        })).sort((a, b) => b.count - a.count).slice(0, 50);
+
+        setCategoryCounts(newCounts);
+        setHasCheckedCounts(true);
+        toast.success(`Mapped ${mapData.links.length} URLs into ${newCounts.length} categories.`);
+        addLog(`✅ Map completed. Found ${mapData.links.length} links, grouped into ${newCounts.length} categories.`);
+      } else {
+        throw new Error(mapData.error || "Failed to map website");
+      }
+    } catch (error: any) {
       console.error("Failed to get category counts:", error);
-      toast.error("Failed to get category counts. Please check your API key and try again.");
+      toast.error(`Failed to map website: ${error.message}`);
+      addLog(`⚠️ Map error: ${error.message}`);
     } finally {
       setIsCheckingCounts(false);
     }
@@ -348,6 +386,13 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     }
 
     setIsCrawling(true);
+    
+    // Check if we need to map first (if categoryCounts is empty or we force it)
+    if (categoryCounts.length === 0) {
+      addLog(`🗺️ Starting map for ${manualUrl}...`);
+      await handleCheckCounts();
+    }
+
     addLog(`🚀 Starting crawl for ${manualUrl}...`);
     
     try {
@@ -917,8 +962,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
-              <Database className="w-6 h-6 text-[#2665fd]" />
+            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
+              <Database className="w-6 h-6 text-brand" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">

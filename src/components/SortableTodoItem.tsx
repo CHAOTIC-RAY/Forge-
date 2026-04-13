@@ -31,7 +31,7 @@ export function SortableTodoItem({ todo, toggleTodo, deleteTodo, activeTab, grou
       {...attributes} 
       {...listeners}
       className={cn(
-        "group flex flex-col gap-3 p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] transition-all hover:border-[#2665fd] cursor-grab active:cursor-grabbing",
+        "group flex flex-col gap-3 p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] transition-all hover:border-brand cursor-grab active:cursor-grabbing",
         todo.completed && "opacity-60"
       )}
     >

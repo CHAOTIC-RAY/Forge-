@@ -13,6 +13,7 @@ import {
   DragOverlay,
   defaultDropAnimationSideEffects,
   pointerWithin,
+  rectIntersection,
   useDroppable
 } from '@dnd-kit/core';
 import { 
@@ -126,13 +127,17 @@ function DroppableZone({ id, label, icon, color }: { id: string, label: string, 
     <div 
       ref={setNodeRef}
       className={cn(
-        "pointer-events-auto flex items-center gap-2 px-6 py-3 rounded-full text-white font-bold  transition-all",
-        color,
-        isOver ? "scale-110 ring-4 ring-white/50" : "opacity-80"
+        "px-10 py-6 rounded-[32px] flex flex-col items-center justify-center gap-3 transition-all border-4 shadow-2xl min-w-[160px]",
+        isOver 
+          ? `${color} border-white scale-125 z-[110] ring-8 ring-white/20` 
+          : "bg-white/10 backdrop-blur-xl border-white/30 text-white scale-100",
+        "pointer-events-auto cursor-pointer"
       )}
     >
-      {icon}
-      <span>{label}</span>
+      <div className={cn("p-3 rounded-full", isOver ? "bg-white/20" : "bg-white/10")}>
+        {icon}
+      </div>
+      <span className="font-black uppercase tracking-[0.2em] text-xs">{label}</span>
     </div>
   );
 }
@@ -1058,7 +1063,12 @@ export default function App() {
               await fetch('/api/cloudinary/delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ publicId })
+                body: JSON.stringify({ 
+                  publicId,
+                  cloudName: aiSettings.cloudinaryCloudName,
+                  apiKey: aiSettings.cloudinaryApiKey,
+                  apiSecret: aiSettings.cloudinaryApiSecret
+                })
               });
             } catch (e) {
               console.error("Failed to delete image from Cloudinary:", e);
@@ -1198,7 +1208,16 @@ export default function App() {
 
   const handleConnectGoogleDrive = async () => {
     try {
-      const response = await fetch('/api/auth/google/url');
+      const clientId = aiSettings.googleClientId || '';
+      const clientSecret = aiSettings.googleClientSecret || '';
+      const redirectUri = aiSettings.googleRedirectUri || '';
+
+      const queryParams = new URLSearchParams();
+      if (clientId) queryParams.append('clientId', clientId);
+      if (clientSecret) queryParams.append('clientSecret', clientSecret);
+      if (redirectUri) queryParams.append('redirectUri', redirectUri);
+
+      const response = await fetch(`/api/auth/google/url?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to get auth URL');
       const { url } = await response.json();
       
@@ -2601,6 +2620,62 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportExtensionZip = async () => {
+    try {
+      setIsSyncing(true);
+      addSyncLog('Preparing extension source files...', 'info');
+      
+      const JSZip = (await import('jszip')).default;
+      const { saveAs } = await import('file-saver');
+      const zip = new JSZip();
+      
+      // Fetch and add extension files
+      const extensionFiles = ['manifest.json', 'content.js', 'popup.html', 'popup.js'];
+      for (const file of extensionFiles) {
+        try {
+          const res = await fetch(`/extension/${file}`);
+          if (res.ok) {
+            const text = await res.text();
+            zip.file(file, text);
+          } else {
+            console.warn(`Failed to fetch ${file}`);
+          }
+        } catch (e) {
+          console.error(`Error fetching ${file}:`, e);
+        }
+      }
+      
+      // Add project metadata
+      zip.file('metadata.json', JSON.stringify({
+        name: activeBusiness?.name || 'Forge Extension',
+        version: '1.0.0',
+        description: activeBusiness?.description || 'Exported from Forge AI',
+        exportedAt: new Date().toISOString()
+      }, null, 2));
+
+      // Add data files
+      zip.file('data/posts.json', JSON.stringify(posts, null, 2));
+      zip.file('data/products.json', JSON.stringify(localStorage.getItem(`rainbowStockCheck_${activeBusiness?.id || 'default'}`) ? JSON.parse(localStorage.getItem(`rainbowStockCheck_${activeBusiness?.id || 'default'}`)!) : [], null, 2));
+      zip.file('data/business.json', JSON.stringify(activeBusiness, null, 2));
+
+      // Add a README
+      zip.file('README.md', `# ${activeBusiness?.name || 'Forge Extension'}\n\nThis is an exported extension package from Forge AI.\n\n## Contents\n- \`manifest.json\`, \`content.js\`, \`popup.html\`, \`popup.js\`: Chrome Extension source files\n- \`metadata.json\`: Extension metadata\n- \`data/\`: Exported workspace data\n\n## Installation\n1. Open Chrome and go to \`chrome://extensions\`\n2. Enable "Developer mode"\n3. Click "Load unpacked" and select this extracted folder.`);
+
+      addSyncLog('Generating ZIP archive...', 'info');
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `${activeBusiness?.name?.replace(/\s+/g, '_') || 'Forge'}_Extension_${format(new Date(), 'yyyy-MM-dd')}.zip`);
+      
+      addSyncLog('Extension ZIP exported successfully', 'success');
+      toast.success('Extension package downloaded!');
+    } catch (error) {
+      console.error('Failed to export extension ZIP:', error);
+      addSyncLog('Failed to export extension ZIP', 'error');
+      toast.error('Failed to generate extension ZIP.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const importProductJson = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2742,7 +2817,7 @@ export default function App() {
         <ConfigWorkspaceProvider activeBusiness={activeBusiness}>
           <DndContext 
         sensors={sensors}
-        collisionDetection={pointerWithin}
+        collisionDetection={rectIntersection}
         onDragStart={handleDragStart}
         onDragOver={(event) => {
           const { over } = event;
@@ -2804,7 +2879,7 @@ export default function App() {
                 <button
                   onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
                   title={activeBusiness.name}
-                  className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-[#2665fd] text-white border-[#1e52d0]  hover:scale-105"
+                  className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-brand text-white border-brand-hover  hover:scale-105"
                 >
                   {activeBusiness.name.substring(0, 2).toUpperCase()}
                 </button>
@@ -2830,7 +2905,7 @@ export default function App() {
                           }}
                           className={cn(
                             "w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] transition-colors",
-                            activeBusiness?.id === biz.id ? "text-[#2665fd] font-medium" : "text-[#37352F] dark:text-[#EBE9ED]"
+                            activeBusiness?.id === biz.id ? "text-brand font-medium" : "text-[#37352F] dark:text-[#EBE9ED]"
                           )}
                         >
                           <span className="truncate">{biz.name}</span>
@@ -2854,7 +2929,7 @@ export default function App() {
                           setIsWorkspaceDropdownOpen(false);
                           setShowOnboarding(true);
                         }}
-                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-[#2665fd]"
+                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-brand"
                       >
                         <Plus className="w-4 h-4" />
                         Add New Workspace
@@ -2973,7 +3048,7 @@ export default function App() {
           {user ? (
             <button 
               onClick={() => setActiveTab('more')}
-              className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#2665fd]"
+              className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand"
               title="Settings"
             >
               <img 
@@ -3007,7 +3082,7 @@ export default function App() {
                 {user && !isViewOnly && (
                   <button
                     onClick={() => setIsBusinessModalOpen(true)}
-                    className="w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] flex items-center justify-center font-bold text-xs text-[#2665fd]  active:scale-95 transition-transform"
+                    className="w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] flex items-center justify-center font-bold text-xs text-brand  active:scale-95 transition-transform"
                   >
                     {activeBusiness?.name.substring(0, 2).toUpperCase() || '??'}
                   </button>
@@ -3073,7 +3148,7 @@ export default function App() {
               <div className={cn("flex-1 flex flex-col", activeTab === 'home' && "hidden", activeTab === 'chat' && "hidden md:flex")}>
                 <Calendar 
                   currentDate={currentMonth} 
-                  posts={posts} 
+                  posts={isAdmin ? posts : posts.filter(p => !p.isHiddenForOthers)} 
                   onEditPost={openEditPostModal}
                   onDeletePost={isAdmin ? handleDeletePost : undefined}
                   onCopyPost={isAdmin ? handleCopyPost : undefined}
@@ -3082,6 +3157,7 @@ export default function App() {
                   onImageClick={handleImageClick}
                   onRegeneratePost={isAdmin ? handleRegeneratePost : undefined}
                   onGenerateMockup={isAdmin ? handleGenerateMockup : undefined}
+                  onUpdatePost={isAdmin ? handleSavePost : undefined}
                   onPrevMonth={handlePrevMonth}
                   onNextMonth={handleNextMonth}
                   onFileDrop={isAdmin ? handleFileDrop : undefined}
@@ -3171,7 +3247,9 @@ export default function App() {
                   handleAutoCategorizeAll={handleAutoCategorizeAll}
                   isAutoCategorizing={isAutoCategorizing}
                   exportProductJson={exportProductJson}
+                  exportExtensionZip={handleExportExtensionZip}
                   importProductJson={importProductJson}
+                  onThemePresetChange={setThemePreset}
                   googleTokens={googleTokens}
                   handleDisconnectGoogleDrive={handleDisconnectGoogleDrive}
                   handleConnectGoogleDrive={handleConnectGoogleDrive}
@@ -3207,18 +3285,18 @@ export default function App() {
           {activeDragItem ? (
             <div className="opacity-80 scale-105  pointer-events-none">
               {activeDragItem.type === 'product' && (
-                <div className="bg-white dark:bg-[#191919] border border-[#2665fd] rounded-[6px] p-3 w-64 ">
-                  <div className="text-[10px] font-bold text-[#2665fd] uppercase mb-1">{activeDragItem.product.type}</div>
+                <div className="bg-white dark:bg-[#191919] border border-brand rounded-[6px] p-3 w-64 ">
+                  <div className="text-[10px] font-bold text-brand uppercase mb-1">{activeDragItem.product.type}</div>
                   <div className="text-sm font-bold">{activeDragItem.product.title}</div>
                 </div>
               )}
               {activeDragItem.type === 'image' && (
-                <div className="w-20 h-20 rounded-[6px] overflow-hidden border-2 border-[#2665fd]">
+                <div className="w-20 h-20 rounded-[6px] overflow-hidden border-2 border-brand">
                   <img src={activeDragItem.imageUrl} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
               {activeDragItem.type === 'idea' && (
-                <div className="bg-white dark:bg-[#1E1E1E] border border-[#2665fd] rounded-[24px] p-5  w-64">
+                <div className="bg-white dark:bg-[#1E1E1E] border border-brand rounded-[24px] p-5  w-64">
                   <div className="flex gap-2 mb-2">
                     <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">
                       {activeDragItem.idea.type}
@@ -3305,7 +3383,7 @@ export default function App() {
                   onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
                     "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
-                    isActive ? "text-[#2665fd]" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                    isActive ? "text-brand" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                   )}
                   title={tab.title}
                 >
@@ -3313,7 +3391,7 @@ export default function App() {
                   {isActive && (
                     <motion.div
                       layoutId="mobileActiveTabIndicator"
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#2665fd] rounded-b-full"
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
                       initial={false}
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
@@ -3328,14 +3406,14 @@ export default function App() {
               onClick={() => setActiveTab('schedule')}
               className={cn(
                 "flex flex-col items-center justify-center transition-all duration-200 relative h-full px-4",
-                activeTab === 'schedule' ? "text-[#2665fd]" : "text-[#757681] dark:text-[#9B9A97]"
+                activeTab === 'schedule' ? "text-brand" : "text-[#757681] dark:text-[#9B9A97]"
               )}
             >
               <CalendarIcon className="w-6 h-6" />
               {activeTab === 'schedule' && (
                 <motion.div
                   layoutId="mobileActiveTabIndicatorGuest"
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#2665fd] rounded-b-full"
+                  className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
                   initial={false}
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 />
@@ -3346,7 +3424,7 @@ export default function App() {
               <button 
                 onClick={handleLogin}
                 disabled={isSigningIn}
-                className="flex items-center gap-2 px-4 py-2 bg-[#2665fd] text-white rounded-[12px] font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-[12px] font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
               >
                 <Smartphone className="w-4 h-4" />
                 {isSigningIn ? '...' : 'Sign In'}

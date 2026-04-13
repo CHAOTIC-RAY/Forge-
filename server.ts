@@ -145,13 +145,51 @@ export async function startServer(forcePort?: number) {
   });
 
   // Firecrawl Endpoints
+  app.post("/api/map", async (req, res) => {
+    const { url, limit = 5000, apiKey } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: "URL is required" });
+    }
+
+    const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
+    const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
+    if (!FIRECRAWL_API_KEY) {
+      return res.status(500).json({ error: "Firecrawl API key is not configured" });
+    }
+
+    try {
+      const response = await axios.post(
+        "https://api.firecrawl.dev/v2/map",
+        {
+          url: url,
+          limit: limit,
+          sitemap: "include"
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Firecrawl map failed:", error.response?.data || error.message);
+      res.status(500).json({ 
+        error: "Firecrawl map failed", 
+        details: error.response?.data || error.message 
+      });
+    }
+  });
+
   app.post("/api/crawl", async (req, res) => {
     const { url, limit = 10, apiKey } = req.body;
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
 
-    const FIRECRAWL_API_KEY = (apiKey || process.env.FIRECRAWL_API_KEY)?.trim();
+    const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
+    const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
     if (!FIRECRAWL_API_KEY) {
       return res.status(500).json({ error: "Firecrawl API key is not configured" });
     }
@@ -192,7 +230,8 @@ export async function startServer(forcePort?: number) {
   app.get("/api/crawl/:id", async (req, res) => {
     const { id } = req.params;
     const { apiKey } = req.query;
-    const FIRECRAWL_API_KEY = (apiKey as string || process.env.FIRECRAWL_API_KEY)?.trim();
+    const rawKey = apiKey as string || process.env.FIRECRAWL_API_KEY;
+    const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
 
     if (!FIRECRAWL_API_KEY) {
       return res.status(500).json({ error: "Firecrawl API key is not configured" });
@@ -220,7 +259,8 @@ export async function startServer(forcePort?: number) {
       return res.status(400).json({ error: "URL is required" });
     }
 
-    const FIRECRAWL_API_KEY = (apiKey || process.env.FIRECRAWL_API_KEY)?.trim();
+    const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
+    const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
     if (!FIRECRAWL_API_KEY) {
       return res.status(500).json({ error: "Firecrawl API key is not configured" });
     }
@@ -262,17 +302,32 @@ const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || '';
 
 // GET /api/auth/google/url
 app.get('/api/auth/google/url', (req, res) => {
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_REDIRECT_URI) {
+  const customClientId = req.query.clientId as string;
+  const customClientSecret = req.query.clientSecret as string;
+  const customRedirectUri = req.query.redirectUri as string;
+
+  const clientId = customClientId || GOOGLE_CLIENT_ID;
+  const redirectUri = customRedirectUri || GOOGLE_REDIRECT_URI;
+
+  if (!clientId || !redirectUri) {
     return res.status(500).json({ error: 'Google OAuth credentials not configured.' });
   }
 
+  const stateObj = {
+    clientId: customClientId,
+    clientSecret: customClientSecret,
+    redirectUri: customRedirectUri
+  };
+  const state = Buffer.from(JSON.stringify(stateObj)).toString('base64');
+
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: GOOGLE_REDIRECT_URI,
+    client_id: clientId,
+    redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
     access_type: 'offline',
     prompt: 'consent',
+    state: state
   });
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -281,7 +336,7 @@ app.get('/api/auth/google/url', (req, res) => {
 
 // GET /auth/google/callback
 app.get(['/auth/google/callback', '/auth/google/callback/'], async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
 
   if (!code) {
     return res.send(`
@@ -299,12 +354,28 @@ app.get(['/auth/google/callback', '/auth/google/callback/'], async (req, res) =>
     `);
   }
 
+  let clientId = GOOGLE_CLIENT_ID;
+  let clientSecret = GOOGLE_CLIENT_SECRET;
+  let redirectUri = GOOGLE_REDIRECT_URI;
+
+  if (state) {
+    try {
+      const stateStr = Buffer.from(state as string, 'base64').toString('utf-8');
+      const stateObj = JSON.parse(stateStr);
+      if (stateObj.clientId) clientId = stateObj.clientId;
+      if (stateObj.clientSecret) clientSecret = stateObj.clientSecret;
+      if (stateObj.redirectUri) redirectUri = stateObj.redirectUri;
+    } catch (e) {
+      console.error('Failed to parse state:', e);
+    }
+  }
+
   try {
     const response = await axios.post('https://oauth2.googleapis.com/token', {
       code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: GOOGLE_REDIRECT_URI,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     });
 
@@ -358,24 +429,65 @@ const ONEDRIVE_REDIRECT_URI = process.env.ONEDRIVE_REDIRECT_URI || '';
 
 // GET /api/auth/onedrive/url
 app.get('/api/auth/onedrive/url', (req, res) => {
-  if (!ONEDRIVE_CLIENT_ID || !ONEDRIVE_REDIRECT_URI) {
+  const customClientId = req.query.clientId as string;
+  const customRedirectUri = req.query.redirectUri as string;
+  const customClientSecret = req.query.clientSecret as string;
+  const customTenantId = req.query.tenantId as string;
+
+  const clientId = customClientId || ONEDRIVE_CLIENT_ID;
+  const redirectUri = customRedirectUri || ONEDRIVE_REDIRECT_URI;
+  const tenantId = customTenantId || 'common';
+
+  if (!clientId || !redirectUri) {
     return res.status(500).json({ error: 'OneDrive OAuth credentials not configured.' });
   }
 
+  const stateObj: any = {};
+  if (customClientId) stateObj.clientId = customClientId;
+  if (customClientSecret) stateObj.clientSecret = customClientSecret;
+  if (customRedirectUri) stateObj.redirectUri = customRedirectUri;
+  if (customTenantId) stateObj.tenantId = customTenantId;
+  
+  const state = Object.keys(stateObj).length > 0 
+    ? Buffer.from(JSON.stringify(stateObj)).toString('base64')
+    : undefined;
+
   const params = new URLSearchParams({
-    client_id: ONEDRIVE_CLIENT_ID,
-    redirect_uri: ONEDRIVE_REDIRECT_URI,
+    client_id: clientId,
+    redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'Files.ReadWrite offline_access User.Read',
   });
 
-  const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+  if (state) {
+    params.append('state', state);
+  }
+
+  const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
   res.json({ url: authUrl });
 });
 
 // GET /auth/onedrive/callback
 app.get(['/auth/onedrive/callback', '/auth/onedrive/callback/'], async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
+
+  let clientId = ONEDRIVE_CLIENT_ID;
+  let clientSecret = ONEDRIVE_CLIENT_SECRET;
+  let redirectUri = ONEDRIVE_REDIRECT_URI;
+  let tenantId = 'common';
+
+  if (state) {
+    try {
+      const stateStr = Buffer.from(state as string, 'base64').toString('utf-8');
+      const stateObj = JSON.parse(stateStr);
+      if (stateObj.clientId) clientId = stateObj.clientId;
+      if (stateObj.clientSecret) clientSecret = stateObj.clientSecret;
+      if (stateObj.redirectUri) redirectUri = stateObj.redirectUri;
+      if (stateObj.tenantId) tenantId = stateObj.tenantId;
+    } catch (e) {
+      console.error("Failed to parse state:", e);
+    }
+  }
 
   if (!code) {
     return res.send(`
@@ -394,11 +506,11 @@ app.get(['/auth/onedrive/callback', '/auth/onedrive/callback/'], async (req, res
   }
 
   try {
-    const response = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', new URLSearchParams({
+    const response = await axios.post(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, new URLSearchParams({
       code: code as string,
-      client_id: ONEDRIVE_CLIENT_ID,
-      client_secret: ONEDRIVE_CLIENT_SECRET,
-      redirect_uri: ONEDRIVE_REDIRECT_URI,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     }).toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
@@ -479,12 +591,14 @@ app.post('/api/onedrive/upload', async (req, res) => {
 app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res) => {
   console.log("[Server] POST /api/cloudinary/upload requested");
   
-  // Check for required environment variables
-  const missing = requiredCloudinaryEnv.filter(k => !process.env[k]);
-  if (missing.length > 0 && !process.env.CLOUDINARY_URL) {
+  const cloudName = req.body.cloudName || process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = req.body.apiKey || process.env.CLOUDINARY_API_KEY;
+  const apiSecret = req.body.apiSecret || process.env.CLOUDINARY_API_SECRET;
+
+  if (!cloudName || !apiKey || !apiSecret) {
     return res.status(500).json({ 
       error: "Server Configuration Error", 
-      details: `Missing environment variables: ${missing.join(', ')}` 
+      details: `Missing Cloudinary variables. Please provide them in Settings or set them in your environment.` 
     });
   }
 
@@ -496,13 +610,21 @@ app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res)
 
     console.log(`[Server] Uploading file to Cloudinary: ${req.file.originalname} (${req.file.size} bytes)`);
 
+    // Create a temporary cloudinary instance with the provided credentials
+    const tempCloudinary = require('cloudinary').v2;
+    tempCloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+    });
+
     // Use upload_stream for better memory efficiency (avoids extra base64 conversion)
-    const uploadStream = cloudinary.uploader.upload_stream(
+    const uploadStream = tempCloudinary.uploader.upload_stream(
       {
         folder: "forge_posts",
         resource_type: "auto",
       },
-      (error, result) => {
+      (error: any, result: any) => {
         if (error) {
           console.error("[Server] Cloudinary upload error:", error);
           return res.status(500).json({ 
@@ -526,13 +648,32 @@ app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res)
 });
 
 app.post("/api/cloudinary/delete", async (req, res) => {
-  const { publicId } = req.body;
+  const { publicId, cloudName, apiKey, apiSecret } = req.body;
+  
+  const finalCloudName = cloudName || process.env.CLOUDINARY_CLOUD_NAME;
+  const finalApiKey = apiKey || process.env.CLOUDINARY_API_KEY;
+  const finalApiSecret = apiSecret || process.env.CLOUDINARY_API_SECRET;
+
   if (!publicId) {
     return res.status(400).json({ error: "Public ID is required" });
   }
 
+  if (!finalCloudName || !finalApiKey || !finalApiSecret) {
+    return res.status(500).json({ 
+      error: "Server Configuration Error", 
+      details: `Missing Cloudinary variables. Please provide them in Settings or set them in your environment.` 
+    });
+  }
+
   try {
-    const result = await cloudinary.uploader.destroy(publicId);
+    const tempCloudinary = require('cloudinary').v2;
+    tempCloudinary.config({
+      cloud_name: finalCloudName,
+      api_key: finalApiKey,
+      api_secret: finalApiSecret,
+    });
+
+    const result = await tempCloudinary.uploader.destroy(publicId);
     res.json(result);
   } catch (error: any) {
     console.error("Cloudinary delete error:", error);

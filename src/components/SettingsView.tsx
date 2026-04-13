@@ -75,7 +75,7 @@ const BentoCard = ({
       layout="position"
       className={cn(
         "bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] overflow-hidden flex flex-col h-full",
-        isExpanded && !isDesktop ? "border-[#2665fd] dark:border-[#2665fd]" : "hover:border-[#D9D9D7] dark:hover:border-[#3E3E3E] transition-colors"
+        isExpanded && !isDesktop ? "border-brand dark:border-brand" : "hover:border-[#D9D9D7] dark:hover:border-[#3E3E3E] transition-colors"
       )}
     >
       <div 
@@ -87,7 +87,7 @@ const BentoCard = ({
             {customIcon ? customIcon : <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
           </div>
           <div>
-            <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-base sm:text-lg group-hover:text-[#2665fd] transition-colors">{title}</h3>
+            <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-base sm:text-lg group-hover:text-brand transition-colors">{title}</h3>
             <p className="text-xs sm:text-sm text-[#757681] dark:text-[#9B9A97]">{subtitle}</p>
           </div>
         </div>
@@ -149,6 +149,7 @@ export function SettingsView({
   handleAutoCategorizeAll,
   isAutoCategorizing,
   exportProductJson,
+  exportExtensionZip,
   importProductJson,
   googleTokens,
   handleDisconnectGoogleDrive,
@@ -165,7 +166,8 @@ export function SettingsView({
   getDocs,
   writeBatch,
   industryConfig,
-  setActiveTab
+  setActiveTab,
+  onThemePresetChange
 }: any) {
   const [expandedId, setExpandedId] = useState<string | null>('account');
   const [themePreset, setThemePreset] = useState(() => localStorage.getItem('forge_theme_preset') || 'default');
@@ -234,15 +236,16 @@ export function SettingsView({
     }
   };
 
-  const handleDataActionSelect = (target: 'schedule' | 'product') => {
+  const handleDataActionSelect = (target: 'schedule' | 'product' | 'extension') => {
     if (dataAction.type === 'export') {
       if (target === 'schedule') setIsExportModalOpen(true);
-      else exportProductExcel();
+      else if (target === 'product') exportProductExcel();
+      else if (target === 'extension') exportExtensionZip();
     } else if (dataAction.type === 'backup') {
       if (target === 'schedule') exportScheduleJson();
       else exportProductJson();
     } else if (dataAction.type === 'restore') {
-      setRestoreTarget(target);
+      setRestoreTarget(target as 'schedule' | 'product');
       setTimeout(() => fileInputRef.current?.click(), 100);
     }
     setDataAction({ type: null });
@@ -411,6 +414,9 @@ export function SettingsView({
     setThemePreset(preset);
     localStorage.setItem('forge_theme_preset', preset);
     document.documentElement.setAttribute('data-theme', preset);
+    if (onThemePresetChange) {
+      onThemePresetChange(preset);
+    }
     toast.success(`Theme preset updated to ${preset}!`);
   };
 
@@ -460,8 +466,8 @@ export function SettingsView({
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
-              <Settings className="w-6 h-6 text-[#2665fd]" />
+            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
+              <Settings className="w-6 h-6 text-brand" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] tracking-tight">Settings</h1>
@@ -525,14 +531,14 @@ export function SettingsView({
                     value={instructionText}
                     onChange={(e) => setInstructionText(e.target.value)}
                     placeholder="# Your Custom AI Instructions&#10;Define tone, style, and specific business rules here...&#10;&#10;Example:&#10;- Always use a professional yet friendly tone.&#10;- Focus on sustainable materials.&#10;- Never mention competitors."
-                    className="w-full h-[300px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] text-sm font-mono outline-none focus:border-[#2665fd] transition-colors resize-none"
+                    className="w-full h-[300px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] text-sm font-mono outline-none focus:border-brand transition-colors resize-none"
                   />
                 </div>
                 
                 <div className="flex items-center gap-3 pt-2">
                   <button 
                     onClick={handleSaveInstructions}
-                    className="flex-1 py-3 bg-[#2665fd] hover:bg-[#2665fd]-hover text-white font-bold rounded-[12px] transition-all shadow-lg shadow-[#2665fd]/20 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-brand hover:bg-brand-hover text-white font-bold rounded-[12px] transition-all shadow-lg shadow-[#2665fd]/20 flex items-center justify-center gap-2"
                   >
                     <Save className="w-4 h-4" />
                     Save Instructions
@@ -648,7 +654,7 @@ export function SettingsView({
                       type="text"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      className="w-full sm:w-auto px-3 py-1.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full sm:w-auto px-3 py-1.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-sm outline-none focus:border-brand"
                       placeholder="Enter your name"
                       autoFocus
                     />
@@ -656,7 +662,7 @@ export function SettingsView({
                       <button
                         onClick={handleUpdateName}
                         disabled={isUpdatingName}
-                        className="px-3 py-1.5 bg-[#2665fd] text-white rounded-[8px] text-xs font-bold hover:bg-[#2665fd]-hover transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 bg-brand text-white rounded-[8px] text-xs font-bold hover:bg-brand-hover transition-colors disabled:opacity-50"
                       >
                         {isUpdatingName ? 'Saving...' : 'Save'}
                       </button>
@@ -676,7 +682,7 @@ export function SettingsView({
                     <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{user?.displayName || 'User'}</h3>
                     <button
                       onClick={() => setIsEditingName(true)}
-                      className="text-xs text-[#2665fd] hover:underline"
+                      className="text-xs text-brand hover:underline"
                     >
                       Edit
                     </button>
@@ -708,7 +714,7 @@ export function SettingsView({
                   onClick={toggleDarkMode}
                   className={cn(
                     "w-12 h-6 rounded-full transition-colors relative",
-                    isDarkMode ? "bg-[#2665fd]" : "bg-gray-300 dark:bg-gray-600"
+                    isDarkMode ? "bg-brand" : "bg-gray-300 dark:bg-gray-600"
                   )}
                 >
                   <div className={cn(
@@ -737,8 +743,8 @@ export function SettingsView({
                       className={cn(
                         "p-3 rounded-[12px] border text-left transition-all group relative overflow-hidden",
                         themePreset === preset.id 
-                          ? "border-[#2665fd] bg-[#2665fd]/10 ring-2 ring-[#2665fd]/20" 
-                          : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-[#2665fd]/50 bg-white dark:bg-[#191919]"
+                          ? "border-brand bg-brand-bg ring-2 ring-brand/20" 
+                          : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50 bg-white dark:bg-[#191919]"
                       )}
                     >
                       <div className="flex gap-1 mb-2">
@@ -749,7 +755,7 @@ export function SettingsView({
                       <h4 className="text-xs font-bold truncate">{preset.name}</h4>
                       {themePreset === preset.id && (
                         <div className="absolute top-2 right-2">
-                          <CheckCircle2 className="w-3 h-3 text-[#2665fd]" />
+                          <CheckCircle2 className="w-3 h-3 text-brand" />
                         </div>
                       )}
                     </button>
@@ -830,20 +836,58 @@ export function SettingsView({
           onToggle={toggleExpand}
         >
           <div className="space-y-4 pt-4">
-            <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] bg-white dark:bg-[#191919]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-                  <Globe className="w-5 h-5" />
+            <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] bg-white dark:bg-[#191919] space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Google Drive</h3>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">{googleTokens ? 'Connected' : 'Not connected'}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Google Drive</h3>
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">{googleTokens ? 'Connected' : 'Not connected'}</p>
-                </div>
+                {googleTokens ? (
+                  <button onClick={handleDisconnectGoogleDrive} className="text-xs font-bold text-red-500 hover:text-red-600 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-[8px] transition-colors border border-red-100 dark:border-red-900/30">Disconnect</button>
+                ) : (
+                  <button onClick={handleConnectGoogleDrive} className="text-xs font-bold text-white bg-brand hover:bg-brand-hover px-4 py-2 rounded-[8px] transition-colors">Connect</button>
+                )}
               </div>
-              {googleTokens ? (
-                <button onClick={handleDisconnectGoogleDrive} className="text-xs font-bold text-red-500 hover:text-red-600 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-[8px] transition-colors border border-red-100 dark:border-red-900/30">Disconnect</button>
-              ) : (
-                <button onClick={handleConnectGoogleDrive} className="text-xs font-bold text-white bg-[#2665fd] hover:bg-[#2665fd]-hover px-4 py-2 rounded-[8px] transition-colors">Connect</button>
+              
+              {!googleTokens && (
+                <div className="pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] space-y-3">
+                  <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Optional: Provide your own Google OAuth credentials. If left empty, the server defaults will be used.</p>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Client ID</label>
+                    <input 
+                      type="text"
+                      value={aiSettings.googleClientId || ''}
+                      onChange={(e) => handleAiSettingChange('googleClientId', e.target.value)}
+                      placeholder="Your Google Client ID"
+                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Client Secret</label>
+                    <input 
+                      type="password"
+                      value={aiSettings.googleClientSecret || ''}
+                      onChange={(e) => handleAiSettingChange('googleClientSecret', e.target.value)}
+                      placeholder="Your Google Client Secret"
+                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Redirect URI</label>
+                    <input 
+                      type="text"
+                      value={aiSettings.googleRedirectUri || ''}
+                      onChange={(e) => handleAiSettingChange('googleRedirectUri', e.target.value)}
+                      placeholder="e.g., https://your-app.com/auth/google/callback"
+                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                    />
+                  </div>
+                </div>
               )}
             </div>
 
@@ -867,6 +911,56 @@ export function SettingsView({
               >
                 {activeBusiness?.oneDriveCredentials ? 'Manage' : 'Connect'}
               </button>
+            </div>
+            
+            <div className="p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-[12px] flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17.5 19.125h-11c-2.48 0-4.5-2.02-4.5-4.5 0-2.28 1.7-4.18 3.92-4.46.68-2.61 3.06-4.54 5.83-4.54 2.22 0 4.15 1.22 5.18 3.02 2.11.23 3.82 2.04 3.82 4.23 0 2.35-1.9 4.25-4.25 4.25z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Cloudinary</h3>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Image Hosting</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] space-y-3">
+                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Optional: Provide your own Cloudinary credentials. If left empty, the server defaults will be used.</p>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Cloud Name</label>
+                  <input 
+                    type="text"
+                    value={aiSettings.cloudinaryCloudName || ''}
+                    onChange={(e) => handleAiSettingChange('cloudinaryCloudName', e.target.value)}
+                    placeholder="e.g., dxxxxxxxxx"
+                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">API Key</label>
+                  <input 
+                    type="text"
+                    value={aiSettings.cloudinaryApiKey || ''}
+                    onChange={(e) => handleAiSettingChange('cloudinaryApiKey', e.target.value)}
+                    placeholder="Your Cloudinary API Key"
+                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">API Secret</label>
+                  <input 
+                    type="password"
+                    value={aiSettings.cloudinaryApiSecret || ''}
+                    onChange={(e) => handleAiSettingChange('cloudinaryApiSecret', e.target.value)}
+                    placeholder="Your Cloudinary API Secret"
+                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                  />
+                </div>
+              </div>
             </div>
             
             <OneDriveSetup 
@@ -930,7 +1024,7 @@ export function SettingsView({
                       value={aiSettings.geminiApiKey || ''}
                       onChange={(e) => handleAiSettingChange('geminiApiKey', e.target.value)}
                       placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     />
                   </div>
                   <div className="space-y-2">
@@ -938,7 +1032,7 @@ export function SettingsView({
                     <select 
                       value={aiSettings.geminiModel}
                       onChange={(e) => handleAiSettingChange('geminiModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     >
                       {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -953,7 +1047,7 @@ export function SettingsView({
                       value={aiSettings.groqApiKey || ''}
                       onChange={(e) => handleAiSettingChange('groqApiKey', e.target.value)}
                       placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     />
                   </div>
                   <div className="space-y-2">
@@ -963,7 +1057,7 @@ export function SettingsView({
                     <select 
                       value={aiSettings.groqModel}
                       onChange={(e) => handleAiSettingChange('groqModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     >
                       {GROQ_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -987,7 +1081,7 @@ export function SettingsView({
                     <select 
                       value={aiSettings.puterTextModel || 'gpt-4o-mini'}
                       onChange={(e) => handleAiSettingChange('puterTextModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     >
                       {PUTER_TEXT_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -1005,7 +1099,7 @@ export function SettingsView({
                       value={aiSettings.geminiApiKey || ''}
                       onChange={(e) => handleAiSettingChange('geminiApiKey', e.target.value)}
                       placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1015,7 +1109,7 @@ export function SettingsView({
                       value={aiSettings.groqApiKey || ''}
                       onChange={(e) => handleAiSettingChange('groqApiKey', e.target.value)}
                       placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     />
                   </div>
                 </div>
@@ -1055,7 +1149,7 @@ export function SettingsView({
                       value={aiSettings.pollinationApiKey || ''}
                       onChange={(e) => handleAiSettingChange('pollinationApiKey', e.target.value)}
                       placeholder="Leave empty to use free tier"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1063,7 +1157,7 @@ export function SettingsView({
                     <select 
                       value={aiSettings.pollinationModel || 'flux'}
                       onChange={(e) => handleAiSettingChange('pollinationModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     >
                       {POLLINATION_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -1089,7 +1183,7 @@ export function SettingsView({
                     <select 
                       value={aiSettings.puterImageModel || 'dall-e-3'}
                       onChange={(e) => handleAiSettingChange('puterImageModel', e.target.value)}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                     >
                       {PUTER_IMAGE_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
@@ -1138,7 +1232,7 @@ export function SettingsView({
                   value={aiSettings.firecrawlApiKey || ''}
                   onChange={(e) => handleAiSettingChange('firecrawlApiKey', e.target.value)}
                   placeholder="Leave empty to use server default"
-                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                 />
                 <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Used for extracting products and content from websites.</p>
               </div>
@@ -1149,7 +1243,7 @@ export function SettingsView({
                   value={aiSettings.targetUrl || ''}
                   onChange={(e) => handleAiSettingChange('targetUrl', e.target.value)}
                   placeholder="https://example.com"
-                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-[#2665fd]"
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                 />
                 <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">The default URL used by the whole app for crawling and AI analysis.</p>
               </div>
@@ -1177,7 +1271,7 @@ export function SettingsView({
                     value={analyticsSettings.instagramUrl}
                     onChange={(e) => handleAnalyticsSettingChange('instagramUrl', e.target.value)}
                     placeholder="https://instagram.com/yourbrand"
-                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] focus:border-[#2665fd] rounded-[12px] outline-none dark:text-[#EBE9ED] transition-colors text-sm"
+                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] focus:border-brand rounded-[12px] outline-none dark:text-[#EBE9ED] transition-colors text-sm"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <div className={cn("w-2 h-2 rounded-full", analyticsSettings.instagramUrl ? "bg-green-500" : "bg-gray-300")} />
@@ -1192,7 +1286,7 @@ export function SettingsView({
                     value={analyticsSettings.facebookUrl}
                     onChange={(e) => handleAnalyticsSettingChange('facebookUrl', e.target.value)}
                     placeholder="https://facebook.com/yourbrand"
-                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] focus:border-[#2665fd] rounded-[12px] outline-none dark:text-[#EBE9ED] transition-colors text-sm"
+                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] focus:border-brand rounded-[12px] outline-none dark:text-[#EBE9ED] transition-colors text-sm"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <div className={cn("w-2 h-2 rounded-full", analyticsSettings.facebookUrl ? "bg-green-500" : "bg-gray-300")} />
@@ -1218,7 +1312,7 @@ export function SettingsView({
                   checked={analyticsSettings.autoRunAnalytics}
                   onChange={(e) => handleAnalyticsSettingChange('autoRunAnalytics', e.target.checked)}
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-[#2665fd]"></div>
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-brand"></div>
               </label>
             </div>
           </div>
@@ -1348,37 +1442,19 @@ export function SettingsView({
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Installation Instructions:</h4>
                 <ol className="text-[11px] text-[#757681] dark:text-[#9B9A97] space-y-2 list-decimal pl-4">
-                  <li>Download the extension files below.</li>
+                  <li>Download the extension ZIP file below and extract it.</li>
                   <li>Open Chrome and go to <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">chrome://extensions</code>.</li>
                   <li>Enable <strong>Developer mode</strong> (top right).</li>
-                  <li>Click <strong>Load unpacked</strong> and select the folder containing the files.</li>
+                  <li>Click <strong>Load unpacked</strong> and select the extracted folder.</li>
                 </ol>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="mt-4">
                 <button 
-                  onClick={() => downloadExtensionFile('manifest.json')}
-                  className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#F7F7F5] transition-colors"
+                  onClick={() => exportExtensionZip()}
+                  className="w-full flex items-center justify-center gap-2 p-3 bg-brand text-white rounded-[8px] text-xs font-bold hover:bg-brand/90 transition-colors"
                 >
-                  <FileText className="w-3 h-3" /> manifest.json
-                </button>
-                <button 
-                  onClick={() => downloadExtensionFile('content.js')}
-                  className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#F7F7F5] transition-colors"
-                >
-                  <FileText className="w-3 h-3" /> content.js
-                </button>
-                <button 
-                  onClick={() => downloadExtensionFile('popup.html')}
-                  className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#F7F7F5] transition-colors"
-                >
-                  <FileText className="w-3 h-3" /> popup.html
-                </button>
-                <button 
-                  onClick={() => downloadExtensionFile('popup.js')}
-                  className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#F7F7F5] transition-colors"
-                >
-                  <FileText className="w-3 h-3" /> popup.js
+                  <Download className="w-4 h-4" /> Download Extension (ZIP)
                 </button>
               </div>
             </div>
@@ -1443,6 +1519,11 @@ export function SettingsView({
                 <button onClick={() => handleDataActionSelect('product')} className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors">
                   Product Database
                 </button>
+                {dataAction.type === 'export' && (
+                  <button onClick={() => handleDataActionSelect('extension')} className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors">
+                    Extension Source Code (ZIP)
+                  </button>
+                )}
               </div>
               <button onClick={() => setDataAction({ type: null })} className="mt-6 w-full p-3 text-[#757681] dark:text-[#9B9A97] font-bold hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[12px] transition-colors">
                 Cancel

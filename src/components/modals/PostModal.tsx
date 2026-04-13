@@ -502,7 +502,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   disabled={readOnly}
                   value={formData.date || ''}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
+                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition-colors disabled:opacity-70"
                 />
               </div>
               <AutoSuggest
@@ -544,7 +544,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   placeholder="e.g. https://example.com/..."
                   value={formData.link || ''}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
+                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition-colors disabled:opacity-70"
                 />
               </div>
             </div>
@@ -594,8 +594,8 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       className={cn(
                         "px-3 py-1.5 rounded-[8px] text-xs font-medium border transition-all",
                         (formData.contentFormats || []).includes(format as any)
-                          ? "bg-[#2665fd] border-[#2665fd] text-white"
-                          : "bg-[#F7F7F5] dark:bg-[#202020] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681] hover:border-[#2665fd]"
+                          ? "bg-brand border-brand text-white"
+                          : "bg-[#F7F7F5] dark:bg-[#202020] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681] hover:border-brand"
                       )}
                     >
                       {format}
@@ -615,7 +615,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   value={formData.campaignName || ''}
                   onChange={handleChange}
                   placeholder="Enter campaign name..."
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
+                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition-colors disabled:opacity-70"
                 />
               </div>
             )}
@@ -629,7 +629,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       type="button"
                       onClick={handleSmartGenerate}
                       disabled={isGeneratingContent}
-                      className="flex items-center gap-1 text-xs font-medium text-[#2665fd] hover:text-[#1e52d0] disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover disabled:opacity-50 transition-colors"
                     >
                       <Wand2 className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
                       {isGeneratingContent ? 'Generating...' : 'Smart AI Generate'}
@@ -645,7 +645,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 value={formData.title || ''}
                 onChange={handleChange}
                 placeholder="e.g. NEW TILES JUST LANDED"
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
+                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition-colors disabled:opacity-70"
               />
             </div>
 
@@ -657,7 +657,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     type="button"
                     onClick={handleSmartBrief}
                     disabled={isGeneratingContent}
-                    className="flex items-center gap-1 text-xs font-medium text-[#2665fd] hover:text-[#1e52d0] disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover disabled:opacity-50 transition-colors"
                   >
                     <Sparkles className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
                     Smart Brief
@@ -670,7 +670,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   value={formData.brief || ''}
                   onChange={handleChange}
                   placeholder="Instructions for the designer..."
-                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none resize-none transition-colors disabled:opacity-70"
+                  className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none resize-none transition-colors disabled:opacity-70"
                 />
               </div>
             )}
@@ -705,7 +705,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                         }
                       }}
                       disabled={isGeneratingContent}
-                      className="flex items-center gap-1 text-xs font-medium text-[#2665fd] hover:text-[#1e52d0] disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover disabled:opacity-50 transition-colors"
                     >
                       <Wand2 className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
                       Generate with Framework
@@ -720,7 +720,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 value={formData.caption || ''}
                 onChange={handleChange}
                 placeholder="Write your post caption here..."
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none resize-none transition-colors disabled:opacity-70"
+                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none resize-none transition-colors disabled:opacity-70"
               />
             </div>
 
@@ -732,7 +732,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     type="button"
                     onClick={handleGenerateHashtags}
                     disabled={isGeneratingHashtags || !formData.caption}
-                    className="flex items-center gap-1 text-xs font-medium text-[#2665fd] hover:text-[#1e52d0] disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover disabled:opacity-50 transition-colors"
                   >
                     {isGeneratingHashtags ? <ForgeLoader size={12} /> : <Hash className="w-3 h-3" />}
                     Suggest Hashtags
@@ -746,7 +746,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 value={formData.hashtags || ''}
                 onChange={handleChange}
                 placeholder="#ForgeEnterprises #Maldives"
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] focus:border-[#2665fd] outline-none transition-colors disabled:opacity-70"
+                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition-colors disabled:opacity-70"
               />
             </div>
 
@@ -784,7 +784,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       placeholder="Add approval note..."
                       value={formData.approvalNote || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, approvalNote: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] outline-none resize-none"
+                      className="w-full px-3 py-2 text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] focus:ring-2 focus:ring-brand outline-none resize-none"
                       rows={2}
                     />
                   )}
@@ -810,9 +810,9 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                               : current.filter(p => p !== platform);
                             setFormData(prev => ({ ...prev, platforms: updated }));
                           }}
-                          className="w-4 h-4 rounded border-[#E9E9E7] dark:border-[#2E2E2E] text-[#2665fd] focus:ring-[#2665fd]"
+                          className="w-4 h-4 rounded border-[#E9E9E7] dark:border-[#2E2E2E] text-brand focus:ring-brand"
                         />
-                        <span className="text-xs font-medium text-[#37352F] dark:text-[#EBE9ED] group-hover:text-[#2665fd] transition-colors capitalize">
+                        <span className="text-xs font-medium text-[#37352F] dark:text-[#EBE9ED] group-hover:text-brand transition-colors capitalize">
                           {platform}
                         </span>
                       </label>
@@ -834,7 +834,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       disabled={readOnly}
                       value={formData.scheduledTime || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value, publishStatus: e.target.value ? 'scheduled' : 'draft' }))}
-                      className="w-full px-3 py-2 text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-[#2665fd] outline-none"
+                      className="w-full px-3 py-2 text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand outline-none"
                     />
                   </div>
                 </div>
@@ -934,7 +934,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 ))}
                 
                 {!readOnly && (
-                  <label className="aspect-[4/5] rounded-[8px] border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-[#2665fd] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] transition-colors flex flex-col items-center justify-center cursor-pointer text-[#757681] hover:text-[#2665fd]">
+                  <label className="aspect-[4/5] rounded-[8px] border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] transition-colors flex flex-col items-center justify-center cursor-pointer text-[#757681] hover:text-brand">
                     <Upload className="w-6 h-6 mb-2" />
                     <span className="text-xs font-medium">Upload</span>
                     <input
@@ -964,7 +964,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                           type="button"
                           onClick={() => handleFetchAnalytics('instagram')}
                           disabled={isFetchingAnalytics}
-                          className="text-[10px] font-bold text-[#2665fd] hover:underline disabled:opacity-50"
+                          className="text-[10px] font-bold text-brand hover:underline disabled:opacity-50"
                         >
                           Update Instagram
                         </button>
@@ -974,7 +974,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                           type="button"
                           onClick={() => handleFetchAnalytics('facebook')}
                           disabled={isFetchingAnalytics}
-                          className="text-[10px] font-bold text-[#2665fd] hover:underline disabled:opacity-50"
+                          className="text-[10px] font-bold text-brand hover:underline disabled:opacity-50"
                         >
                           Update Facebook
                         </button>
@@ -1091,13 +1091,13 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       }
                     }}
                     placeholder="Add a comment..."
-                    className="flex-1 px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-sm focus:ring-2 focus:ring-[#2665fd] outline-none"
+                    className="flex-1 px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-sm focus:ring-2 focus:ring-brand outline-none"
                   />
                   <button
                     type="button"
                     onClick={handleCommentSubmit}
                     disabled={isSubmittingComment || !newComment.trim()}
-                    className="p-2 bg-[#2665fd] text-white rounded-[8px] hover:bg-[#1e52d0] disabled:opacity-50 transition-colors"
+                    className="p-2 bg-brand text-white rounded-[8px] hover:bg-brand-hover disabled:opacity-50 transition-colors"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -1137,7 +1137,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               <button
                 type="submit"
                 form="post-form"
-                className="px-6 py-2 bg-[#2665fd] hover:bg-[#1e52d0] text-white rounded-[8px] transition-colors font-medium text-sm"
+                className="px-6 py-2 bg-brand hover:bg-brand-hover text-white rounded-[8px] transition-colors font-medium text-sm"
               >
                 Save Post
               </button>

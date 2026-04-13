@@ -6,6 +6,7 @@ import { ImageResizerTab } from './ImageResizerTab';
 import { LinkShortener } from './LinkShortener';
 import { getAi } from '../lib/gemini';
 import { toast } from 'sonner';
+import { motion } from 'motion/react';
 
 import { Post, Business } from '../data';
 import { writeBatch, doc } from 'firebase/firestore';
@@ -403,8 +404,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
       id: 'copywriting',
       title: 'AI Copywriting',
       description: 'Automatically write social media captions, blog posts, ad copy, and product descriptions.',
-      icon: <PenTool className="w-6 h-6 text-[#2665fd]" />,
-      color: 'bg-[#2665fd]/10'
+      icon: <PenTool className="w-6 h-6 text-brand" />,
+      color: 'bg-brand-bg'
     },
     {
       id: 'frameworks',
@@ -449,8 +450,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
         <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">
           <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-[#2665fd]/10 rounded-[8px] flex items-center justify-center">
-                <PenTool className="w-4 h-4 text-[#2665fd]" />
+              <div className="w-8 h-8 bg-brand-bg rounded-[8px] flex items-center justify-center">
+                <PenTool className="w-4 h-4 text-brand" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Copywriting</h3>
@@ -458,7 +459,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               </div>
             </div>
             {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-[#2665fd] p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
+              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
               </button>
             )}
@@ -468,12 +469,12 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               value={copyPrompt}
               onChange={(e) => setCopyPrompt(e.target.value)}
               placeholder="What do you want to write about? (e.g., 'A new summer collection of sunglasses')"
-              className="w-full h-32 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-4 text-sm focus:border-[#2665fd] outline-none resize-none transition-all text-[#37352F] dark:text-[#EBE9ED]"
+              className="w-full h-32 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-4 text-sm focus:border-brand outline-none resize-none transition-all text-[#37352F] dark:text-[#EBE9ED]"
             />
             <button
               onClick={generateCopy}
               disabled={isGeneratingCopy || !copyPrompt}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-[#2665fd] hover:bg-blue-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all active:scale-95"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-brand hover:bg-blue-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all active:scale-95"
             >
               {isGeneratingCopy ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               Generate Copy
@@ -506,7 +507,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               </div>
             </div>
             {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-[#2665fd] p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
+              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
               </button>
             )}
@@ -578,7 +579,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               </div>
             </div>
             {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-[#2665fd] p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
+              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
               </button>
             )}
@@ -654,7 +655,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
         <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden  mb-6 relative">
           {activeWidget === null && (
             <div className="absolute top-4 right-4 z-10">
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-[#2665fd] p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
+              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
               </button>
             </div>
@@ -678,7 +679,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               </div>
             </div>
             {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-[#2665fd] p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
+              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
               </button>
             )}
@@ -825,7 +826,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               </div>
             </div>
             {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-[#2665fd] p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
+              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
               </button>
             )}
@@ -844,7 +845,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
                         [widgetId]: { ...(prev[widgetId] || {}), [v]: e.target.value } 
                       }))}
                       placeholder={`Enter ${v}...`}
-                className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-[#2665fd] transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
                     />
                   </div>
                 ))}
@@ -858,7 +859,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
             <button
               onClick={() => generateCustomWidget(customWidget)}
               disabled={isGeneratingCustom[widgetId]}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-[#2665fd] hover:bg-blue-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all active:scale-95"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-brand hover:bg-blue-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all active:scale-95"
             >
               {isGeneratingCustom[widgetId] ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               Generate
@@ -886,8 +887,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
       <div className="flex flex-col h-[calc(100vh-120px)] bg-white dark:bg-[#1A1A1A] rounded-[32px] overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] ">
         <div className="flex items-center justify-between p-6 bg-[#F7F7F5] dark:bg-[#202020] border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-[#2665fd]/10 rounded-[12px] flex items-center justify-center">
-              <Wand2 className="w-5 h-5 text-[#2665fd]" />
+            <div className="w-10 h-10 bg-brand-bg rounded-[12px] flex items-center justify-center">
+              <Wand2 className="w-5 h-5 text-brand" />
             </div>
             <div>
               <h3 className="text-xl font-black text-[#37352F] dark:text-white">Playground Builder</h3>
@@ -903,7 +904,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
             </button>
             <button 
               onClick={handleCreateWidget}
-              className="flex items-center gap-2 px-6 py-2.5 bg-[#2665fd] text-white rounded-[12px] text-sm font-bold hover:scale-105 transition-all   active:scale-95"
+              className="flex items-center gap-2 px-6 py-2.5 bg-brand text-white rounded-[12px] text-sm font-bold hover:scale-105 transition-all   active:scale-95"
             >
               <Save className="w-4 h-4" />
               Publish Widget
@@ -921,7 +922,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
                 value={newWidgetTitle}
                 onChange={(e) => setNewWidgetTitle(e.target.value)}
                 placeholder="e.g., Viral Hook Generator"
-                className="w-full p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-[#2665fd] transition-all dark:text-white"
+                className="w-full p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white"
               />
             </div>
             <div className="space-y-2">
@@ -931,7 +932,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
                 value={newWidgetDescription}
                 onChange={(e) => setNewWidgetDescription(e.target.value)}
                 placeholder="What does this module do?"
-                className="w-full p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-[#2665fd] transition-all dark:text-white"
+                className="w-full p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white"
               />
             </div>
             <div className="space-y-2">
@@ -940,7 +941,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
                 <button 
                   onClick={refinePromptWithAi}
                   disabled={isRefiningPrompt || !newWidgetPrompt}
-                  className="text-[10px] font-black text-[#2665fd] hover:underline flex items-center gap-1 disabled:opacity-50"
+                  className="text-[10px] font-black text-brand hover:underline flex items-center gap-1 disabled:opacity-50"
                 >
                   {isRefiningPrompt ? <ForgeLoader size={10} /> : <Sparkles className="w-3 h-3" />}
                   Refine with AI
@@ -951,7 +952,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
                 value={newWidgetPrompt}
                 onChange={(e) => setNewWidgetPrompt(e.target.value)}
                 placeholder="Write a viral social media hook for: {{topic}}"
-                className="w-full h-64 p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-[#2665fd] resize-none transition-all dark:text-white font-mono"
+                className="w-full h-64 p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-brand resize-none transition-all dark:text-white font-mono"
               />
             </div>
           </div>
@@ -1030,40 +1031,48 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
 
   return (
     <div className="flex flex-col bg-transparent pb-20 md:pb-0 relative">
-      <div className="hidden md:block relative p-8 md:p-12 border border-white/10 dark:border-white/5 bg-gradient-to-br from-[#2665fd]/20 via-purple-500/10 to-transparent rounded-[32px] overflow-hidden mb-12 group">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative p-6 md:p-12 border border-white/10 dark:border-white/5 bg-gradient-to-br from-brand/20 via-purple-500/10 to-transparent rounded-[24px] md:rounded-[32px] overflow-hidden mb-8 md:mb-12 group"
+      >
         <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px]" />
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#2665fd]/20 blur-[100px] rounded-full group-hover:bg-[#2665fd]/30 transition-colors duration-700" />
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-brand/20 blur-[100px] rounded-full group-hover:bg-brand/30 transition-colors duration-700" />
         <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/10 blur-[100px] rounded-full group-hover:bg-purple-500/20 transition-colors duration-700" />
         
-        <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-white dark:bg-white/10 backdrop-blur-xl rounded-[16px] flex items-center justify-center  border border-white/20">
-              <Sparkles className="w-8 h-8 text-[#2665fd]" />
-            </div>
+        <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-8">
+          <div className="flex items-center gap-4 md:gap-6">
+            <motion.div 
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
+              className="w-12 h-12 md:w-16 md:h-16 bg-white dark:bg-white/10 backdrop-blur-xl rounded-[12px] md:rounded-[16px] flex items-center justify-center border border-white/20 shrink-0"
+            >
+              <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-brand" />
+            </motion.div>
             <div>
-              <h2 className="text-3xl md:text-4xl font-black text-[#37352F] dark:text-white tracking-tight">
+              <h2 className="text-2xl md:text-4xl font-black text-[#37352F] dark:text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand to-purple-500">
                 AI Studio
               </h2>
-              <p className="text-base text-[#757681] dark:text-white/60 mt-2 max-w-md leading-relaxed">
+              <p className="text-sm md:text-base text-[#757681] dark:text-white/60 mt-1 md:mt-2 max-w-md leading-relaxed">
                 The ultimate playground for custom AI workflows. Build, pin, and automate your creative process.
               </p>
             </div>
           </div>
           <button 
             onClick={openPlayground}
-            className="flex items-center gap-3 px-8 py-4 bg-[#2665fd] text-white rounded-[16px] text-base font-black hover:scale-105 transition-all   active:scale-95 group/btn"
+            className="w-full md:w-auto flex items-center justify-center gap-3 px-6 md:px-8 py-3 md:py-4 bg-brand text-white rounded-[12px] md:rounded-[16px] text-sm md:text-base font-black hover:scale-105 transition-all active:scale-95 group/btn"
           >
-            <Plus className="w-5 h-5 group-hover/btn:rotate-90 transition-transform" />
+            <Plus className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:rotate-90 transition-transform" />
             Create New Widget
           </button>
         </div>
-      </div>
+      </motion.div>
 
       <div className="space-y-12">
         {pinnedWidgetIds.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-1.5 h-6 bg-[#2665fd] rounded-full" />
+              <div className="w-1.5 h-6 bg-brand rounded-full" />
               <h3 className="text-sm font-black text-[#757681] dark:text-white/40 uppercase tracking-[0.2em]">Pinned Workflows</h3>
             </div>
             <div className="grid grid-cols-1 gap-6 w-full">
@@ -1074,27 +1083,28 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
 
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-1.5 h-6 bg-[#2665fd] rounded-full" />
+            <div className="w-1.5 h-6 bg-brand rounded-full" />
             <h3 className="text-sm font-black text-[#757681] dark:text-white/40 uppercase tracking-[0.2em]">Available Modules</h3>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {defaultWidgets.map(widget => (
               <div 
                 key={widget.id}
                 onClick={() => setActiveWidget(widget.id as WidgetType)}
-                className="group relative bg-white dark:bg-white/[0.03] backdrop-blur-sm border border-[#E9E9E7] dark:border-white/10 rounded-[28px] p-8 cursor-pointer hover:border-[#2665fd] hover: hover: transition-all duration-500 flex flex-col"
+                className="group relative bg-white dark:bg-white/[0.03] backdrop-blur-sm border border-[#E9E9E7] dark:border-white/10 rounded-[24px] md:rounded-[28px] p-6 md:p-8 cursor-pointer hover:border-brand hover:shadow-2xl hover:shadow-brand/20 transition-all duration-500 flex flex-col overflow-hidden"
               >
-                <div className={cn("w-14 h-14 rounded-[16px] flex items-center justify-center mb-6 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 ", widget.color)}>
+                <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className={cn("w-12 h-12 md:w-14 md:h-14 rounded-[16px] flex items-center justify-center mb-4 md:mb-6 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 relative z-10", widget.color)}>
                   {widget.icon}
                 </div>
-                <h3 className="text-xl font-black text-[#37352F] dark:text-white mb-3 group-hover:text-[#2665fd] transition-colors">{widget.title}</h3>
-                <p className="text-sm text-[#757681] dark:text-white/50 leading-relaxed flex-1">{widget.description}</p>
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-xs font-black text-[#2665fd] opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0 flex items-center gap-2">
-                    Launch Module <LayoutGrid className="w-4 h-4" />
+                <h3 className="text-lg md:text-xl font-black text-[#37352F] dark:text-white mb-2 md:mb-3 group-hover:text-brand transition-colors relative z-10">{widget.title}</h3>
+                <p className="text-xs md:text-sm text-[#757681] dark:text-white/50 leading-relaxed flex-1 relative z-10">{widget.description}</p>
+                <div className="mt-4 md:mt-6 flex items-center justify-between relative z-10">
+                  <div className="text-[10px] md:text-xs font-black text-brand opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0 flex items-center gap-2">
+                    Launch Module <LayoutGrid className="w-3 h-3 md:w-4 md:h-4" />
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-[#F7F7F5] dark:bg-white/5 flex items-center justify-center group-hover:bg-[#2665fd] group-hover:text-white transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-[#F7F7F5] dark:bg-white/5 flex items-center justify-center group-hover:bg-brand group-hover:text-white transition-colors">
                     <ArrowLeft className="w-4 h-4 rotate-180" />
                   </div>
                 </div>
@@ -1105,33 +1115,34 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               <div 
                 key={widget.id}
                 onClick={() => setActiveWidget(widget.id)}
-                className="group relative bg-white dark:bg-white/[0.03] backdrop-blur-sm border border-[#E9E9E7] dark:border-white/10 rounded-[28px] p-8 cursor-pointer hover:border-[#2665fd] hover: hover: transition-all duration-500 flex flex-col"
+                className="group relative bg-white dark:bg-white/[0.03] backdrop-blur-sm border border-[#E9E9E7] dark:border-white/10 rounded-[24px] md:rounded-[28px] p-6 md:p-8 cursor-pointer hover:border-brand hover:shadow-2xl hover:shadow-brand/20 transition-all duration-500 flex flex-col overflow-hidden"
               >
-                <div className="absolute top-6 right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-[-10px] group-hover:translate-y-0">
+                <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-[-10px] group-hover:translate-y-0 z-20">
                   <button 
                     onClick={(e) => togglePinWidget(widget.id, e)}
-                    className={cn("p-2 rounded-[12px] transition-all hover:scale-110", pinnedWidgetIds.includes(widget.id) ? "text-[#2665fd] bg-[#2665fd]/10" : "text-[#757681] dark:text-white/40 hover:bg-[#F7F7F5] dark:hover:bg-white/10")}
+                    className={cn("p-2 rounded-[12px] transition-all hover:scale-110", pinnedWidgetIds.includes(widget.id) ? "text-brand bg-brand-bg" : "text-[#757681] dark:text-white/40 hover:bg-[#F7F7F5] dark:hover:bg-white/10")}
                     title={pinnedWidgetIds.includes(widget.id) ? "Unpin Widget" : "Pin Widget"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={pinnedWidgetIds.includes(widget.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={pinnedWidgetIds.includes(widget.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
                   </button>
                   <button 
                     onClick={(e) => handleDeleteWidget(widget.id, e)}
                     className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-[12px] transition-all hover:scale-110"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="w-14 h-14 rounded-[16px] flex items-center justify-center mb-6 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6  bg-amber-500/10">
-                  <Wand2 className="w-8 h-8 text-amber-500" />
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-[16px] flex items-center justify-center mb-4 md:mb-6 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 bg-amber-500/10 relative z-10">
+                  <Wand2 className="w-6 h-6 md:w-8 md:h-8 text-amber-500" />
                 </div>
-                <h3 className="text-xl font-black text-[#37352F] dark:text-white mb-3 group-hover:text-[#2665fd] transition-colors">{widget.title}</h3>
-                <p className="text-sm text-[#757681] dark:text-white/50 leading-relaxed flex-1">{widget.description}</p>
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-xs font-black text-[#2665fd] opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0 flex items-center gap-2">
-                    Run Workflow <LayoutGrid className="w-4 h-4" />
+                <h3 className="text-lg md:text-xl font-black text-[#37352F] dark:text-white mb-2 md:mb-3 group-hover:text-brand transition-colors relative z-10">{widget.title}</h3>
+                <p className="text-xs md:text-sm text-[#757681] dark:text-white/50 leading-relaxed flex-1 relative z-10">{widget.description}</p>
+                <div className="mt-4 md:mt-6 flex items-center justify-between relative z-10">
+                  <div className="text-[10px] md:text-xs font-black text-brand opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0 flex items-center gap-2">
+                    Run Workflow <LayoutGrid className="w-3 h-3 md:w-4 md:h-4" />
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-[#F7F7F5] dark:bg-white/5 flex items-center justify-center group-hover:bg-[#2665fd] group-hover:text-white transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-[#F7F7F5] dark:bg-white/5 flex items-center justify-center group-hover:bg-brand group-hover:text-white transition-colors">
                     <ArrowLeft className="w-4 h-4 rotate-180" />
                   </div>
                 </div>

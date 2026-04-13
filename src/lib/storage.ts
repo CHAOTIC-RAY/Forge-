@@ -1,5 +1,7 @@
 // Storage utility using Cloudinary via server proxy
 
+import { getAiSettings } from './gemini';
+
 /**
  * Uploads a base64 image string to Cloudinary via our server endpoint and returns the secure URL.
  * @param base64Data The base64 data URL string.
@@ -30,6 +32,11 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
     
     const formData = new FormData();
     formData.append('image', blob, 'upload.png');
+
+    const settings = getAiSettings();
+    if (settings.cloudinaryCloudName) formData.append('cloudName', settings.cloudinaryCloudName);
+    if (settings.cloudinaryApiKey) formData.append('apiKey', settings.cloudinaryApiKey);
+    if (settings.cloudinaryApiSecret) formData.append('apiSecret', settings.cloudinaryApiSecret);
 
     console.log("[Storage] Sending POST request to /api/cloudinary/upload...");
     const uploadResponse = await fetch('/api/cloudinary/upload', {
