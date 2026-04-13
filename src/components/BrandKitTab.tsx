@@ -222,42 +222,89 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
 
   // UI State
   const [activeSection, setActiveSection] = useState<'identity' | 'workspace' | 'designs'>('identity');
+  const [uploadedPostImages, setUploadedPostImages] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file: File) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedPostImages(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeUploadedImage = (index: number) => {
+    setUploadedPostImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSyncDesignGuide = async () => {
     if (!activeBusiness?.id) return;
     setIsSaving(true);
     try {
+      const { generateTextWithCascade, isGeminiKeyAvailable, fetchServerConfig, analyzeDesignImages } = await import('../lib/gemini');
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
+
+      let imageAnalysis = '';
+      if (uploadedPostImages.length > 0) {
+        toast.info(`Analyzing ${uploadedPostImages.length} uploaded images...`);
+        imageAnalysis = await analyzeDesignImages(uploadedPostImages, activeBusiness);
+      }
+
       // Get recent high-quality posts
       const recentPosts = [...posts]
         .filter(p => (p.caption && p.caption.length > 20) || p.postcardData)
         .sort((a, b) => b.date.localeCompare(a.date))
-        .slice(0, 5);
+        .slice(0, 10);
 
-      if (recentPosts.length === 0) {
-        toast.error("No high-quality recent posts found to sync.");
-        return;
-      }
+      const postContext = recentPosts.map(post => `
+        Title: ${post.title}
+        Type: ${post.type} | Outlet: ${post.outlet}
+        Caption: ${post.caption}
+        ${post.postcardData ? `Postcard Front: ${post.postcardData.frontText}\nPostcard Back: ${post.postcardData.backText}` : ''}
+      `).join('\n\n');
 
-      let markdown = `# Design Guide & Brand Consistency\n\n`;
-      markdown += `Generated on: ${new Date().toLocaleDateString()}\n`;
-      markdown += `This guide contains successful past designs and content styles to maintain brand voice.\n\n---\n\n`;
+      const brandContext = `
+        Brand Colors: ${brandKit.colors.map(c => `${c.name}: ${c.hex}`).join(', ')}
+        Typography: Heading ${brandKit.fonts.heading}, Body ${brandKit.fonts.body}
+      `;
 
-      recentPosts.forEach(post => {
-        markdown += `## ${post.title}\n`;
-        markdown += `- **Context**: ${post.type} | ${post.outlet}\n`;
-        if (post.postcardData) {
-          markdown += `- **Postcard Style**: ${post.postcardData.frontText} / ${post.postcardData.backText}\n`;
-        }
-        markdown += `- **Caption**: ${post.caption}\n`;
-        markdown += `- **Hashtags**: ${post.hashtags}\n\n`;
-        markdown += `--- \n\n`;
-      });
+      const prompt = `You are an expert Brand Strategist and Design Director. 
+      Analyze the following recent successful posts, brand identity, and visual analysis for a business in the ${activeBusiness.industry} industry.
+      
+      Brand Identity:
+      ${brandContext}
+      
+      ${imageAnalysis ? `Visual Analysis of Uploaded Examples:\n${imageAnalysis}\n` : ''}
+      
+      Recent Posts:
+      ${postContext || 'No recent posts available. Base the guide purely on industry best practices and the brand identity.'}
+      
+      Create a comprehensive, highly actionable "AI Design Guide" (in Markdown format) that will be used to instruct other AI agents and human designers on how to create content for this brand.
+      
+      Include sections for:
+      1. Brand Voice & Tone (derived from the captions)
+      2. Visual Aesthetic & Color Usage (how to apply the brand colors)
+      3. Typography Guidelines
+      4. Content Themes & Pillars (based on the successful posts)
+      5. Do's and Don'ts for this brand's content
+      
+      Make it professional, concise, and directly applicable.`;
+
+      const markdown = await generateTextWithCascade(prompt, true, activeBusiness.id);
 
       const updatedBrandKit = { ...brandKit, designGuide: markdown };
       setBrandKit(updatedBrandKit);
       await setDoc(doc(db, 'brand_kits', activeBusiness.id), updatedBrandKit);
       
-      toast.success('AI Design Guide (design.md) updated successfully!');
+      setUploadedPostImages([]); // Clear after sync
+      toast.success('AI Design Guide (design.md) generated and synced successfully!');
     } catch (error) {
       console.error("Sync design guide failed:", error);
       toast.error("Failed to sync design guide.");
@@ -288,7 +335,16 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
     const brandKitRef = doc(db, 'brand_kits', activeBusiness.id);
     const unsubBrandKit = onSnapshot(brandKitRef, (docSnap) => {
       if (docSnap.exists()) {
-        setBrandKit(docSnap.data() as BrandKit);
+        const data = docSnap.data();
+        setBrandKit({
+          ...defaultBrandKit,
+          ...data,
+          colors: data.colors || defaultBrandKit.colors,
+          logos: data.logos || [],
+          designs: data.designs || [],
+          customFonts: data.customFonts || [],
+          fonts: data.fonts || defaultBrandKit.fonts
+        } as BrandKit);
       } else {
         setBrandKit(defaultBrandKit);
       }
@@ -1036,10 +1092,17 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                         { id: 'type', label: dataTitles.type, icon: LayoutTemplate },
                       ].map(type => (
                         <div key={type.id} className="group/item relative shrink-0 md:shrink">
-                          <button
+                          <div
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setSelectedCategoryType(type.id as any)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                setSelectedCategoryType(type.id as any);
+                              }
+                            }}
                             className={cn(
-                              "w-full flex items-center justify-between px-3 py-2.5 rounded-[12px] text-xs md:text-sm font-bold transition-all whitespace-nowrap",
+                              "w-full flex items-center justify-between px-3 py-2.5 rounded-[12px] text-xs md:text-sm font-bold transition-all whitespace-nowrap cursor-pointer",
                               selectedCategoryType === type.id
                                 ? "bg-white dark:bg-[#2E2E2E] text-[#2665fd]  border border-[#E9E9E7] dark:border-[#3E3E3E]"
                                 : "text-[#757681] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
@@ -1095,7 +1158,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                                 </button>
                               )}
                             </div>
-                          </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1254,18 +1317,62 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                     AI Design Guide (design.md)
                   </h3>
                   <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-1">
-                    Capture your best posts and postcards to train the AI on your unique brand style.
+                    Upload post images or analyze existing content to train the AI on your unique brand style.
                   </p>
                 </div>
-                <button
-                  onClick={handleSyncDesignGuide}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-[#2665fd] text-white rounded-[12px] text-sm font-bold hover:bg-[#2665fd]-hover transition-all active:scale-95 disabled:opacity-50  "
-                >
-                  {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  Sync Design Guide
-                </button>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm font-bold hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] transition-all"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload Examples
+                  </button>
+                  <button
+                    onClick={handleSyncDesignGuide}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-[#2665fd] text-white rounded-[12px] text-sm font-bold hover:bg-[#2665fd]-hover transition-all active:scale-95 disabled:opacity-50  "
+                  >
+                    {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    Sync Design Guide
+                  </button>
+                </div>
               </div>
+
+              {uploadedPostImages.length > 0 && (
+                <div className="bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[20px] p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#757681]">Uploaded Examples ({uploadedPostImages.length})</h4>
+                    <button 
+                      onClick={() => setUploadedPostImages([])}
+                      className="text-[10px] font-bold text-red-500 hover:underline"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {uploadedPostImages.map((img, idx) => (
+                      <div key={idx} className="relative group w-20 h-20 rounded-lg overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                        <img src={img} alt="Upload" className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => removeUploadedImage(idx)}
+                          className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[20px] overflow-hidden">
                 <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-between">

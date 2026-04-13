@@ -588,6 +588,12 @@ export async function generateMockupImage(title: string, brief: string, caption:
   // Fetch brand kit
   let brandContext = "Use brand colors like orange, blue, and white.";
   let brandDesigns: any[] = [];
+  let designGuide = '';
+  
+  if (business?.id) {
+    designGuide = await fetchBrandKitDesignGuide(business.id);
+  }
+
   try {
     const savedBrandKit = localStorage.getItem('brandKit');
     if (savedBrandKit) {
@@ -608,7 +614,7 @@ export async function generateMockupImage(title: string, brief: string, caption:
     console.error('Failed to load brand kit', e);
   }
 
-  const style = `vibrant promotional graphic, clean product photography on realistic backgrounds, modern layout, high-end professional ad. ${brandContext}`;
+  const style = `vibrant promotional graphic, clean product photography on realistic backgrounds, modern layout, high-end professional ad. ${brandContext} ${designGuide ? `\nDESIGN GUIDE:\n${designGuide}` : ''}`;
   const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
 
   const prompt = `A professional social media promotional graphic for ${business?.name || 'Forge Enterprises'}, a leading business in the ${business?.industry || 'retail'} industry.
@@ -710,19 +716,26 @@ export async function generateMockupImage(title: string, brief: string, caption:
   throw new Error("No image generated");
 }
 
-export async function generateSmartBrief(title: string, recentPosts: Post[]): Promise<string> {
+export async function generateSmartBrief(title: string, recentPosts: Post[], business?: Business): Promise<string> {
   const recentContext = recentPosts.slice(0, 3).map(p => `- ${p.title}: ${p.brief}`).join('\n');
   const settings = getAiSettings();
   const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
   
+  let designGuide = '';
+  if (business?.id) {
+    designGuide = await fetchBrandKitDesignGuide(business.id);
+  }
+
   const prompt = `Generate a detailed graphic design brief for a social media post titled "${title}".
+  
+  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ''}
   
   Context from recent posts:
   ${recentContext}
   ${systemInstruction}
   
   The brief should include:
-  1. Visual Style (Design language based on recent posts)
+  1. Visual Style (Design language based on recent posts and design guide)
   2. Color Palette (Complementary to brand)
   3. Key Elements (What must be in the image)
   4. Typography suggestions
@@ -761,11 +774,16 @@ export async function generateSmartBrief(title: string, recentPosts: Post[]): Pr
   return text || '';
 }
 
-export async function generateSmartPost(title: string, category: string, outlet: string, type: string, link: string, localDB: any[], mode: 'product' | 'info' = 'product'): Promise<Partial<Post>> {
+export async function generateSmartPost(title: string, category: string, outlet: string, type: string, link: string, localDB: any[], mode: 'product' | 'info' = 'product', business?: Business): Promise<Partial<Post>> {
   const dbContext = localDB.slice(0, 5).map(p => `- ${p.title}: ${p.type} (${mode === 'product' ? (p.price || 'N/A') : (p.stockInfo || 'N/A')})`).join('\n');
   const settings = getAiSettings();
   const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
   
+  let designGuide = '';
+  if (business?.id) {
+    designGuide = await fetchBrandKitDesignGuide(business.id);
+  }
+
   const prompt = `Generate a social media post based on the following information:
   Title: ${title}
   Category: ${category}
@@ -773,6 +791,8 @@ export async function generateSmartPost(title: string, category: string, outlet:
   Type: ${type}
   Link/Reference: ${link}
   ${systemInstruction}
+  
+  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ''}
   
   Local Database Context (Recent/Related ${mode === 'product' ? 'Products' : 'Information Pieces'}):
   ${dbContext}
@@ -819,12 +839,12 @@ export async function generateSmartPost(title: string, category: string, outlet:
   }
 }
 
-export async function generatePostVisuals(title: string, brief: string, brandKit: any): Promise<{ url: string, provider: string }[]> {
+export async function generatePostVisuals(title: string, brief: string, brandKit: any, business?: Business): Promise<{ url: string, provider: string }[]> {
   const settings = getAiSettings();
   
   if (settings.imageProvider === 'pollination' || settings.imageProvider === 'puter') {
     const style = brandKit?.style || 'photorealistic';
-    const image = await generateAiImage(`${title}. ${brief}`, style);
+    const image = await generateAiImage(`${title}. ${brief}`, style, business);
     return [image];
   }
 
@@ -834,10 +854,16 @@ export async function generatePostVisuals(title: string, brief: string, brandKit
 
   const ai = getAi();
   
+  let designGuide = brandKit?.designGuide || '';
+  if (!designGuide && business?.id) {
+    designGuide = await fetchBrandKitDesignGuide(business.id);
+  }
+
   // 1. Generate AI Image based on brief and brand kit
   const prompt = `Generate a high-quality social media post image for: ${title}. 
   Design Brief: ${brief}
   Brand Kit Context: ${JSON.stringify(brandKit)}
+  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ''}
   
   The image should be photorealistic, professional, and follow the brand guidelines.`;
 
@@ -873,13 +899,23 @@ export async function generatePostFromImage(base64Data: string, mimeType: string
   const businessIndustry = business?.industry || 'professional business';
   const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
   
+  let designContext = '';
+  if (business?.id) {
+    const guide = await fetchBrandKitDesignGuide(business.id);
+    if (guide) {
+      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE (Follow this style closely):\n${guide}\n`;
+    }
+  }
+
   const promptText = isVideo 
     ? `Analyze this 2x2 collage of frames extracted from a video and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
        Treat this as a video analysis by looking at the sequence of frames.
        ${systemInstruction}
+       ${designContext}
        Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`
     : `Analyze this image and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
        ${systemInstruction}
+       ${designContext}
        Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`;
   
   try {
@@ -952,17 +988,57 @@ export async function generatePostFromImage(base64Data: string, mimeType: string
   }
 }
 
+export async function analyzeDesignImages(images: string[], business?: Business): Promise<string> {
+  const settings = getAiSettings();
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+
+  try {
+    const ai = getAi();
+    const prompt = `You are an expert Design Director. Analyze these ${images.length} images which represent the brand's desired visual style or recent successful posts.
+    
+    Extract:
+    1. Visual Style & Aesthetic (minimalist, vibrant, professional, etc.)
+    2. Color Palette (dominant colors and how they are used)
+    3. Typography Style (serif, sans-serif, bold, elegant)
+    4. Composition Patterns (how elements are arranged)
+    5. Content Themes (what is being shown)
+    
+    Provide a detailed analysis that can be used to create a Brand Design Guide.`;
+
+    const parts = [
+      { text: prompt },
+      ...images.map(img => ({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: img.split(',')[1] || img
+        }
+      }))
+    ];
+
+    const response = await ai.models.generateContent({
+      model: settings.geminiModel || "gemini-2.5-flash",
+      contents: [{ role: 'user', parts }],
+    });
+
+    return response.text || '';
+  } catch (error) {
+    console.error('Design image analysis error:', error);
+    throw error;
+  }
+}
+
 export async function generateTaskIdeas(
   business?: Business, 
-  usePriorityProducts: boolean = true,
   brandKitCategories?: any[],
   brandKitTitles?: { [key: string]: string },
-  systemInstruction?: string
+  systemInstruction?: string,
+  extraContext?: string
 ) {
   const settings = getAiSettings();
   const industryConfig = getIndustryConfig(business?.industry);
   
-  let priorityContext = '';
   let generalContext = '';
   let businessContext = business ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || 'General'}.` : 'Business: Forge Enterprises (Professional Services)';
   
@@ -973,54 +1049,27 @@ export async function generateTaskIdeas(
     const businessId = business?.id;
 
     if (userId && businessId) {
-      // Fetch Priority Products
-      if (usePriorityProducts) {
-        const qPriority = query(collection(db, 'priority_products'), where('businessId', '==', businessId));
-        const snapshotPriority = await getDocs(qPriority);
-        const productsPriority = snapshotPriority.docs.map(doc => doc.data());
-        
-        if (productsPriority.length > 0) {
-          const highPriority = productsPriority.filter(p => p.priority === 'high').map(p => p.name || p.title).join(', ');
-          const mediumPriority = productsPriority.filter(p => p.priority === 'medium').map(p => p.name || p.title).join(', ');
-          priorityContext = `\nPRIORITY PRODUCTS (Focus on these): High Priority: ${highPriority}. Medium Priority: ${mediumPriority}.`;
-        }
-      }
-
       // Fetch some general products for variety
       const qGeneral = query(collection(db, 'inventory_products'), where('businessId', '==', businessId));
       const snapshotGeneral = await getDocs(qGeneral);
       const productsGeneral = snapshotGeneral.docs.map(doc => doc.data());
       if (productsGeneral.length > 0) {
-        // Pick 5 random non-priority products
-        const nonPriority = productsGeneral
-          .filter(p => !usePriorityProducts || !priorityContext || !priorityContext.includes(p.title || ''))
+        const products = productsGeneral
           .sort(() => 0.5 - Math.random())
           .slice(0, 15);
         
-        if (nonPriority.length > 0) {
-          generalContext = `\nGENERAL PRODUCTS (Use these for variety and non-priority focused posts): ${nonPriority.map(p => p.title).join(', ')}.`;
+        if (products.length > 0) {
+          generalContext = `\nAVAILABLE PRODUCTS/SERVICES: ${products.map(p => p.title).join(', ')}.`;
         }
       }
     } else {
       // Local storage fallback (Legacy or Guest)
-      if (usePriorityProducts) {
-        const savedPriority = localStorage.getItem('forge_priority_products');
-        if (savedPriority) {
-          const productsPriority = JSON.parse(savedPriority);
-          if (productsPriority.length > 0) {
-            const highPriority = productsPriority.filter((p: any) => p.priority === 'high').map((p: any) => p.name || p.title).join(', ');
-            const mediumPriority = productsPriority.filter((p: any) => p.priority === 'medium').map((p: any) => p.name || p.title).join(', ');
-            priorityContext = `\nPRIORITY PRODUCTS (Focus on these): High Priority: ${highPriority}. Medium Priority: ${mediumPriority}.`;
-          }
-        }
-      }
-      
       const savedGeneral = localStorage.getItem('forge_inventory_cache');
       if (savedGeneral) {
         const productsGeneral = JSON.parse(savedGeneral);
         if (productsGeneral.length > 0) {
-          const nonPriority = productsGeneral.slice(0, 15);
-          generalContext = `\nGENERAL PRODUCTS (Use these for variety and non-priority focused posts): ${nonPriority.map((p: any) => p.title).join(', ')}.`;
+          const products = productsGeneral.slice(0, 15);
+          generalContext = `\nAVAILABLE PRODUCTS/SERVICES: ${products.map((p: any) => p.title).join(', ')}.`;
         }
       }
     }
@@ -1041,6 +1090,15 @@ export async function generateTaskIdeas(
   const contentFormatsContext = brandKitCategories ? `\nBRAND KIT ${titles.type.toUpperCase()}: ${brandKitCategories.filter(c => c.type === 'type' && c.enabled).map(c => c.name).join(', ')}` : '';
 
   const linkContext = business?.targetUrl || settings.targetUrl ? `\nCRITICAL: Focus specifically on making posts using the products found on this link: ${business?.targetUrl || settings.targetUrl}` : '';
+  
+  let designContext = '';
+  if (business?.id) {
+    const guide = await fetchBrandKitDesignGuide(business.id);
+    if (guide) {
+      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE (Follow this style closely):\n${guide}\n`;
+    }
+  }
+
   const generalCategories = [
     "Living Room Furniture", "Bedroom Essentials", "Kitchen Systems", 
     "Power Tools", "Building Materials", "Office Furniture", 
@@ -1051,8 +1109,9 @@ export async function generateTaskIdeas(
   const promptText = `Generate 10 unique and creative social media post ideas.
     ${aiContext}
     ${businessContext}
+    ${designContext}
     ${linkContext}
-    ${priorityContext}
+    ${extraContext ? `\nADDITIONAL CONTEXT/PRODUCT LIST: ${extraContext}` : ''}
     ${generalContext}
     ${categoriesContext}
     ${outletsContext}
@@ -1062,8 +1121,8 @@ export async function generateTaskIdeas(
 
     CRITICAL STRATEGY: 
     1. BALANCE: You are generating 10 ideas. 
-       - At least 4 ideas SHOULD focus on "PRIORITY PRODUCTS" (if provided).
-       - At least 4 ideas SHOULD focus on "GENERAL PRODUCTS" or general home improvement themes/categories.
+       - At least 6 ideas SHOULD focus on "AVAILABLE PRODUCTS/SERVICES" or "ADDITIONAL CONTEXT" (if provided).
+       - 2 ideas SHOULD focus on general home improvement themes/categories.
        - 2 ideas SHOULD be "Wildcard" (e.g., lifestyle tips, seasonal trends, or "Behind the Scenes").
     2. VARIETY: Ensure the ideas cover different outlets and different content types (How-To, Showcase, Promotion).
     3. FRAMEWORKS: For each idea, you MUST use a proven marketing framework (e.g., AIDA, PAS, BAB, or FAB) to structure the caption.
@@ -2306,7 +2365,16 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
 
 export async function generateAiImage(prompt: string, style: string = 'photorealistic', business?: Business): Promise<{ url: string, provider: string }> {
   const businessName = business?.name || 'Forge';
-  const fullPrompt = `${prompt}. Style: ${style}. High quality, professional social media content for ${businessName}.`;
+  let designGuide = '';
+  if (business?.id) {
+    designGuide = await fetchBrandKitDesignGuide(business.id);
+  }
+  
+  const fullPrompt = `${prompt}. 
+  Style: ${style}. 
+  ${designGuide ? `\nDESIGN GUIDE & BRAND GUIDELINES:\n${designGuide}\n` : ''}
+  High quality, professional social media content for ${businessName}.`;
+  
   const settings = getAiSettings();
 
   if (settings.imageProvider === 'pollination') {

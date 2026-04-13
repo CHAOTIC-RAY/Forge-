@@ -25,6 +25,15 @@ service cloud.firestore {
              get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
     }
 
+    function isBusinessMember(businessId) {
+      return isAuthenticated() && 
+             businessId != null && 
+             exists(/databases/$(database)/documents/businesses/$(businessId)) &&
+             (get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid ||
+              ('members' in get(/databases/$(database)/documents/businesses/$(businessId)).data && 
+               request.auth.uid in get(/databases/$(database)/documents/businesses/$(businessId)).data.members));
+    }
+
     function isBusinessShared(businessId) {
       return businessId != null && 
              exists(/databases/$(database)/documents/businesses/$(businessId)) &&
@@ -33,7 +42,7 @@ service cloud.firestore {
     }
 
     function canAccessBusiness(businessId) {
-      return isBusinessOwner(businessId) || isBusinessShared(businessId) || isAdmin();
+      return isBusinessMember(businessId) || isBusinessShared(businessId) || isAdmin();
     }
 
     // ===============================================================
@@ -50,7 +59,19 @@ service cloud.firestore {
              (!('description' in data) || data.description is string) &&
              (!('logoUrl' in data) || data.logoUrl is string) &&
              (!('brandColors' in data) || data.brandColors is map) &&
+             (!('members' in data) || data.members is list) &&
              (isUpdate ? (data.ownerId == resource.data.ownerId) : (data.ownerId == request.auth.uid));
+    }
+
+    function isValidShortLink(data) {
+      let requiredFields = ['id', 'originalUrl', 'shortCode', 'businessId', 'clicks', 'createdAt'];
+      return data.keys().hasAll(requiredFields) &&
+             data.id is string &&
+             data.originalUrl is string && data.originalUrl.size() < 2000 &&
+             data.shortCode is string && data.shortCode.size() < 50 &&
+             data.businessId is string &&
+             data.clicks is int &&
+             data.createdAt is string;
     }
 
     function isValidPost(data, isUpdate) {
@@ -87,15 +108,6 @@ service cloud.firestore {
              data.userName is string && data.userName.size() < 255 &&
              (!('userPhoto' in data) || data.userPhoto is string) &&
              data.text is string && data.text.size() > 0 && data.text.size() < 5000;
-    }
-
-    function isValidPriorityProduct(data, isUpdate) {
-      return data.keys().hasAll(['id', 'name', 'priority', 'userId', 'businessId']) &&
-             data.id is string && data.id.size() < 100 &&
-             data.name is string && data.name.size() < 1000 &&
-             data.priority in ['high', 'medium', 'low'] &&
-             (isUpdate ? (data.userId == resource.data.userId) : (data.userId == request.auth.uid || isAdmin())) &&
-             data.businessId is string;
     }
 
     function isValidInventoryProduct(data, isUpdate) {
@@ -146,19 +158,19 @@ service cloud.firestore {
     // ===============================================================
     
     match /businesses/{businessId} {
-      allow read: if (isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin())) || 
+      allow read: if (isAuthenticated() && (isBusinessMember(businessId) || isAdmin())) || 
                    (resource.data.shareToken != null && resource.data.shareToken != "");
       allow create: if isAuthenticated() && isValidBusiness(request.resource.data, false);
-      allow update: if isAuthenticated() && resource.data.ownerId == request.auth.uid && isValidBusiness(request.resource.data, true);
+      allow update: if isAuthenticated() && isBusinessMember(businessId) && isValidBusiness(request.resource.data, true);
       allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
     }
 
     match /posts/{postId} {
       allow read: if (isAuthenticated() && canAccessBusiness(resource.data.businessId)) || 
                    (resource.data.businessId != null && isBusinessShared(resource.data.businessId));
-      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidPost(request.resource.data, false);
-      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidPost(request.resource.data, true);
-      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+      allow create: if isAuthenticated() && (isBusinessMember(request.resource.data.businessId) || isAdmin()) && isValidPost(request.resource.data, false);
+      allow update: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin()) && isValidPost(request.resource.data, true);
+      allow delete: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin());
     }
 
     match /comments/{commentId} {
@@ -182,49 +194,49 @@ service cloud.firestore {
       allow update: if isOwner(userId) && isValidUser(request.resource.data);
     }
 
-    match /priority_products/{productId} {
-      allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
-      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidPriorityProduct(request.resource.data, false);
-      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidPriorityProduct(request.resource.data, true);
-      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
-    }
-
     match /inventory_products/{productId} {
       allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
-      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidInventoryProduct(request.resource.data, false);
-      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidInventoryProduct(request.resource.data, true);
-      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+      allow create: if isAuthenticated() && (isBusinessMember(request.resource.data.businessId) || isAdmin()) && isValidInventoryProduct(request.resource.data, false);
+      allow update: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin()) && isValidInventoryProduct(request.resource.data, true);
+      allow delete: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin());
     }
 
     match /inventory_category_counts/{countId} {
       allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
-      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidCategoryCount(request.resource.data);
-      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidCategoryCount(request.resource.data);
-      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+      allow create: if isAuthenticated() && (isBusinessMember(request.resource.data.businessId) || isAdmin()) && isValidCategoryCount(request.resource.data);
+      allow update: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin()) && isValidCategoryCount(request.resource.data);
+      allow delete: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin());
     }
 
     match /todos/{todoId} {
       allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
-      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidTodo(request.resource.data, false);
-      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidTodo(request.resource.data, true);
-      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+      allow create: if isAuthenticated() && (isBusinessMember(request.resource.data.businessId) || isAdmin()) && isValidTodo(request.resource.data, false);
+      allow update: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin()) && isValidTodo(request.resource.data, true);
+      allow delete: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin());
     }
 
     match /idea_history/{historyId} {
       allow read: if isAuthenticated() && canAccessBusiness(resource.data.businessId);
-      allow create: if isAuthenticated() && (isBusinessOwner(request.resource.data.businessId) || isAdmin()) && isValidIdeaHistory(request.resource.data);
-      allow update: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin()) && isValidIdeaHistory(request.resource.data);
-      allow delete: if isAuthenticated() && (isBusinessOwner(resource.data.businessId) || isAdmin());
+      allow create: if isAuthenticated() && (isBusinessMember(request.resource.data.businessId) || isAdmin()) && isValidIdeaHistory(request.resource.data);
+      allow update: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin()) && isValidIdeaHistory(request.resource.data);
+      allow delete: if isAuthenticated() && (isBusinessMember(resource.data.businessId) || isAdmin());
     }
 
     match /brand_kits/{businessId} {
       allow read: if isAuthenticated() && canAccessBusiness(businessId);
-      allow write: if isAuthenticated() && (isBusinessOwner(businessId) || isAdmin());
+      allow write: if isAuthenticated() && (isBusinessMember(businessId) || isAdmin());
     }
 
     match /categories/{businessId} {
       allow read: if isAuthenticated() && canAccessBusiness(businessId);
-      allow write: if isAuthenticated() && (isBusinessOwner(businessId) || isAdmin());
+      allow write: if isAuthenticated() && (isBusinessMember(businessId) || isAdmin());
+    }
+
+    match /short_links/{shortCode} {
+      allow read: if true; // Publicly readable for redirection
+      allow create: if isAuthenticated() && isBusinessMember(request.resource.data.businessId) && isValidShortLink(request.resource.data);
+      allow update: if isAuthenticated() && isBusinessMember(resource.data.businessId) && isValidShortLink(request.resource.data);
+      allow delete: if isAuthenticated() && isBusinessMember(resource.data.businessId);
     }
 
     match /notebooks/{notebookId} {

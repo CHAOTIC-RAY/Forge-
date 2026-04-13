@@ -13,7 +13,8 @@ import {
   Image as ImageIcon,
   Check,
   History,
-  Archive
+  Archive,
+  Notebook
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -29,7 +30,7 @@ import {
   doc, 
   serverTimestamp
 } from 'firebase/firestore';
-import { generateTextWithCascade, safeParseJSONArray, isGeminiKeyAvailable, fetchServerConfig } from '../lib/gemini';
+import { generateTextWithCascade, safeParseJSONArray, isGeminiKeyAvailable, fetchServerConfig, generateTaskIdeas } from '../lib/gemini';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
@@ -64,6 +65,7 @@ interface Block {
   folderId?: string | null;
   status?: 'inbox' | 'organized' | 'history';
   parentId?: string | null; // useful for nested structure
+  createdAt?: number;
 }
 
 interface Folder {
@@ -136,6 +138,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [ideaMode, setIdeaMode] = useState<'quick' | 'strategy' | 'postcard'>('quick');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
 
   useEffect(() => {
     if (!activeBusiness?.id || !auth.currentUser) return;
@@ -156,10 +159,44 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
         setNotebookId(docId);
         
         if (isInitialLoad.current) {
-          setBlocks(docData.blocks || []);
+          let loadedBlocks = docData.blocks || [];
+          let hasChanges = false;
+          
+          // Auto-delete history older than 30 days
+          const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+          loadedBlocks = loadedBlocks.filter((b: Block) => {
+             if (b.status === 'history' && b.createdAt && b.createdAt < thirtyDaysAgo) {
+                hasChanges = true;
+                return false;
+             }
+             return true;
+          });
+
+          // Auto-history: move inbox items older than 7 days to history
+          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          loadedBlocks = loadedBlocks.map((b: Block) => {
+             if (b.status === 'inbox' && b.createdAt && b.createdAt < sevenDaysAgo) {
+                hasChanges = true;
+                return { ...b, status: 'history' };
+             }
+             return b;
+          });
+
+          setBlocks(loadedBlocks);
           setLinks(docData.links || []);
           setFolders(docData.folders || []);
           isInitialLoad.current = false;
+
+          if (hasChanges) {
+             try {
+               await setDoc(doc(db, 'notebooks', docId), {
+                 blocks: loadedBlocks,
+                 updatedAt: serverTimestamp()
+               }, { merge: true });
+             } catch (error) {
+               console.error("Error auto-cleaning notebook:", error);
+             }
+          }
         }
         setIsReady(true);
       } else {
@@ -232,7 +269,8 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
       title: 'Untitled Idea',
       content: '',
       status: 'organized',
-      folderId
+      folderId,
+      createdAt: Date.now()
     };
     setBlocks(prev => {
       const updated = [...prev, newBlock];
@@ -299,47 +337,53 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
         await fetchServerConfig();
       }
 
-      let prompt = '';
-      if (ideaMode === 'strategy') {
-        prompt = `You are a world-class creative strategist. Based on this prompt: "${aiPrompt}", generate 3-5 high-impact content strategies/ideas for a business in the ${activeBusiness.industry} industry. 
-        For each idea, provide:
-        - A catchy title
-        - A visual brief for designers
-        - A compelling caption using a marketing framework (AIDA/PAS)
-        - Targeted hashtags
-        - A feasibility score (1-10) and an impact score (1-10)
-        - Content format (Post, Reel, Story, or Carousel)
-        
-        Return the result as a JSON array of objects, each with: "title", "brief", "caption", "hashtags", "feasibility", "impact", "format".`;
-      } else if (ideaMode === 'postcard') {
-         prompt = `You are a creative director. Based on this prompt: "${aiPrompt}", generate 3 distinct "Postcard" concepts for a business in the ${activeBusiness.industry} industry. 
-         Each postcard needs:
-         - A headline for the front
-         - A short message for the back
-         - A detailed image description for a photorealistic background
-         
-         Return the result as a JSON array of objects, each with: "title" (a name for the concept), "front", "back", "imagePrompt".`;
+      let ideas: any[] = [];
+
+      if (ideaMode === 'quick') {
+        const selectedBlock = blocks.find(b => b.id === selectedBlockId);
+        const extraContext = selectedBlock?.type === 'text' ? selectedBlock.content : undefined;
+        const generatedIdeas = await generateTaskIdeas(activeBusiness, undefined, undefined, `USER PROMPT: ${aiPrompt}`, extraContext);
+        ideas = generatedIdeas;
       } else {
-        prompt = `You are a creative strategist. Based on this prompt: "${aiPrompt}", generate 3-5 distinct creative ideas for a business in the ${activeBusiness.industry} industry. 
-        
-        Return the result as a JSON array of objects, each with: "title", "brief", "caption", "hashtags", "feasibility", "impact", "format", "description".`;
+        let prompt = '';
+        if (ideaMode === 'strategy') {
+          prompt = `You are a world-class creative strategist. Based on this prompt: "${aiPrompt}", generate 3-5 high-impact content strategies/ideas for a business in the ${activeBusiness.industry} industry. 
+          For each idea, provide:
+          - A catchy title
+          - A visual brief for designers
+          - A compelling caption using a marketing framework (AIDA/PAS)
+          - Targeted hashtags
+          - A feasibility score (1-10) and an impact score (1-10)
+          - Content format (Post, Reel, Story, or Carousel)
+          
+          Return the result as a JSON array of objects, each with: "title", "brief", "caption", "hashtags", "feasibility", "impact", "format".`;
+        } else if (ideaMode === 'postcard') {
+           prompt = `You are a creative director. Based on this prompt: "${aiPrompt}", generate 3 distinct "Postcard" concepts for a business in the ${activeBusiness.industry} industry. 
+           Each postcard needs:
+           - A headline for the front
+           - A short message for the back
+           - A detailed image description for a photorealistic background
+           
+           Return the result as a JSON array of objects, each with: "title" (a name for the concept), "front", "back", "imagePrompt".`;
+        }
+
+        const text = await generateTextWithCascade(prompt, true, activeBusiness.id);
+        ideas = safeParseJSONArray(text) || [];
       }
 
-      const text = await generateTextWithCascade(prompt, true, activeBusiness.id);
-      const ideas = safeParseJSONArray(text);
-
-      if (ideas && Array.isArray(ideas)) {
+      if (ideas && Array.isArray(ideas) && ideas.length > 0) {
         const newBlocks: Block[] = await Promise.all(ideas.map(async (idea: any) => {
           const id = Math.random().toString(36).substr(2, 9);
           
-          if (ideaMode === 'strategy') {
+          if (ideaMode === 'strategy' || ideaMode === 'quick') {
             return {
               id,
               type: 'text' as const,
               title: idea.title,
-              content: idea.caption,
+              content: idea.caption || idea.description,
               status: 'inbox' as const,
               folderId: null,
+              createdAt: Date.now(),
               metadata: {
                 feasibility: idea.feasibility,
                 impact: idea.impact,
@@ -360,29 +404,31 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               content: idea.back,
               status: 'inbox' as const,
               folderId: null,
+              createdAt: Date.now(),
               postcardData: {
                 frontText: idea.front,
                 backText: idea.back,
                 imageUrl: imageResult.url
               }
             };
-            return {
-              id,
-              type: 'text' as const,
-              title: idea.title,
-              content: idea.description || idea.caption,
-              status: 'inbox' as const,
-              folderId: null,
-              metadata: {
-                feasibility: idea.feasibility,
-                impact: idea.impact,
-                brief: idea.brief,
-                caption: idea.caption,
-                hashtags: idea.hashtags,
-                format: idea.format
-              }
-            };
           }
+          return {
+            id,
+            type: 'text' as const,
+            title: idea.title,
+            content: idea.description || idea.caption,
+            status: 'inbox' as const,
+            folderId: null,
+            createdAt: Date.now(),
+            metadata: {
+              feasibility: idea.feasibility,
+              impact: idea.impact,
+              brief: idea.brief,
+              caption: idea.caption,
+              hashtags: idea.hashtags,
+              format: idea.format
+            }
+          };
         }));
 
         setBlocks(prev => {
@@ -512,11 +558,11 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-[#2665fd]/10 rounded-[16px] flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-[#2665fd]" />
+              <Notebook className="w-6 h-6 text-[#2665fd]" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
-                Strategy Lab
+                Notebook
               </h2>
               <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
                 Collaborative workspace for brainstorming and strategy development.
@@ -526,16 +572,19 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
           <div className="flex items-center gap-3">
              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-               <span className="text-xs font-medium text-[#757681] dark:text-[#9B9A97]">Lab Active</span>
+               <span className="text-xs font-medium text-[#757681] dark:text-[#9B9A97]">Notebook Active</span>
              </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
       
       {/* Sidebar Navigation */}
-      <div className="w-72 border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] flex flex-col shrink-0 relative">
+      <div className={cn(
+        "w-full md:w-72 border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] flex flex-col shrink-0 relative transition-all duration-300",
+        selectedBlockId ? "hidden md:flex" : "flex"
+      )}>
         
         {!isReady && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm">
@@ -678,26 +727,42 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
 
           {/* History Section */}
           <div className="px-2 mt-4 pb-20">
-            <div className="flex items-center justify-between px-2 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#757681] flex items-center gap-1.5">
+            <div 
+              className="flex items-center justify-between px-2 mb-1 cursor-pointer group"
+              onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#757681] flex items-center gap-1.5 group-hover:text-[#37352F] dark:group-hover:text-[#EBE9ED] transition-colors">
                 <History className="w-3 h-3" />
                 History
               </span>
+              <ChevronDown className={cn("w-3.5 h-3.5 text-[#757681] transition-transform", isHistoryExpanded ? "rotate-180" : "")} />
             </div>
-            {blocks.filter(b => b.status === 'history').length === 0 && (
-              <div className="px-3 py-2 text-[10px] text-[#757681]/50 italic text-center">No archived items</div>
-            )}
-            {blocks.filter(b => b.status === 'history').map(block => (
-              <DraggableBlock 
-                key={block.id} 
-                block={block} 
-                isSelected={selectedBlockId === block.id}
-                onClick={() => setSelectedBlockId(block.id)}
-              >
-                <Archive className="w-3.5 h-3.5 text-[#757681] shrink-0" />
-                <span className="truncate opacity-60">{block.title || 'Untitled'}</span>
-              </DraggableBlock>
-            ))}
+            
+            <AnimatePresence>
+              {isHistoryExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  {blocks.filter(b => b.status === 'history').length === 0 && (
+                    <div className="px-3 py-2 text-[10px] text-[#757681]/50 italic text-center">No archived items</div>
+                  )}
+                  {blocks.filter(b => b.status === 'history').map(block => (
+                    <DraggableBlock 
+                      key={block.id} 
+                      block={block} 
+                      isSelected={selectedBlockId === block.id}
+                      onClick={() => setSelectedBlockId(block.id)}
+                    >
+                      <Archive className="w-3.5 h-3.5 text-[#757681] shrink-0" />
+                      <span className="truncate opacity-60">{block.title || 'Untitled'}</span>
+                    </DraggableBlock>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
@@ -723,42 +788,22 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
       </div>
 
       {/* Main Document Workspace */}
-      <div className="flex-1 bg-white dark:bg-[#151515] overflow-y-auto relative p-0">
-        <div className="p-8 md:p-12 border-b border-[#E9E9E7] dark:border-[#202020] bg-white dark:bg-[#1A1A1A] mb-8">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-yellow-500/10 rounded-[16px] flex items-center justify-center">
-                <Zap className="w-6 h-6 text-yellow-500" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-black text-[#37352F] dark:text-[#EBE9ED] tracking-tight">
-                  Strategy Lab
-                </h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-[#757681] font-medium flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-500" />
-                    AI Strategy Workspace
-                  </span>
-                  <span className="w-1 h-1 rounded-full bg-[#D9D9D7] dark:bg-[#3E3E3E]" />
-                  <span className="text-xs text-[#757681] font-medium">
-                    {blocks.length} Ideas Captured
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-bold text-[#757681] uppercase tracking-wider">Lab Active</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-8 pb-12 lg:px-32 xl:px-48">
+      <div className={cn(
+        "flex-1 bg-white dark:bg-[#151515] overflow-y-auto relative p-0 transition-all duration-300",
+        !selectedBlockId ? "hidden md:block" : "block"
+      )}>
+        <div className="px-4 py-6 md:px-8 md:pt-8 md:pb-12 lg:px-32 xl:px-48">
           {selectedBlock ? (
             <div className="max-w-3xl mx-auto flex flex-col min-h-full">
+              {/* Mobile Back Button */}
+              <button 
+                onClick={() => setSelectedBlockId(null)}
+                className="md:hidden flex items-center gap-2 text-xs font-bold text-[#757681] mb-6 px-2 py-1 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 rotate-180" />
+                Back to Notebook
+              </button>
+
               {/* Document Header Controls */}
               <div className="flex items-center gap-3 mb-6">
                 {selectedBlock.status === 'inbox' && (

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { ForgeLoader } from './ForgeLoader';
-import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save } from 'lucide-react';
+import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2 } from 'lucide-react';
 import { ImageResizerTab } from './ImageResizerTab';
+import { LinkShortener } from './LinkShortener';
 import { getAi } from '../lib/gemini';
 import { toast } from 'sonner';
 
@@ -432,6 +433,13 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
       description: 'Turn any blog post, news article, or webpage into a multi-platform social media campaign.',
       icon: <Link className="w-6 h-6 text-orange-500" />,
       color: 'bg-orange-500/10'
+    },
+    {
+      id: 'shortener',
+      title: 'Link Shortener',
+      description: 'Create trackable, branded short links for your marketing campaigns.',
+      icon: <Link2 className="w-6 h-6 text-indigo-500" />,
+      color: 'bg-indigo-500/10'
     }
   ];
 
@@ -788,6 +796,14 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               </div>
             )}
           </div>
+        </div>
+      );
+    }
+
+    if (widgetId === 'shortener') {
+      return (
+        <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden mb-6 h-[600px]">
+          <LinkShortener businessId={activeBusiness?.id || ''} />
         </div>
       );
     }

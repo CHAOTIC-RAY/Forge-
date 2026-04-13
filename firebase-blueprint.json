@@ -34,26 +34,6 @@
       },
       "required": ["uid", "email"]
     },
-    "PriorityProduct": {
-      "title": "PriorityProduct",
-      "description": "A product marked as priority for content creation",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
-        "notes": { "type": "string" },
-        "sku": { "type": "string" },
-        "category": { "type": "string" },
-        "price": { "type": "string" },
-        "link": { "type": "string" },
-        "outlet": { "type": "string" },
-        "userId": { "type": "string" },
-        "businessId": { "type": "string" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "name", "priority", "userId", "businessId"]
-    },
     "InventoryProduct": {
       "title": "InventoryProduct",
       "description": "A product in the main inventory database",
@@ -147,9 +127,24 @@
         },
         "themePreset": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "members": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "name", "ownerId", "createdAt", "updatedAt"]
+    },
+    "ShortLink": {
+      "title": "ShortLink",
+      "description": "A shortened URL for campaigns",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "originalUrl": { "type": "string" },
+        "shortCode": { "type": "string" },
+        "businessId": { "type": "string" },
+        "clicks": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "originalUrl", "shortCode", "businessId", "clicks", "createdAt"]
     },
     "Comment": {
       "title": "Comment",
@@ -242,10 +237,6 @@
       "schema": "User",
       "description": "User profiles"
     },
-    "/priority_products/{productId}": {
-      "schema": "PriorityProduct",
-      "description": "User's priority products"
-    },
     "/inventory_products/{productId}": {
       "schema": "InventoryProduct",
       "description": "User's main inventory database"
@@ -273,6 +264,10 @@
     "/notebooks/{notebookId}": {
       "schema": "Notebook",
       "description": "User's infinite canvas notebooks"
+    },
+    "/short_links/{shortCode}": {
+      "schema": "ShortLink",
+      "description": "Shortened URLs for redirection"
     }
   }
 }

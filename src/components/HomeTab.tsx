@@ -21,7 +21,7 @@ import {
 import { format, isToday, parseISO, isAfter, startOfDay } from 'date-fns';
 import { Post, Business } from '../data';
 import { cn } from '../lib/utils';
-import { generateDailyGreetings, HighStockProduct } from '../lib/gemini';
+import { generateDailyGreetings, HighStockProduct, generateTaskIdeas } from '../lib/gemini';
 import { User } from 'firebase/auth';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -38,6 +38,8 @@ interface HomeTabProps {
 export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmin, user }: HomeTabProps) {
   const [greeting, setGreeting] = useState<string>('');
   const [products, setProducts] = useState<HighStockProduct[]>([]);
+  const [recommendedIdea, setRecommendedIdea] = useState<any>(null);
+  const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
 
   // Sync products with Firestore
   useEffect(() => {
@@ -97,6 +99,47 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
 
     fetchGreeting();
   }, [user?.displayName]);
+
+  useEffect(() => {
+    const fetchRecommendedIdea = async () => {
+      if (!activeBusiness?.id) return;
+      
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const cacheKey = `daily_inspiration_${activeBusiness.id}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed.date === todayStr) {
+            setRecommendedIdea(parsed.idea);
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to parse cached inspiration", e);
+        }
+      }
+
+      setIsGeneratingIdea(true);
+      try {
+        const ideas = await generateTaskIdeas(activeBusiness, undefined, undefined, "Generate 1 single, highly creative and actionable content idea for today.");
+        if (ideas && ideas.length > 0) {
+          const idea = ideas[0];
+          setRecommendedIdea(idea);
+          localStorage.setItem(cacheKey, JSON.stringify({
+            date: todayStr,
+            idea
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch recommended idea:", error);
+      } finally {
+        setIsGeneratingIdea(false);
+      }
+    };
+
+    fetchRecommendedIdea();
+  }, [activeBusiness?.id]);
 
   const todayPosts = useMemo(() => {
     return posts.filter(post => isToday(parseISO(post.date)));
@@ -235,6 +278,70 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
           </motion.div>
         ))}
       </div>
+
+      {/* Recommended Idea Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+        className="bg-gradient-to-br from-[#2665fd]/5 to-purple-500/5 dark:from-[#2665fd]/10 dark:to-purple-500/10 border border-[#2665fd]/20 dark:border-[#2665fd]/30 rounded-[16px] p-6 relative overflow-hidden group"
+      >
+        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+          <Sparkles className="w-32 h-32 text-[#2665fd]" />
+        </div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="px-2 py-1 bg-[#2665fd] text-white text-[10px] font-black uppercase tracking-widest rounded-[4px]">
+              Daily Inspiration
+            </div>
+            <span className="text-xs text-[#757681] font-bold flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Freshly generated for you
+            </span>
+          </div>
+
+          {isGeneratingIdea ? (
+            <div className="flex items-center gap-3 py-4">
+              <div className="w-5 h-5 border-2 border-[#2665fd] border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-bold text-[#757681]">AI is crafting a unique strategy...</span>
+            </div>
+          ) : recommendedIdea ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xl font-black text-[#37352F] dark:text-[#EBE9ED] mb-2">{recommendedIdea.title}</h3>
+                <p className="text-sm text-[#757681] dark:text-[#9B9A97] leading-relaxed max-w-3xl">
+                  {recommendedIdea.description || recommendedIdea.brief}
+                </p>
+              </div>
+              
+              <div className="flex flex-wrap gap-3 pt-2">
+                <button 
+                  onClick={() => {
+                    // Logic to use this idea in AI Studio
+                    setActiveTab('creative');
+                  }}
+                  className="px-5 py-2.5 bg-[#2665fd] text-white rounded-[10px] text-xs font-bold hover:bg-[#1e52d0] transition-all flex items-center gap-2 shadow-lg shadow-[#2665fd]/20"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Use in AI Studio
+                </button>
+                <button 
+                  onClick={() => setActiveTab('notebook')}
+                  className="px-5 py-2.5 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[10px] text-xs font-bold hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center gap-2"
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  Save to Strategy Lab
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="py-4">
+              <p className="text-sm text-[#757681]">No recommendation available right now. Check back later!</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Schedule */}

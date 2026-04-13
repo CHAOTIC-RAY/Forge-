@@ -436,6 +436,25 @@ export function SettingsView({
     toast.success("AI System Instructions updated!");
   };
 
+  const downloadExtensionFile = async (filename: string) => {
+    try {
+      const response = await fetch(`/extension/${filename}`);
+      const text = await response.text();
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`${filename} downloaded!`);
+    } catch (error) {
+      toast.error(`Failed to download ${filename}`);
+    }
+  };
+
   return (
     <div className="flex flex-col bg-transparent relative">
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
@@ -1297,6 +1316,69 @@ export function SettingsView({
                   className="flex items-center justify-center gap-2 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-[12px] hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-xs font-bold"
                 >
                   <Trash2 className="w-4 h-4" /> Clear Products
+                </button>
+              </div>
+            </div>
+          </div>
+        </BentoCard>
+
+        {/* Chrome Extension Card */}
+        <BentoCard
+          id="extension"
+          title="Forge Web Clipper"
+          subtitle="Clip websites and add notes to your notebook"
+          icon={Smartphone}
+          iconBg="bg-blue-100 dark:bg-blue-900/30"
+          iconColor="text-blue-600 dark:text-blue-400"
+          expandedId={expandedId}
+          onToggle={toggleExpand}
+        >
+          <div className="space-y-6 pt-4">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-[16px] space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-blue-700 dark:text-blue-300">Install Extension</h3>
+                  <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70">Easily scrape websites and add them to your Creative Notebook.</p>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Installation Instructions:</h4>
+                <ol className="text-[11px] text-[#757681] dark:text-[#9B9A97] space-y-2 list-decimal pl-4">
+                  <li>Download the extension files below.</li>
+                  <li>Open Chrome and go to <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">chrome://extensions</code>.</li>
+                  <li>Enable <strong>Developer mode</strong> (top right).</li>
+                  <li>Click <strong>Load unpacked</strong> and select the folder containing the files.</li>
+                </ol>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={() => downloadExtensionFile('manifest.json')}
+                  className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#F7F7F5] transition-colors"
+                >
+                  <FileText className="w-3 h-3" /> manifest.json
+                </button>
+                <button 
+                  onClick={() => downloadExtensionFile('content.js')}
+                  className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#F7F7F5] transition-colors"
+                >
+                  <FileText className="w-3 h-3" /> content.js
+                </button>
+                <button 
+                  onClick={() => downloadExtensionFile('popup.html')}
+                  className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#F7F7F5] transition-colors"
+                >
+                  <FileText className="w-3 h-3" /> popup.html
+                </button>
+                <button 
+                  onClick={() => downloadExtensionFile('popup.js')}
+                  className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#F7F7F5] transition-colors"
+                >
+                  <FileText className="w-3 h-3" /> popup.js
                 </button>
               </div>
             </div>

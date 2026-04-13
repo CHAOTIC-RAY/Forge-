@@ -28,7 +28,7 @@ import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import { 
-  Menu, Plus, Download, Calendar as CalendarIcon, Database, PenTool, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2,
+  Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2,
   Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun
 } from 'lucide-react';
 import { Type } from "@google/genai";
@@ -48,7 +48,6 @@ import { ImageViewer } from './components/ImageViewer';
 import { LocalDb } from './components/LocalDb';
 import { DirectSearch } from './components/DirectSearch';
 import { ExportModal, ExportSettings } from './components/modals/ExportModal';
-import { IdeasPanel } from './components/IdeasPanel';
 import { ExcelImportModal } from './components/modals/ExcelImportModal';
 import { BusinessModal } from './components/modals/BusinessModal';
 import { CreativeStudioTab } from './components/CreativeStudioTab';
@@ -86,7 +85,8 @@ import {
   writeBatch,
   serverTimestamp,
   limit,
-  updateDoc
+  updateDoc,
+  or
 } from 'firebase/firestore';
 import { ref, deleteObject, getBlob } from 'firebase/storage';
 import { cn, readFileAsDataURL, createImageCollage, getAnalyticsSettings, setAnalyticsSettings } from './lib/utils';
@@ -96,6 +96,7 @@ import { ForgeLoader } from './components/ForgeLoader';
 import { ForgeLogo } from './components/ForgeLogo';
 import { Login } from './components/Login';
 import { LandingView } from './components/LandingView';
+import { OnboardingWizard } from './components/OnboardingWizard';
 
 type SyncLog = {
   id: string;
@@ -193,6 +194,7 @@ export default function App() {
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
   const [isCheckingShare, setIsCheckingShare] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const industryConfig = useMemo(() => getIndustryConfig(activeBusiness?.industry), [activeBusiness?.industry]);
 
@@ -222,6 +224,66 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [confirmAction, setConfirmAction] = useState<{ type: string; onConfirm: () => Promise<void> | void } | null>(null);
+
+  // Listen for Chrome Extension messages
+  useEffect(() => {
+    const handleExtensionMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'FORGE_ADD_NOTE' && activeBusiness && user) {
+        const { title, url, content } = event.data.data;
+        try {
+          // Find the notebook for this business
+          const q = query(
+            collection(db, 'notebooks'),
+            where('businessId', '==', activeBusiness.id),
+            where('userId', '==', user.uid)
+          );
+          const snapshot = await getDocs(q);
+          
+          let notebookId: string;
+          let currentBlocks: any[] = [];
+          
+          if (!snapshot.empty) {
+            notebookId = snapshot.docs[0].id;
+            currentBlocks = snapshot.docs[0].data().blocks || [];
+          } else {
+            notebookId = uuidv4();
+            await setDoc(doc(db, 'notebooks', notebookId), {
+              id: notebookId,
+              businessId: activeBusiness.id,
+              userId: user.uid,
+              title: 'Creative Strategy',
+              blocks: [],
+              links: [],
+              folders: [],
+              updatedAt: serverTimestamp()
+            });
+          }
+
+          const newBlock = {
+            id: uuidv4(),
+            type: 'text',
+            title: `Clipped: ${title}`,
+            content: `Source: ${url}\n\n${content}`,
+            status: 'inbox',
+            createdAt: Date.now()
+          };
+
+          await updateDoc(doc(db, 'notebooks', notebookId), {
+            blocks: [newBlock, ...currentBlocks],
+            updatedAt: serverTimestamp()
+          });
+
+          toast.success("Note added to notebook!");
+        } catch (error) {
+          console.error("Failed to add note from extension:", error);
+          toast.error("Failed to add note from extension.");
+        }
+      }
+    };
+
+    window.addEventListener('message', handleExtensionMessage);
+    return () => window.removeEventListener('message', handleExtensionMessage);
+  }, [activeBusiness, user]);
 
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook'>('home');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
@@ -359,86 +421,122 @@ export default function App() {
     }
   };
 
-  // Handle Share Link / View Only Mode
+  // Handle Share Link / View Only Mode / Short Links / Auto-Join
   useEffect(() => {
-    // Test Firestore connection
-    const testConnection = async () => {
-      try {
-        const { getDocFromServer, doc } = await import('firebase/firestore');
-        await getDocFromServer(doc(db, '_connection_test_', 'ping'));
-      } catch (error: any) {
-        if (error.message?.includes('client is offline')) {
-          console.error("Firestore connection failed: The client is offline or blocked by a proxy/firewall.");
-          addSyncLog("Firestore connection failed. Trying to reconnect...", "error");
+    const handleUrlActions = async () => {
+      const pathParts = window.location.pathname.split('/');
+      const params = new URLSearchParams(window.location.search);
+      
+      // 1. Handle Short Link Redirection
+      if (pathParts[1] === 's' && pathParts[2]) {
+        const shortCode = pathParts[2];
+        try {
+          const q = query(collection(db, 'short_links'), where('shortCode', '==', shortCode));
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+            const linkDoc = snapshot.docs[0];
+            const linkData = linkDoc.data();
+            await updateDoc(doc(db, 'short_links', linkDoc.id), {
+              clicks: (linkData.clicks || 0) + 1
+            });
+            window.location.href = linkData.originalUrl;
+            return;
+          }
+        } catch (e) {
+          console.error("Short link error", e);
         }
       }
-    };
-    testConnection();
 
-    // Check for share link in URL path or params
-    const pathParts = window.location.pathname.split('/');
-    let bizId: string | null = null;
-    let shareToken: string | null = null;
+      // 2. Handle Workspace Auto-Join
+      const joinId = params.get('join');
+      if (joinId && user) {
+        try {
+          const bizRef = doc(db, 'businesses', joinId);
+          const bizSnap = await getDoc(bizRef);
+          if (bizSnap.exists()) {
+            const bizData = bizSnap.data();
+            const members = bizData.members || [];
+            if (!members.includes(user.uid) && bizData.ownerId !== user.uid) {
+              await updateDoc(bizRef, {
+                members: [...members, user.uid]
+              });
+              toast.success(`Joined workspace: ${bizData.name}`);
+              // Remove join param from URL
+              const newUrl = window.location.pathname;
+              window.history.replaceState({}, '', newUrl);
+            }
+          }
+        } catch (e) {
+          console.error("Auto-join error", e);
+        }
+      }
 
-    if (pathParts[1] === 'share' && pathParts[2] && pathParts[3]) {
-      bizId = pathParts[2];
-      shareToken = pathParts[3];
-    } else {
-      const params = new URLSearchParams(window.location.search);
-      shareToken = params.get('share');
-      bizId = params.get('biz');
-    }
+      // 3. Handle Share Link
+      let bizId: string | null = null;
+      let shareToken: string | null = null;
 
-    if (shareToken && bizId) {
-      const fetchShared = async () => {
+      if (pathParts[1] === 'share' && pathParts[2] && pathParts[3]) {
+        bizId = pathParts[2];
+        shareToken = pathParts[3];
+      } else {
+        shareToken = params.get('share');
+        bizId = params.get('biz');
+      }
+
+      if (shareToken && bizId) {
         try {
           const bizDoc = await getDoc(doc(db, 'businesses', bizId!));
           if (bizDoc.exists()) {
             const bizData = { id: bizDoc.id, ...bizDoc.data() } as Business;
             if (bizData.shareToken === shareToken) {
-              // Check expiration
               if (bizData.shareExpiresAt && isAfter(new Date(), parseISO(bizData.shareExpiresAt))) {
                 toast.error("This share link has expired.");
                 setIsCheckingShare(false);
                 return;
               }
-
-              // Check password
               if (bizData.sharePassword) {
                 setPendingShareData(bizData);
                 setIsPasswordModalOpen(true);
                 setIsCheckingShare(false);
                 return;
               }
-
               await completeShareAccess(bizData);
-            } else {
-              toast.error("Invalid or expired share link.");
             }
           }
         } catch (e) {
           console.error("Error fetching shared business", e);
-          toast.error("Failed to load shared calendar.");
         } finally {
           setIsCheckingShare(false);
         }
-      };
-      fetchShared();
-    } else {
-      setIsCheckingShare(false);
-    }
-  }, []);
+      } else {
+        setIsCheckingShare(false);
+      }
+    };
 
-  // Fetch User's Businesses
+    handleUrlActions();
+  }, [user]);
+
+  // Fetch User's Businesses (Owned or Member)
   useEffect(() => {
     if (!user || isViewOnly) return;
 
-    const q = query(collection(db, 'businesses'), where('ownerId', '==', user.uid));
+    const q = query(
+      collection(db, 'businesses'), 
+      or(where('ownerId', '==', user.uid), where('members', 'array-contains', user.uid))
+    );
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const bizList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Business));
       setBusinesses(bizList);
       setLoadingBusinesses(false);
       
+      // If user has no businesses and we're not in view-only mode, show onboarding
+      if (bizList.length === 0 && !isViewOnly && !loadingBusinesses) {
+        setShowOnboarding(true);
+      } else {
+        setShowOnboarding(false);
+      }
+
       // Auto-select business
       if (bizList.length > 0) {
         const lastBizId = localStorage.getItem('last_active_business_id');
@@ -447,8 +545,8 @@ export default function App() {
           setActiveBusiness(lastBiz || bizList[0]);
         }
       } else if (!loading) {
-        // If user has no businesses, open modal to create one
-        setIsBusinessModalOpen(true);
+        // If user has no businesses, show onboarding wizard
+        setShowOnboarding(true);
       }
     }, (error) => {
       console.error("[Businesses] onSnapshot error:", error);
@@ -1511,7 +1609,7 @@ export default function App() {
 
   const handleRegeneratePost = async (post: Post) => {
     try {
-      const content = await generatePostContent(post.outlet, post.productCategory, post.title);
+      const content = await generatePostContent(post.outlet, post.productCategory, post.title, activeBusiness || undefined);
       const updatedPost: Post = {
         ...post,
         title: content.title || post.title,
@@ -2567,8 +2665,79 @@ export default function App() {
     e.target.value = '';
   };
 
+  const handleOnboardingComplete = async (data: Partial<Business> & { targetUrl?: string; theme?: string; geminiApiKey?: string }) => {
+    if (!user) return;
+    try {
+      const bizId = uuidv4();
+      const newBiz: Business = {
+        id: bizId,
+        name: data.name || 'My Business',
+        industry: data.industry || 'Retail',
+        description: data.description || '',
+        ownerId: user.uid,
+        members: [user.uid],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        shareToken: uuidv4(),
+        status: 'active'
+      };
+
+      await setDoc(doc(db, 'businesses', bizId), newBiz);
+      
+      // Initialize Brand Kit
+      await setDoc(doc(db, 'brand_kits', bizId), {
+        businessId: bizId,
+        colors: [
+          { name: 'Primary', hex: (data as any).brandColors?.primary || '#3b82f6' },
+          { name: 'Secondary', hex: (data as any).brandColors?.secondary || '#1e293b' },
+          { name: 'Accent', hex: (data as any).brandColors?.accent || '#f59e0b' }
+        ],
+        fonts: {
+          heading: 'Inter',
+          body: 'Inter'
+        },
+        designGuide: `Brand Voice: Professional and engaging.\nIndustry: ${data.industry}.\nDescription: ${data.description}.`,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Update AI Settings & Theme
+      if (data.targetUrl || data.geminiApiKey) {
+        const newSettings = { 
+          ...aiSettings, 
+          targetUrl: data.targetUrl || aiSettings.targetUrl,
+          geminiApiKey: data.geminiApiKey || aiSettings.geminiApiKey
+        };
+        setAiSettingsState(newSettings);
+        setAiSettings(newSettings); // Sync to localStorage
+        await setDoc(doc(db, 'users', user.uid), { aiSettings: newSettings }, { merge: true });
+      }
+
+      if (data.theme) {
+        if (data.theme === 'dark') setIsDarkMode(true);
+        else if (data.theme === 'light') setIsDarkMode(false);
+        else {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          setIsDarkMode(prefersDark);
+        }
+        localStorage.setItem('forge_theme_mode', data.theme);
+      }
+
+      toast.success("Workspace created successfully!");
+      setShowOnboarding(false);
+    } catch (error) {
+      console.error("Failed to complete onboarding", error);
+      toast.error("Failed to create workspace.");
+    }
+  };
+
   return (
     <ErrorBoundary>
+      {showOnboarding && user && (
+        <OnboardingWizard 
+          userEmail={user.email || ''} 
+          onComplete={handleOnboardingComplete} 
+        />
+      )}
       <AppWorkspaceProvider activeBusiness={activeBusiness}>
         <ConfigWorkspaceProvider activeBusiness={activeBusiness}>
           <DndContext 
@@ -2683,7 +2852,7 @@ export default function App() {
                       <button
                         onClick={() => {
                           setIsWorkspaceDropdownOpen(false);
-                          setIsBusinessModalOpen(true);
+                          setShowOnboarding(true);
                         }}
                         className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-[#2665fd]"
                       >
@@ -2734,16 +2903,6 @@ export default function App() {
                   <Database className="w-5 h-5 shrink-0" />
                 </button>
                 <button 
-                  onClick={() => setActiveTab('ideas')} 
-                  title={industryConfig.terminology.ideas}
-                  className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
-                    activeTab === 'ideas' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-                  )}
-                >
-                  <Lightbulb className="w-5 h-5 shrink-0" />
-                </button>
-                <button 
                   onClick={() => setActiveTab('notebook')} 
                   title="Notebook"
                   className={cn(
@@ -2751,7 +2910,7 @@ export default function App() {
                     activeTab === 'notebook' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                   )}
                 >
-                  <PenTool className="w-5 h-5 shrink-0" />
+                  <Notebook className="w-5 h-5 shrink-0" />
                 </button>
                 <button 
                   onClick={() => setActiveTab('brandkit')} 
@@ -2838,7 +2997,7 @@ export default function App() {
       <div className={cn("flex-1 flex flex-col min-w-0 relative print:h-auto print:overflow-visible", activeTab === 'chat' && "md:flex")}>
           <main className={cn(
             "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-32 md:pb-28 print:p-0 print:overflow-visible", 
-            (activeTab === 'chat' || activeTab === 'home') && "p-0 sm:p-0 md:p-0 pb-0",
+            (activeTab === 'chat' || activeTab === 'home' || activeTab === 'notebook') && "p-0 sm:p-0 md:p-0 pb-0",
             activeTab !== 'search' && "no-scrollbar"
           )}>
           <div className={cn("w-full flex-1 flex flex-col print:max-w-none print:h-auto print:block", (activeTab === 'chat' || activeTab === 'home') && "max-w-none h-full")}>
@@ -2861,7 +3020,6 @@ export default function App() {
                     {activeTab === 'brandkit' && industryConfig.terminology.assets}
                     {activeTab === 'creative' && 'AI Studio'}
                     {activeTab === 'analytics' && 'Insights & Analytics'}
-                    {activeTab === 'ideas' && industryConfig.terminology.ideas}
                     {activeTab === 'notebook' && 'Notebook'}
                     {activeTab === 'more' && 'Settings'}
                   </h1>
@@ -2972,12 +3130,6 @@ export default function App() {
               </div>
             )}
 
-
-            {isAdmin && (
-              <div className={cn("flex-1", activeTab === 'ideas' ? 'block' : 'hidden')}>
-                <IdeasPanel isFullPage activeBusiness={activeBusiness} />
-              </div>
-            )}
 
             {isAdmin && (
               <div className={cn("flex-1", activeTab === 'notebook' ? 'block' : 'hidden')}>
@@ -3141,7 +3293,7 @@ export default function App() {
               { id: 'home', icon: LayoutGrid, title: 'Home' },
               { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
               { id: 'chat', icon: MessageSquare, title: 'Chat' },
-              { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
+              { id: 'notebook', icon: Notebook, title: 'Notebook' },
               { id: 'more', icon: Menu, title: 'More' }
             ].map(tab => {
               const Icon = tab.icon;

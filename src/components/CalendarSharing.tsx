@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Business } from '../data';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { toast } from 'sonner';
-import { Share2, Copy, RefreshCw, Settings, X, Lock, Calendar, Tags, Eye, QrCode, ChevronDown, ChevronUp, Clock, Trash2 } from 'lucide-react';
+import { Share2, Copy, RefreshCw, Settings, X, Lock, Calendar, Tags, Eye, QrCode, ChevronDown, ChevronUp, Clock, Trash2, Link2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { format, addDays, isAfter, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,18 +18,58 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
   const [isOpen, setIsOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [isGeneratingShort, setIsGeneratingShort] = useState(false);
 
   if (!activeBusiness) return null;
+
+  const generateShortLink = async (longUrl: string) => {
+    setIsGeneratingShort(true);
+    try {
+      const shortCode = Math.random().toString(36).substring(2, 6);
+      const id = uuidv4();
+      
+      await setDoc(doc(db, 'short_links', id), {
+        id,
+        title: `Calendar Share: ${activeBusiness.name}`,
+        originalUrl: longUrl,
+        shortCode,
+        businessId: activeBusiness.id,
+        clicks: 0,
+        createdAt: new Date().toISOString()
+      });
+
+      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
+        shareShortCode: shortCode
+      });
+
+      onUpdateBusiness({ ...activeBusiness, shareShortCode: shortCode });
+      return shortCode;
+    } catch (e) {
+      console.error("Error generating short link", e);
+      return null;
+    } finally {
+      setIsGeneratingShort(false);
+    }
+  };
 
   const handleGenerateShareLink = async () => {
     const token = uuidv4();
     try {
-      const updates = { 
+      const longUrl = `${window.location.origin}/share/${activeBusiness.id}/${token}`;
+      const updates: any = { 
         shareToken: token, 
         shareRestriction: activeBusiness.shareRestriction || 'guest',
         shareAnalytics: { views: 0, lastViewedAt: null }
       };
+      
       await updateDoc(doc(db, 'businesses', activeBusiness.id), updates);
+      
+      // Generate short link
+      const shortCode = await generateShortLink(longUrl);
+      if (shortCode) {
+        updates.shareShortCode = shortCode;
+      }
+
       onUpdateBusiness({ ...activeBusiness, ...updates });
       toast.success("Share link generated!");
     } catch (e) {
@@ -49,10 +89,23 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
     }
   };
 
-  const handleCopyLink = () => {
-    if (!activeBusiness.shareToken) return;
-    const shareUrl = `${window.location.origin}/share/${activeBusiness.id}/${activeBusiness.shareToken}`;
-    navigator.clipboard.writeText(shareUrl);
+  const handleRevoke = async () => {
+    try {
+      const updates = {
+        shareToken: null,
+        shareShortCode: null
+      };
+      await updateDoc(doc(db, 'businesses', activeBusiness.id), updates);
+      onUpdateBusiness({ ...activeBusiness, ...updates });
+      toast.success("Access revoked");
+    } catch (e) {
+      console.error("Error revoking access", e);
+      toast.error("Failed to revoke access");
+    }
+  };
+
+  const handleCopyLink = (url: string) => {
+    navigator.clipboard.writeText(url);
     toast.success("Link copied to clipboard!");
   };
 
@@ -60,7 +113,11 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
     ? `${window.location.origin}/share/${activeBusiness.id}/${activeBusiness.shareToken}`
     : '';
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}`;
+  const shortShareUrl = activeBusiness.shareShortCode
+    ? `${window.location.origin}/s/${activeBusiness.shareShortCode}`
+    : '';
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shortShareUrl || shareUrl)}`;
 
   return (
     <div className="relative">
@@ -135,21 +192,41 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
                     </AnimatePresence>
 
                     {/* Link Section */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[10px] font-black text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest">Share Link</label>
-                        {activeBusiness.shareAnalytics && (
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-600">
-                            <Eye className="w-3 h-3" />
-                            {activeBusiness.shareAnalytics.views} views
-                          </div>
-                        )}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[10px] font-black text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest">Shortened Link</label>
+                          {activeBusiness.shareAnalytics && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-600">
+                              <Eye className="w-3 h-3" />
+                              {activeBusiness.shareAnalytics.views} views
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-[#37352F] dark:text-[#EBE9ED] bg-blue-50/30 dark:bg-blue-900/10 p-3 rounded-[12px] border border-blue-100 dark:border-blue-900/20 group">
+                          <Link2 className="w-4 h-4 text-blue-500" />
+                          <span className="truncate flex-1 font-bold text-blue-600 dark:text-blue-400">
+                            {isGeneratingShort ? 'Generating...' : shortShareUrl || 'No short link'}
+                          </span>
+                          <button 
+                            onClick={() => handleCopyLink(shortShareUrl)} 
+                            disabled={!shortShareUrl}
+                            className="p-2 hover:bg-white dark:hover:bg-[#2E2E2E] rounded-[8px] transition-all active:scale-90 disabled:opacity-50" 
+                            title="Copy Short Link"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-[#37352F] dark:text-[#EBE9ED] bg-[#F7F7F5] dark:bg-[#202020] p-3 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] group">
-                        <span className="truncate flex-1 font-medium">{shareUrl}</span>
-                        <button onClick={handleCopyLink} className="p-2 hover:bg-white dark:hover:bg-[#2E2E2E] rounded-[8px] transition-all  active:scale-90" title="Copy Link">
-                          <Copy className="w-4 h-4" />
-                        </button>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest px-1">Full Share URL</label>
+                        <div className="flex items-center gap-2 text-[10px] text-[#757681] dark:text-[#9B9A97] bg-[#F7F7F5] dark:bg-[#202020] p-2.5 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] group">
+                          <span className="truncate flex-1 font-medium">{shareUrl}</span>
+                          <button onClick={() => handleCopyLink(shareUrl)} className="p-1.5 hover:bg-white dark:hover:bg-[#2E2E2E] rounded-[6px] transition-all active:scale-90" title="Copy Full Link">
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -300,7 +377,7 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
                         <RefreshCw className="w-3.5 h-3.5" /> Regenerate Link
                       </button>
                       <button 
-                        onClick={() => handleUpdateField('shareToken', null)} 
+                        onClick={handleRevoke} 
                         className="w-full flex items-center justify-center gap-2 py-3 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-[12px] font-bold transition-all border border-red-100 dark:border-red-900/20"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Revoke Access

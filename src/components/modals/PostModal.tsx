@@ -280,7 +280,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     try {
       // Get recent posts for context
       const recentPosts = posts.slice(0, 5);
-      const brief = await generateSmartBrief(formData.title, recentPosts);
+      const brief = await generateSmartBrief(formData.title, recentPosts, activeBusiness);
       setFormData(prev => ({ ...prev, brief }));
       toast.success("Smart brief generated!");
     } catch (e) {
@@ -302,7 +302,8 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
         formData.type || '',
         formData.link || '',
         initialProducts || [],
-        dbMode
+        dbMode,
+        activeBusiness
       );
       setFormData(prev => ({
         ...prev,
@@ -332,7 +333,8 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
       const result = await generatePostVisuals(
         formData.title,
         formData.brief,
-        activeBusiness?.brandKit
+        activeBusiness?.brandKit,
+        activeBusiness
       );
       const newImages = result.map(r => r.url);
       const provider = result[0]?.provider || 'Gemini';

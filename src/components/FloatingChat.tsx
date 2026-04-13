@@ -201,31 +201,43 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
           >
             {/* Header */}
             <div className={cn(
-              "p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-[#F7F7F5] dark:bg-[#202020]",
-              isFullPage && "pt-12 sm:pt-4" // Extra padding for mobile status bar if full page
+              "relative p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between overflow-hidden",
+              isFullPage ? "pt-12 sm:pt-4" : "bg-white dark:bg-[#202020]"
             )}>
-              <div className="flex items-center gap-2">
+              {/* AI Gradient Background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/10 via-purple-600/10 to-blue-600/10 dark:from-indigo-500/20 dark:via-purple-500/20 dark:to-blue-500/20 animate-gradient-x" />
+              
+              <div className="relative flex items-center gap-3">
                 {isFullPage && (
                   <button 
                     onClick={onClose}
-                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors mr-1"
+                    className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors mr-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 )}
-                <div className="w-8 h-8 rounded-[8px] bg-blue-500 flex items-center justify-center text-white  ">
-                  <Sparkles className="w-4 h-4" />
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                    <Sparkles className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#191919] rounded-full" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-sm">Forge AI Assistant</h3>
-                  <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Always active</p>
+                  <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-sm flex items-center gap-1.5">
+                    Forge AI Assistant
+                    <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">v2.0</span>
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                    <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] font-medium">Always active & learning</p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="relative flex items-center gap-1">
                 {!isFullPage && (
                   <button 
                     onClick={() => setIsMinimized(true)}
-                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
+                    className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
                   >
                     <Minimize2 className="w-4 h-4" />
                   </button>
@@ -233,7 +245,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                 {!isFullPage && (
                   <button 
                     onClick={() => setIsOpen(false)}
-                    className="p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
+                    className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -244,26 +256,34 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
             {/* Messages */}
             <div 
               ref={scrollRef}
-              className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
+              className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth relative"
             >
+              {/* Subtle AI Background Pattern */}
+              <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+
               {messages.map((msg) => (
                 <div 
                   key={msg.id} 
                   className={cn(
-                    "flex flex-col max-w-[85%]",
+                    "relative flex flex-col max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300",
                     msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start"
                   )}
                 >
                   <div className={cn(
-                    "p-3 rounded-[16px] text-sm ",
+                    "relative p-4 rounded-2xl text-sm shadow-sm transition-all",
                     msg.role === 'user' 
-                      ? "bg-blue-500 text-white rounded-tr-none" 
-                      : "bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-tl-none border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                      ? "bg-gradient-to-br from-indigo-600 to-blue-600 text-white rounded-tr-none" 
+                      : "bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-tl-none border border-[#E9E9E7] dark:border-[#2E2E2E]"
                   )}>
                     {msg.content}
                     
                     {msg.attachedItem && (
-                      <div className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded-[8px] border border-white/20 dark:border-white/5 flex items-center gap-2 text-xs">
+                      <div className={cn(
+                        "mt-3 p-2 rounded-xl border flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider",
+                        msg.role === 'user'
+                          ? "bg-white/10 border-white/20 text-white"
+                          : "bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 text-slate-500 dark:text-slate-400"
+                      )}>
                         <Paperclip className="w-3 h-3" />
                         <span className="truncate">
                           {msg.attachedItem.type === 'post' ? msg.attachedItem.post.title : 
@@ -277,21 +297,26 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                   {msg.suggestedPost && (
                     <div 
                       onClick={() => onPreviewPost?.(msg.suggestedPost!)}
-                      className="mt-2 w-full bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-blue-500/50 transition-colors group/card"
+                      className="mt-3 w-full bg-white dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-indigo-500/50 transition-all shadow-lg hover:shadow-indigo-500/10 group/card"
                     >
-                      <div className="p-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#757681] dark:text-[#9B9A97]">Suggested Draft</span>
-                        <Edit3 className="w-3 h-3 text-blue-500 group-hover/card:scale-110 transition-transform" />
+                      <div className="p-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-slate-50 dark:bg-[#1A1A1A] flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-md bg-indigo-500/10 flex items-center justify-center">
+                            <Sparkles className="w-3 h-3 text-indigo-500" />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#757681] dark:text-[#9B9A97]">AI Draft</span>
+                        </div>
+                        <Edit3 className="w-3 h-3 text-indigo-500 group-hover/card:scale-110 transition-transform" />
                       </div>
-                      <div className="p-3 space-y-2">
-                        <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">{msg.suggestedPost.title}</p>
-                        <p className="text-[11px] text-[#757681] dark:text-[#9B9A97] line-clamp-3">{msg.suggestedPost.caption}</p>
+                      <div className="p-4 space-y-3">
+                        <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight">{msg.suggestedPost.title}</p>
+                        <p className="text-[11px] text-[#757681] dark:text-[#9B9A97] line-clamp-3 leading-relaxed">{msg.suggestedPost.caption}</p>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             applySuggestion(msg.suggestedPost!, msg.attachedItem);
                           }}
-                          className="w-full mt-2 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-[8px] transition-all flex items-center justify-center gap-2"
+                          className="w-full mt-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
                         >
                           <Check className="w-3 h-3" />
                           Apply Changes
@@ -302,24 +327,24 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                 </div>
               ))}
               {isTyping && (
-                <div className="flex items-center gap-2 text-[#757681] dark:text-[#9B9A97]">
+                <div className="flex items-center gap-2 text-indigo-500 dark:text-indigo-400 animate-pulse">
                   <div className="flex gap-1">
                     <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                     <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                     <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce"></span>
                   </div>
-                  <span className="text-xs italic">AI is thinking...</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest italic">AI is thinking...</span>
                 </div>
               )}
             </div>
 
             {/* Input */}
-            <div className="p-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
+            <div className="p-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919]">
               {attachedItem && (
-                <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-[8px] border border-blue-100 dark:border-blue-800/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
-                    <Paperclip className="w-3 h-3" />
-                    <span className="truncate max-w-[180px]">
+                <div className="mb-3 p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="w-3 h-3 text-indigo-500" />
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest truncate max-w-[200px]">
                       {attachedItem.type === 'post' ? attachedItem.post.title : 
                        attachedItem.type === 'product' ? attachedItem.product.title : 
                        attachedItem.idea.title}
@@ -327,13 +352,13 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                   </div>
                   <button 
                     onClick={() => setAttachedItem(null)}
-                    className="p-1 hover:bg-blue-100 dark:hover:bg-blue-800/50 rounded text-blue-500"
+                    className="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-full transition-colors"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3 h-3 text-indigo-500" />
                   </button>
                 </div>
               )}
-              <div className="relative">
+              <div className="relative flex items-center gap-2">
                 <textarea 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -343,13 +368,13 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                       handleSend();
                     }
                   }}
-                  placeholder="Type a message..."
-                  className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-[#2665fd]/50 resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED]"
+                  placeholder="Ask Forge anything..."
+                  className="w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-[#202020] border border-slate-100 dark:border-[#2E2E2E] rounded-2xl text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 transition-all resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED]"
                 />
                 <button 
                   onClick={handleSend}
                   disabled={!input.trim() && !attachedItem}
-                  className="absolute right-2 bottom-2 p-2 bg-[#2665fd] hover:bg-[#2665fd]-hover disabled:opacity-50 disabled:hover:bg-[#2665fd] text-white rounded-[8px] transition-all"
+                  className="absolute right-1.5 bottom-1.5 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20 active:scale-95"
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -369,15 +394,22 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
               setIsMinimized(false);
             }}
             className={cn(
-              "w-14 h-14 rounded-full flex items-center justify-center  transition-all duration-300 group relative overflow-hidden",
-              isButtonOver ? "bg-green-500 scale-125" : "bg-[#2665fd] hover:bg-[#2665fd]-hover",
-              isOpen && !isMinimized ? "rotate-90" : ""
+              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group relative overflow-hidden shadow-xl",
+              isButtonOver 
+                ? "bg-green-500 scale-110" 
+                : "bg-gradient-to-br from-indigo-600 to-blue-600 hover:shadow-indigo-500/25",
+              isOpen && !isMinimized ? "rotate-90 rounded-full" : "hover:scale-105"
             )}
           >
+            {/* Animated Glow */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+            
             {isOpen && !isMinimized ? (
-              <X className="w-6 h-6 text-white" />
+              <X className="w-6 h-6 text-white relative z-10" />
             ) : (
-              <MessageSquare className="w-6 h-6 text-white" />
+              <div className="relative z-10">
+                <Sparkles className="w-6 h-6 text-white animate-pulse" />
+              </div>
             )}
             
             {/* Pulse effect when item is over */}
@@ -387,8 +419,8 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
             
             {/* Tooltip */}
             {!isOpen && (
-              <div className="absolute right-full mr-4 px-3 py-1.5 bg-[#37352F] text-white text-xs rounded-[8px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                AI Chat Assistant
+              <div className="absolute right-full mr-4 px-3 py-1.5 bg-[#1A1A1A] text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 whitespace-nowrap pointer-events-none shadow-xl border border-white/10">
+                AI Assistant
               </div>
             )}
           </button>
