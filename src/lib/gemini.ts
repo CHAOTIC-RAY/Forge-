@@ -482,7 +482,7 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     The JSON object must have exactly these fields:
     - title: A short, catchy title for the carousel post indicating the theme
     - brief: Visual instructions for the graphic designer (e.g., "Slide 1: Intro, Slide 2: Product A, Slide 3: Product B... up to 8 slides")
-    - caption: An engaging Instagram/Facebook caption with emojis, mentioning the featured products and their cohesive theme
+    - caption: A SHORT, engaging Instagram/Facebook caption (max 2-3 sentences) with emojis, mentioning the featured products and their cohesive theme
     - hashtags: Space-separated hashtags`;
 
   const safeParseJSON = (text: string) => {
@@ -804,7 +804,7 @@ export async function generateSmartPost(title: string, category: string, outlet:
   Return a JSON object with:
   - title: A catchy title
   - brief: A detailed graphic brief
-  - caption: An engaging caption
+  - caption: A SHORT, engaging caption (max 2-3 sentences)
   - hashtags: Relevant hashtags
   - type: The most suitable post type (e.g. 🔴 Tiles & Flooring, 🔴 General, etc.)
   - outlet: The most suitable outlet
@@ -1131,7 +1131,7 @@ export async function generateTaskIdeas(
     Return a JSON array of 10 objects. Each object must have exactly these fields:
     - title: A short, catchy title for the post
     - brief: Visual instructions for the graphic designer
-    - caption: An engaging Instagram/Facebook caption structured with a marketing framework
+    - caption: A SHORT, engaging Instagram/Facebook caption structured with a marketing framework (max 2-3 sentences)
     - hashtags: Space-separated hashtags
     - type: (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Showcase', 'Behind the Scenes') - Use BRAND KIT ${titles.category.toUpperCase()} if available.
     - outlet: (e.g., 'Main Store', 'Online Shop', 'Showroom') - Use BRAND KIT ${titles.outlet.toUpperCase()} if available.
@@ -2229,7 +2229,7 @@ export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<str
     Standard Post Object Fields:
     - title: string (The main headline or title)
     - brief: string (Short description or brief)
-    - caption: string (The social media caption)
+    - caption: string (A SHORT social media caption, max 2-3 sentences)
     - hashtags: string (Hashtags)
     - date: string (YYYY-MM-DD format)
     - outlet: string (Platform name like Instagram, Facebook, etc.)
@@ -2304,7 +2304,7 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
     Return a JSON array of ${count} objects. Each object must have exactly these fields:
     - title: A short, catchy title for the post
     - brief: Visual instructions for the graphic designer
-    - caption: An engaging Instagram/Facebook caption with emojis
+    - caption: A SHORT, engaging Instagram/Facebook caption with emojis (max 2-3 sentences)
     - hashtags: Space-separated hashtags
     - type: (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes')
     - outlet: (e.g., 'Buildware', 'Living Mall', 'Office system')`;
@@ -2583,4 +2583,84 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
     };
   }
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatResponse {
+  message: string;
+  suggestedPost?: {
+    title?: string;
+    brief?: string;
+    caption?: string;
+    hashtags?: string;
+    type?: string;
+    outlet?: string;
+  };
+}
+
+export async function chatWithAi(
+  messages: ChatMessage[],
+  contextStr: string
+): Promise<ChatResponse> {
+  const settings = getAiSettings();
+  
+  const systemInstruction = `You are Forge AI, an expert social media manager and creative assistant.
+Your goal is to help the user create, improve, or brainstorm social media posts, products, and ideas.
+You are highly capable of understanding complex tasks.
+
+Context about the current item the user is looking at:
+${contextStr || 'None'}
+
+${settings.systemInstructions ? `\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : ''}
+
+You MUST respond with a valid JSON object containing:
+1. "message": Your conversational response to the user. Be helpful, concise, and smart.
+2. "suggestedPost": (OPTIONAL) If the user asks you to create or modify a post, provide the updated post details here. It should include:
+   - title: A short, catchy title
+   - brief: Visual instructions for the graphic designer
+   - caption: A SHORT, engaging caption (max 2-3 sentences)
+   - hashtags: Space-separated hashtags
+   - type: Post type (e.g., '🔴 General')
+   - outlet: Platform or outlet name
+
+Return ONLY valid JSON. No markdown formatting, no backticks.`;
+
+  const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+  const prompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
+
+  try {
+    let text = '';
+    if (settings.preferredProvider === 'puter') {
+      text = await fetchFromPuter(prompt);
+    } else {
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
+      const ai = getAi();
+      const response = await ai.models.generateContent({
+        model: settings.model || "gemini-2.5-flash",
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.7,
+        }
+      });
+      text = response.text || '{}';
+    }
+
+    const parsed = safeParseJSON(text);
+    if (parsed && parsed.message) {
+      return parsed as ChatResponse;
+    }
+    
+    return { message: "I'm sorry, I couldn't process that request properly." };
+  } catch (error) {
+    console.error("Chat AI error:", error);
+    return { message: "I encountered an error while trying to respond. Please try again." };
+  }
+}
+
 

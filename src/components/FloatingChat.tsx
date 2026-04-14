@@ -3,7 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3 } from 'lucide-react';
 import { Post } from '../data';
 import { cn } from '../lib/utils';
-import { generatePostContent } from '../lib/gemini';
+import { chatWithAi } from '../lib/gemini';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Message {
@@ -105,7 +105,6 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
     setAttachedItem(null); // Clear attachment after sending
 
     try {
-      let prompt = input;
       let contextStr = "";
       
       if (currentAttached) {
@@ -118,35 +117,31 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
         }
       }
 
-      const fullPrompt = `
-        Context: ${contextStr}
-        User Request: ${input || 'Generate/Improve this post content.'}
-        
-        Please provide a title, brief, caption, and hashtags.
-      `;
+      const chatHistory = messages.map(m => ({ role: m.role, content: m.content }));
+      chatHistory.push({ role: 'user', content: input });
 
-      const response = await generatePostContent(fullPrompt);
+      const response = await chatWithAi(chatHistory, contextStr);
       
-      if (response.title) {
+      if (response.suggestedPost && response.suggestedPost.title) {
         const suggestedPost: Partial<Post> = {
-          title: response.title,
-          brief: response.brief,
-          caption: response.caption,
-          hashtags: response.hashtags,
-          type: response.type || (currentAttached?.type === 'post' ? currentAttached.post.type : '🔴 General'),
-          outlet: response.outlet || (currentAttached?.type === 'post' ? currentAttached.post.outlet : 'Rainbow Enterprises'),
+          title: response.suggestedPost.title,
+          brief: response.suggestedPost.brief,
+          caption: response.suggestedPost.caption,
+          hashtags: response.suggestedPost.hashtags,
+          type: response.suggestedPost.type || (currentAttached?.type === 'post' ? currentAttached.post.type : '🔴 General'),
+          outlet: response.suggestedPost.outlet || (currentAttached?.type === 'post' ? currentAttached.post.outlet : 'Rainbow Enterprises'),
         };
 
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `I've prepared a draft for you. You can see the details below.`,
+          content: response.message || `I've prepared a draft for you. You can see the details below.`,
           suggestedPost: suggestedPost,
           attachedItem: currentAttached
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: "I couldn't generate a valid post from that. Could you be more specific?" }]);
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: response.message || "I couldn't generate a valid post from that. Could you be more specific?" }]);
       }
 
     } catch (error: any) {
@@ -211,7 +206,7 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                 {isFullPage && (
                   <button 
                     onClick={onClose}
-                    className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors mr-1"
+                    className="hidden md:block p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors mr-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
