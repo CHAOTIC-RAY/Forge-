@@ -139,6 +139,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
   const [ideaMode, setIdeaMode] = useState<'quick' | 'strategy' | 'postcard'>('quick');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [isIdeaGeneratorExpanded, setIsIdeaGeneratorExpanded] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
 
   useEffect(() => {
     if (!activeBusiness?.id || !auth.currentUser) return;
@@ -594,44 +595,60 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
 
         {/* Idea Lab Generation UI */}
         <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] shrink-0">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-[#757681] mb-3 flex items-center gap-2">
-            <Zap className="w-3 h-3 text-yellow-500" />
-            Idea Generator
-          </h3>
-          <div className="relative">
-            <textarea 
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="Brainstorm new campaigns..."
-              className="w-full bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl p-3 text-sm focus:outline-none focus:border-brand resize-none h-20 shadow-sm"
-            />
-            
-            <div className="mt-3 flex items-center gap-1.5 p-1 bg-white/50 dark:bg-black/20 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
-              {['quick', 'strategy', 'postcard'].map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setIdeaMode(mode as any)}
-                  className={cn(
-                    "flex-1 px-2 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-tighter transition-all",
-                    ideaMode === mode 
-                      ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#1A1A1A] shadow-sm" 
-                      : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                  )}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-
-            <button 
-              onClick={generateIdeas}
-              disabled={isAiLoading || !aiPrompt.trim()}
-              className="absolute bottom-12 right-2 p-1.5 bg-transparent text-brand hover:scale-110 disabled:opacity-40 transition-all"
-              title="Generate with AI"
-            >
-              <Sparkles className="w-5 h-5" />
-            </button>
+          <div 
+            className="flex items-center justify-between cursor-pointer md:cursor-default mb-3"
+            onClick={() => window.innerWidth < 768 && setIsIdeaGeneratorExpanded(!isIdeaGeneratorExpanded)}
+          >
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#757681] flex items-center gap-2">
+              <Zap className="w-3 h-3 text-yellow-500" />
+              Idea Generator
+            </h3>
+            <ChevronDown className={cn("w-4 h-4 text-[#757681] md:hidden transition-transform", isIdeaGeneratorExpanded ? "rotate-180" : "")} />
           </div>
+          
+          <AnimatePresence>
+            {isIdeaGeneratorExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="relative overflow-hidden"
+              >
+                <textarea 
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="Brainstorm new campaigns..."
+                  className="w-full bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-xl p-3 text-sm focus:outline-none focus:border-brand resize-none h-20 shadow-sm"
+                />
+                
+                <div className="mt-3 flex items-center gap-1.5 p-1 bg-white/50 dark:bg-black/20 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  {['quick', 'strategy', 'postcard'].map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setIdeaMode(mode as any)}
+                      className={cn(
+                        "flex-1 px-2 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-tighter transition-all",
+                        ideaMode === mode 
+                          ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#1A1A1A] shadow-sm" 
+                          : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                      )}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+
+                <button 
+                  onClick={generateIdeas}
+                  disabled={isAiLoading || !aiPrompt.trim()}
+                  className="absolute bottom-12 right-2 p-1.5 bg-transparent text-brand hover:scale-110 disabled:opacity-40 transition-all"
+                  title="Generate with AI"
+                >
+                  <Sparkles className="w-5 h-5" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         
         {/* Workspace List */}
@@ -805,7 +822,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
               </button>
 
               {/* Document Header Controls */}
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6">
                 {selectedBlock.status === 'inbox' && (
                   <button 
                     onClick={() => updateBlock(selectedBlock.id, { status: 'organized' })}
@@ -820,7 +837,7 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                     {folders.find(f => f.id === selectedBlock.folderId)?.name || 'Unknown Folder'}
                   </div>
                 )}
-                <div className="flex-1" />
+                <div className="hidden sm:block flex-1" />
                 {selectedBlock.type !== 'postcard' && (
                   <button 
                     onClick={() => generatePostcard(selectedBlock)}
@@ -828,7 +845,8 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                     className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
                   >
                     <ImageIcon className="w-3.5 h-3.5" />
-                    Generate Postcard
+                    <span className="hidden sm:inline">Generate Postcard</span>
+                    <span className="sm:hidden">Postcard</span>
                   </button>
                 )}
                 <button 
@@ -837,8 +855,10 @@ export function NotebookTab({ activeBusiness }: NotebookTabProps) {
                   className="flex items-center gap-2 px-3 py-1.5 bg-brand-bg text-brand hover:bg-brand/20 rounded-md text-xs font-bold transition-colors disabled:opacity-50"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  Expand Idea with AI
+                  <span className="hidden sm:inline">Expand Idea with AI</span>
+                  <span className="sm:hidden">Expand</span>
                 </button>
+                <div className="flex-1 sm:hidden" />
                 <button 
                   onClick={() => archiveBlock(selectedBlock.id)}
                   className="p-1.5 text-[#757681] hover:text-amber-500 rounded-md transition-colors"

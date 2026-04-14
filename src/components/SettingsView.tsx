@@ -169,7 +169,7 @@ export function SettingsView({
   setActiveTab,
   onThemePresetChange
 }: any) {
-  const [expandedId, setExpandedId] = useState<string | null>('account');
+  const [expandedId, setExpandedId] = useState<string | null>(() => typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'account' : null);
   const [themePreset, setThemePreset] = useState(() => localStorage.getItem('forge_theme_preset') || 'default');
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -700,69 +700,6 @@ export function SettingsView({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] md:col-span-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-[12px] flex items-center justify-center text-gray-600 dark:text-gray-400">
-                    <Moon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Appearance</h3>
-                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Toggle dark mode</p>
-                  </div>
-                </div>
-                <button
-                  onClick={toggleDarkMode}
-                  className={cn(
-                    "w-12 h-6 rounded-full transition-colors relative",
-                    isDarkMode ? "bg-brand" : "bg-gray-300 dark:bg-gray-600"
-                  )}
-                >
-                  <div className={cn(
-                    "w-4 h-4 bg-white rounded-full absolute top-1 transition-transform",
-                    isDarkMode ? "left-7" : "left-1"
-                  )} />
-                </button>
-              </div>
-
-              <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] md:col-span-2 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-[12px] flex items-center justify-center text-pink-600 dark:text-pink-400">
-                    <Palette className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Advanced Theme Settings</h3>
-                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Choose a visual preset for your workspace</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {THEME_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => handleThemePresetChange(preset.id)}
-                      className={cn(
-                        "p-3 rounded-[12px] border text-left transition-all group relative overflow-hidden",
-                        themePreset === preset.id 
-                          ? "border-brand bg-brand-bg ring-2 ring-brand/20" 
-                          : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50 bg-white dark:bg-[#191919]"
-                      )}
-                    >
-                      <div className="flex gap-1 mb-2">
-                        {preset.colors.map((c, i) => (
-                          <div key={i} className="w-4 h-4 rounded-full border border-black/5" style={{ backgroundColor: c }} />
-                        ))}
-                      </div>
-                      <h4 className="text-xs font-bold truncate">{preset.name}</h4>
-                      {themePreset === preset.id && (
-                        <div className="absolute top-2 right-2">
-                          <CheckCircle2 className="w-3 h-3 text-brand" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <button
                 onClick={() => {
                   if (isInstallable) handleInstallClick();
@@ -787,7 +724,7 @@ export function SettingsView({
                     Notification.requestPermission();
                   }
                 }}
-                className="flex items-center gap-3 p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-all text-left group md:col-span-2"
+                className="flex items-center gap-3 p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-all text-left group"
               >
                 <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-[12px] flex items-center justify-center text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform shrink-0">
                   <Bell className="w-5 h-5" />
@@ -797,6 +734,83 @@ export function SettingsView({
                   <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Test background alerts</p>
                 </div>
               </button>
+            </div>
+          </div>
+        </BentoCard>
+
+        {/* Appearance & Theme Card */}
+        <BentoCard
+          id="appearance"
+          title="Appearance & Theme"
+          subtitle="Customize your workspace"
+          icon={Palette}
+          iconBg="bg-pink-100 dark:bg-pink-900/30"
+          iconColor="text-pink-600 dark:text-pink-400"
+          expandedId={expandedId}
+          onToggle={toggleExpand}
+        >
+          <div className="space-y-6 pt-4">
+            <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-[12px] flex items-center justify-center text-gray-600 dark:text-gray-400">
+                  <Moon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Dark Mode</h3>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Toggle dark mode</p>
+                </div>
+              </div>
+              <button
+                onClick={toggleDarkMode}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  isDarkMode ? "bg-brand" : "bg-gray-300 dark:bg-gray-600"
+                )}
+              >
+                <div className={cn(
+                  "w-4 h-4 bg-white rounded-full absolute top-1 transition-transform",
+                  isDarkMode ? "left-7" : "left-1"
+                )} />
+              </button>
+            </div>
+
+            <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-[12px] flex items-center justify-center text-pink-600 dark:text-pink-400">
+                  <Palette className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Advanced Theme Settings</h3>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Choose a visual preset for your workspace</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {THEME_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleThemePresetChange(preset.id)}
+                    className={cn(
+                      "p-3 rounded-[12px] border text-left transition-all group relative overflow-hidden",
+                      themePreset === preset.id 
+                        ? "border-brand bg-brand-bg ring-2 ring-brand/20" 
+                        : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50 bg-white dark:bg-[#191919]"
+                    )}
+                  >
+                    <div className="flex gap-1 mb-2">
+                      {preset.colors.map((c, i) => (
+                        <div key={i} className="w-4 h-4 rounded-full border border-black/5" style={{ backgroundColor: c }} />
+                      ))}
+                    </div>
+                    <h4 className="text-xs font-bold truncate">{preset.name}</h4>
+                    {themePreset === preset.id && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 className="w-3 h-3 text-brand" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </BentoCard>
