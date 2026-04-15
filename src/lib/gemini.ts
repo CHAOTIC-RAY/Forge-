@@ -2587,6 +2587,7 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  images?: string[]; // Array of base64 data URIs
 }
 
 export interface ChatResponse {
@@ -2617,7 +2618,7 @@ ${contextStr || 'None'}
 ${settings.systemInstructions ? `\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : ''}
 
 You MUST respond with a valid JSON object containing:
-1. "message": Your conversational response to the user. Be helpful, concise, and smart.
+1. "message": Your conversational response to the user. Be helpful, concise, and smart. Use Markdown formatting for better readability (bold, lists, etc.).
 2. "suggestedPost": (OPTIONAL) If the user asks you to create or modify a post, provide the updated post details here. It should include:
    - title: A short, catchy title
    - brief: Visual instructions for the graphic designer
@@ -2626,23 +2627,62 @@ You MUST respond with a valid JSON object containing:
    - type: Post type (e.g., '🔴 General')
    - outlet: Platform or outlet name
 
-Return ONLY valid JSON. No markdown formatting, no backticks.`;
-
-  const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
-  const prompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
+Return ONLY valid JSON. No markdown formatting for the JSON block itself, no backticks around the JSON.`;
 
   try {
     let text = '';
+    
     if (settings.preferredProvider === 'puter') {
+      const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+      const prompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
       text = await fetchFromPuter(prompt);
     } else {
       if (!isGeminiKeyAvailable()) {
         await fetchServerConfig();
       }
       const ai = getAi();
+      
+      const contents = messages.map((msg, index) => {
+        const parts: any[] = [];
+        
+        // Prepend system instructions to the first user message
+        let textContent = msg.content;
+        if (index === 0 && msg.role === 'user') {
+          textContent = `${systemInstruction}\n\nUser: ${textContent}`;
+        }
+        
+        parts.push({ text: textContent });
+        
+        if (msg.images && msg.images.length > 0) {
+          for (const img of msg.images) {
+            const base64Data = img.split(',')[1] || img;
+            const mimeType = img.split(';')[0].split(':')[1] || 'image/jpeg';
+            parts.push({
+              inlineData: {
+                data: base64Data,
+                mimeType
+              }
+            });
+          }
+        }
+        
+        return {
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts
+        };
+      });
+
+      // Ensure first message is user if we have system instructions to prepend
+      if (contents.length > 0 && contents[0].role !== 'user') {
+         contents.unshift({
+           role: 'user',
+           parts: [{ text: systemInstruction }]
+         });
+      }
+
       const response = await ai.models.generateContent({
         model: settings.model || "gemini-2.5-flash",
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: contents,
         config: {
           responseMimeType: "application/json",
           temperature: 0.7,

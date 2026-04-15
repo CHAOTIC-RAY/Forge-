@@ -30,7 +30,7 @@ import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import { 
   Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2,
-  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun
+  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock
 } from 'lucide-react';
 import { Type } from "@google/genai";
 
@@ -290,7 +290,7 @@ export default function App() {
     return () => window.removeEventListener('message', handleExtensionMessage);
   }, [activeBusiness, user]);
 
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook'>('home');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -3356,6 +3356,7 @@ export default function App() {
             onClearDroppedItem={() => setDroppedToChat(null)}
             isFullPage={activeTab === 'chat'}
             onClose={() => setActiveTab('schedule')}
+            onFullScreen={() => setActiveTab('chat')}
           />
         )}
       </div>

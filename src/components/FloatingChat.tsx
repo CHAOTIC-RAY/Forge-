@@ -5,6 +5,8 @@ import { Post } from '../data';
 import { cn } from '../lib/utils';
 import { chatWithAi } from '../lib/gemini';
 import { motion, AnimatePresence } from 'motion/react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: string;
@@ -12,6 +14,7 @@ interface Message {
   content: string;
   attachedItem?: any;
   suggestedPost?: Partial<Post>;
+  images?: string[];
 }
 
 interface FloatingChatProps {
@@ -23,9 +26,10 @@ interface FloatingChatProps {
   onClearDroppedItem: () => void;
   isFullPage?: boolean;
   onClose?: () => void;
+  onFullScreen?: () => void;
 }
 
-export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost, droppedItem, onClearDroppedItem, isFullPage, onClose }: FloatingChatProps) {
+export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost, droppedItem, onClearDroppedItem, isFullPage, onClose, onFullScreen }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -45,6 +49,8 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [attachedItem, setAttachedItem] = useState<any>(null);
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -88,21 +94,42 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
     }
   }, [messages, isTyping]);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachedImages(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSend = async () => {
-    if (!input.trim() && !attachedItem) return;
+    if (!input.trim() && !attachedItem && attachedImages.length === 0) return;
 
     const currentAttached = attachedItem;
+    const currentImages = [...attachedImages];
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
-      attachedItem: currentAttached
+      attachedItem: currentAttached,
+      images: currentImages.length > 0 ? currentImages : undefined
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
     setAttachedItem(null); // Clear attachment after sending
+    setAttachedImages([]); // Clear images after sending
 
     try {
       let contextStr = "";
@@ -117,8 +144,8 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
         }
       }
 
-      const chatHistory = messages.map(m => ({ role: m.role, content: m.content }));
-      chatHistory.push({ role: 'user', content: input });
+      const chatHistory = messages.map(m => ({ role: m.role, content: m.content, images: m.images }));
+      chatHistory.push({ role: 'user', content: input, images: currentImages.length > 0 ? currentImages : undefined });
 
       const response = await chatWithAi(chatHistory, contextStr);
       
@@ -229,18 +256,27 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                 </div>
               </div>
               <div className="relative flex items-center gap-1">
-                {!isFullPage && (
+                <button 
+                  onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared. How can I help you?' }])}
+                  className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
+                  title="Clear Chat"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                {!isFullPage && onFullScreen && (
                   <button 
-                    onClick={() => setIsMinimized(true)}
+                    onClick={onFullScreen}
                     className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
+                    title="Full Screen"
                   >
-                    <Minimize2 className="w-4 h-4" />
+                    <Maximize2 className="w-4 h-4" />
                   </button>
                 )}
                 {!isFullPage && (
                   <button 
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => setIsMinimized(true)}
                     className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
+                    title="Minimize"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -265,12 +301,36 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                   )}
                 >
                   <div className={cn(
-                    "relative p-4 rounded-2xl text-sm shadow-sm transition-all",
+                    "relative p-4 rounded-2xl text-sm shadow-sm transition-all group/message",
                     msg.role === 'user' 
                       ? "bg-gradient-to-br from-indigo-600 to-blue-600 text-white rounded-tr-none" 
                       : "bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-tl-none border border-[#E9E9E7] dark:border-[#2E2E2E]"
                   )}>
-                    {msg.content}
+                    {msg.role === 'assistant' && (
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(msg.content)}
+                        className="absolute top-2 right-2 p-1.5 bg-white dark:bg-[#2E2E2E] rounded-md opacity-0 group-hover/message:opacity-100 transition-opacity shadow-sm border border-[#E9E9E7] dark:border-[#3E3E3E] text-[#757681] hover:text-indigo-600"
+                        title="Copy message"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    )}
+                    
+                    {msg.images && msg.images.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {msg.images.map((img, idx) => (
+                          <img key={idx} src={img} alt="Attached" className="w-20 h-20 object-cover rounded-lg border border-white/20" />
+                        ))}
+                      </div>
+                    )}
+
+                    {msg.role === 'assistant' ? (
+                      <div className="markdown-body prose dark:prose-invert max-w-none text-sm">
+                        <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    )}
                     
                     {msg.attachedItem && (
                       <div className={cn(
@@ -335,40 +395,71 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
 
             {/* Input */}
             <div className="p-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919]">
-              {attachedItem && (
-                <div className="mb-3 p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex items-center gap-2">
-                    <Paperclip className="w-3 h-3 text-indigo-500" />
-                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest truncate max-w-[200px]">
-                      {attachedItem.type === 'post' ? attachedItem.post.title : 
-                       attachedItem.type === 'product' ? attachedItem.product.title : 
-                       attachedItem.idea.title}
-                    </span>
-                  </div>
-                  <button 
-                    onClick={() => setAttachedItem(null)}
-                    className="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-full transition-colors"
-                  >
-                    <X className="w-3 h-3 text-indigo-500" />
-                  </button>
+              {(attachedItem || attachedImages.length > 0) && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {attachedItem && (
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300 w-full">
+                      <div className="flex items-center gap-2">
+                        <Paperclip className="w-3 h-3 text-indigo-500" />
+                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest truncate max-w-[200px]">
+                          {attachedItem.type === 'post' ? attachedItem.post.title : 
+                           attachedItem.type === 'product' ? attachedItem.product.title : 
+                           attachedItem.idea.title}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => setAttachedItem(null)}
+                        className="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-full transition-colors"
+                      >
+                        <X className="w-3 h-3 text-indigo-500" />
+                      </button>
+                    </div>
+                  )}
+                  {attachedImages.map((img, idx) => (
+                    <div key={idx} className="relative group animate-in slide-in-from-bottom-2 duration-300">
+                      <img src={img} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]" />
+                      <button
+                        onClick={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               <div className="relative flex items-center gap-2">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleImageUpload} 
+                  accept="image/*" 
+                  multiple 
+                  className="hidden" 
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2.5 text-[#757681] hover:text-indigo-600 dark:text-[#9B9A97] hover:bg-slate-50 dark:hover:bg-[#2E2E2E] rounded-xl transition-colors shrink-0"
+                  title="Attach images"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
                 <textarea 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      handleSend();
+                      if (!isTyping) handleSend();
                     }
                   }}
-                  placeholder="Ask Forge anything..."
-                  className="w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-[#202020] border border-slate-100 dark:border-[#2E2E2E] rounded-2xl text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 transition-all resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED]"
+                  disabled={isTyping}
+                  placeholder={isTyping ? "Forge is thinking..." : "Ask Forge anything..."}
+                  className="w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-[#202020] border border-slate-100 dark:border-[#2E2E2E] rounded-2xl text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 transition-all resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED] disabled:opacity-50"
                 />
                 <button 
                   onClick={handleSend}
-                  disabled={!input.trim() && !attachedItem}
+                  disabled={(!input.trim() && !attachedItem && attachedImages.length === 0) || isTyping}
                   className="absolute right-1.5 bottom-1.5 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20 active:scale-95"
                 >
                   <Send className="w-4 h-4" />
@@ -385,8 +476,12 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
           <button 
             ref={setButtonRef}
             onClick={() => {
-              setIsOpen(true);
-              setIsMinimized(false);
+              if (isOpen && !isMinimized) {
+                setIsOpen(false);
+              } else {
+                setIsOpen(true);
+                setIsMinimized(false);
+              }
             }}
             className={cn(
               "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group relative overflow-hidden shadow-xl",

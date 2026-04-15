@@ -48,6 +48,9 @@ export type Post = {
   repeatInterval?: 'weekly' | 'biweekly' | 'monthly';
   lastRepeatDate?: string;
 
+  // AI Framework
+  framework?: 'AIDA' | 'PAS' | 'BAB';
+
   // Analytics fields
   analytics?: {
     impressions?: number;
