@@ -20,6 +20,7 @@ export function SortableTodoItem({ todo, toggleTodo, deleteTodo, activeTab, grou
     transition,
     zIndex: isDragging ? 10 : 1,
     opacity: isDragging ? 0.5 : 1,
+    touchAction: 'none',
   };
 
   const businessName = businesses?.find((b: any) => b.id === todo.project)?.name || todo.project;

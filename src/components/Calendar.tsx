@@ -703,6 +703,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
     transition,
     zIndex: isDragging ? 50 : 1,
     opacity: isDragging ? 0.5 : 1,
+    touchAction: 'none',
   };
 
   // Extract emoji from type

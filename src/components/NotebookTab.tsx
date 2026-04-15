@@ -107,6 +107,7 @@ function DraggableBlock({ block, children, isSelected, onClick }: { block: Block
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.3 : 1,
+    touchAction: 'none',
   };
 
   return (

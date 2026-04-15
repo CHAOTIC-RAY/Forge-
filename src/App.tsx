@@ -716,13 +716,13 @@ export default function App() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // Reduced from 8 for better responsiveness
+        distance: 8, // Increased slightly to prevent accidental drags
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // Reduced from 300 for better responsiveness
-        tolerance: 10, // Increased from 5 to allow more finger movement
+        delay: 500, // Increased to 500ms for a "long press" feel on mobile
+        tolerance: 8, // Slightly reduced tolerance to ensure intent
       },
     }),
     useSensor(KeyboardSensor, {
