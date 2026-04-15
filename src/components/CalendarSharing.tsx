@@ -25,7 +25,24 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
   const generateShortLink = async (longUrl: string) => {
     setIsGeneratingShort(true);
     try {
-      const shortCode = Math.random().toString(36).substring(2, 6);
+      let shortCode = '';
+      let isUnique = false;
+      let attempts = 0;
+      
+      while (!isUnique && attempts < 5) {
+        shortCode = Math.random().toString(36).substring(2, 8);
+        const q = query(collection(db, 'short_links'), where('shortCode', '==', shortCode));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+          isUnique = true;
+        }
+        attempts++;
+      }
+
+      if (!isUnique) {
+        throw new Error("Failed to generate a unique short code.");
+      }
+
       const id = uuidv4();
       
       await setDoc(doc(db, 'short_links', id), {

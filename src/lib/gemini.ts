@@ -7,7 +7,7 @@ import { getIndustryConfig } from './industryConfig';
 
 declare const puter: any;
 
-let serverConfig: { geminiApiKey?: string; groqApiKey?: string } | null = null;
+let serverConfig: { hasGeminiApiKey?: boolean; hasGroqApiKey?: boolean } | null = null;
 
 let isFetchingConfig = false;
 
@@ -51,18 +51,16 @@ if (typeof window !== 'undefined') {
 export const isGeminiKeyAvailable = () => {
   const settings = getAiSettings();
   const apiKey = settings.geminiApiKey || 
-                 serverConfig?.geminiApiKey ||
                  (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || 
                  (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY);
   
-  return !!apiKey && apiKey !== 'undefined';
+  return (!!apiKey && apiKey !== 'undefined') || !!serverConfig?.hasGeminiApiKey;
 };
 
 export const getAi = () => {
   const settings = getAiSettings();
-  // Prioritize settings, then serverConfig, then process.env (Vite defined), then import.meta.env
+  // Prioritize settings, then process.env (Vite defined), then import.meta.env
   let apiKey = settings.geminiApiKey || 
-               serverConfig?.geminiApiKey ||
                (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || 
                (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY) || 
                '';
@@ -72,10 +70,16 @@ export const getAi = () => {
     apiKey = 'missing_api_key';
   }
   
-  // If we still don't have a key, we'll return the instance but it might fail later.
-  // However, we want to avoid the "An API Key must be set when running in a browser" 
-  // error during instantiation if possible, though the SDK usually throws it.
-  return new GoogleGenAI({ apiKey });
+  // If the user hasn't provided a custom key but the server has one, use the proxy
+  const useProxy = apiKey === 'missing_api_key' && serverConfig?.hasGeminiApiKey;
+  
+  const options: any = { apiKey: useProxy ? 'proxy-key' : apiKey };
+  
+  if (useProxy) {
+    options.httpOptions = { baseUrl: window.location.origin + '/api/gemini' };
+  }
+  
+  return new GoogleGenAI(options);
 };
 
 const getVertexModel = (modelName: string) => {
@@ -85,13 +89,15 @@ const getVertexModel = (modelName: string) => {
 const GROQ_API_KEY = (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) || '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';
 
 export const GEMINI_MODELS = [
-  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Latest)' },
-  { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash Lite' },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-  { id: 'gemini-flash-latest', name: 'Gemini 1.5 Flash' },
-  { id: 'gemini-3.1-flash-image-preview', name: 'Gemini 3.1 Flash Image (Nano 2)' },
-  { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash Image (Nano)' },
-  { id: 'gemini-3-pro-image-preview', name: 'Gemini 3 Pro Image' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+  { id: 'gemini-2.0-flash-lite-preview-02-05', name: 'Gemini 2.0 Flash Lite' },
+  { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro Exp' },
+  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+  { id: 'gemini-2.0-flash-exp-image-generation', name: 'Gemini 2.0 Image Generation' },
+  { id: 'imagen-3.0-generate-002', name: 'Imagen 3.0' },
 ];
 
 export const GROQ_MODELS = [
@@ -364,11 +370,13 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
 async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
   const settings = getAiSettings();
   
-  if (!settings.groqApiKey && !serverConfig?.groqApiKey && !GROQ_API_KEY) {
+  if (!settings.groqApiKey && !serverConfig?.hasGroqApiKey && !GROQ_API_KEY) {
     await fetchServerConfig();
   }
   
-  const apiKey = settings.groqApiKey || serverConfig?.groqApiKey || GROQ_API_KEY;
+  const apiKey = settings.groqApiKey || GROQ_API_KEY;
+  const useProxy = !settings.groqApiKey && serverConfig?.hasGroqApiKey;
+  
   const messages: any[] = [];
   
   if (settings.systemInstructions) {
@@ -402,12 +410,18 @@ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType
     body.response_format = { type: 'json_object' };
   }
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const fetchUrl = useProxy ? '/api/groq' : 'https://api.groq.com/openai/v1/chat/completions';
+  const headers: any = {
+    'Content-Type': 'application/json'
+  };
+  
+  if (!useProxy) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
+  const response = await fetch(fetchUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
+    headers,
     body: JSON.stringify(body)
   });
 
@@ -481,7 +495,7 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     You MUST return ONLY a valid JSON object with no markdown formatting, no backticks, and no extra text.
     The JSON object must have exactly these fields:
     - title: A short, catchy title for the carousel post indicating the theme
-    - brief: Visual instructions for the graphic designer (e.g., "Slide 1: Intro, Slide 2: Product A, Slide 3: Product B... up to 8 slides")
+    - brief: Visual instructions for the graphic designer (e.g., "Slide 1: Intro, Slide 2: Product A, Slide 3: Product B... up to 8 slides"). It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
     - caption: A SHORT, engaging Instagram/Facebook caption (max 2-3 sentences) with emojis, mentioning the featured products and their cohesive theme
     - hashtags: Space-separated hashtags`;
 
@@ -803,7 +817,7 @@ export async function generateSmartPost(title: string, category: string, outlet:
   
   Return a JSON object with:
   - title: A catchy title
-  - brief: A detailed graphic brief
+  - brief: A detailed graphic brief. It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
   - caption: A SHORT, engaging caption (max 2-3 sentences)
   - hashtags: Relevant hashtags
   - type: The most suitable post type (e.g. 🔴 Tiles & Flooring, 🔴 General, etc.)
@@ -1130,7 +1144,7 @@ export async function generateTaskIdeas(
 
     Return a JSON array of 10 objects. Each object must have exactly these fields:
     - title: A short, catchy title for the post
-    - brief: Visual instructions for the graphic designer
+    - brief: Visual instructions for the graphic designer. It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
     - caption: A SHORT, engaging Instagram/Facebook caption structured with a marketing framework (max 2-3 sentences)
     - hashtags: Space-separated hashtags
     - type: (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Showcase', 'Behind the Scenes') - Use BRAND KIT ${titles.category.toUpperCase()} if available.
@@ -2228,7 +2242,7 @@ export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<str
     
     Standard Post Object Fields:
     - title: string (The main headline or title)
-    - brief: string (Short description or brief)
+    - brief: string (Short description or brief. It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.)
     - caption: string (A SHORT social media caption, max 2-3 sentences)
     - hashtags: string (Hashtags)
     - date: string (YYYY-MM-DD format)
@@ -2303,7 +2317,7 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
     ${designContext}
     Return a JSON array of ${count} objects. Each object must have exactly these fields:
     - title: A short, catchy title for the post
-    - brief: Visual instructions for the graphic designer
+    - brief: Visual instructions for the graphic designer. It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
     - caption: A SHORT, engaging Instagram/Facebook caption with emojis (max 2-3 sentences)
     - hashtags: Space-separated hashtags
     - type: (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes')
@@ -2592,6 +2606,16 @@ export interface ChatMessage {
 
 export interface ChatResponse {
   message: string;
+  action?: 'delete' | 'update' | 'create';
+  suggestedPosts?: {
+    title?: string;
+    brief?: string;
+    caption?: string;
+    hashtags?: string;
+    type?: string;
+    outlet?: string;
+    date?: string;
+  }[];
   suggestedPost?: {
     title?: string;
     brief?: string;
@@ -2619,13 +2643,21 @@ ${settings.systemInstructions ? `\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.syste
 
 You MUST respond with a valid JSON object containing:
 1. "message": Your conversational response to the user. Be helpful, concise, and smart. Use Markdown formatting for better readability (bold, lists, etc.).
-2. "suggestedPost": (OPTIONAL) If the user asks you to create or modify a post, provide the updated post details here. It should include:
+2. "action": (OPTIONAL) Set to "delete" if the user explicitly asks to delete the attached item. Set to "update" if modifying an existing item.
+3. "suggestedPosts": (OPTIONAL) An array of post objects if the user asks to create multiple posts or schedule them. Each object should include:
    - title: A short, catchy title
-   - brief: Visual instructions for the graphic designer
+   - brief: Visual instructions for the graphic designer. It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
    - caption: A SHORT, engaging caption (max 2-3 sentences)
    - hashtags: Space-separated hashtags
    - type: Post type (e.g., '🔴 General')
    - outlet: Platform or outlet name
+   - date: (OPTIONAL) The target date in YYYY-MM-DD format. If not specified, it will default to today.
+4. "suggestedPost": (OPTIONAL) If the user asks for a single post modification, you can use this single object instead of the array.
+
+If the user asks to delete the attached item, set "action": "delete" and provide a confirmation message in "message".
+If the user asks to edit/modify, set "action": "update" and provide the changes in "suggestedPost".
+
+Today's date is: ${new Date().toISOString().split('T')[0]}. Use this as a reference for scheduling.
 
 Return ONLY valid JSON. No markdown formatting for the JSON block itself, no backticks around the JSON.`;
 
@@ -2642,16 +2674,10 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
       }
       const ai = getAi();
       
-      const contents = messages.map((msg, index) => {
+      const contents = messages.map((msg) => {
         const parts: any[] = [];
         
-        // Prepend system instructions to the first user message
-        let textContent = msg.content;
-        if (index === 0 && msg.role === 'user') {
-          textContent = `${systemInstruction}\n\nUser: ${textContent}`;
-        }
-        
-        parts.push({ text: textContent });
+        parts.push({ text: msg.content });
         
         if (msg.images && msg.images.length > 0) {
           for (const img of msg.images) {
@@ -2672,18 +2698,11 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
         };
       });
 
-      // Ensure first message is user if we have system instructions to prepend
-      if (contents.length > 0 && contents[0].role !== 'user') {
-         contents.unshift({
-           role: 'user',
-           parts: [{ text: systemInstruction }]
-         });
-      }
-
       const response = await ai.models.generateContent({
         model: settings.model || "gemini-2.5-flash",
         contents: contents,
         config: {
+          systemInstruction: systemInstruction,
           responseMimeType: "application/json",
           temperature: 0.7,
         }

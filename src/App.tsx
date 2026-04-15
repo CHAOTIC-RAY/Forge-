@@ -158,8 +158,7 @@ export default function App() {
       setAuthTimeout(false);
     }
   }, [loading]);
-  const isAdmin = !!user;
-  const isGuest = !user;
+
   const [aiSettings, setAiSettingsState] = useState(getAiSettings());
   
   useEffect(() => {
@@ -195,6 +194,15 @@ export default function App() {
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [isBusinessModalOpen, setIsBusinessModalOpen] = useState(false);
+  
+  const isAdmin = useMemo(() => !!(user && activeBusiness && (
+    activeBusiness.ownerId === user.uid || 
+    activeBusiness.memberRoles?.[user.uid] === 'admin' ||
+    activeBusiness.memberRoles?.[user.uid] === 'editor'
+  )), [user, activeBusiness]);
+  
+  const isViewer = useMemo(() => !!(user && activeBusiness && activeBusiness.memberRoles?.[user.uid] === 'viewer'), [user, activeBusiness]);
+  const isGuest = !user;
   const [calendarMode, setCalendarMode] = useState<'work' | 'personal'>('work');
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
@@ -312,7 +320,8 @@ export default function App() {
 
   // Image Viewer state
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
+  const [currentImages, setCurrentImages] = useState<string[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [currentAiProvider, setCurrentAiProvider] = useState<string | null>(null);
   
   const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
@@ -606,8 +615,29 @@ export default function App() {
     }
   };
 
+  const handleRequestAccess = async () => {
+    if (!user || !activeBusiness) return;
+    try {
+      const requestId = uuidv4();
+      await setDoc(doc(db, 'access_requests', requestId), {
+        id: requestId,
+        businessId: activeBusiness.id,
+        userId: user.uid,
+        userEmail: user.email,
+        userName: user.displayName || 'User',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+      toast.success("Access request sent to admin!");
+    } catch (e) {
+      console.error("Error requesting access:", e);
+      toast.error("Failed to send access request.");
+    }
+  };
+
   const handleAutoCategorizeAll = async () => {
-    const saved = localStorage.getItem('rainbowStockCheck');
+    const storageKey = `rainbowStockCheck_${activeBusiness?.id || 'default'}`;
+    const saved = localStorage.getItem(storageKey);
     if (!saved) {
       toast.error("No products found to categorize.");
       return;
@@ -660,7 +690,7 @@ export default function App() {
         });
       }
 
-      localStorage.setItem('rainbowStockCheck', JSON.stringify(updatedProducts));
+      localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
       window.dispatchEvent(new Event('storage')); // Notify other components
       toast.success(`Successfully categorized ${uncategorized.length} products!`);
     } catch (error) {
@@ -684,19 +714,17 @@ export default function App() {
   }, []);
 
   const sensors = useSensors(
-    ...(!isMobile ? [
-      useSensor(PointerSensor, {
-        activationConstraint: {
-          distance: 8, // 8px movement required before drag starts
-        },
-      }),
-      useSensor(TouchSensor, {
-        activationConstraint: {
-          delay: 300, // 300ms delay for touch to differentiate from scroll (long press)
-          tolerance: 5,
-        },
-      }),
-    ] : []),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Reduced from 8 for better responsiveness
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // Reduced from 300 for better responsiveness
+        tolerance: 10, // Increased from 5 to allow more finger movement
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -889,6 +917,11 @@ export default function App() {
     }
   };
 
+  const handlePublishPostRef = useRef(handlePublishPost);
+  useEffect(() => {
+    handlePublishPostRef.current = handlePublishPost;
+  }, [handlePublishPost]);
+
   useEffect(() => {
     if (!user) return;
     
@@ -909,7 +942,7 @@ export default function App() {
         if (due.length > 0) {
           for (const post of due) {
             console.log(`[Scheduler] Auto-publishing: ${post.title}`);
-            await handlePublishPost(post);
+            await handlePublishPostRef.current(post);
           }
         }
         
@@ -922,7 +955,7 @@ export default function App() {
         );
 
         if (repeatPosts.length > 0) {
-          const batch = writeBatch(db);
+          let batch = writeBatch(db);
           let batchCount = 0;
           
           for (const post of repeatPosts) {
@@ -953,6 +986,7 @@ export default function App() {
               
               if (batchCount >= 40) { // Firestore batch limit is 500, but we stay safe
                 await batch.commit();
+                batch = writeBatch(db);
                 batchCount = 0;
               }
             }
@@ -1150,11 +1184,9 @@ export default function App() {
 
     // Add a timeout to prevent infinite "Connecting to cloud..." state
     const timeoutId = setTimeout(() => {
-      if (isSyncing) {
-        console.warn(`[Sync] Sync timeout reached for ${context}`);
-        addSyncLog(`Sync taking longer than expected...`, 'info');
-        setIsSyncing(false); // Force it to false so user can at least use the app
-      }
+      console.warn(`[Sync] Sync timeout reached for ${context}`);
+      addSyncLog(`Sync taking longer than expected...`, 'info');
+      setIsSyncing(false); // Force it to false so user can at least use the app
     }, 15000);
 
     return () => {
@@ -1162,7 +1194,7 @@ export default function App() {
       unsubscribe();
       clearTimeout(timeoutId);
     };
-  }, [user, activeBusiness, sharedBusiness, isViewOnly]);
+  }, [user, activeBusiness, sharedBusiness, isViewOnly, calendarMode]);
 
   useEffect(() => {
     if (user && userProfileSynced.current !== user.uid) {
@@ -1337,13 +1369,12 @@ export default function App() {
   };
 
   const handleDragStart = (event: any) => {
-    if (!isAdmin) return;
+    // Allow drag start for everyone so UI feedback (overlays) works
     setActiveDragItem(event.active.data.current);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragItem(null);
-    if (!isAdmin) return;
     const { active, over } = event;
 
     if (!over) return;
@@ -1358,6 +1389,10 @@ export default function App() {
     }
 
     if (overId === 'delete-zone') {
+      if (!isAdmin) {
+        toast.error("Only admins can delete posts.");
+        return;
+      }
       if (activeData?.type === 'post') {
         handleDeletePost(activeId);
       }
@@ -1382,6 +1417,12 @@ export default function App() {
           setDroppedToChat({ type: 'post', post: activePost });
         }
       }
+      return;
+    }
+
+    // All other actions (rescheduling, creating from product/idea) require isAdmin
+    if (!isAdmin) {
+      toast.error("Please sign in to modify the calendar.");
       return;
     }
 
@@ -1494,11 +1535,13 @@ export default function App() {
     }
   };
 
+  const [droppedImagesForModal, setDroppedImagesForModal] = useState<string[]>([]);
+
   const processDroppedFiles = async (dateStr: string, files: File[], mode: 'single' | 'separate') => {
     setDropActionPrompt(null);
     
     // If a post modal is open, add images to it instead of creating new posts
-    if (isPostModalOpen && (window as any).postModalSetFormData) {
+    if (isPostModalOpen) {
       const base64Images = await Promise.all(
         files.map((file) => {
           return new Promise<string>((resolve, reject) => {
@@ -1509,7 +1552,7 @@ export default function App() {
           });
         })
       );
-      (window as any).postModalSetFormData((prev: any) => ({ ...prev, images: [...(prev.images || []), ...base64Images] }));
+      setDroppedImagesForModal(base64Images);
       return;
     }
 
@@ -1727,8 +1770,14 @@ export default function App() {
     setIsPostModalOpen(true);
   };
 
-  const handleImageClick = (url: string, aiProvider?: string) => {
-    setCurrentImage(url);
+  const handleImageClick = (images: string[] | string, index: number = 0, aiProvider?: string) => {
+    if (Array.isArray(images)) {
+      setCurrentImages(images);
+      setCurrentImageIndex(index);
+    } else {
+      setCurrentImages([images]);
+      setCurrentImageIndex(0);
+    }
     setCurrentAiProvider(aiProvider || null);
     setIsImageViewerOpen(true);
   };
@@ -1756,7 +1805,7 @@ export default function App() {
   };
 
   const exportToExcel = async (settings: ExportSettings) => {
-    const fetchImageAsBase64 = async (url: string): Promise<{ base64: string, extension: string } | null> => {
+    const fetchImageAsBase64 = async (url: string): Promise<{ base64: string, extension: string, width: number, height: number } | null> => {
       if (!url || typeof url !== 'string') return null;
       
       try {
@@ -1782,7 +1831,7 @@ export default function App() {
             ctx.drawImage(img, 0, 0);
             const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
             const base64 = dataUrl.split(',')[1];
-            resolve({ base64, extension: 'jpeg' });
+            resolve({ base64, extension: 'jpeg', width: img.width, height: img.height });
           };
           img.onerror = () => {
             console.warn("Failed to load image for Excel export:", url);
@@ -1941,18 +1990,44 @@ export default function App() {
                       // Estimate text height: ~22 pixels per line
                       // Day label + each post line
                       const lineCount = 1 + dayPosts.length;
-                      let rowOffPixels = lineCount * 22; // More space for text
-                      // Cap rowOffPixels to leave at least some space for the image (row height is 250 points ~ 333px)
+                      let rowOffPixels = lineCount * 22; 
                       if (rowOffPixels > 180) rowOffPixels = 180;
+
+                      // Calculate available space in pixels
+                      // Column width 25 is approx 180 pixels
+                      // Row height 250 points is approx 333 pixels
+                      const colWidthPx = 180;
+                      const rowHeightPx = 333;
+                      const availableHeightPx = rowHeightPx - rowOffPixels - 10; // 10px padding
+                      const availableWidthPx = colWidthPx - 20; // 20px padding
+
+                      // Calculate best fit maintaining aspect ratio
+                      const imgRatio = imageData.width / imageData.height;
+                      const containerRatio = availableWidthPx / availableHeightPx;
+
+                      let finalWidth, finalHeight;
+                      if (imgRatio > containerRatio) {
+                        // Image is wider than container
+                        finalWidth = availableWidthPx;
+                        finalHeight = availableWidthPx / imgRatio;
+                      } else {
+                        // Image is taller than container
+                        finalHeight = availableHeightPx;
+                        finalWidth = availableHeightPx * imgRatio;
+                      }
+
+                      // Convert back to Excel coordinates for br
+                      const colSpan = (finalWidth / colWidthPx) * 0.9;
+                      const rowSpan = (finalHeight / rowHeightPx) * 0.9;
                       
                       sheet.addImage(imageId, {
                         tl: { 
-                          col: colNumber - 1 + 0.05, 
-                          row: row.number - 1 + (rowOffPixels / 250)
+                          col: colNumber - 1 + (0.5 - colSpan / 2), // Center horizontally
+                          row: row.number - 1 + (rowOffPixels / rowHeightPx) + 0.02
                         } as any,
                         br: {
-                          col: colNumber - 0.05,
-                          row: row.number - 0.05
+                          col: colNumber - 1 + (0.5 + colSpan / 2),
+                          row: row.number - 1 + (rowOffPixels / rowHeightPx) + 0.02 + rowSpan
                         } as any,
                         editAs: 'oneCell'
                       });
@@ -2032,9 +2107,40 @@ export default function App() {
                         extension: imageData.extension as any,
                       });
                       
+                      // Calculate available space in pixels
+                      // Column width 50 is approx 350 pixels
+                      // Row height 120 points is approx 160 pixels
+                      const colWidthPx = 350;
+                      const rowHeightPx = 160;
+                      const availableHeightPx = rowHeightPx - 10; // 10px padding
+                      const availableWidthPx = colWidthPx - 20; // 20px padding
+
+                      // Calculate best fit maintaining aspect ratio
+                      const imgRatio = imageData.width / imageData.height;
+                      const containerRatio = availableWidthPx / availableHeightPx;
+
+                      let finalWidth, finalHeight;
+                      if (imgRatio > containerRatio) {
+                        finalWidth = availableWidthPx;
+                        finalHeight = availableWidthPx / imgRatio;
+                      } else {
+                        finalHeight = availableHeightPx;
+                        finalWidth = availableHeightPx * imgRatio;
+                      }
+
+                      // Convert back to Excel coordinates
+                      const colSpan = (finalWidth / colWidthPx) * 0.9;
+                      const rowSpan = (finalHeight / rowHeightPx) * 0.9;
+
                       sheet.addImage(imageId, {
-                        tl: { col: colNumber - 1 + 0.05, row: row.number - 1 + 0.05 } as any,
-                        br: { col: colNumber - 0.05, row: row.number - 0.05 } as any,
+                        tl: { 
+                          col: colNumber - 1 + (0.5 - colSpan / 2), 
+                          row: row.number - 1 + (0.5 - rowSpan / 2) 
+                        } as any,
+                        br: { 
+                          col: colNumber - 1 + (0.5 + colSpan / 2), 
+                          row: row.number - 1 + (0.5 + rowSpan / 2) 
+                        } as any,
                         editAs: 'oneCell'
                       });
                       cell.value = ''; // Clear text if image is added
@@ -2053,7 +2159,6 @@ export default function App() {
           if (viewVariation === 'timeline') {
             // Add a timeline marker column style if needed, but for now just a clean list is fine
           }
-        } else if (viewVariation === 'summary') {
         } else if (viewVariation === 'summary') {
           sheet.addRow([`Forge Social Media Summary - ${monthLabel}`]).font = { bold: true, size: 16 };
           sheet.addRow([`Generated on: ${format(new Date(), 'PPP')}`]);
@@ -2817,7 +2922,7 @@ export default function App() {
         <ConfigWorkspaceProvider activeBusiness={activeBusiness}>
           <DndContext 
         sensors={sensors}
-        collisionDetection={rectIntersection}
+        collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragOver={(event) => {
           const { over } = event;
@@ -2965,7 +3070,7 @@ export default function App() {
             >
               <CalendarIcon className="w-5 h-5 shrink-0" />
             </DroppableTab>
-            {isAdmin && (
+            {isAdmin ? (
               <>
                 <button 
                   onClick={() => setActiveTab('search')} 
@@ -3018,7 +3123,53 @@ export default function App() {
                   <BarChart3 className="w-5 h-5 shrink-0" />
                 </button>
               </>
-            )}
+            ) : isViewer ? (
+              <>
+                <button 
+                  onClick={handleRequestAccess}
+                  title="Request Access to Products"
+                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                >
+                  <Database className="w-5 h-5 shrink-0" />
+                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                    Request Access
+                  </div>
+                </button>
+                <button 
+                  onClick={handleRequestAccess}
+                  title="Request Access to Notebook"
+                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                >
+                  <Notebook className="w-5 h-5 shrink-0" />
+                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                </button>
+                <button 
+                  onClick={handleRequestAccess}
+                  title="Request Access to Brand Kit"
+                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                >
+                  <Palette className="w-5 h-5 shrink-0" />
+                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                </button>
+                <button 
+                  onClick={handleRequestAccess}
+                  title="Request Access to AI Studio"
+                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                >
+                  <Sparkles className="w-5 h-5 shrink-0" />
+                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                </button>
+                <button 
+                  onClick={handleRequestAccess}
+                  title="Request Access to Analytics"
+                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                >
+                  <BarChart3 className="w-5 h-5 shrink-0" />
+                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                </button>
+              </>
+            ) : null}
             {isGuest && (
               <button 
                 onClick={handleLogin}
@@ -3142,6 +3293,8 @@ export default function App() {
                   setActiveTab={setActiveTab}
                   onAddPost={openNewPostModal}
                   isAdmin={isAdmin}
+                  isViewer={isViewer}
+                  onHandleRequestAccess={handleRequestAccess}
                   user={user}
                 />
               )}
@@ -3335,6 +3488,7 @@ export default function App() {
             onCreatePost={(newPost, date) => {
               handleSavePost({ ...newPost, date: date || newPost.date });
             }}
+            onDeletePost={handleDeletePost}
             onPreviewPost={(partialPost) => {
               setSelectedPost({
                 id: 'preview-' + Date.now(),
@@ -3559,6 +3713,8 @@ export default function App() {
         activeBusiness={activeBusiness}
         posts={posts}
         dbMode={getDbMode(activeBusiness?.industry)}
+        droppedImages={droppedImagesForModal}
+        onImagesConsumed={() => setDroppedImagesForModal([])}
       />
 
       <DirectSearch
@@ -3633,7 +3789,8 @@ export default function App() {
 
       <ImageViewer
         isOpen={isImageViewerOpen}
-        imageUrl={currentImage}
+        images={currentImages}
+        initialIndex={currentImageIndex}
         aiProvider={currentAiProvider}
         onClose={() => setIsImageViewerOpen(false)}
       />

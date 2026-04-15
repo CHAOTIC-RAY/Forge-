@@ -128,9 +128,28 @@
         "themePreset": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
-        "members": { "type": "array", "items": { "type": "string" } }
+        "members": { "type": "array", "items": { "type": "string" } },
+        "memberRoles": { 
+          "type": "object", 
+          "description": "Map of user UID to their role (admin, editor, viewer)" 
+        }
       },
       "required": ["id", "name", "ownerId", "createdAt", "updatedAt"]
+    },
+    "AccessRequest": {
+      "title": "AccessRequest",
+      "description": "A request from a user to gain full access to a workspace",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "businessId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "businessId", "userId", "status", "createdAt"]
     },
     "ShortLink": {
       "title": "ShortLink",
@@ -264,6 +283,10 @@
     "/notebooks/{notebookId}": {
       "schema": "Notebook",
       "description": "User's infinite canvas notebooks"
+    },
+    "/access_requests/{requestId}": {
+      "schema": "AccessRequest",
+      "description": "Requests for workspace access"
     },
     "/short_links/{shortCode}": {
       "schema": "ShortLink",

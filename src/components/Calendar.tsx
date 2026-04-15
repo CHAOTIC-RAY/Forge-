@@ -42,7 +42,7 @@ interface CalendarProps {
   onAddPost: (date?: string) => void;
   onDeletePost?: (postId: string) => void;
   onCopyPost?: (post: Post, date: string) => void;
-  onImageClick: (url: string, aiProvider?: string) => void;
+  onImageClick: (images: string[] | string, index?: number, aiProvider?: string) => void;
   onRegeneratePost?: (post: Post) => void;
   onGenerateMockup?: (post: Post) => void;
   onUpdatePost?: (post: Post) => void;
@@ -335,6 +335,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                       onRegeneratePost={onRegeneratePost}
                       onGenerateMockup={onGenerateMockup}
                       onUpdatePost={onUpdatePost}
+                      onDeletePost={onDeletePost}
                       onFileDrop={onFileDrop}
                       isAdmin={isAdmin}
                       setContextMenu={setContextMenu}
@@ -482,16 +483,17 @@ interface DroppableDayProps {
   onSelect: () => void;
   onEditPost: (post: Post) => void;
   onAddPost: (date?: string) => void;
-  onImageClick: (url: string) => void;
+  onImageClick: (images: string[] | string, index?: number, aiProvider?: string) => void;
   onRegeneratePost?: (post: Post) => void;
   onGenerateMockup?: (post: Post) => void;
   onUpdatePost?: (post: Post) => void;
+  onDeletePost?: (postId: string) => void;
   onFileDrop?: (date: string, files: File[]) => void;
   isAdmin?: boolean;
   setContextMenu: (menu: { x: number; y: number; dateStr: string } | null) => void;
 }
 
-function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMode, isSelected, onSelect, onEditPost, onAddPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onFileDrop, isAdmin, setContextMenu }: DroppableDayProps) {
+function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMode, isSelected, onSelect, onEditPost, onAddPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onDeletePost, onFileDrop, isAdmin, setContextMenu }: DroppableDayProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: dateStr,
   });
@@ -631,6 +633,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
               onRegenerate={() => onRegeneratePost?.(post)}
               onGenerateMockup={() => onGenerateMockup?.(post)}
               onUpdate={(updatedPost) => onUpdatePost?.(updatedPost)}
+              onDelete={() => onDeletePost?.(post.id)}
               isAdmin={isAdmin}
             />
           ))}
@@ -656,14 +659,15 @@ interface DraggablePostProps {
   post: Post;
   viewMode?: ViewMode;
   onEdit: () => void;
-  onImageClick: (url: string, aiProvider?: string) => void;
+  onImageClick: (images: string[] | string, index?: number, aiProvider?: string) => void;
   onRegenerate?: () => void;
   onGenerateMockup?: () => void;
   onUpdate?: (post: Post) => void;
+  onDelete?: () => void;
   isAdmin?: boolean;
 }
 
-function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onGenerateMockup, onUpdate, isAdmin }: DraggablePostProps) {
+function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onGenerateMockup, onUpdate, onDelete, isAdmin }: DraggablePostProps) {
   const [isRegenerating, setIsRegenerating] = React.useState(false);
   const [isGeneratingMockup, setIsGeneratingMockup] = React.useState(false);
 
@@ -737,8 +741,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
       variant: 'danger' as const,
       onClick: () => {
         if (window.confirm("Are you sure you want to delete this post?")) {
-          // This would ideally trigger a delete flow
-          toast.info("Delete functionality would be triggered here");
+          onDelete?.();
         }
       }
     }] : []),
@@ -834,7 +837,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
               )}
               onClick={(e) => {
                 e.stopPropagation();
-                onImageClick(img, post.aiProvider);
+                onImageClick(post.images!, idx, post.aiProvider);
               }}
             >
               <DraggableImage imageUrl={img} post={post} />

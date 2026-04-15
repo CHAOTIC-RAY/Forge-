@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AutoSuggest } from '../AutoSuggest';
 import { ForgeLoader } from '../ForgeLoader';
 import { X, Upload, Image as ImageIcon, Trash2, Wand2, MessageSquare, Send, Share2, CheckCircle2, AlertCircle, Clock, Repeat, BarChart3, Palette, Sparkles, Hash } from 'lucide-react';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
 import { Post, OUTLETS, PRODUCT_CATEGORIES } from '../../data';
 import { v4 as uuidv4 } from 'uuid';
 import { generatePostContent, generateMockupImage, generatePostFromImage, generateAiImage, generateHashtagSuggestions, generatePostWithFramework, findProductsByCategory, HighStockProduct, generateSmartPost, generatePostVisuals, generateSmartBrief, getAiSettings } from '../../lib/gemini';
@@ -36,10 +36,12 @@ interface PostModalProps {
   activeBusiness?: any;
   posts: Post[];
   dbMode?: 'product' | 'info';
+  droppedImages?: string[];
+  onImagesConsumed?: () => void;
 }
 
 
-export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelete, readOnly = false, user, googleTokens, initialProducts, activeBusiness, posts, dbMode = 'product' }: PostModalProps) {
+export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelete, readOnly = false, user, googleTokens, initialProducts, activeBusiness, posts, dbMode = 'product', droppedImages, onImagesConsumed }: PostModalProps) {
   const [formData, setFormData] = useState<Partial<Post>>({});
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [isGeneratingMockup, setIsGeneratingMockup] = useState(false);
@@ -64,14 +66,13 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     type: 'Type'
   });
 
-  // Expose setFormData for external image drops
+  // Handle external image drops
   useEffect(() => {
-    if (isOpen) {
-      (window as any).postModalSetFormData = setFormData;
-    } else {
-      delete (window as any).postModalSetFormData;
+    if (isOpen && droppedImages && droppedImages.length > 0) {
+      setFormData(prev => ({ ...prev, images: [...(prev.images || []), ...droppedImages] }));
+      onImagesConsumed?.();
     }
-  }, [isOpen]);
+  }, [isOpen, droppedImages, onImagesConsumed]);
 
   useEffect(() => {
     if (isOpen && activeBusiness?.id) {

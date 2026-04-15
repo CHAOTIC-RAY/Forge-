@@ -114,6 +114,7 @@ export interface Business {
   createdAt: string;
   updatedAt: string;
   members?: string[];
+  memberRoles?: { [uid: string]: 'admin' | 'editor' | 'viewer' };
   status?: string;
   oneDriveCredentials?: {
     clientId: string;

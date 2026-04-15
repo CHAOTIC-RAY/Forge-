@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 import { addMonths, subMonths } from 'date-fns';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -11,6 +11,8 @@ import { ImageViewer } from './ImageViewer';
 import { ForgeLogo } from './ForgeLogo';
 import { ForgeLoader } from './ForgeLoader';
 import { cn } from '../lib/utils';
+import { Plus, Check, Layout } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function PublicCalendarView() {
   const { businessId, shareToken } = useParams<{ businessId: string, shareToken: string }>();
@@ -20,6 +22,33 @@ export function PublicCalendarView() {
   const [error, setError] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [user] = useAuthState(auth);
+  const [isAdding, setIsAdding] = useState(false);
+
+  const isMember = user && business?.members?.includes(user.uid);
+
+  const handleAddWorkspace = async () => {
+    if (!user || !businessId || isAdding) return;
+    setIsAdding(true);
+    try {
+      const bizRef = doc(db, 'businesses', businessId);
+      await updateDoc(bizRef, {
+        members: arrayUnion(user.uid),
+        [`memberRoles.${user.uid}`]: 'viewer'
+      });
+      toast.success("Workspace added to your list! You now have viewer access.");
+      // Update local state
+      setBusiness(prev => prev ? { 
+        ...prev, 
+        members: [...(prev.members || []), user.uid],
+        memberRoles: { ...(prev.memberRoles || {}), [user.uid]: 'viewer' }
+      } as Business : null);
+    } catch (e) {
+      console.error("Error adding workspace:", e);
+      toast.error("Failed to add workspace. Please try again.");
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -134,8 +163,31 @@ export function PublicCalendarView() {
             <h1 className="font-bold text-sm truncate">{business?.name} - Shared Calendar</h1>
           </div>
           <div className="flex items-center gap-3">
+            {user && !isMember && (
+              <button 
+                onClick={handleAddWorkspace}
+                disabled={isAdding}
+                className="flex items-center gap-2 px-3 py-1.5 bg-brand text-white rounded-[6px] text-xs font-bold hover:bg-brand-hover transition-all disabled:opacity-50"
+              >
+                {isAdding ? (
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )}
+                Add Workspace
+              </button>
+            )}
+            {isMember && (
+              <button 
+                onClick={() => window.location.href = '/'}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[6px] text-xs font-bold text-brand hover:bg-brand/5 transition-all"
+              >
+                <Layout className="w-3.5 h-3.5" />
+                Open in App
+              </button>
+            )}
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-2">
                 {user.photoURL ? (
                   <img src={user.photoURL} alt="Profile" className="w-6 h-6 rounded-full" />
                 ) : (
@@ -193,7 +245,7 @@ export function PublicCalendarView() {
       {enlargedImage && (
         <ImageViewer
           isOpen={!!enlargedImage}
-          imageUrl={enlargedImage}
+          images={[enlargedImage]}
           onClose={() => setEnlargedImage(null)}
         />
       )}

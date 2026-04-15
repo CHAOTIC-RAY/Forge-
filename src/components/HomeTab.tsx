@@ -32,10 +32,12 @@ interface HomeTabProps {
   setActiveTab: (tab: any) => void;
   onAddPost: () => void;
   isAdmin: boolean;
+  isViewer?: boolean;
+  onHandleRequestAccess?: () => void;
   user?: User | null;
 }
 
-export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmin, user }: HomeTabProps) {
+export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmin, isViewer, onHandleRequestAccess, user }: HomeTabProps) {
   const [greeting, setGreeting] = useState<string>('');
   const [products, setProducts] = useState<HighStockProduct[]>([]);
   const [recommendedIdea, setRecommendedIdea] = useState<any>(null);
@@ -218,7 +220,77 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             Create Post
           </button>
         )}
+        {isViewer && (
+          <button 
+            onClick={onHandleRequestAccess}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-brand/10 text-brand rounded-[8px] text-sm font-bold hover:bg-brand/20 transition-all active:scale-95 shrink-0 min-h-[44px]"
+          >
+            <Sparkles className="w-5 h-5" />
+            Request Full Access
+          </button>
+        )}
       </div>
+
+      {/* Daily Inspiration Section - Moved Up */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white dark:bg-[#1A1A1A] border-2 border-brand/20 dark:border-brand/40 rounded-[24px] p-8 relative overflow-hidden group shadow-xl shadow-brand/5"
+      >
+        <div className="absolute top-0 right-0 p-12 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+          <Sparkles className="w-48 h-48 text-brand" />
+        </div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="px-3 py-1.5 bg-brand text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg shadow-brand/20">
+              Daily Inspiration
+            </div>
+            <div className="flex items-center gap-1.5 text-[#757681] dark:text-[#9B9A97] text-xs font-bold">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Freshly generated for {activeBusiness?.name || 'you'}</span>
+            </div>
+          </div>
+
+          {isGeneratingIdea ? (
+            <div className="flex items-center gap-4 py-6">
+              <div className="w-6 h-6 border-3 border-brand border-t-transparent rounded-full animate-spin" />
+              <span className="text-base font-bold text-[#757681] animate-pulse">AI is crafting your daily strategy...</span>
+            </div>
+          ) : recommendedIdea ? (
+            <div className="space-y-6">
+              <div className="max-w-4xl">
+                <h3 className="text-2xl md:text-3xl font-black text-[#37352F] dark:text-[#EBE9ED] mb-3 leading-tight tracking-tight">{recommendedIdea.title}</h3>
+                <p className="text-base text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+                  {recommendedIdea.description || recommendedIdea.brief}
+                </p>
+              </div>
+              
+              <div className="flex flex-wrap gap-4 pt-2">
+                <button 
+                  onClick={() => isAdmin ? setActiveTab('creative') : onHandleRequestAccess?.()}
+                  className="px-6 py-3 bg-brand text-white rounded-xl text-sm font-black uppercase tracking-widest hover:bg-brand-hover transition-all flex items-center gap-2 shadow-lg shadow-brand/25 active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {isAdmin ? 'Use in AI Studio' : 'Request Access to Use'}
+                </button>
+                <button 
+                  onClick={() => isAdmin ? setActiveTab('notebook') : onHandleRequestAccess?.()}
+                  className="px-6 py-3 bg-white dark:bg-[#252525] border border-[#E9E9E7] dark:border-[#333333] text-[#37352F] dark:text-[#EBE9ED] rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center gap-2 active:scale-95"
+                >
+                  <Database className="w-4 h-4" />
+                  {isAdmin ? 'Save to Strategy Lab' : 'Request Access to Save'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="py-6">
+              <p className="text-base text-[#757681]">No recommendation available right now. Check back later!</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -245,8 +317,8 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
         ))}
       </div>
 
-      {/* Social Analytics Bento Boxes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Social Analytics Bento Boxes - Smaller */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {socialStats.map((platform, idx) => (
           <motion.div
             key={platform.platform}
@@ -255,93 +327,29 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             transition={{ delay: 0.2 + idx * 0.1 }}
             className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] overflow-hidden"
           >
-            <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-[#F7F7F5]/30 dark:bg-[#2E2E2E]/30">
-              <div className="flex items-center gap-3">
-                <div className={cn("w-10 h-10 rounded-[8px] flex items-center justify-center", platform.bg)}>
-                  <platform.icon className={cn("w-5 h-5", platform.color)} />
+            <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-[#F7F7F5]/30 dark:bg-[#2E2E2E]/30">
+              <div className="flex items-center gap-2">
+                <div className={cn("w-8 h-8 rounded-[6px] flex items-center justify-center", platform.bg)}>
+                  <platform.icon className={cn("w-4 h-4", platform.color)} />
                 </div>
-                <h3 className="font-black text-base">{platform.platform} Insights</h3>
+                <h3 className="font-black text-sm">{platform.platform}</h3>
               </div>
-              <TrendingUp className="w-4 h-4 text-green-500" />
+              <TrendingUp className="w-3 h-3 text-green-500" />
             </div>
-            <div className="p-5 grid grid-cols-3 gap-4">
+            <div className="p-4 grid grid-cols-3 gap-2">
               {platform.metrics.map((metric) => (
-                <div key={metric.label} className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1.5 text-[#757681]">
-                    <metric.icon className="w-3 h-3" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">{metric.label}</span>
+                <div key={metric.label} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1 text-[#757681]">
+                    <metric.icon className="w-2.5 h-2.5" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider">{metric.label}</span>
                   </div>
-                  <span className="text-lg font-black text-[#37352F] dark:text-[#EBE9ED]">{metric.value}</span>
+                  <span className="text-base font-black text-[#37352F] dark:text-[#EBE9ED]">{metric.value}</span>
                 </div>
               ))}
             </div>
           </motion.div>
         ))}
       </div>
-
-      {/* Recommended Idea Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
-        className="bg-gradient-to-br from-[#2665fd]/5 to-purple-500/5 dark:from-[#2665fd]/10 dark:to-purple-500/10 border border-brand-border dark:border-brand/30 rounded-[16px] p-6 relative overflow-hidden group"
-      >
-        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-          <Sparkles className="w-32 h-32 text-brand" />
-        </div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="px-2 py-1 bg-brand text-white text-[10px] font-black uppercase tracking-widest rounded-[4px]">
-              Daily Inspiration
-            </div>
-            <span className="text-xs text-[#757681] font-bold flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              Freshly generated for you
-            </span>
-          </div>
-
-          {isGeneratingIdea ? (
-            <div className="flex items-center gap-3 py-4">
-              <div className="w-5 h-5 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm font-bold text-[#757681]">AI is crafting a unique strategy...</span>
-            </div>
-          ) : recommendedIdea ? (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xl font-black text-[#37352F] dark:text-[#EBE9ED] mb-2">{recommendedIdea.title}</h3>
-                <p className="text-sm text-[#757681] dark:text-[#9B9A97] leading-relaxed max-w-3xl">
-                  {recommendedIdea.description || recommendedIdea.brief}
-                </p>
-              </div>
-              
-              <div className="flex flex-wrap gap-3 pt-2">
-                <button 
-                  onClick={() => {
-                    // Logic to use this idea in AI Studio
-                    setActiveTab('creative');
-                  }}
-                  className="px-5 py-2.5 bg-brand text-white rounded-[10px] text-xs font-bold hover:bg-brand-hover transition-all flex items-center gap-2 shadow-lg shadow-[#2665fd]/20"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Use in AI Studio
-                </button>
-                <button 
-                  onClick={() => setActiveTab('notebook')}
-                  className="px-5 py-2.5 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[10px] text-xs font-bold hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center gap-2"
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  Save to Strategy Lab
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="py-4">
-              <p className="text-sm text-[#757681]">No recommendation available right now. Check back later!</p>
-            </div>
-          )}
-        </div>
-      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Schedule */}
@@ -422,7 +430,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             <h3 className="text-xs font-black text-[#757681] uppercase tracking-[0.2em] px-1">Quick Actions</h3>
             <div className="grid grid-cols-1 gap-3">
               <button 
-                onClick={() => setActiveTab('creative')}
+                onClick={() => isAdmin ? setActiveTab('creative') : onHandleRequestAccess?.()}
                 className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all flex items-center gap-4 group text-left min-h-[44px]"
               >
                 <div className="w-12 h-12 rounded-[8px] bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
@@ -435,7 +443,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
                 <ArrowRight className="w-4 h-4 ml-auto text-[#757681] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
               </button>
               <button 
-                onClick={() => setActiveTab('ideas')}
+                onClick={() => isAdmin ? setActiveTab('ideas') : onHandleRequestAccess?.()}
                 className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all flex items-center gap-4 group text-left min-h-[44px]"
               >
                 <div className="w-12 h-12 rounded-[8px] bg-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3 } from 'lucide-react';
+import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3, AlertCircle } from 'lucide-react';
 import { Post } from '../data';
 import { cn } from '../lib/utils';
 import { chatWithAi } from '../lib/gemini';
@@ -14,6 +14,8 @@ interface Message {
   content: string;
   attachedItem?: any;
   suggestedPost?: Partial<Post>;
+  suggestedPosts?: Partial<Post>[];
+  action?: 'delete' | 'update' | 'create';
   images?: string[];
 }
 
@@ -21,6 +23,7 @@ interface FloatingChatProps {
   posts: Post[];
   onUpdatePost: (post: Post) => void;
   onCreatePost: (post: Post, date?: string) => void;
+  onDeletePost?: (postId: string) => void;
   onPreviewPost?: (post: Partial<Post>) => void;
   droppedItem: any;
   onClearDroppedItem: () => void;
@@ -29,7 +32,7 @@ interface FloatingChatProps {
   onFullScreen?: () => void;
 }
 
-export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost, droppedItem, onClearDroppedItem, isFullPage, onClose, onFullScreen }: FloatingChatProps) {
+export function FloatingChat({ posts, onUpdatePost, onCreatePost, onDeletePost, onPreviewPost, droppedItem, onClearDroppedItem, isFullPage, onClose, onFullScreen }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -149,23 +152,29 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
 
       const response = await chatWithAi(chatHistory, contextStr);
       
-      if (response.suggestedPost && response.suggestedPost.title) {
-        const suggestedPost: Partial<Post> = {
-          title: response.suggestedPost.title,
-          brief: response.suggestedPost.brief,
-          caption: response.suggestedPost.caption,
-          hashtags: response.suggestedPost.hashtags,
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.message || `I've prepared some drafts for you.`,
+        attachedItem: currentAttached,
+        action: response.action
+      };
+
+      if (response.suggestedPosts && response.suggestedPosts.length > 0) {
+        assistantMessage.suggestedPosts = response.suggestedPosts.map(p => ({
+          ...p,
+          type: p.type || (currentAttached?.type === 'post' ? currentAttached.post.type : '🔴 General'),
+          outlet: p.outlet || (currentAttached?.type === 'post' ? currentAttached.post.outlet : 'Rainbow Enterprises'),
+        }));
+      } else if (response.suggestedPost && response.suggestedPost.title) {
+        assistantMessage.suggestedPost = {
+          ...response.suggestedPost,
           type: response.suggestedPost.type || (currentAttached?.type === 'post' ? currentAttached.post.type : '🔴 General'),
           outlet: response.suggestedPost.outlet || (currentAttached?.type === 'post' ? currentAttached.post.outlet : 'Rainbow Enterprises'),
         };
+      }
 
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: response.message || `I've prepared a draft for you. You can see the details below.`,
-          suggestedPost: suggestedPost,
-          attachedItem: currentAttached
-        };
+      if (assistantMessage.suggestedPost || assistantMessage.suggestedPosts) {
         setMessages(prev => [...prev, assistantMessage]);
       } else {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: response.message || "I couldn't generate a valid post from that. Could you be more specific?" }]);
@@ -184,6 +193,16 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
     }
   };
 
+  const handleDeleteAction = (originalItem: any) => {
+    if (originalItem?.type === 'post' && onDeletePost) {
+      onDeletePost(originalItem.post.id);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '🗑️ Post has been deleted.' }]);
+      onClearDroppedItem();
+    } else {
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '⚠️ I can only delete posts that are currently attached to the chat.' }]);
+    }
+  };
+
   const applySuggestion = (suggestion: Partial<Post>, originalItem: any) => {
     if (originalItem?.type === 'post') {
       onUpdatePost({ ...originalItem.post, ...suggestion } as Post);
@@ -192,13 +211,26 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
       // Create new post
       const newPost: Post = {
         id: Math.random().toString(36).substr(2, 9),
-        date: new Date().toISOString().split('T')[0], // Default to today
+        date: suggestion.date || new Date().toISOString().split('T')[0], // Use suggestion date if available
         images: originalItem?.type === 'product' && originalItem.product.link ? [originalItem.product.link] : [],
         ...suggestion
       } as Post;
       onCreatePost(newPost);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '✅ New post created and added to today!' }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: `✅ New post created and added to ${newPost.date}!` }]);
     }
+  };
+
+  const applyBatchSuggestions = (suggestions: Partial<Post>[]) => {
+    suggestions.forEach(suggestion => {
+      const newPost: Post = {
+        id: Math.random().toString(36).substr(2, 9),
+        date: suggestion.date || new Date().toISOString().split('T')[0],
+        images: [],
+        ...suggestion
+      } as Post;
+      onCreatePost(newPost);
+    });
+    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: `✅ ${suggestions.length} new posts created and added to the calendar!` }]);
   };
 
   return (
@@ -349,6 +381,25 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                     )}
                   </div>
 
+                  {msg.action === 'delete' && msg.attachedItem && (
+                    <div className="mt-3 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl space-y-3">
+                      <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Confirm Deletion</span>
+                      </div>
+                      <p className="text-[11px] text-red-700 dark:text-red-300 leading-relaxed">
+                        Are you sure you want to delete this post? This action cannot be undone.
+                      </p>
+                      <button 
+                        onClick={() => handleDeleteAction(msg.attachedItem)}
+                        className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/20"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Confirm Delete
+                      </button>
+                    </div>
+                  )}
+
                   {msg.suggestedPost && (
                     <div 
                       onClick={() => onPreviewPost?.(msg.suggestedPost!)}
@@ -376,6 +427,37 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onPreviewPost,
                           <Check className="w-3 h-3" />
                           Apply Changes
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {msg.suggestedPosts && msg.suggestedPosts.length > 0 && (
+                    <div className="mt-3 w-full space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#757681] dark:text-[#9B9A97]">Suggested Batch ({msg.suggestedPosts.length})</span>
+                        <button 
+                          onClick={() => applyBatchSuggestions(msg.suggestedPosts!)}
+                          className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" />
+                          Approve All
+                        </button>
+                      </div>
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                        {msg.suggestedPosts.map((post, idx) => (
+                          <div 
+                            key={idx}
+                            onClick={() => onPreviewPost?.(post)}
+                            className="bg-white dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] p-3 cursor-pointer hover:border-indigo-500/30 transition-all group/item"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded uppercase">{post.date}</span>
+                              <span className="text-[9px] font-medium text-[#757681] dark:text-[#9B9A97]">{post.type}</span>
+                            </div>
+                            <p className="text-[11px] font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">{post.title}</p>
+                            <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] line-clamp-1 mt-0.5">{post.caption}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

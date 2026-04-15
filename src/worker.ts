@@ -43,8 +43,8 @@ export default {
       // GET /api/config
       if (path === '/api/config' && request.method === 'GET') {
         return new Response(JSON.stringify({
-          geminiApiKey: env.GEMINI_API_KEY || null,
-          groqApiKey: env.GROQ_API_KEY || null,
+          hasGeminiApiKey: !!env.GEMINI_API_KEY,
+          hasGroqApiKey: !!env.GROQ_API_KEY,
           cloudinaryCloudName: env.CLOUDINARY_CLOUD_NAME || null,
           _missingCloudinary: missingCloudinary,
           _missingGemini: missingGemini
@@ -54,6 +54,59 @@ export default {
             'Access-Control-Allow-Origin': '*'
           }
         });
+      }
+
+      // Proxy for Gemini API
+      if (path.startsWith('/api/gemini/') && request.method === 'POST') {
+        const geminiPath = path.replace('/api/gemini/', '');
+        const apiKey = env.GEMINI_API_KEY;
+        if (!apiKey) {
+          return new Response(JSON.stringify({ error: "Gemini API key is not configured on the server" }), { status: 500 });
+        }
+        
+        const targetUrl = new URL(`https://generativelanguage.googleapis.com/${geminiPath}`);
+        // Copy all search params (like key=...)
+        url.searchParams.forEach((value, key) => {
+          targetUrl.searchParams.append(key, value);
+        });
+        // Ensure API key is set
+        targetUrl.searchParams.set('key', apiKey);
+
+        const proxyReq = new Request(targetUrl.toString(), {
+          method: request.method,
+          headers: request.headers,
+          body: request.body
+        });
+        
+        // Remove host header so fetch sets it correctly
+        proxyReq.headers.delete('host');
+
+        const response = await fetch(proxyReq);
+        const newResponse = new Response(response.body, response);
+        newResponse.headers.set('Access-Control-Allow-Origin', '*');
+        return newResponse;
+      }
+
+      // Proxy for Groq API
+      if (path === '/api/groq' && request.method === 'POST') {
+        const apiKey = env.GROQ_API_KEY;
+        if (!apiKey) {
+          return new Response(JSON.stringify({ error: "Groq API key is not configured on the server" }), { status: 500 });
+        }
+
+        const proxyReq = new Request('https://api.groq.com/openai/v1/chat/completions', {
+          method: request.method,
+          headers: request.headers,
+          body: request.body
+        });
+        
+        proxyReq.headers.set('Authorization', `Bearer ${apiKey}`);
+        proxyReq.headers.delete('host');
+
+        const response = await fetch(proxyReq);
+        const newResponse = new Response(response.body, response);
+        newResponse.headers.set('Access-Control-Allow-Origin', '*');
+        return newResponse;
       }
 
       // POST /api/cloudinary/upload
@@ -584,7 +637,12 @@ export default {
           });
         }
 
-        return new Response(JSON.stringify({ error: "Route not found" }), { status: 404 });
+        if (path.startsWith('/api/')) {
+          return new Response(JSON.stringify({ error: "Route not found" }), { status: 404 });
+        }
+
+        // Pass everything else to Assets
+        return env.ASSETS.fetch(request);
 
       } catch (err: any) {
         return new Response(JSON.stringify({ error: "Internal Server Error", details: err.message }), { 
@@ -595,8 +653,5 @@ export default {
           }
         });
       }
-
-      // Pass everything else to Assets
-      return env.ASSETS.fetch(request);
     }
   };

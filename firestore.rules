@@ -25,6 +25,29 @@ service cloud.firestore {
              get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
     }
 
+    function getBusinessRole(businessId) {
+      let biz = get(/databases/$(database)/documents/businesses/$(businessId)).data;
+      return biz.memberRoles[request.auth.uid];
+    }
+
+    function isBusinessAdmin(businessId) {
+      return isAuthenticated() && 
+             businessId != null && 
+             exists(/databases/$(database)/documents/businesses/$(businessId)) &&
+             (get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid ||
+              (request.auth.uid in get(/databases/$(database)/documents/businesses/$(businessId)).data.memberRoles &&
+               get(/databases/$(database)/documents/businesses/$(businessId)).data.memberRoles[request.auth.uid] == 'admin'));
+    }
+
+    function isBusinessEditor(businessId) {
+      return isAuthenticated() && 
+             businessId != null && 
+             exists(/databases/$(database)/documents/businesses/$(businessId)) &&
+             (isBusinessAdmin(businessId) ||
+              (request.auth.uid in get(/databases/$(database)/documents/businesses/$(businessId)).data.memberRoles &&
+               get(/databases/$(database)/documents/businesses/$(businessId)).data.memberRoles[request.auth.uid] == 'editor'));
+    }
+
     function isBusinessMember(businessId) {
       return isAuthenticated() && 
              businessId != null && 
@@ -153,6 +176,15 @@ service cloud.firestore {
              (isUpdate ? (data.userId == resource.data.userId) : (data.userId == request.auth.uid || isAdmin()));
     }
 
+    function isValidAccessRequest(data) {
+      return data.keys().hasAll(['id', 'businessId', 'userId', 'status', 'createdAt']) &&
+             data.id is string &&
+             data.businessId is string &&
+             data.userId == request.auth.uid &&
+             data.status == 'pending' &&
+             data.createdAt is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -161,8 +193,15 @@ service cloud.firestore {
       allow read: if (isAuthenticated() && (isBusinessMember(businessId) || isAdmin())) || 
                    (resource.data.shareToken != null && resource.data.shareToken != "");
       allow create: if isAuthenticated() && isValidBusiness(request.resource.data, false);
-      allow update: if isAuthenticated() && isBusinessMember(businessId) && isValidBusiness(request.resource.data, true);
+      allow update: if isAuthenticated() && (isBusinessAdmin(businessId) || (isBusinessMember(businessId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberRoles']))) && isValidBusiness(request.resource.data, true);
       allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /access_requests/{requestId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isBusinessAdmin(resource.data.businessId));
+      allow create: if isAuthenticated() && isValidAccessRequest(request.resource.data);
+      allow update: if isAuthenticated() && isBusinessAdmin(resource.data.businessId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isBusinessAdmin(resource.data.businessId));
     }
 
     match /posts/{postId} {
