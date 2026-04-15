@@ -721,8 +721,8 @@ export default function App() {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 500, // Increased to 500ms for a "long press" feel on mobile
-        tolerance: 8, // Slightly reduced tolerance to ensure intent
+        delay: 800, // Increased to 800ms for a very intentional long press
+        tolerance: 5, // Reduced tolerance to require keeping the finger very still
       },
     }),
     useSensor(KeyboardSensor, {
