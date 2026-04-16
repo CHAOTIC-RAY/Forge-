@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { X, Building2, Plus, Check, Trash2 } from 'lucide-react';
 import { Business } from '../../data';
 import { cn } from '../../lib/utils';
@@ -30,7 +31,7 @@ export function BusinessModal({
   const [newPosition, setNewPosition] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  // if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,9 +45,24 @@ export function BusinessModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#191919] w-full max-w-md rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]  overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0">
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+            onClick={onClose} 
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", duration: 0.5, bounce: 0 }}
+            className="relative bg-white dark:bg-[#191919] w-full max-w-md rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden flex flex-col max-h-[90vh] shadow-2xl"
+          >
+            <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Building2 className="w-5 h-5" />
@@ -228,7 +244,9 @@ export function BusinessModal({
             </div>
           )}
         </div>
+      </motion.div>
       </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

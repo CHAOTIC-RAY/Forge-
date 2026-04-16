@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
+import { motion, AnimatePresence } from 'motion/react';
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { motion, AnimatePresence } from 'motion/react';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
 import { Post, PRODUCT_CATEGORIES } from '../data';
 import { cn } from '../lib/utils';
@@ -101,7 +101,12 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
   const daysWithPosts = days.filter(day => isSameMonth(day, monthStart) && posts.some(p => p.date === format(day, dateFormat)));
 
   return (
-    <div className="flex-1 flex flex-col">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="flex-1 flex flex-col"
+    >
       {contextMenu && (
         <ContextMenu
           isOpen={true}
@@ -266,7 +271,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
 
           {/* Main Content Area */}
           {viewMode === 'timeline' ? (
-            <div className="flex-1 bg-white dark:bg-[#191919] p-4 md:p-6 print:p-0 print:block">
+            <div className="flex-1 overflow-y-auto bg-white dark:bg-[#191919] p-4 md:p-6 print:p-0 print:block">
               {daysWithPosts.length === 0 ? (
                 <div className="text-center py-12 text-[#757681] dark:text-[#9B9A97]">
                   No posts scheduled for this month.
@@ -306,7 +311,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               )}
             </div>
           ) : (
-            <div className="flex-1 bg-[#E9E9E7] dark:bg-[#2E2E2E]">
+            <div className="flex-1 overflow-y-auto bg-[#E9E9E7] dark:bg-[#2E2E2E]">
               <div 
                 className={cn(
                   "grid gap-1 md:gap-2 p-1 md:p-2 print:relative print:bg-gray-300 print:border-t print:border-l print:border-gray-300 print:grid",
@@ -433,8 +438,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
         </div>
       )}
       </div>
-    </div>
-  </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -763,9 +768,10 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           }
         }}
         className={cn(
-          "text-left bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing active:scale-95 flex flex-col",
+          "text-left bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing flex flex-col",
           viewMode === 'grid' ? "p-3 md:p-1.5 gap-2 md:gap-1" : "p-4 gap-3",
-          isDragging && "border-brand scale-105 active:scale-105",
+          isDragging && "border-brand scale-110 shadow-2xl z-50 ring-4 ring-brand/20 active:scale-110",
+          !isDragging && "active:scale-95",
           "print:border-none print:shadow-none print:p-1 print:bg-transparent print:gap-1 print:break-inside-avoid"
         )}
       >

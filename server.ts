@@ -610,19 +610,14 @@ app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res)
 
     console.log(`[Server] Uploading file to Cloudinary: ${req.file.originalname} (${req.file.size} bytes)`);
 
-    // Create a temporary cloudinary instance with the provided credentials
-    const tempCloudinary = require('cloudinary').v2;
-    tempCloudinary.config({
-      cloud_name: cloudName,
-      api_key: apiKey,
-      api_secret: apiSecret,
-    });
-
     // Use upload_stream for better memory efficiency (avoids extra base64 conversion)
-    const uploadStream = tempCloudinary.uploader.upload_stream(
+    const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: "forge_posts",
         resource_type: "auto",
+        cloud_name: cloudName,
+        api_key: apiKey,
+        api_secret: apiSecret,
       },
       (error: any, result: any) => {
         if (error) {
@@ -666,6 +661,9 @@ app.post("/api/cloudinary/delete", async (req, res) => {
   }
 
   try {
+    // Cloudinary's destroy method doesn't accept credentials in the options object like upload_stream does.
+    // We must configure it globally or use a temporary instance. Since we want to avoid global config changes per request,
+    // we'll use a temporary instance just for this delete operation.
     const tempCloudinary = require('cloudinary').v2;
     tempCloudinary.config({
       cloud_name: finalCloudName,

@@ -52,7 +52,7 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
         console.error('[Storage] Server returned error JSON:', errorData);
         errorMessage = errorData.error?.message || errorData.error || errorData.details || errorMessage;
       } catch (e) {
-        // If not JSON, get text (could be Cloudflare error page)
+        // If not JSON, get text (could be Cloudflare error page or AI Studio proxy)
         try {
           const errorText = await uploadResponse.text();
           console.error('[Storage] Server returned error text (truncated):', errorText.substring(0, 500));
@@ -60,6 +60,8 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
             errorMessage = 'Image is too large for the current server configuration.';
           } else if (errorText.includes('524')) {
             errorMessage = 'Upload timed out. The image might be too large or the connection is slow.';
+          } else if (errorText.includes('<!DOCTYPE html>') || errorText.includes('<!doctype html>')) {
+            errorMessage = 'Server is currently restarting or unavailable. Please try again in a few seconds.';
           } else {
             errorMessage = `Server error (${uploadResponse.status})`;
           }
@@ -68,6 +70,14 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
         }
       }
       throw new Error(errorMessage);
+    }
+
+    // Check if the response is actually JSON before parsing
+    const contentType = uploadResponse.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) {
+      const htmlText = await uploadResponse.text();
+      console.error('[Storage] Expected JSON but received HTML (truncated):', htmlText.substring(0, 500));
+      throw new Error('Server is currently restarting or unavailable. Please try again in a few seconds.');
     }
 
     const data = await uploadResponse.json();

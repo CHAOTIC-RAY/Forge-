@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AutoSuggest } from '../AutoSuggest';
 import { ForgeLoader } from '../ForgeLoader';
 import { X, Upload, Image as ImageIcon, Trash2, Wand2, MessageSquare, Send, Share2, CheckCircle2, AlertCircle, Clock, Repeat, BarChart3, Palette, Sparkles, Hash } from 'lucide-react';
@@ -150,7 +151,8 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     }
   }, [isOpen, post, selectedDate, initialProducts]);
 
-  if (!isOpen) return null;
+  // Remove early return so AnimatePresence can handle unmounting
+  // if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -476,10 +478,25 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6">
-      <div className="bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        
-        {/* Header */}
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+            onClick={onClose} 
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", duration: 0.5, bounce: 0 }}
+            className="relative bg-white dark:bg-[#191919] rounded-[24px] shadow-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+          >
+            
+            {/* Header */}
         <div className="flex justify-between items-center p-4 sm:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
           <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">
             {post ? 'Edit Post' : 'New Post'}
@@ -1145,14 +1162,24 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
             )}
           </div>
         </div>
+        </motion.div>
 
         {/* Enlarged Image Modal */}
+        <AnimatePresence>
         {enlargedImage && (
-          <div 
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 cursor-zoom-out"
             onClick={() => setEnlargedImage(null)}
           >
-            <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
+            <motion.div 
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="relative max-w-5xl w-full h-full flex items-center justify-center"
+            >
               <img 
                 src={enlargedImage} 
                 alt="Enlarged" 
@@ -1164,11 +1191,13 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               >
                 <X className="w-6 h-6" />
               </button>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
       </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

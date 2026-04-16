@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ForgeLoader } from '../ForgeLoader';
 import { X, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Wand2, ArrowRight, Save } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -24,7 +25,7 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
   const [step, setStep] = useState<'upload' | 'map' | 'preview'>('upload');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
+  // if (!isOpen) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -112,10 +113,25 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#191919] rounded-[16px]  border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-        
-        {/* Header */}
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+            onClick={onClose} 
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", duration: 0.5, bounce: 0 }}
+            className="relative bg-white dark:bg-[#191919] rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+          >
+            
+            {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-[8px]">
@@ -250,7 +266,9 @@ export function ExcelImportModal({ isOpen, onClose, onImport, userId }: ExcelImp
             )}
           </div>
         </div>
+      </motion.div>
       </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -118,8 +118,10 @@ function DraggableBlock({ block, children, isSelected, onClick }: { block: Block
       {...listeners}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-grab active:cursor-grabbing group transition-colors",
-        isSelected ? "bg-[#E9E9E7] dark:bg-[#2E2E2E]" : "hover:bg-[#E9E9E7]/50 dark:hover:bg-[#2E2E2E]/50"
+        "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-grab active:cursor-grabbing group transition-all",
+        isSelected ? "bg-[#E9E9E7] dark:bg-[#2E2E2E]" : "hover:bg-[#E9E9E7]/50 dark:hover:bg-[#2E2E2E]/50",
+        isDragging && "scale-110 shadow-xl z-50 bg-white dark:bg-[#1E1E1E] ring-2 ring-brand/20 active:scale-110",
+        !isDragging && "active:scale-95"
       )}
     >
       {children}

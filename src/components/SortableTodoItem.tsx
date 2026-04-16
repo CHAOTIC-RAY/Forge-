@@ -33,7 +33,9 @@ export function SortableTodoItem({ todo, toggleTodo, deleteTodo, activeTab, grou
       {...listeners}
       className={cn(
         "group flex flex-col gap-3 p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] transition-all hover:border-brand cursor-grab active:cursor-grabbing",
-        todo.completed && "opacity-60"
+        todo.completed && "opacity-60",
+        isDragging && "scale-110 shadow-2xl z-50 ring-4 ring-brand/20 border-brand active:scale-110",
+        !isDragging && "active:scale-95"
       )}
     >
       <div className="flex items-start gap-3">

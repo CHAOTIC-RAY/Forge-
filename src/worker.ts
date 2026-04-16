@@ -110,7 +110,7 @@ export default {
       }
 
       // POST /api/cloudinary/upload
-      if (path === '/api/cloudinary/upload' && request.method === 'POST') {
+      if ((path === '/api/cloudinary/upload' || path === '/api/cloudinary/upload/') && request.method.toUpperCase() === 'POST') {
           const formData = await request.formData();
           const image = formData.get('image') as File;
           

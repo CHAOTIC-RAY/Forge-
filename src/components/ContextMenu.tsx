@@ -31,6 +31,11 @@ export function ContextMenu({ items, children, className, x, y, isOpen: controll
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     if (isControlled) return;
+    
+    // Disable context menu on mobile/touch devices to prevent interference with long-press drag
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
+    if (isTouch) return;
+
     e.preventDefault();
     e.stopPropagation();
     setInternalIsOpen(true);

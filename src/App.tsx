@@ -159,6 +159,17 @@ export default function App() {
     }
   }, [loading]);
 
+  useEffect(() => {
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      const isTouch = window.matchMedia('(pointer: coarse)').matches;
+      if (isTouch) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('contextmenu', handleGlobalContextMenu);
+    return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
+  }, []);
+
   const [aiSettings, setAiSettingsState] = useState(getAiSettings());
   
   useEffect(() => {

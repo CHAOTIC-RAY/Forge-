@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { X, Download, Check, LayoutGrid, List, BarChart3, Calendar, Clock } from 'lucide-react';
 import { format, startOfMonth, addMonths, subMonths, isBefore, isAfter, differenceInMonths, parseISO } from 'date-fns';
 import { cn } from '../../lib/utils';
@@ -52,7 +53,7 @@ export function ExportModal({ isOpen, onClose, onExport }: ExportModalProps) {
   const [layoutStyle, setLayoutStyle] = useState<'Light' | 'Dark'>('Dark');
   const [accentColor, setAccentColor] = useState('#2383E2');
 
-  if (!isOpen) return null;
+  // if (!isOpen) return null;
 
   const toggleField = (id: string) => {
     setVisibleFields(prev => 
@@ -83,9 +84,24 @@ export function ExportModal({ isOpen, onClose, onExport }: ExportModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#1C1C1C] w-full max-w-2xl rounded-[16px]  overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E]">
-        <div className="flex items-center justify-between p-6 border-bottom border-[#F1F1F0] dark:border-[#2E2E2E]">
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+            onClick={onClose} 
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", duration: 0.5, bounce: 0 }}
+            className="relative bg-white dark:bg-[#1C1C1C] w-full max-w-2xl rounded-[16px] overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-2xl"
+          >
+            <div className="flex items-center justify-between p-6 border-bottom border-[#F1F1F0] dark:border-[#2E2E2E]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[8px]">
               <Download className="w-5 h-5 text-[#37352F] dark:text-[#D4D4D8]" />
@@ -287,7 +303,9 @@ export function ExportModal({ isOpen, onClose, onExport }: ExportModalProps) {
             Generate Excel
           </button>
         </div>
+      </motion.div>
       </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

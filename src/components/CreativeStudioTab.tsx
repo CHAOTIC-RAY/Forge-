@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { ForgeLoader } from './ForgeLoader';
-import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2 } from 'lucide-react';
+import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings } from 'lucide-react';
 import { ImageResizerTab } from './ImageResizerTab';
 import { LinkShortener } from './LinkShortener';
 import { getAi } from '../lib/gemini';
@@ -12,12 +12,14 @@ import { Post, Business } from '../data';
 import { writeBatch, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useWorkspaceConfig } from '../lib/workspaceConfig';
-import { generateBulkPosts, generateGenericText, generateCampaignFromUrl } from '../lib/gemini';
+import { generateBulkPosts, generateGenericText, generateCampaignFromUrl, chatToBuildWidget, ChatMessage, generateAiImage } from '../lib/gemini';
 import { CheckCircle2, Search } from 'lucide-react';
 import { AutoSuggest } from './AutoSuggest';
 import { onSnapshot } from 'firebase/firestore';
 import { PRODUCT_CATEGORIES } from '../data';
 import { format } from 'date-fns';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const extractVariables = (template: string): string[] => {
   const matches = Array.from(template.matchAll(/\{\{([^}]+)\}\}/g));
@@ -26,12 +28,24 @@ const extractVariables = (template: string): string[] => {
 
 type WidgetType = 'copywriting' | 'frameworks' | 'resizer' | 'bulk' | string | null;
 
+export interface WidgetInput {
+  name: string;
+  type: 'text' | 'textarea' | 'select' | 'image';
+  label: string;
+  options?: string[]; // For select type
+  required?: boolean;
+}
+
 interface CustomWidget {
   id: string;
   title: string;
   description: string;
   promptTemplate: string;
+  systemInstruction?: string;
   pinned?: boolean;
+  outputType?: 'text' | 'image' | 'html';
+  requiresImage?: boolean;
+  inputs?: WidgetInput[];
 }
 
 interface CreativeStudioTabProps {
@@ -50,38 +64,107 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
   const [newWidgetTitle, setNewWidgetTitle] = useState('');
   const [newWidgetDescription, setNewWidgetDescription] = useState('');
   const [newWidgetPrompt, setNewWidgetPrompt] = useState('');
+  const [newWidgetSystemInstruction, setNewWidgetSystemInstruction] = useState('');
+  const [newWidgetOutputType, setNewWidgetOutputType] = useState<'text' | 'image' | 'html'>('text');
+  const [newWidgetRequiresImage, setNewWidgetRequiresImage] = useState(false);
+  const [newWidgetInputs, setNewWidgetInputs] = useState<WidgetInput[]>([]);
   const [isRefiningPrompt, setIsRefiningPrompt] = useState(false);
   const [playgroundTestInputs, setPlaygroundTestInputs] = useState<Record<string, string>>({});
+  const [playgroundTestImage, setPlaygroundTestImage] = useState<string | null>(null);
   const [playgroundTestResult, setPlaygroundTestResult] = useState('');
   const [isTestingPlayground, setIsTestingPlayground] = useState(false);
+  const [builderChatMessages, setBuilderChatMessages] = useState<ChatMessage[]>([]);
+  const [builderChatInput, setBuilderChatInput] = useState('');
+  const [isBuilderChatting, setIsBuilderChatting] = useState(false);
+  const [editingWidgetId, setEditingWidgetId] = useState<string | null>(null);
 
   const openPlayground = () => {
+    setEditingWidgetId(null);
     setNewWidgetTitle('');
     setNewWidgetDescription('');
     setNewWidgetPrompt('Write a {{format}} about {{topic}} in a {{tone}} tone.');
+    setNewWidgetOutputType('text');
+    setNewWidgetRequiresImage(false);
     setPlaygroundTestInputs({});
+    setPlaygroundTestImage(null);
     setPlaygroundTestResult('');
+    setBuilderChatMessages([]);
+    setBuilderChatInput('');
+    setIsPlaygroundOpen(true);
+  };
+
+  const editWidget = (widget: CustomWidget, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingWidgetId(widget.id);
+    setNewWidgetTitle(widget.title);
+    setNewWidgetDescription(widget.description);
+    setNewWidgetPrompt(widget.promptTemplate);
+    setNewWidgetSystemInstruction(widget.systemInstruction || '');
+    setNewWidgetOutputType(widget.outputType || 'text');
+    setNewWidgetRequiresImage(widget.requiresImage || false);
+    setNewWidgetInputs(widget.inputs || []);
+    setPlaygroundTestInputs({});
+    setPlaygroundTestImage(null);
+    setPlaygroundTestResult('');
+    setBuilderChatMessages([]);
+    setBuilderChatInput('');
     setIsPlaygroundOpen(true);
   };
 
   const handleTestPlayground = async () => {
     const vars = extractVariables(newWidgetPrompt);
     let finalPrompt = newWidgetPrompt;
-    for (const v of vars) {
-      if (!playgroundTestInputs[v]) {
-        toast.error(`Please provide a value for {{${v}}}`);
-        return;
+    
+    if (newWidgetInputs.length > 0) {
+      for (const input of newWidgetInputs) {
+        if (input.required && !playgroundTestInputs[input.name]) {
+          toast.error(`Please provide a value for ${input.label}`);
+          return;
+        }
+        if (playgroundTestInputs[input.name]) {
+          finalPrompt = finalPrompt.replace(new RegExp(`\\{\\{${input.name}\\}\\}`, 'g'), playgroundTestInputs[input.name]);
+        }
       }
-      finalPrompt = finalPrompt.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), playgroundTestInputs[v]);
+    } else {
+      for (const v of vars) {
+        if (!playgroundTestInputs[v]) {
+          toast.error(`Please provide a value for {{${v}}}`);
+          return;
+        }
+        finalPrompt = finalPrompt.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), playgroundTestInputs[v]);
+      }
     }
 
     setIsTestingPlayground(true);
     try {
-      const responseText = await generateGenericText(
-        finalPrompt,
-        `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`
-      );
-      setPlaygroundTestResult(responseText || "");
+      const sysInstruction = newWidgetSystemInstruction 
+        ? `${newWidgetSystemInstruction}\n\n${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`
+        : `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`;
+
+      if (newWidgetOutputType === 'image') {
+        const imageResult = await generateAiImage(finalPrompt, 'photorealistic', activeBusiness || undefined, playgroundTestImage || undefined);
+        setPlaygroundTestResult(`![Generated Image](${imageResult.url})`);
+      } else if (newWidgetOutputType === 'html') {
+        const htmlPrompt = `${finalPrompt}\n\nYou MUST return ONLY valid HTML code. Do not wrap it in markdown code blocks (\`\`\`html). Just return the raw HTML string. Include CSS in <style> tags and JS in <script> tags if needed.`;
+        const responseText = await generateGenericText(
+          htmlPrompt,
+          sysInstruction,
+          playgroundTestImage || undefined
+        );
+        // Clean up markdown if the AI still included it
+        let cleanHtml = responseText || "";
+        if (cleanHtml.startsWith('```html')) cleanHtml = cleanHtml.substring(7);
+        if (cleanHtml.startsWith('```')) cleanHtml = cleanHtml.substring(3);
+        if (cleanHtml.endsWith('```')) cleanHtml = cleanHtml.substring(0, cleanHtml.length - 3);
+        setPlaygroundTestResult(cleanHtml.trim());
+      } else {
+        const responseText = await generateGenericText(
+          finalPrompt,
+          sysInstruction,
+          playgroundTestImage || undefined
+        );
+        setPlaygroundTestResult(responseText || "");
+      }
       toast.success("Test completed!");
     } catch (error) {
       console.error("Test failed:", error);
@@ -115,8 +198,42 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
     }
   };
 
+  const handleBuilderChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!builderChatInput.trim() || isBuilderChatting) return;
+
+    const userMessage: ChatMessage = { role: 'user', content: builderChatInput };
+    setBuilderChatMessages(prev => [...prev, userMessage]);
+    setBuilderChatInput('');
+    setIsBuilderChatting(true);
+
+    try {
+      const response = await chatToBuildWidget(
+        [...builderChatMessages, userMessage],
+        { title: newWidgetTitle, description: newWidgetDescription, promptTemplate: newWidgetPrompt }
+      );
+
+      setBuilderChatMessages(prev => [...prev, { role: 'assistant', content: response.reply }]);
+      
+      if (response.title) setNewWidgetTitle(response.title);
+      if (response.description) setNewWidgetDescription(response.description);
+      if (response.promptTemplate) setNewWidgetPrompt(response.promptTemplate);
+      if (response.systemInstruction) setNewWidgetSystemInstruction(response.systemInstruction);
+      if (response.outputType) setNewWidgetOutputType(response.outputType);
+      if (response.requiresImage !== undefined) setNewWidgetRequiresImage(response.requiresImage);
+      if (response.inputs) setNewWidgetInputs(response.inputs);
+      
+    } catch (error) {
+      console.error("Builder chat failed:", error);
+      toast.error("Failed to get response from AI Builder.");
+    } finally {
+      setIsBuilderChatting(false);
+    }
+  };
+
   // Custom Widget Execution State
   const [customPromptInputs, setCustomPromptInputs] = useState<Record<string, Record<string, string>>>({});
+  const [customImageInputs, setCustomImageInputs] = useState<Record<string, string>>({});
   const [customResults, setCustomResults] = useState<Record<string, string>>({});
   const [isGeneratingCustom, setIsGeneratingCustom] = useState<Record<string, boolean>>({});
 
@@ -161,15 +278,32 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
       toast.error("Title and Prompt Template are required.");
       return;
     }
-    const newWidget: CustomWidget = {
-      id: `custom_${Date.now()}`,
-      title: newWidgetTitle,
-      description: newWidgetDescription || 'Custom AI Widget',
-      promptTemplate: newWidgetPrompt
-    };
-    saveCustomWidgets([...customWidgets, newWidget]);
+
+    if (editingWidgetId) {
+      const updatedWidgets = customWidgets.map(w => 
+        w.id === editingWidgetId 
+          ? { ...w, title: newWidgetTitle, description: newWidgetDescription, promptTemplate: newWidgetPrompt, systemInstruction: newWidgetSystemInstruction, outputType: newWidgetOutputType, requiresImage: newWidgetRequiresImage, inputs: newWidgetInputs }
+          : w
+      );
+      saveCustomWidgets(updatedWidgets);
+      toast.success("Widget updated successfully!");
+    } else {
+      const newWidget: CustomWidget = {
+        id: `custom_${Date.now()}`,
+        title: newWidgetTitle,
+        description: newWidgetDescription || 'Custom AI Widget',
+        promptTemplate: newWidgetPrompt,
+        systemInstruction: newWidgetSystemInstruction,
+        outputType: newWidgetOutputType,
+        requiresImage: newWidgetRequiresImage,
+        inputs: newWidgetInputs
+      };
+      saveCustomWidgets([...customWidgets, newWidget]);
+      toast.success("Widget published successfully!");
+    }
+    
     setIsPlaygroundOpen(false);
-    toast.success("Widget published successfully!");
+    setEditingWidgetId(null);
   };
 
   const handleDeleteWidget = (id: string, e: React.MouseEvent) => {
@@ -375,21 +509,56 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
     let finalPrompt = widget.promptTemplate;
     const inputs = customPromptInputs[widget.id] || {};
 
-    for (const v of vars) {
-      if (!inputs[v]) {
-        toast.error(`Please provide a value for {{${v}}}`);
-        return;
+    if (widget.inputs && widget.inputs.length > 0) {
+      for (const input of widget.inputs) {
+        if (input.required && !inputs[input.name]) {
+          toast.error(`Please provide a value for ${input.label}`);
+          return;
+        }
+        if (inputs[input.name]) {
+          finalPrompt = finalPrompt.replace(new RegExp(`\\{\\{${input.name}\\}\\}`, 'g'), inputs[input.name]);
+        }
       }
-      finalPrompt = finalPrompt.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), inputs[v]);
+    } else {
+      for (const v of vars) {
+        if (!inputs[v]) {
+          toast.error(`Please provide a value for {{${v}}}`);
+          return;
+        }
+        finalPrompt = finalPrompt.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), inputs[v]);
+      }
     }
 
     setIsGeneratingCustom(prev => ({ ...prev, [widget.id]: true }));
     try {
-      const responseText = await generateGenericText(
-        finalPrompt,
-        `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`
-      );
-      setCustomResults(prev => ({ ...prev, [widget.id]: responseText || "" }));
+      const inputImage = customImageInputs[widget.id];
+      const sysInstruction = widget.systemInstruction 
+        ? `${widget.systemInstruction}\n\n${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`
+        : `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`;
+
+      if (widget.outputType === 'image') {
+        const imageResult = await generateAiImage(finalPrompt, 'photorealistic', activeBusiness || undefined, inputImage || undefined);
+        setCustomResults(prev => ({ ...prev, [widget.id]: `![Generated Image](${imageResult.url})` }));
+      } else if (widget.outputType === 'html') {
+        const htmlPrompt = `${finalPrompt}\n\nYou MUST return ONLY valid HTML code. Do not wrap it in markdown code blocks (\`\`\`html). Just return the raw HTML string. Include CSS in <style> tags and JS in <script> tags if needed.`;
+        const responseText = await generateGenericText(
+          htmlPrompt,
+          sysInstruction,
+          inputImage || undefined
+        );
+        let cleanHtml = responseText || "";
+        if (cleanHtml.startsWith('```html')) cleanHtml = cleanHtml.substring(7);
+        if (cleanHtml.startsWith('```')) cleanHtml = cleanHtml.substring(3);
+        if (cleanHtml.endsWith('```')) cleanHtml = cleanHtml.substring(0, cleanHtml.length - 3);
+        setCustomResults(prev => ({ ...prev, [widget.id]: cleanHtml.trim() }));
+      } else {
+        const responseText = await generateGenericText(
+          finalPrompt,
+          sysInstruction,
+          inputImage || undefined
+        );
+        setCustomResults(prev => ({ ...prev, [widget.id]: responseText || "" }));
+      }
       toast.success("Generated successfully!");
     } catch (error) {
       console.error("Generation failed:", error);
@@ -826,13 +995,106 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               </div>
             </div>
             {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={(e) => editWidget(customWidget, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Edit Widget">
+                  <PenTool className="w-4 h-4" />
+                </button>
+                <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
+                </button>
+              </div>
             )}
           </div>
           <div className="p-6 space-y-6">
-            {vars.length > 0 ? (
+            {customWidget.requiresImage && (
+              <div className="space-y-4">
+                <label className="block text-xs font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1 mb-2">Input Image</label>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-[#E9E9E7] dark:border-[#3E3E3E] border-dashed rounded-[12px] cursor-pointer bg-[#F7F7F5] dark:bg-[#151515] hover:bg-gray-50 dark:hover:bg-[#202020] transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <ImageIcon className="w-6 h-6 mb-2 text-[#757681]" />
+                      <p className="text-xs text-[#757681] dark:text-[#9B9A97]">
+                        {customImageInputs[widgetId] ? 'Image uploaded' : 'Click to upload image'}
+                      </p>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setCustomImageInputs(prev => ({ ...prev, [widgetId]: reader.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {customImageInputs[widgetId] && (
+                  <div className="mt-2 relative w-full h-32 rounded-[8px] overflow-hidden border border-[#E9E9E7] dark:border-[#3E3E3E]">
+                    <img src={customImageInputs[widgetId]} alt="Input" className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => setCustomImageInputs(prev => { const next = {...prev}; delete next[widgetId]; return next; })}
+                      className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {customWidget?.inputs && customWidget.inputs.length > 0 ? (
+              <div className="space-y-4">
+                {customWidget.inputs.map(input => (
+                  <div key={input.name}>
+                    <label className="block text-xs font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1 mb-2">
+                      {input.label} {input.required && <span className="text-red-500">*</span>}
+                    </label>
+                    {input.type === 'textarea' ? (
+                      <textarea
+                        value={customPromptInputs[widgetId]?.[input.name] || ''}
+                        onChange={(e) => setCustomPromptInputs(prev => ({ 
+                          ...prev, 
+                          [widgetId]: { ...(prev[widgetId] || {}), [input.name]: e.target.value } 
+                        }))}
+                        placeholder={`Enter ${input.label}...`}
+                        className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED] min-h-[100px] resize-y"
+                      />
+                    ) : input.type === 'select' ? (
+                      <select
+                        value={customPromptInputs[widgetId]?.[input.name] || ''}
+                        onChange={(e) => setCustomPromptInputs(prev => ({ 
+                          ...prev, 
+                          [widgetId]: { ...(prev[widgetId] || {}), [input.name]: e.target.value } 
+                        }))}
+                        className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                      >
+                        <option value="">Select {input.label}...</option>
+                        {input.options?.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={customPromptInputs[widgetId]?.[input.name] || ''}
+                        onChange={(e) => setCustomPromptInputs(prev => ({ 
+                          ...prev, 
+                          [widgetId]: { ...(prev[widgetId] || {}), [input.name]: e.target.value } 
+                        }))}
+                        placeholder={`Enter ${input.label}...`}
+                        className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : vars.length > 0 ? (
               <div className="space-y-4">
                 {vars.map(v => (
                   <div key={v}>
@@ -845,7 +1107,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
                         [widgetId]: { ...(prev[widgetId] || {}), [v]: e.target.value } 
                       }))}
                       placeholder={`Enter ${v}...`}
-                className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                      className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
                     />
                   </div>
                 ))}
@@ -868,9 +1130,22 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
             {customResults[widgetId] && (
               <div className="mt-6 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-5">
                 <h4 className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-4">Generated Result</h4>
-                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
-                  {customResults[widgetId]}
-                </div>
+                {customWidget?.outputType === 'html' ? (
+                  <div className="w-full h-[500px] bg-white rounded-[8px] border border-[#E9E9E7] overflow-hidden">
+                    <iframe
+                      srcDoc={customResults[widgetId]}
+                      className="w-full h-full border-none"
+                      sandbox="allow-scripts allow-same-origin"
+                      title="HTML Output"
+                    />
+                  </div>
+                ) : (
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {customResults[widgetId]}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -907,103 +1182,323 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               className="flex items-center gap-2 px-6 py-2.5 bg-brand text-white rounded-[12px] text-sm font-bold hover:scale-105 transition-all   active:scale-95"
             >
               <Save className="w-4 h-4" />
-              Publish Widget
+              {editingWidgetId ? 'Update Widget' : 'Publish Widget'}
             </button>
           </div>
         </div>
 
         <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
-          {/* Left Panel: Builder */}
-          <div className="w-full md:w-1/2 p-6 overflow-y-auto border-r border-[#E9E9E7] dark:border-[#2E2E2E] space-y-6">
-            <div className="space-y-2">
-              <label className="block text-xs font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Workflow Title</label>
-              <input 
-                type="text" 
-                value={newWidgetTitle}
-                onChange={(e) => setNewWidgetTitle(e.target.value)}
-                placeholder="e.g., Viral Hook Generator"
-                className="w-full p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white"
-              />
+          {/* Left Panel: Builder Chat */}
+          <div className="w-full md:w-1/2 flex flex-col border-r border-[#E9E9E7] dark:border-[#2E2E2E]">
+            <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
+              <h4 className="text-sm font-black text-[#37352F] dark:text-white uppercase tracking-widest flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-brand" />
+                AI Builder Chat
+              </h4>
+              <p className="text-xs text-[#757681] dark:text-white/40 mt-1">Describe what you want your widget to do.</p>
             </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Description</label>
-              <input 
-                type="text" 
-                value={newWidgetDescription}
-                onChange={(e) => setNewWidgetDescription(e.target.value)}
-                placeholder="What does this module do?"
-                className="w-full p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-1 ml-1">
-                <label className="block text-xs font-black text-[#757681] dark:text-white/40 uppercase tracking-widest">Prompt Template</label>
-                <button 
-                  onClick={refinePromptWithAi}
-                  disabled={isRefiningPrompt || !newWidgetPrompt}
-                  className="text-[10px] font-black text-brand hover:underline flex items-center gap-1 disabled:opacity-50"
-                >
-                  {isRefiningPrompt ? <ForgeLoader size={10} /> : <Sparkles className="w-3 h-3" />}
-                  Refine with AI
-                </button>
-              </div>
-              <p className="text-[10px] text-[#757681] dark:text-white/30 mb-2 ml-1">Use <code className="bg-[#E9E9E7] dark:bg-white/10 px-1 rounded">{"{{variable_name}}"}</code> to create dynamic inputs.</p>
-              <textarea 
-                value={newWidgetPrompt}
-                onChange={(e) => setNewWidgetPrompt(e.target.value)}
-                placeholder="Write a viral social media hook for: {{topic}}"
-                className="w-full h-64 p-4 bg-[#F7F7F5] dark:bg-white/5 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] text-sm outline-none focus:ring-2 focus:ring-brand resize-none transition-all dark:text-white font-mono"
-              />
-            </div>
-          </div>
-
-          {/* Right Panel: Test Mode */}
-          <div className="w-full md:w-1/2 p-6 overflow-y-auto bg-gray-50 dark:bg-[#151515]">
-            <div className="flex items-center gap-2 mb-6">
-              <Play className="w-4 h-4 text-emerald-500" />
-              <h4 className="text-sm font-black text-[#37352F] dark:text-white uppercase tracking-widest">Live Test Mode</h4>
-            </div>
-
-            <div className="space-y-6">
-              {vars.length > 0 ? (
-                <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                  <h5 className="text-xs font-bold text-[#757681] dark:text-white/40 uppercase tracking-widest mb-4">Variables Detected</h5>
-                  {vars.map(v => (
-                    <div key={v}>
-                      <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1 mb-1.5">{v}</label>
-                      <input
-                        type="text"
-                        value={playgroundTestInputs[v] || ''}
-                        onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [v]: e.target.value }))}
-                        placeholder={`Test value for ${v}...`}
-                        className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED]"
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 p-4 rounded-[12px] border border-amber-200 dark:border-amber-500/20">
-                  No variables detected. Try adding <code className="font-mono bg-amber-100 dark:bg-amber-500/20 px-1 rounded">{"{{topic}}"}</code> to your prompt.
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {builderChatMessages.length === 0 && (
+                <div className="text-center text-[#757681] dark:text-white/40 text-sm mt-10">
+                  Hi! I'm the AI Builder. What kind of widget would you like to create today?
                 </div>
               )}
-
-              <button
-                onClick={handleTestPlayground}
-                disabled={isTestingPlayground || !newWidgetPrompt}
-                className="flex items-center justify-center gap-2 w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all   active:scale-95"
-              >
-                {isTestingPlayground ? <ForgeLoader size={16} /> : <Play className="w-4 h-4 fill-current" />}
-                Run Test
-              </button>
-
-              {playgroundTestResult && (
-                <div className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-5 ">
-                  <h4 className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-4">Output</h4>
-                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
-                    {playgroundTestResult}
+              {builderChatMessages.map((msg, i) => (
+                <div key={i} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                  <div className={cn(
+                    "max-w-[80%] rounded-[16px] p-3 text-sm",
+                    msg.role === 'user' 
+                      ? "bg-brand text-white rounded-br-none" 
+                      : "bg-[#F7F7F5] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-bl-none"
+                  )}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {isBuilderChatting && (
+                <div className="flex justify-start">
+                  <div className="bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[16px] rounded-bl-none p-3">
+                    <ForgeLoader size={16} />
                   </div>
                 </div>
               )}
+            </div>
+            <div className="p-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A]">
+              <form 
+                onSubmit={handleBuilderChatSubmit}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="text"
+                  value={builderChatInput}
+                  onChange={(e) => setBuilderChatInput(e.target.value)}
+                  placeholder="e.g., I want a widget that generates blog post ideas..."
+                  className="flex-1 p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                />
+                <button
+                  type="submit"
+                  disabled={isBuilderChatting || !builderChatInput.trim()}
+                  className="p-3 bg-brand text-white rounded-[12px] hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Right Panel: Preview & Test */}
+          <div className="w-full md:w-1/2 overflow-y-auto bg-gray-50 dark:bg-[#151515] flex flex-col">
+            <div className="p-6 space-y-8">
+              {/* Widget Configuration Preview */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Settings className="w-4 h-4 text-[#757681] dark:text-white/40" />
+                  <h4 className="text-sm font-black text-[#37352F] dark:text-white uppercase tracking-widest">Widget Configuration</h4>
+                </div>
+                <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Workflow Title</label>
+                    <input 
+                      type="text" 
+                      value={newWidgetTitle}
+                      onChange={(e) => setNewWidgetTitle(e.target.value)}
+                      placeholder="e.g., Viral Hook Generator"
+                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Description</label>
+                    <input 
+                      type="text" 
+                      value={newWidgetDescription}
+                      onChange={(e) => setNewWidgetDescription(e.target.value)}
+                      placeholder="What does this module do?"
+                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Output Type</label>
+                    <div className="flex gap-2 p-1 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px]">
+                      <button
+                        onClick={() => setNewWidgetOutputType('text')}
+                        className={cn(
+                          "flex-1 py-2 text-xs font-bold rounded-[8px] transition-all",
+                          newWidgetOutputType === 'text' 
+                            ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
+                            : "text-[#757681] hover:text-[#37352F] dark:hover:text-white"
+                        )}
+                      >
+                        Text Response
+                      </button>
+                      <button
+                        onClick={() => setNewWidgetOutputType('image')}
+                        className={cn(
+                          "flex-1 py-2 text-xs font-bold rounded-[8px] transition-all",
+                          newWidgetOutputType === 'image' 
+                            ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
+                            : "text-[#757681] hover:text-[#37352F] dark:hover:text-white"
+                        )}
+                      >
+                        AI Image
+                      </button>
+                      <button
+                        onClick={() => setNewWidgetOutputType('html')}
+                        className={cn(
+                          "flex-1 py-2 text-xs font-bold rounded-[8px] transition-all",
+                          newWidgetOutputType === 'html' 
+                            ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
+                            : "text-[#757681] hover:text-[#37352F] dark:hover:text-white"
+                        )}
+                      >
+                        HTML App
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Input Requirements</label>
+                    <label className="flex items-center gap-2 p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={newWidgetRequiresImage}
+                        onChange={(e) => setNewWidgetRequiresImage(e.target.checked)}
+                        className="w-4 h-4 text-brand rounded border-gray-300 focus:ring-brand"
+                      />
+                      <span className="text-sm font-medium text-[#37352F] dark:text-[#EBE9ED]">Requires Image Upload</span>
+                    </label>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">System Instructions (Optional)</label>
+                    <textarea 
+                      value={newWidgetSystemInstruction}
+                      onChange={(e) => setNewWidgetSystemInstruction(e.target.value)}
+                      placeholder="e.g., You are an expert copywriter. Always use a professional tone."
+                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white min-h-[80px] resize-y"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1 ml-1">
+                      <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest">Prompt Template</label>
+                      <button 
+                        onClick={refinePromptWithAi}
+                        disabled={isRefiningPrompt || !newWidgetPrompt}
+                        className="text-[10px] font-black text-brand hover:underline flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {isRefiningPrompt ? <ForgeLoader size={10} /> : <Sparkles className="w-3 h-3" />}
+                        Refine
+                      </button>
+                    </div>
+                    <textarea 
+                      value={newWidgetPrompt}
+                      onChange={(e) => setNewWidgetPrompt(e.target.value)}
+                      placeholder="Write a viral social media hook for: {{topic}}"
+                      className="w-full h-32 p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand resize-none transition-all dark:text-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Test Mode */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Play className="w-4 h-4 text-emerald-500" />
+                  <h4 className="text-sm font-black text-[#37352F] dark:text-white uppercase tracking-widest">Live Test Mode</h4>
+                </div>
+
+                <div className="space-y-6">
+                  {newWidgetRequiresImage && (
+                    <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                      <h5 className="text-xs font-bold text-[#757681] dark:text-white/40 uppercase tracking-widest mb-4">Input Image</h5>
+                      <div className="flex items-center justify-center w-full">
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-[#E9E9E7] dark:border-[#3E3E3E] border-dashed rounded-[12px] cursor-pointer bg-[#F7F7F5] dark:bg-[#151515] hover:bg-gray-50 dark:hover:bg-[#202020] transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <ImageIcon className="w-6 h-6 mb-2 text-[#757681]" />
+                            <p className="text-xs text-[#757681] dark:text-[#9B9A97]">
+                              {playgroundTestImage ? 'Image uploaded' : 'Click to upload image'}
+                            </p>
+                          </div>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setPlaygroundTestImage(reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      {playgroundTestImage && (
+                        <div className="mt-2 relative w-full h-32 rounded-[8px] overflow-hidden border border-[#E9E9E7] dark:border-[#3E3E3E]">
+                          <img src={playgroundTestImage} alt="Test Input" className="w-full h-full object-cover" />
+                          <button 
+                            onClick={() => setPlaygroundTestImage(null)}
+                            className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {newWidgetInputs.length > 0 ? (
+                    <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                      <h5 className="text-xs font-bold text-[#757681] dark:text-white/40 uppercase tracking-widest mb-4">Custom Inputs</h5>
+                      {newWidgetInputs.map(input => (
+                        <div key={input.name}>
+                          <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1 mb-1.5">
+                            {input.label} {input.required && <span className="text-red-500">*</span>}
+                          </label>
+                          {input.type === 'textarea' ? (
+                            <textarea
+                              value={playgroundTestInputs[input.name] || ''}
+                              onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [input.name]: e.target.value }))}
+                              placeholder={`Test value for ${input.label}...`}
+                              className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED] min-h-[80px] resize-y"
+                            />
+                          ) : input.type === 'select' ? (
+                            <select
+                              value={playgroundTestInputs[input.name] || ''}
+                              onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [input.name]: e.target.value }))}
+                              className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                            >
+                              <option value="">Select {input.label}...</option>
+                              {input.options?.map(opt => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={playgroundTestInputs[input.name] || ''}
+                              onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [input.name]: e.target.value }))}
+                              placeholder={`Test value for ${input.label}...`}
+                              className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : vars.length > 0 ? (
+                    <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                      <h5 className="text-xs font-bold text-[#757681] dark:text-white/40 uppercase tracking-widest mb-4">Variables Detected</h5>
+                      {vars.map(v => (
+                        <div key={v}>
+                          <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1 mb-1.5">{v}</label>
+                          <input
+                            type="text"
+                            value={playgroundTestInputs[v] || ''}
+                            onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [v]: e.target.value }))}
+                            placeholder={`Test value for ${v}...`}
+                            className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 p-4 rounded-[12px] border border-amber-200 dark:border-amber-500/20">
+                      No variables detected. Try adding <code className="font-mono bg-amber-100 dark:bg-amber-500/20 px-1 rounded">{"{{topic}}"}</code> to your prompt.
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleTestPlayground}
+                    disabled={isTestingPlayground || !newWidgetPrompt}
+                    className="flex items-center justify-center gap-2 w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all   active:scale-95"
+                  >
+                    {isTestingPlayground ? <ForgeLoader size={16} /> : <Play className="w-4 h-4 fill-current" />}
+                    Run Test
+                  </button>
+
+                  {playgroundTestResult && (
+                    <div className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-5 ">
+                      <h4 className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-4">Output</h4>
+                      {newWidgetOutputType === 'html' ? (
+                        <div className="w-full h-[500px] bg-white rounded-[8px] border border-[#E9E9E7] overflow-hidden">
+                          <iframe
+                            srcDoc={playgroundTestResult}
+                            className="w-full h-full border-none"
+                            sandbox="allow-scripts allow-same-origin"
+                            title="HTML Output"
+                          />
+                        </div>
+                      ) : (
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {playgroundTestResult}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1119,6 +1614,13 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-[-10px] group-hover:translate-y-0 z-20">
+                  <button 
+                    onClick={(e) => editWidget(widget, e)}
+                    className="p-2 text-brand hover:bg-brand-bg rounded-[12px] transition-all hover:scale-110"
+                    title="Edit Widget"
+                  >
+                    <PenTool className="w-4 h-4" />
+                  </button>
                   <button 
                     onClick={(e) => togglePinWidget(widget.id, e)}
                     className={cn("p-2 rounded-[12px] transition-all hover:scale-110", pinnedWidgetIds.includes(widget.id) ? "text-brand bg-brand-bg" : "text-[#757681] dark:text-white/40 hover:bg-[#F7F7F5] dark:hover:bg-white/10")}

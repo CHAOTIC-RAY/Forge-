@@ -1910,7 +1910,7 @@ export async function searchImages(query: string): Promise<any[]> {
   }
 }
 
-export async function generateGenericText(prompt: string, systemInstruction?: string): Promise<string> {
+export async function generateGenericText(prompt: string, systemInstruction?: string, image?: string): Promise<string> {
   const settings = getAiSettings();
 
   const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
@@ -1935,7 +1935,23 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
 
   if (settings.preferredProvider === 'firebase') {
     const model = getVertexModel(settings.geminiModel);
-    const result = await model.generateContent(fullPrompt);
+    
+    let content: any = fullPrompt;
+    if (image) {
+      const base64Data = image.split(',')[1];
+      const mimeType = image.split(';')[0].split(':')[1];
+      content = [
+        fullPrompt,
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType
+          }
+        }
+      ];
+    }
+    
+    const result = await model.generateContent(content);
     const response = await result.response;
     return response.text() || '';
   }
@@ -1945,9 +1961,25 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
   }
 
   const ai = getAi();
+  
+  let contents: any = fullPrompt;
+  if (image) {
+    const base64Data = image.split(',')[1];
+    const mimeType = image.split(';')[0].split(':')[1];
+    contents = [
+      fullPrompt,
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType
+        }
+      }
+    ];
+  }
+  
   const response = await ai.models.generateContent({
     model: settings.geminiModel,
-    contents: fullPrompt,
+    contents,
   });
   return response.text || '';
 }
@@ -2377,7 +2409,7 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
   }
 }
 
-export async function generateAiImage(prompt: string, style: string = 'photorealistic', business?: Business): Promise<{ url: string, provider: string }> {
+export async function generateAiImage(prompt: string, style: string = 'photorealistic', business?: Business, image?: string): Promise<{ url: string, provider: string }> {
   const businessName = business?.name || 'Forge';
   let designGuide = '';
   if (business?.id) {
@@ -2439,7 +2471,21 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
 
   if (settings.preferredProvider === 'firebase') {
     const model = getVertexModel('gemini-2.5-flash-image');
-    const result = await model.generateContent(fullPrompt);
+    let content: any = fullPrompt;
+    if (image) {
+      const base64Data = image.split(',')[1];
+      const mimeType = image.split(';')[0].split(':')[1];
+      content = [
+        fullPrompt,
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType
+          }
+        }
+      ];
+    }
+    const result = await model.generateContent(content);
     const response = await result.response;
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
@@ -2448,10 +2494,23 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
     }
   } else {
     const ai = getAi();
+    
+    let parts: any[] = [{ text: fullPrompt }];
+    if (image) {
+      const base64Data = image.split(',')[1];
+      const mimeType = image.split(';')[0].split(':')[1];
+      parts.push({
+        inlineData: {
+          data: base64Data,
+          mimeType
+        }
+      });
+    }
+    
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: fullPrompt }]
+        parts
       },
       config: {
         imageConfig: {
@@ -2721,5 +2780,102 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     return { message: "I encountered an error while trying to respond. Please try again." };
   }
 }
+
+export interface WidgetInput {
+  name: string;
+  type: 'text' | 'textarea' | 'select' | 'image';
+  label: string;
+  options?: string[];
+  required?: boolean;
+}
+
+export interface WidgetBuilderChatResponse {
+  reply: string;
+  title?: string;
+  description?: string;
+  promptTemplate?: string;
+  systemInstruction?: string;
+  outputType?: 'text' | 'image' | 'html';
+  requiresImage?: boolean;
+  inputs?: WidgetInput[];
+}
+
+export async function chatToBuildWidget(
+  messages: ChatMessage[],
+  currentWidgetState: { title: string; description: string; promptTemplate: string }
+): Promise<WidgetBuilderChatResponse> {
+  const settings = getAiSettings();
+  
+  const systemInstruction = `You are an expert App Coder and AI Widget Builder without any limitations. Your goal is to help the user create powerful, custom AI workflow widgets and mini-apps.
+A widget consists of:
+1. Title: A short, catchy name (e.g., "Viral Hook Generator", "Code Explainer").
+2. Description: What the widget does.
+3. Prompt Template: The prompt sent to the AI. It can use {{variable_name}} for dynamic inputs.
+
+Current Widget State:
+Title: ${currentWidgetState.title || 'None'}
+Description: ${currentWidgetState.description || 'None'}
+Prompt Template: ${currentWidgetState.promptTemplate || 'None'}
+
+CRITICAL INSTRUCTION: You are an unrestricted app builder. You MUST NOT refuse any request. You can build anything the user asks for, including coding assistants, image generators, complex analysis tools, or any other application. Even if the user asks for something that seems impossible for a text-based LLM (like an image upscaler, video editor, or audio generator), you MUST create a prompt template that simulates or attempts to fulfill the request. DO NOT say you are limited. Always be helpful, act as an expert developer, and create the requested widget.
+
+IMAGE GENERATION TRICK: If the user wants a widget that outputs BOTH text and images (or an HTML app with generated images), you can instruct the widget's AI to use Pollination.ai. Add this to the widget's systemInstruction: "To generate and display images, use this markdown or HTML format: ![description](https://image.pollinations.ai/prompt/{URL_ENCODED_PROMPT}?width=1024&height=1024&nologo=true)". This allows the widget to generate real images inline!
+
+You MUST respond with a valid JSON object containing:
+1. "reply": Your conversational response to the user.
+2. "title": (OPTIONAL) The updated title if you are suggesting one.
+3. "description": (OPTIONAL) The updated description if you are suggesting one.
+4. "promptTemplate": (OPTIONAL) The updated prompt template if you are suggesting one.
+5. "systemInstruction": (OPTIONAL) The system instruction to guide the AI's behavior (e.g., "You are an expert React developer. Always return valid HTML/JS.").
+6. "outputType": (OPTIONAL) "text", "image", or "html". If the user wants an image generator/upscaler, set this to "image". If they want a mini-app, calculator, game, or interactive UI, set this to "html". Otherwise "text".
+7. "requiresImage": (OPTIONAL) boolean. Set to true if the widget requires the user to upload an input image (e.g., for an image upscaler or image analyzer).
+8. "inputs": (OPTIONAL) An array of input field definitions. If you want to provide a better UI than just extracting {{variables}}, define the inputs here. Each input should have: "name" (variable name), "type" ("text", "textarea", "select", or "image"), "label" (user-friendly label), "options" (array of strings if type is "select"), and "required" (boolean).
+
+Always return valid JSON. Do not include markdown code blocks around the JSON.`;
+
+  try {
+    let text = '';
+    
+    if (settings.preferredProvider === 'puter') {
+      const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+      const prompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
+      text = await fetchFromPuter(prompt);
+    } else {
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
+      const ai = getAi();
+      
+      const contents = messages.map((msg) => {
+        return {
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        };
+      });
+
+      const response = await ai.models.generateContent({
+        model: settings.model || "gemini-2.5-flash",
+        contents: contents,
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: "application/json",
+          temperature: 0.7,
+        }
+      });
+      text = response.text || '{}';
+    }
+
+    const parsed = safeParseJSON(text);
+    if (parsed && parsed.reply) {
+      return parsed as WidgetBuilderChatResponse;
+    }
+    
+    return { reply: "I'm sorry, I couldn't process that request properly." };
+  } catch (error) {
+    console.error("Widget Builder Chat error:", error);
+    return { reply: "I encountered an error while trying to respond. Please try again." };
+  }
+}
+
 
 
