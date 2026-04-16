@@ -220,7 +220,6 @@ export const getAiSettings = () => {
     pollinationApiKey: '',
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
-    puterToken: '',
     targetUrl: '',
     geminiApiKey: '',
     groqApiKey: '',
@@ -242,19 +241,6 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
   if (!puterInstance) {
     console.error("[Puter] Puter.js is not loaded on window.");
     throw new Error("Puter.js is not loaded yet. Please refresh the page.");
-  }
-
-  // If a token is provided in settings, use it to persist session
-  if (settings.puterToken) {
-    try {
-      if (typeof puterInstance.auth?.setToken === 'function') {
-        puterInstance.auth.setToken(settings.puterToken);
-      } else if (typeof puterInstance.setToken === 'function') {
-        puterInstance.setToken(settings.puterToken);
-      }
-    } catch (e) {
-      console.warn("[Puter] Failed to set token", e);
-    }
   }
 
   try {

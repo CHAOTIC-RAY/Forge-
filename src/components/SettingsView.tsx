@@ -215,6 +215,19 @@ export function SettingsView({
     }
   };
 
+  const handlePuterSignOut = async () => {
+    if (typeof window !== 'undefined' && (window as any).puter) {
+      try {
+        await (window as any).puter.auth.signOut();
+        setIsPuterSignedIn(false);
+        toast.success("Signed out from Puter.js");
+      } catch (e) {
+        console.error("Puter sign out error", e);
+        toast.error("Failed to sign out from Puter.js");
+      }
+    }
+  };
+
   const handleUpdateName = async () => {
     if (!auth.currentUser) return;
     if (!newName.trim()) {
@@ -1079,17 +1092,58 @@ export function SettingsView({
                 </div>
               ) : aiSettings.preferredProvider === 'puter' ? (
                 <div className="space-y-4">
-                  {!isPuterSignedIn && (
-                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-[12px]">
-                      <p className="text-xs text-amber-700 dark:text-amber-400 mb-2 font-medium">Puter.js requires authentication for AI services.</p>
-                      <button 
-                        onClick={handlePuterSignIn}
-                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-[8px] text-xs font-bold transition-colors"
-                      >
-                        Sign in to Puter.js
-                      </button>
+                  <div className={cn(
+                    "p-4 rounded-[16px] border transition-all",
+                    isPuterSignedIn 
+                      ? "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30" 
+                      : "bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30"
+                  )}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full animate-pulse",
+                          isPuterSignedIn ? "bg-emerald-500" : "bg-amber-500"
+                        )} />
+                        <span className={cn(
+                          "text-xs font-bold uppercase tracking-wider",
+                          isPuterSignedIn ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"
+                        )}>
+                          {isPuterSignedIn ? "Authenticated" : "Sign In Required"}
+                        </span>
+                      </div>
+                      {isPuterSignedIn && (
+                        <button 
+                          onClick={handlePuterSignOut}
+                          className="text-[10px] font-bold text-red-500 hover:text-red-600 transition-colors uppercase tracking-tight"
+                        >
+                          Sign Out
+                        </button>
+                      )}
                     </div>
-                  )}
+                    
+                    {!isPuterSignedIn ? (
+                      <div className="space-y-3">
+                        <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
+                          Puter.js uses a popup-based auth. Once signed in, you won't need to do it again unless you clear your cookies.
+                        </p>
+                        <button 
+                          onClick={handlePuterSignIn}
+                          className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-[12px] text-xs font-bold transition-all shadow-md shadow-amber-500/20 active:scale-95"
+                        >
+                          Continue with Puter.js
+                        </button>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-500 bg-white/50 dark:bg-black/20 p-2 rounded-[8px] italic">
+                          Tip: Ensure third-party cookies are enabled in your browser settings to keep your session alive.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <p className="text-xs font-medium">Your Puter.js session is active.</p>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Puter Text Model</label>
                     <select 
@@ -1099,27 +1153,6 @@ export function SettingsView({
                     >
                       {PUTER_TEXT_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Puter Personal Access Token (Optional)</label>
-                      <a 
-                        href="https://puter.com/settings/tokens" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-[10px] text-brand hover:underline"
-                      >
-                        Get Token
-                      </a>
-                    </div>
-                    <input 
-                      type="password"
-                      value={aiSettings.puterToken || ''}
-                      onChange={(e) => handleAiSettingChange('puterToken', e.target.value)}
-                      placeholder="Enter token for 1-time sign in"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
-                    />
-                    <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Using a token prevents having to sign in manually every session.</p>
                   </div>
                 </div>
               ) : (
