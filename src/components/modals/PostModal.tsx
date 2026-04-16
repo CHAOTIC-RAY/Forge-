@@ -110,6 +110,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
       const q = query(
         collection(db, 'comments'),
         where('postId', '==', post.id),
+        where('businessId', '==', post.businessId),
         orderBy('createdAt', 'asc')
       );
 
@@ -242,6 +243,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     try {
       await addDoc(collection(db, 'comments'), {
         postId: post.id,
+        businessId: post.businessId,
         userId: user?.uid || 'guest',
         userName: user?.displayName || 'Guest User',
         userPhoto: user?.photoURL || '',

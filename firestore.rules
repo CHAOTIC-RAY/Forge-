@@ -127,6 +127,7 @@ service cloud.firestore {
     function isValidComment(data) {
       return data.keys().hasAll(['postId', 'userId', 'userName', 'text', 'createdAt']) &&
              data.postId is string && data.postId.size() < 100 &&
+             (!('businessId' in data) || data.businessId is string) &&
              data.userId is string && data.userId.size() < 100 &&
              data.userName is string && data.userName.size() < 255 &&
              (!('userPhoto' in data) || data.userPhoto is string) &&
@@ -215,13 +216,17 @@ service cloud.firestore {
     match /comments/{commentId} {
       // Allow read if user can access the post's business
       allow read: if isAuthenticated() && 
-                  exists(/databases/$(database)/documents/posts/$(resource.data.postId)) &&
-                  canAccessBusiness(get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.businessId);
+                  (
+                    (resource.data.businessId != null && canAccessBusiness(resource.data.businessId)) ||
+                    (resource.data.businessId == null && exists(/databases/$(database)/documents/posts/$(resource.data.postId)) && canAccessBusiness(get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.businessId))
+                  );
       
       // Allow create if user can access the post's business
       allow create: if isAuthenticated() && 
-                    exists(/databases/$(database)/documents/posts/$(request.resource.data.postId)) &&
-                    canAccessBusiness(get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.businessId) &&
+                    (
+                      (request.resource.data.businessId != null && canAccessBusiness(request.resource.data.businessId)) ||
+                      (request.resource.data.businessId == null && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId)) && canAccessBusiness(get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.businessId))
+                    ) &&
                     isValidComment(request.resource.data);
                     
       allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());

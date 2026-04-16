@@ -1100,6 +1100,27 @@ export function SettingsView({
                       {PUTER_TEXT_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
                   </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Puter Personal Access Token (Optional)</label>
+                      <a 
+                        href="https://puter.com/settings/tokens" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-brand hover:underline"
+                      >
+                        Get Token
+                      </a>
+                    </div>
+                    <input 
+                      type="password"
+                      value={aiSettings.puterToken || ''}
+                      onChange={(e) => handleAiSettingChange('puterToken', e.target.value)}
+                      placeholder="Enter token for 1-time sign in"
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                    />
+                    <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Using a token prevents having to sign in manually every session.</p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1133,7 +1154,7 @@ export function SettingsView({
             <div className="space-y-3 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
               <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Image Generation API</label>
               <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                {['gemini', 'pollination', 'puter'].map((provider) => (
+                {['auto', 'gemini', 'pollination', 'puter'].map((provider) => (
                   <button
                     key={provider}
                     onClick={() => handleAiSettingChange('imageProvider', provider)}
@@ -1144,14 +1165,18 @@ export function SettingsView({
                         : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                     )}
                   >
-                    {provider === 'pollination' ? 'Pollination.ai' : provider === 'puter' ? 'Puter.js' : 'Gemini'}
+                    {provider === 'pollination' ? 'Pollination' : provider === 'puter' ? 'Puter' : provider === 'auto' ? 'Auto' : 'Gemini'}
                   </button>
                 ))}
               </div>
               <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-2">
                 {aiSettings.imageProvider === 'pollination' 
                   ? 'Using Pollination.ai for fast, free image generation.' 
-                  : aiSettings.imageProvider === 'puter' ? 'Using Puter.js for image generation.' : 'Using Gemini Flash Image for high-quality, prompt-aligned images.'}
+                  : aiSettings.imageProvider === 'puter' 
+                    ? 'Using Puter.js for image generation.' 
+                    : aiSettings.imageProvider === 'auto'
+                      ? 'Auto mode will try Puter.js if signed in, otherwise use Gemini Flash.'
+                      : 'Using Gemini Flash Image for high-quality, prompt-aligned images.'}
               </p>
 
               {aiSettings.imageProvider === 'pollination' && (

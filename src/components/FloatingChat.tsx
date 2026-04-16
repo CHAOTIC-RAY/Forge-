@@ -21,6 +21,9 @@ interface Message {
 
 interface FloatingChatProps {
   posts: Post[];
+  activeBusiness?: any;
+  brandKit?: any;
+  products?: any[];
   onUpdatePost: (post: Post) => void;
   onCreatePost: (post: Post, date?: string) => void;
   onDeletePost?: (postId: string) => void;
@@ -32,7 +35,21 @@ interface FloatingChatProps {
   onFullScreen?: () => void;
 }
 
-export function FloatingChat({ posts, onUpdatePost, onCreatePost, onDeletePost, onPreviewPost, droppedItem, onClearDroppedItem, isFullPage, onClose, onFullScreen }: FloatingChatProps) {
+export function FloatingChat({ 
+  posts, 
+  activeBusiness, 
+  brandKit,
+  products,
+  onUpdatePost, 
+  onCreatePost, 
+  onDeletePost, 
+  onPreviewPost, 
+  droppedItem, 
+  onClearDroppedItem, 
+  isFullPage, 
+  onClose, 
+  onFullScreen 
+}: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -137,6 +154,28 @@ export function FloatingChat({ posts, onUpdatePost, onCreatePost, onDeletePost, 
     try {
       let contextStr = "";
       
+      const workspaceContext = {
+        business: activeBusiness ? {
+          name: activeBusiness.name,
+          industry: activeBusiness.industry,
+          position: activeBusiness.position
+        } : null,
+        scheduleSummary: posts.length > 0 
+          ? posts.slice(0, 50).map(p => `- [${p.date}] ${p.title} (${p.outlet}): ${p.type}`).join('\n')
+          : "No posts scheduled yet.",
+        brandKit: brandKit ? {
+          colors: brandKit.colors?.map((c: any) => `${c.name}: ${c.hex}`).join(', '),
+          fonts: brandKit.fonts,
+          hasLogos: (brandKit.logos?.length || 0) > 0,
+          designGuideExcerpt: brandKit.designGuide?.substring(0, 500) + '...'
+        } : "Not configured",
+        productsSummary: products && products.length > 0
+          ? `${products.length} products available. Top categories: ${Array.from(new Set(products.map(p => p.type))).slice(0, 5).join(', ')}`
+          : "No products in database"
+      };
+
+      contextStr = `WORKSPACE CONTEXT:\n${JSON.stringify(workspaceContext, null, 2)}\n\n`;
+
       if (currentAttached) {
         if (currentAttached.type === 'post') {
           contextStr = `Existing Post Data: ${JSON.stringify(currentAttached.post)}`;

@@ -57,6 +57,17 @@ export const isGeminiKeyAvailable = () => {
   return (!!apiKey && apiKey !== 'undefined') || !!serverConfig?.hasGeminiApiKey;
 };
 
+export const isPuterSignedIn = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') return false;
+  const puterInstance = (window as any).puter;
+  if (!puterInstance) return false;
+  try {
+    return await puterInstance.auth.isSignedIn();
+  } catch (e) {
+    return false;
+  }
+};
+
 export const getAi = () => {
   const settings = getAiSettings();
   // Prioritize settings, then process.env (Vite defined), then import.meta.env
@@ -209,6 +220,7 @@ export const getAiSettings = () => {
     pollinationApiKey: '',
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
+    puterToken: '',
     targetUrl: '',
     geminiApiKey: '',
     groqApiKey: '',
@@ -230,6 +242,19 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
   if (!puterInstance) {
     console.error("[Puter] Puter.js is not loaded on window.");
     throw new Error("Puter.js is not loaded yet. Please refresh the page.");
+  }
+
+  // If a token is provided in settings, use it to persist session
+  if (settings.puterToken) {
+    try {
+      if (typeof puterInstance.auth?.setToken === 'function') {
+        puterInstance.auth.setToken(settings.puterToken);
+      } else if (typeof puterInstance.setToken === 'function') {
+        puterInstance.setToken(settings.puterToken);
+      }
+    } catch (e) {
+      console.warn("[Puter] Failed to set token", e);
+    }
   }
 
   try {
@@ -317,6 +342,9 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
 
   const fullPrompt = expectJson ? prompt + designContext + "\n\nYou MUST return ONLY a valid JSON object or array." : prompt + designContext;
 
+  // Decision logic for providers
+  const isPuterSignedIn = typeof window !== 'undefined' && (window as any).puter && await (window as any).puter.auth.isSignedIn();
+
   if (settings.preferredProvider === 'puter') {
     try {
       const resp = await fetchFromPuter(fullPrompt);
@@ -330,6 +358,20 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       if (resp) return resp;
     } catch (e) {
       console.warn('Groq failed, cascading...');
+    }
+  } else if (settings.preferredProvider === 'auto') {
+    // In auto mode, try Groq first (speed), then Puter if signed in (reliability/gpt4), then Gemini
+    try {
+      return await fetchFromGroq(fullPrompt);
+    } catch (e) {
+      console.warn('Auto mode: Groq failed, trying Puter...');
+      if (isPuterSignedIn) {
+        try {
+          return await fetchFromPuter(fullPrompt);
+        } catch (pe) {
+          console.warn('Auto mode: Puter failed, falling through to Gemini...');
+        }
+      }
     }
   }
 
@@ -357,7 +399,13 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     }
     return '';
   } catch (error) {
-    console.warn("Gemini failed, cascading fallback...");
+    console.warn("Gemini failed, cascading final fallback...");
+    // If auto and Gemini failed, try Puter as last resort if we haven't already
+    if (settings.preferredProvider === 'auto' && isPuterSignedIn) {
+        try {
+            return await fetchFromPuter(fullPrompt);
+        } catch (e) {}
+    }
   }
 
   try {
@@ -637,6 +685,8 @@ export async function generateMockupImage(title: string, brief: string, caption:
   Context: ${caption}.
   Style: ${style}. ${systemInstruction}`;
 
+  const isPuterEnabled = settings.imageProvider === 'puter' || (settings.imageProvider === 'auto' && await isPuterSignedIn());
+
   if (settings.imageProvider === 'pollination') {
     const encodedPrompt = encodeURIComponent(prompt);
     const model = settings.pollinationModel || 'flux';
@@ -659,10 +709,18 @@ export async function generateMockupImage(title: string, brief: string, caption:
     return { url: base64, provider: 'Pollination.ai' };
   }
 
-  if (settings.imageProvider === 'puter') {
+  if (isPuterEnabled) {
     const model = settings.puterImageModel || 'dall-e-3';
-    const image = await puter.ai.txt2img(prompt, { model });
-    return { url: image.src, provider: 'Puter.js' };
+    try {
+      const puterInstance = (window as any).puter;
+      if (puterInstance) {
+        const image = await puterInstance.ai.txt2img(prompt, { model });
+        return { url: image.src, provider: 'Puter.js' };
+      }
+    } catch (e) {
+      console.warn("Puter image generation failed:", e);
+      if (settings.imageProvider !== 'auto') throw e;
+    }
   }
 
   const parts: any[] = [{ text: prompt }];
@@ -1165,6 +1223,16 @@ export async function generateTaskIdeas(
 
   if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
     try {
+      // In auto mode, try Puter first if signed in, otherwise try Groq
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
+          const parsed = safeParseJSON(puterResponse || '{}');
+          if (parsed.posts) return parsed.posts;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
       const groqResponse = await fetchFromGroq(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
       const parsed = JSON.parse(groqResponse || '{}');
       return parsed.posts || parsed || [];
@@ -1321,6 +1389,15 @@ export async function extractInfoFromMarkdown(markdown: string): Promise<HighSto
 
   if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
     try {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
+          const parsed = safeParseJSON(puterResponse || '[]');
+          if (Array.isArray(parsed)) return parsed;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
       const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
       let parsed = JSON.parse(groqResponse || '[]');
       if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
@@ -1425,6 +1502,15 @@ export async function extractProductsFromMarkdown(markdown: string): Promise<Hig
 
   if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
     try {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"price\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
+          const parsed = safeParseJSON(puterResponse || '[]');
+          if (Array.isArray(parsed)) return parsed;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
       const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"price\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
       let parsed = JSON.parse(groqResponse || '[]');
       if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
@@ -2190,6 +2276,14 @@ export async function generateCaption(topic: string, business?: Business): Promi
 
   if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
     try {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
+          if (puterResponse) return puterResponse;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
       const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY the caption text.");
       return groqResponse || '';
     } catch (error) {
@@ -2236,6 +2330,14 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
 
   if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
     try {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
+          if (puterResponse) return puterResponse;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
       const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY the caption text.");
       return groqResponse || '';
     } catch (error) {
@@ -2299,8 +2401,20 @@ export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<str
       const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
       result = safeParseJSON(puterResponse || '{}');
     } else if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
-      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object.");
-      result = JSON.parse(groqResponse || '{}');
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
+          if (puterResponse) {
+             result = safeParseJSON(puterResponse);
+          }
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
+      if (!result) {
+        const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object.");
+        result = JSON.parse(groqResponse || '{}');
+      }
     } else if (settings.preferredProvider === 'firebase') {
       const model = getVertexModel(settings.geminiModel);
       const res = await model.generateContent(prompt);
@@ -2361,8 +2475,17 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
       const parsed = safeParseJSON(puterResponse || '{}');
       return parsed.posts || parsed || [];
     }
-
+    
     if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array.");
+          const parsed = safeParseJSON(puterResponse || '{}');
+          if (parsed.posts || Array.isArray(parsed)) return parsed.posts || parsed;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
       const groqResponse = await fetchFromGroq(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array.");
       const parsed = JSON.parse(groqResponse || '{}');
       return parsed.posts || parsed || [];
@@ -2693,9 +2816,10 @@ export async function chatWithAi(
   
   const systemInstruction = `You are Forge AI, an expert social media manager and creative assistant.
 Your goal is to help the user create, improve, or brainstorm social media posts, products, and ideas.
-You are highly capable of understanding complex tasks.
+You have access to the current workspace schedule, business information, and brand kit.
+You are highly capable of understanding complex tasks and analyzing patterns in the schedule.
 
-Context about the current item the user is looking at:
+Context about the workspace and current item:
 ${contextStr || 'None'}
 
 ${settings.systemInstructions ? `\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : ''}

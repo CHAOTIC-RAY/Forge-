@@ -221,6 +221,48 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const industryConfig = useMemo(() => getIndustryConfig(activeBusiness?.industry), [activeBusiness?.industry]);
+  const [brandKit, setBrandKit] = useState<any>(null);
+
+  useEffect(() => {
+    if (!activeBusiness || isViewOnly) {
+      setBrandKit(null);
+      return;
+    }
+    const brandKitRef = doc(db, 'brand_kits', activeBusiness.id);
+    const unsubscribe = onSnapshot(brandKitRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setBrandKit(docSnap.data());
+      } else {
+        setBrandKit(null);
+      }
+    });
+    return () => unsubscribe();
+  }, [activeBusiness, isViewOnly]);
+
+  const [products, setProducts] = useState<any[]>([]);
+  useEffect(() => {
+    const syncProducts = () => {
+      if (!activeBusiness) {
+        setProducts([]);
+        return;
+      }
+      const storageKey = `rainbowStockCheck_${activeBusiness.id}`;
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          setProducts(JSON.parse(saved));
+        } catch (e) {
+          setProducts([]);
+        }
+      } else {
+        setProducts([]);
+      }
+    };
+
+    syncProducts();
+    window.addEventListener('storage', syncProducts);
+    return () => window.removeEventListener('storage', syncProducts);
+  }, [activeBusiness]);
 
   const handleAiSettingChange = (key: string, value: string | boolean) => {
     const newSettings = { ...aiSettings, [key]: value };
@@ -3493,6 +3535,9 @@ export default function App() {
         {isAdmin && (
           <FloatingChat 
             posts={posts}
+            activeBusiness={activeBusiness}
+            brandKit={brandKit}
+            products={products}
             onUpdatePost={(updatedPost) => {
               handleSavePost(updatedPost);
             }}
