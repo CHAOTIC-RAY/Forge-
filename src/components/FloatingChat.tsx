@@ -167,7 +167,8 @@ export function FloatingChat({
           colors: brandKit.colors?.map((c: any) => `${c.name}: ${c.hex}`).join(', '),
           fonts: brandKit.fonts,
           hasLogos: (brandKit.logos?.length || 0) > 0,
-          designGuideExcerpt: brandKit.designGuide?.substring(0, 500) + '...'
+          designGuideExcerpt: brandKit.designGuide?.substring(0, 500) + '...',
+          brandProfile: brandKit.brandProfile
         } : "Not configured",
         productsSummary: products && products.length > 0
           ? `${products.length} products available. Top categories: ${Array.from(new Set(products.map(p => p.type))).slice(0, 5).join(', ')}`

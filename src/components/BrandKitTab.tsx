@@ -31,6 +31,7 @@ interface BrandKit {
   designs: string[];
   customFonts?: { name: string; url: string; format: string }[];
   designGuide?: string; // Markdown content
+  brandProfile?: string; // Markdown content (brand.md)
 }
 
 const defaultBrandKit: BrandKit = {
@@ -221,6 +222,39 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
   }, [activeBusiness, categories.length]);
 
   // UI State
+  const [isGeneratingBrand, setIsGeneratingBrand] = useState(false);
+  const [showBrandUrlInput, setShowBrandUrlInput] = useState(false);
+  const [brandUrl, setBrandUrl] = useState('');
+
+  const handleGenerateBrandProfile = async () => {
+    if (!activeBusiness?.id) return;
+    if (!brandUrl.trim()) {
+      toast.error("Please enter a brand website URL.");
+      return;
+    }
+
+    setIsGeneratingBrand(true);
+    try {
+      const { generateBrandProfile } = await import('../lib/gemini');
+      toast.info(`Scraping ${brandUrl} and generating brand profile...`);
+      
+      const markdown = await generateBrandProfile(brandUrl, activeBusiness);
+      
+      const updatedBrandKit = { ...brandKit, brandProfile: markdown };
+      setBrandKit(updatedBrandKit);
+      await setDoc(doc(db, 'brand_kits', activeBusiness.id), updatedBrandKit);
+      
+      setShowBrandUrlInput(false);
+      setBrandUrl('');
+      toast.success('Brand Profile (brand.md) generated successfully!');
+    } catch (error: any) {
+      console.error("Brand generation failed:", error);
+      toast.error(error.message || "Failed to generate brand profile.");
+    } finally {
+      setIsGeneratingBrand(false);
+    }
+  };
+
   const [activeSection, setActiveSection] = useState<'identity' | 'workspace' | 'designs'>('identity');
   const [uploadedPostImages, setUploadedPostImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -980,6 +1014,101 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                       <p className="text-xs font-bold text-[#757681]">No assets uploaded</p>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Brand Profile Card (brand.md) */}
+              <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6 lg:col-span-2">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-brand-bg rounded-[12px] flex items-center justify-center">
+                      <PenTool className="w-5 h-5 text-brand" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold">Brand Profile (brand.md)</h3>
+                      <p className="text-[10px] text-[#757681] font-medium uppercase tracking-widest">Strategy & Identity</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowBrandUrlInput(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-[12px] text-xs font-bold hover:bg-brand-hover transition-all active:scale-95 shadow-lg shadow-brand/20"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Auto-generate brand.md
+                    </button>
+                    <button
+                      onClick={handleSaveBrandKit}
+                      disabled={isSaving}
+                      className="flex md:hidden items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-[#2E2E2E] text-[#37352F] dark:text-white rounded-[12px] text-xs font-bold hover:bg-slate-200 dark:hover:bg-[#3E3E3E] transition-all active:scale-95"
+                    >
+                      {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      Save
+                    </button>
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {showBrandUrlInput && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="mb-8 overflow-hidden"
+                    >
+                      <div className="p-6 bg-brand-bg rounded-[16px] border border-brand/20 space-y-4">
+                        <div className="flex items-center gap-2 text-brand">
+                          <Globe className="w-4 h-4" />
+                          <h4 className="text-sm font-bold">Import from Website</h4>
+                        </div>
+                        <p className="text-xs text-brand/70 leading-relaxed">
+                          Enter your brand's website URL. I'll analyze the content and generate a comprehensive brand profile for our AI Assistant to stay on track.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <input 
+                            type="url"
+                            placeholder="https://yourbrand.com"
+                            value={brandUrl}
+                            onChange={(e) => setBrandUrl(e.target.value)}
+                            className="flex-1 px-4 py-3 text-sm bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:ring-4 focus:ring-brand/10 transition-all"
+                          />
+                          <button
+                            onClick={handleGenerateBrandProfile}
+                            disabled={isGeneratingBrand || !brandUrl}
+                            className="px-6 py-3 bg-brand text-white rounded-[12px] text-sm font-bold hover:bg-brand-hover transition-all disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {isGeneratingBrand ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                            Generate
+                          </button>
+                          <button
+                            onClick={() => setShowBrandUrlInput(false)}
+                            className="p-3 text-[#757681] hover:bg-slate-200/50 dark:hover:bg-white/5 rounded-[12px] transition-all"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="relative group">
+                  <textarea
+                    value={brandKit.brandProfile || ''}
+                    onChange={(e) => setBrandKit({ ...brandKit, brandProfile: e.target.value })}
+                    placeholder="# Brand Identity (brand.md)&#10;- Mission&#10;- Vision&#10;- Values..."
+                    className="w-full h-[400px] p-6 text-sm font-medium bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all resize-none font-mono leading-relaxed"
+                  />
+                  <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-bold text-[#757681] bg-white/80 dark:bg-black/50 px-2 py-1 rounded backdrop-blur-sm border border-[#E9E9E7] dark:border-[#2E2E2E]">MARKDOWN EDITOR</span>
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex items-start gap-3 p-4 bg-slate-50 dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <AlertCircle className="w-4 h-4 text-[#757681] mt-0.5" />
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+                    This profile acts as the "source of truth" for the AI Assistant. Keep it detailed to ensure all generated posts, copy, and ideas align perfectly with your brand identity.
+                  </p>
                 </div>
               </div>
             </motion.div>

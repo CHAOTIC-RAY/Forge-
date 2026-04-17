@@ -198,6 +198,45 @@
       },
       "required": ["id", "businessId"]
     },
+    "BrandKit": {
+      "title": "Brand Kit",
+      "description": "Visual identity and design guidelines for a brand",
+      "type": "object",
+      "properties": {
+        "colors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "hex": { "type": "string" }
+            }
+          }
+        },
+        "fonts": {
+          "type": "object",
+          "properties": {
+            "heading": { "type": "string" },
+            "body": { "type": "string" }
+          }
+        },
+        "logos": { "type": "array", "items": { "type": "string" } },
+        "designs": { "type": "array", "items": { "type": "string" } },
+        "customFonts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" },
+              "format": { "type": "string" }
+            }
+          }
+        },
+        "designGuide": { "type": "string", "description": "Markdown content for design.md" },
+        "brandProfile": { "type": "string", "description": "Markdown content for brand.md" }
+      }
+    },
     "Notebook": {
       "title": "Notebook",
       "description": "An infinite canvas notebook for visual strategy",
@@ -273,7 +312,7 @@
       "description": "Saved AI ideas"
     },
     "/brand_kits/{businessId}": {
-      "schema": "Business",
+      "schema": "BrandKit",
       "description": "Brand kit settings for a business"
     },
     "/categories/{businessId}": {

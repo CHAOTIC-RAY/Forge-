@@ -285,7 +285,8 @@ export async function startServer(forcePort?: number) {
       console.error("Firecrawl scrape failed:", error.response?.data || error.message);
       res.status(500).json({ 
         error: "Firecrawl scrape failed", 
-        details: error.response?.data || error.message 
+        details: error.response?.data || error.message,
+        success: false
       });
     }
   });

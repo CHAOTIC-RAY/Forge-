@@ -1568,6 +1568,50 @@ export async function extractProductsFromMarkdown(markdown: string): Promise<Hig
   }
 }
 
+export async function generateBrandProfile(url: string, business?: Business): Promise<string> {
+  const settings = getAiSettings();
+  
+  try {
+    const firecrawlRes = await fetch('/api/firecrawl-scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, apiKey: settings.firecrawlApiKey })
+    });
+    
+    const firecrawlData = await firecrawlRes.json();
+    
+    if (!firecrawlRes.ok || !firecrawlData.success || !firecrawlData.data?.markdown) {
+      console.error("Firecrawl Backend Details:", firecrawlData.details);
+      throw new Error(`Failed to scrape website. Error: ${firecrawlData.details || firecrawlData.error || 'Please ensure the URL is correct and public.'}`);
+    }
+
+    const markdownContent = firecrawlData.data.markdown;
+    const prompt = `You are a Brand Strategist. Based on the following scraped website content for a business named "${business?.name || 'this brand'}", create a comprehensive "Brand Profile" (brand.md).
+    
+    This profile will be used by AI assistants to understand the brand's identity, target audience, key selling points, and core messaging.
+    
+    Scraped Content:
+    ${markdownContent.substring(0, 15000)} // Limiting to prevent token overflow
+    
+    Please structure the Markdown with these sections:
+    # Brand Identity (brand.md)
+    - Mission & Vision
+    - Core Values
+    - Target Audience (Who are the customers?)
+    - Key Selling Points (What makes them unique?)
+    - Product/Service Overview (High-level categories and key offerings)
+    - Brand Voice & Messaging (How do they speak to their audience?)
+    - Notable Achievements/History
+    
+    Make it highly detailed, professional, and accurate based on the website. Use bolding and lists for readability.`;
+
+    return await generateTextWithCascade(prompt, false, business?.id);
+  } catch (error) {
+    console.error("Error generating brand profile:", error);
+    throw error;
+  }
+}
+
 export async function scrapeWooCommerce(
   category: string,
   onProgress?: (products: HighStockProduct[]) => void,
