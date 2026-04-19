@@ -79,9 +79,8 @@ class BuiltInAiService {
     if (GenAI) return GenAI;
 
     const cdns = [
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/genai_bundle.js",
-      "https://unpkg.com/@mediapipe/tasks-genai@latest/genai_bundle.js",
-      "https://www.gstatic.com/mediapipe/solutions/genai/genai_bundle.js"
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js",
+      "https://unpkg.com/@mediapipe/tasks-genai/genai_bundle.js"
     ];
 
     for (const url of cdns) {
@@ -89,16 +88,24 @@ class BuiltInAiService {
         console.log(`[BuiltInAI] Trying CDN: ${url}`);
         await this.injectScript(url);
         const loadedGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
-        if (loadedGenAI) {
-          console.log(`[BuiltInAI] Library loaded successfully from ${url}`);
-          return loadedGenAI;
-        }
+        if (loadedGenAI) return loadedGenAI;
       } catch (e) {
-        console.warn(`[BuiltInAI] Failed to load from ${url}, trying next...`);
+        console.warn(`[BuiltInAI] Failed to load from ${url}`);
       }
     }
 
-    throw new Error("Could not load MediaPipe GenAI library from any CDN. Please check for extensions blocking scripts.");
+    // ULTIMATE FALLBACK: Same-origin proxy
+    try {
+      const proxyUrl = `/api/proxy-js?url=${encodeURIComponent("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js")}`;
+      console.log(`[BuiltInAI] CDNs blocked. Trying same-origin proxy: ${proxyUrl}`);
+      await this.injectScript(proxyUrl);
+      const loadedGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
+      if (loadedGenAI) return loadedGenAI;
+    } catch (e) {
+      console.error("[BuiltInAI] Proxy fallback failed.");
+    }
+
+    throw new Error("Could not load MediaPipe GenAI library. All CDNs and local proxys failed. Please check your browser's security settings or extensions.");
   }
 
   private injectScript(url: string): Promise<void> {

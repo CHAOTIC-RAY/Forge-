@@ -178,6 +178,31 @@ export async function startServer(forcePort?: number) {
     }
   });
 
+  // Proxy JS endpoint to bypass CDN blocks
+  app.get("/api/proxy-js", async (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== "string") {
+      return res.status(400).send("URL is required");
+    }
+
+    try {
+      const response = await axios.get(url, { 
+        responseType: "text",
+        timeout: 20000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+
+      res.setHeader("Content-Type", "application/javascript");
+      res.setHeader("Cache-Control", "public, max-age=86400"); // Cache for 1 day
+      res.send(response.data);
+    } catch (error: any) {
+      console.error("Proxy JS failed:", error.message);
+      res.status(500).send(`Failed to proxy JS: ${error.message}`);
+    }
+  });
+
   // Firecrawl Endpoints
   app.post("/api/map", async (req, res) => {
     const { url, limit = 5000, apiKey } = req.body;
