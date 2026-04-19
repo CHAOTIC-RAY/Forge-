@@ -1,3 +1,4 @@
+document.addEventListener('DOMContentLoaded', () => {
   // --- TABS LOGIC ---
   const tabBtns = document.querySelectorAll('.tab-btn');
   const views = document.querySelectorAll('.view');
