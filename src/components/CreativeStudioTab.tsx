@@ -52,9 +52,10 @@ interface CreativeStudioTabProps {
   onSavePost?: (post: Post) => Promise<void>;
   userId?: string;
   activeBusiness?: Business | null;
+  onOpenSandbox?: () => void;
 }
 
-export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: CreativeStudioTabProps) {
+export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSandbox }: CreativeStudioTabProps) {
   const { config } = useWorkspaceConfig();
   const [activeWidget, setActiveWidget] = useState<WidgetType>(null);
   const [isPlaygroundOpen, setIsPlaygroundOpen] = useState(false);
@@ -79,6 +80,10 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness }: Creati
   const [editingWidgetId, setEditingWidgetId] = useState<string | null>(null);
 
   const openPlayground = () => {
+    if (onOpenSandbox) {
+      onOpenSandbox();
+      return;
+    }
     setEditingWidgetId(null);
     setNewWidgetTitle('');
     setNewWidgetDescription('');

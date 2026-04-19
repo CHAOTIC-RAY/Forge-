@@ -4,7 +4,7 @@ import { ForgeLoader } from './ForgeLoader';
 import { 
   Terminal, Sparkles, Send, Play, Code, Layout, Save, 
   Trash2, Copy, Check, ChevronRight, MessageSquare,
-  Wand2, Maximize2, Minimize2, Globe, Cpu
+  Wand2, Maximize2, Minimize2, Globe, Cpu, ArrowLeft
 } from 'lucide-react';
 import { generateAppletCode, ChatMessage } from '../lib/gemini';
 import { toast } from 'sonner';
@@ -14,9 +14,10 @@ import { Business } from '../data';
 interface AiStudioTabProps {
   activeBusiness?: Business | null;
   userId?: string;
+  onBack?: () => void;
 }
 
-export function AiStudioTab({ activeBusiness, userId }: AiStudioTabProps) {
+export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -110,13 +111,24 @@ export function AiStudioTab({ activeBusiness, userId }: AiStudioTabProps) {
       {/* Sidebar: Chat & Controls */}
       <div className="w-full lg:w-[400px] flex flex-col border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#161616] relative z-10 transition-all duration-300">
         <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between bg-white dark:bg-[#161616] sticky top-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-indigo-500" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Studio</h2>
-              <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Low-Code Sandbox</p>
+          <div className="flex items-center gap-3">
+            {onBack && (
+              <button 
+                onClick={onBack}
+                className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] text-[#757681] rounded-lg transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                title="Back to Modules"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-indigo-500" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Studio</h2>
+                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Low-Code Sandbox</p>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1">

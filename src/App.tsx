@@ -432,7 +432,30 @@ export default function App() {
     return () => window.removeEventListener('message', handleExtensionMessage);
   }, [activeBusiness, user, businesses]);
 
+  // Global "Scorched Earth" for the unwanted Low Balance popup
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach((node) => {
+            if (node instanceof HTMLElement) {
+              const text = node.innerText || "";
+              if (text.includes("Low Balance") && text.includes("funding")) {
+                console.log("[Forge] Suppressing external Low Balance popup...");
+                node.remove();
+              }
+            }
+          });
+        }
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
+  const [creativeView, setCreativeView] = useState<'modules' | 'sandbox'>('modules');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -3010,14 +3033,17 @@ export default function App() {
                   <Palette className="w-5 h-5 shrink-0" />
                 </button>
                 <button 
-                  onClick={() => setActiveTab('creative')} 
+                  onClick={() => {
+                    setActiveTab('creative');
+                    setCreativeView('modules');
+                  }} 
                   title="AI Studio"
                   className={cn(
                     "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
                     activeTab === 'creative' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                   )}
                 >
-                  <Terminal className="w-5 h-5 shrink-0" />
+                  <Sparkles className="w-5 h-5 shrink-0" />
                 </button>
                 <button 
                   onClick={() => setActiveTab('analytics')} 
@@ -3252,10 +3278,19 @@ export default function App() {
 
             {isAdmin && (
               <div className={cn("flex-1", activeTab === 'creative' ? 'block' : 'hidden')}>
-                <AiStudioTab 
-                  userId={user?.uid}
-                  activeBusiness={activeBusiness}
-                />
+                {creativeView === 'modules' ? (
+                  <CreativeStudioTab 
+                    userId={user?.uid}
+                    activeBusiness={activeBusiness}
+                    onOpenSandbox={() => setCreativeView('sandbox')}
+                  />
+                ) : (
+                  <AiStudioTab 
+                    userId={user?.uid}
+                    activeBusiness={activeBusiness}
+                    onBack={() => setCreativeView('modules')}
+                  />
+                )}
               </div>
             )}
 
