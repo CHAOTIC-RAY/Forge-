@@ -61,6 +61,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
   const [brandKitCategories, setBrandKitCategories] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isCrawling, setIsCrawling] = useState(false);
+  const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
   const [crawlJobId, setCrawlJobId] = useState<string | null>(null);
   const [siteMap, setSiteMap] = useState<any[]>([]);
   const [isSiteMapOpen, setIsSiteMapOpen] = useState(false);
