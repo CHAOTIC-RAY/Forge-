@@ -5,13 +5,13 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  
+
   --color-brand: var(--brand-color, #2665fd);
   --color-brand-hover: var(--brand-color-hover, #1e52d0);
   --color-brand-bg: var(--brand-color-bg, rgba(38, 101, 253, 0.1));
   --color-brand-border: var(--brand-color-border, rgba(38, 101, 253, 0.2));
   --color-brand-ring: var(--brand-color-ring, rgba(38, 101, 253, 0.4));
-  
+
   --color-secondary: #6074b9;
   --color-tertiary: #bd3800;
   --color-neutral: #757681;
@@ -76,7 +76,8 @@
   --brand-color-ring: rgba(255, 0, 255, 0.4);
 }
 
-body, html {
+body,
+html {
   overflow-x: hidden;
   overflow-y: auto;
   height: 100%;
@@ -115,6 +116,7 @@ body, html {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -126,14 +128,16 @@ body, html {
     size: landscape;
     margin: 0.5cm;
   }
-  body, html {
+
+  body,
+  html {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     background: white !important;
     height: auto !important;
     overflow: visible !important;
   }
-  
+
   #root {
     height: auto !important;
     overflow: visible !important;

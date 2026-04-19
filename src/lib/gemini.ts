@@ -14,13 +14,13 @@ let isFetchingConfig = false;
 export const fetchServerConfig = async () => {
   if (isFetchingConfig) return;
   isFetchingConfig = true;
-  
+
   try {
     const response = await fetch('/api/config');
     if (!response.ok) {
       throw new Error(`Server returned ${response.status}`);
     }
-    
+
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
@@ -50,10 +50,10 @@ if (typeof window !== 'undefined') {
 
 export const isGeminiKeyAvailable = () => {
   const settings = getAiSettings();
-  const apiKey = settings.geminiApiKey || 
-                 (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || 
-                 (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY);
-  
+  const apiKey = settings.geminiApiKey ||
+    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
+    (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY);
+
   return (!!apiKey && apiKey !== 'undefined') || !!serverConfig?.hasGeminiApiKey;
 };
 
@@ -71,25 +71,25 @@ export const isPuterSignedIn = async (): Promise<boolean> => {
 export const getAi = () => {
   const settings = getAiSettings();
   // Prioritize settings, then process.env (Vite defined), then import.meta.env
-  let apiKey = settings.geminiApiKey || 
-               (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || 
-               (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY) || 
-               '';
-  
+  let apiKey = settings.geminiApiKey ||
+    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
+    (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY) ||
+    '';
+
   // Handle the case where Vite might have stringified 'undefined' or it's otherwise invalid
   if (apiKey === 'undefined' || !apiKey) {
     apiKey = 'missing_api_key';
   }
-  
+
   // If the user hasn't provided a custom key but the server has one, use the proxy
   const useProxy = apiKey === 'missing_api_key' && serverConfig?.hasGeminiApiKey;
-  
+
   const options: any = { apiKey: useProxy ? 'proxy-key' : apiKey };
-  
+
   if (useProxy) {
     options.httpOptions = { baseUrl: window.location.origin + '/api/gemini' };
   }
-  
+
   return new GoogleGenAI(options);
 };
 
@@ -172,7 +172,7 @@ export async function fetchBrandKitDesignGuide(businessId: string): Promise<stri
   try {
     const docRef = doc(db, 'brand_kits', businessId);
     const docSnap = await getDocs(query(collection(db, 'brand_kits'), where('__name__', '==', businessId)));
-    
+
     if (!docSnap.empty) {
       const data = docSnap.docs[0].data();
       return data.designGuide || '';
@@ -208,7 +208,7 @@ export const getAiSettings = () => {
         parsed.puterImageModel = 'dall-e-3';
       }
       return parsed;
-    } catch (e) {}
+    } catch (e) { }
   }
   return {
     preferredProvider: 'groq',
@@ -232,18 +232,18 @@ export const setAiSettings = (settings: any) => {
   localStorage.setItem('forge_ai_settings', JSON.stringify(settings));
 };
 
- // Session-level flags to skip providers that are failing consistently (e.g. out of balance or invalid key)
-let isPuterDisabledForSession = false;
+// Session-level flags to skip providers that are failing consistently (e.g. out of balance or invalid key)
+(window as any).isPuterDisabledForSession = false;
 let isGroqDisabledForSession = false;
 
 async function fetchFromPuter(prompt: string, images?: { base64: string, mimeType: string }[]) {
-  if (isPuterDisabledForSession) {
+  if ((window as any).isPuterDisabledForSession) {
     throw new Error("Puter is disabled for this session due to insufficient funds.");
   }
 
   const settings = getAiSettings();
   const model = settings.puterTextModel || 'gpt-4o-mini';
-  
+
   // Ensure puter is available
   const puterInstance = (window as any).puter;
   if (!puterInstance) {
@@ -261,10 +261,10 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
 
     let response: any;
     console.log(`[Puter] Calling model ${model} with prompt:`, prompt.substring(0, 100) + "...");
-    
+
     const messages: any[] = [];
-    
-    const fullPrompt = settings.systemInstructions 
+
+    const fullPrompt = settings.systemInstructions
       ? `System Instructions:\n${settings.systemInstructions}\n\nUser Request:\n${prompt}`
       : prompt;
 
@@ -286,7 +286,7 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
       console.log("[Puter] Sending text-only messages:", messages);
       response = await puterInstance.ai.chat(messages, { model });
     }
-    
+
     console.log("[Puter] Raw response:", response);
 
     // Puter.js v2 chat response handling
@@ -297,7 +297,7 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
     }
 
     if (typeof response === 'string') return response;
-    
+
     // Check for response.message.content (standard OpenAI-like)
     if (response?.message?.content) {
       if (typeof response.message.content === 'string') return response.message.content;
@@ -305,14 +305,14 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
         return response.message.content.map((c: any) => c.text || '').join('');
       }
     }
-    
+
     // Check for response.text (common in some Puter versions)
     if (response?.text) return response.text;
 
     // Check for choices (OpenAI style)
     if (response?.choices?.[0]?.message?.content) return response.choices[0].message.content;
     if (response?.choices?.[0]?.text) return response.choices[0].text;
-    
+
     // If it's an object with a toString that isn't [object Object]
     const str = String(response);
     if (str !== '[object Object]') return str;
@@ -328,16 +328,16 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
     const isBalanceError = error?.status === 402 || error?.code === 'insufficient_funds' || errorMsg.toLowerCase().includes('insufficient funds') || errorMsg.toLowerCase().includes('low balance') || errorMsg.toLowerCase().includes('quota');
 
     if (isBalanceError || errorMsg.toLowerCase().includes('invalid api key')) {
-       if (!isPuterDisabledForSession) {
-         isPuterDisabledForSession = true;
-         // Use a crisp notification that specifies exactly which AI failed
-         import('sonner').then(({ toast }) => {
-           toast.error(`Puter (${model}) failed: ${isBalanceError ? 'Insufficient funds' : 'Authentication error'}. Switching to fallbacks.`);
-         });
-       }
-       console.warn(`[Puter] ${model} disabled for session:`, errorMsg);
+      if (!(window as any).isPuterDisabledForSession) {
+        (window as any).isPuterDisabledForSession = true;
+        // Use a crisp notification that specifies exactly which AI failed
+        import('sonner').then(({ toast }) => {
+          toast.error(`Puter (${model}) failed: ${isBalanceError ? 'Insufficient funds' : 'Authentication error'}. Switching to fallbacks.`);
+        });
+      }
+      console.warn(`[Puter] ${model} disabled for session:`, errorMsg);
     } else {
-       console.warn("[Puter] fetchFromPuter warning:", errorMsg);
+      console.warn("[Puter] fetchFromPuter warning:", errorMsg);
     }
     throw error;
   }
@@ -345,7 +345,7 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
 
 export async function generateTextWithCascade(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
   const settings = getAiSettings();
-  
+
   let designContext = '';
   if (businessId) {
     const guide = await fetchBrandKitDesignGuide(businessId);
@@ -405,7 +405,7 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       contents: fullPrompt,
       config
     });
-    
+
     if (response.text) {
       return response.text;
     } else if (response.candidates?.[0]?.content?.parts) {
@@ -416,9 +416,9 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     console.warn("Gemini failed, cascading final fallback...");
     // If auto and Gemini failed, try Puter as last resort if we haven't already
     if (settings.preferredProvider === 'auto' && isPuterSignedIn) {
-        try {
-            return await fetchFromPuter(fullPrompt);
-        } catch (e) {}
+      try {
+        return await fetchFromPuter(fullPrompt);
+      } catch (e) { }
     }
   }
 
@@ -429,22 +429,22 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
   }
 }
 
- async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
+async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
   if (isGroqDisabledForSession) {
     throw new Error("Groq is disabled for this session due to invalid API key.");
   }
 
   const settings = getAiSettings();
-  
+
   if (!settings.groqApiKey && !serverConfig?.hasGroqApiKey && !GROQ_API_KEY) {
     await fetchServerConfig();
   }
-  
+
   const apiKey = settings.groqApiKey || GROQ_API_KEY;
   const useProxy = !settings.groqApiKey && serverConfig?.hasGroqApiKey;
-  
+
   const messages: any[] = [];
-  
+
   if (settings.systemInstructions) {
     messages.push({ role: 'system', content: settings.systemInstructions });
   }
@@ -481,7 +481,7 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
   const headers: any = {
     'Content-Type': 'application/json'
   };
-  
+
   if (!useProxy) {
     headers['Authorization'] = `Bearer ${apiKey}`;
   }
@@ -498,12 +498,12 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     const isQuotaError = response.status === 429 || errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('limit');
 
     if (isAuthError || isQuotaError) {
-       if (!isGroqDisabledForSession) {
-         isGroqDisabledForSession = true;
-         import('sonner').then(({ toast }) => {
-            toast.error(`Groq (${model}) failed: ${isAuthError ? 'Invalid API Key' : 'Rate limit/Quota'}. Switching to fallbacks.`);
-         });
-       }
+      if (!isGroqDisabledForSession) {
+        isGroqDisabledForSession = true;
+        import('sonner').then(({ toast }) => {
+          toast.error(`Groq (${model}) failed: ${isAuthError ? 'Invalid API Key' : 'Rate limit/Quota'}. Switching to fallbacks.`);
+        });
+      }
     }
     throw new Error(`Groq API error: ${errText}`);
   }
@@ -516,17 +516,17 @@ export async function generatePostContent(outlet: string, productCategory?: stri
   const settings = getAiSettings();
   const category = productCategory || "All Products";
   const businessContext = business ? `\nBUSINESS CONTEXT: This post is for "${business.name}", which operates in the "${business.industry}" industry.` : 'This post is for a professional business.';
-  
+
   // Fetch real products from our Google Search Engine scraper first
   const { products } = await scrapeWooCommerce(category, undefined, business?.targetUrl);
-  const productContext = products.length > 0 
+  const productContext = products.length > 0
     ? `\nHere are some REAL products currently in stock for this category:\n${products.slice(0, 10).map(p => `- ${p.title} (${p.stockInfo})`).join('\n')}`
     : '';
 
   const categoryPrompt = productCategory ? ` specifically in the category "${productCategory}"` : '';
   const avoidPrompt = previousTitle ? `\nCRITICAL: DO NOT generate a post about "${previousTitle}". You MUST choose a completely DIFFERENT brand, product type, or theme.` : '';
   const randomSeed = Math.floor(Math.random() * 1000000);
-  
+
   // Provide a list of random angles to force variety
   const angles = [
     "a specific popular brand",
@@ -633,7 +633,7 @@ export async function generatePostContent(outlet: string, productCategory?: stri
         }
       }
     });
-    
+
     let text = '';
     if (response.candidates?.[0]?.content?.parts) {
       text = response.candidates[0].content.parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
@@ -676,12 +676,12 @@ export async function generateMockupImage(title: string, brief: string, caption:
     await fetchServerConfig();
   }
   const ai = getAi();
-  
+
   // Fetch brand kit
   let brandContext = "Use brand colors like orange, blue, and white.";
   let brandDesigns: any[] = [];
   let designGuide = '';
-  
+
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
   }
@@ -721,7 +721,7 @@ export async function generateMockupImage(title: string, brief: string, caption:
     const encodedPrompt = encodeURIComponent(prompt);
     const model = settings.pollinationModel || 'flux';
     const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&model=${model}`;
-    
+
     const headers: Record<string, string> = {};
     if (settings.pollinationApiKey) {
       headers['Authorization'] = `Bearer ${settings.pollinationApiKey}`;
@@ -822,7 +822,7 @@ export async function generateSmartBrief(title: string, recentPosts: Post[], bus
   const recentContext = recentPosts.slice(0, 3).map(p => `- ${p.title}: ${p.brief}`).join('\n');
   const settings = getAiSettings();
   const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
-  
+
   let designGuide = '';
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
@@ -880,7 +880,7 @@ export async function generateSmartPost(title: string, category: string, outlet:
   const dbContext = localDB.slice(0, 5).map(p => `- ${p.title}: ${p.type} (${mode === 'product' ? (p.price || 'N/A') : (p.stockInfo || 'N/A')})`).join('\n');
   const settings = getAiSettings();
   const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
-  
+
   let designGuide = '';
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
@@ -943,7 +943,7 @@ export async function generateSmartPost(title: string, category: string, outlet:
 
 export async function generatePostVisuals(title: string, brief: string, brandKit: any, business?: Business): Promise<{ url: string, provider: string }[]> {
   const settings = getAiSettings();
-  
+
   if (settings.imageProvider === 'pollination' || settings.imageProvider === 'puter') {
     const style = brandKit?.style || 'photorealistic';
     const image = await generateAiImage(`${title}. ${brief}`, style, business);
@@ -955,7 +955,7 @@ export async function generatePostVisuals(title: string, brief: string, brandKit
   }
 
   const ai = getAi();
-  
+
   let designGuide = brandKit?.designGuide || '';
   if (!designGuide && business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
@@ -1000,7 +1000,7 @@ export async function generatePostFromImage(base64Data: string, mimeType: string
   const businessName = business?.name || 'Forge Enterprises';
   const businessIndustry = business?.industry || 'professional business';
   const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
-  
+
   let designContext = '';
   if (business?.id) {
     const guide = await fetchBrandKitDesignGuide(business.id);
@@ -1009,7 +1009,7 @@ export async function generatePostFromImage(base64Data: string, mimeType: string
     }
   }
 
-  const promptText = isVideo 
+  const promptText = isVideo
     ? `Analyze this 2x2 collage of frames extracted from a video and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
        Treat this as a video analysis by looking at the sequence of frames.
        ${systemInstruction}
@@ -1019,7 +1019,7 @@ export async function generatePostFromImage(base64Data: string, mimeType: string
        ${systemInstruction}
        ${designContext}
        Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`;
-  
+
   try {
     if (settings.preferredProvider === 'puter') {
       const puterResponse = await fetchFromPuter(
@@ -1132,7 +1132,7 @@ export async function analyzeDesignImages(images: string[], business?: Business)
 }
 
 export async function generateTaskIdeas(
-  business?: Business, 
+  business?: Business,
   brandKitCategories?: any[],
   brandKitTitles?: { [key: string]: string },
   systemInstruction?: string,
@@ -1140,12 +1140,12 @@ export async function generateTaskIdeas(
 ) {
   const settings = getAiSettings();
   const industryConfig = getIndustryConfig(business?.industry);
-  
+
   let generalContext = '';
   let businessContext = business ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || 'General'}.` : 'Business: Forge Enterprises (Professional Services)';
-  
+
   const aiContext = systemInstruction || `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`;
-  
+
   try {
     const userId = auth.currentUser?.uid;
     const businessId = business?.id;
@@ -1159,7 +1159,7 @@ export async function generateTaskIdeas(
         const products = productsGeneral
           .sort(() => 0.5 - Math.random())
           .slice(0, 15);
-        
+
         if (products.length > 0) {
           generalContext = `\nAVAILABLE PRODUCTS/SERVICES: ${products.map(p => p.title).join(', ')}.`;
         }
@@ -1192,7 +1192,7 @@ export async function generateTaskIdeas(
   const contentFormatsContext = brandKitCategories ? `\nBRAND KIT ${titles.type.toUpperCase()}: ${brandKitCategories.filter(c => c.type === 'type' && c.enabled).map(c => c.name).join(', ')}` : '';
 
   const linkContext = business?.targetUrl || settings.targetUrl ? `\nCRITICAL: Focus specifically on making posts using the products found on this link: ${business?.targetUrl || settings.targetUrl}` : '';
-  
+
   let designContext = '';
   if (business?.id) {
     const guide = await fetchBrandKitDesignGuide(business.id);
@@ -1202,8 +1202,8 @@ export async function generateTaskIdeas(
   }
 
   const generalCategories = [
-    "Living Room Furniture", "Bedroom Essentials", "Kitchen Systems", 
-    "Power Tools", "Building Materials", "Office Furniture", 
+    "Living Room Furniture", "Bedroom Essentials", "Kitchen Systems",
+    "Power Tools", "Building Materials", "Office Furniture",
     "Lighting & Electrical", "Sanitary & Bathroom", "Tiles & Flooring",
     "Home Decor", "Outdoor & Garden", "Hardware & Tools"
   ].join(', ');
@@ -1374,7 +1374,7 @@ export async function getCategoryProductCounts(targetUrlParam?: string): Promise
       }
     }
   });
-  
+
   let text = response.text || '[]';
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']');
@@ -1481,7 +1481,7 @@ export async function extractInfoFromMarkdown(markdown: string): Promise<HighSto
       }
     }
   });
-  
+
   let text = response.text || '[]';
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']');
@@ -1597,7 +1597,7 @@ export async function extractProductsFromMarkdown(markdown: string): Promise<Hig
       }
     }
   });
-  
+
   let text = response.text || '[]';
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']');
@@ -1614,16 +1614,16 @@ export async function extractProductsFromMarkdown(markdown: string): Promise<Hig
 
 export async function generateBrandProfile(url: string, business?: Business): Promise<string> {
   const settings = getAiSettings();
-  
+
   try {
     const firecrawlRes = await fetch('/api/firecrawl-scrape', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, apiKey: settings.firecrawlApiKey })
     });
-    
+
     const firecrawlData = await firecrawlRes.json();
-    
+
     if (!firecrawlRes.ok || !firecrawlData.success || !firecrawlData.data?.markdown) {
       console.error("Firecrawl Backend Details:", firecrawlData.details);
       throw new Error(`Failed to scrape website. Error: ${firecrawlData.details || firecrawlData.error || 'Please ensure the URL is correct and public.'}`);
@@ -1668,7 +1668,7 @@ export async function scrapeWooCommerce(
   const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
 
   // Fallback URL structure
-  const targetUrl = category === "All Products" 
+  const targetUrl = category === "All Products"
     ? `${baseUrl}/shop/`
     : `${baseUrl}/product-category/${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}/`;
 
@@ -1681,11 +1681,11 @@ export async function scrapeWooCommerce(
       body: JSON.stringify({ url: targetUrl, apiKey: settings.firecrawlApiKey })
     });
     const firecrawlData = await firecrawlRes.json();
-    
+
     if (firecrawlRes.ok && firecrawlData.success && firecrawlData.data?.markdown) {
       logs.push(`✅ Firecrawl Scrape successful. Extracting products with AI...`);
       const extracted = await extractProductsFromMarkdown(firecrawlData.data.markdown);
-      
+
       if (extracted.length > 0) {
         logs.push(`✅ AI found ${extracted.length} products`);
         extracted.forEach((p: any) => {
@@ -1732,12 +1732,12 @@ export async function scrapeScreenshot(url: string, category: string, targetUrlP
     if (!response.ok) {
       throw new Error(`Failed to fetch screenshot: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     if (!data.base64) {
       throw new Error("Invalid screenshot data received");
     }
-    
+
     const base64String = data.base64;
     const mimeType = data.mimeType || 'image/jpeg';
     const settings = getAiSettings();
@@ -1812,7 +1812,7 @@ export async function scrapeScreenshot(url: string, category: string, targetUrlP
 }
 
 export async function findProductsByCategory(
-  category: string, 
+  category: string,
   existingTitles: string[] = [],
   onProgress?: (products: HighStockProduct[]) => void,
   targetUrlParam?: string,
@@ -1822,15 +1822,15 @@ export async function findProductsByCategory(
   const scraperResult = await scrapeWooCommerce(category, onProgress, targetUrlParam, business);
   const scrapedProducts = scraperResult.products;
   const scraperLogs = scraperResult.logs;
-  
+
   let aiProducts: HighStockProduct[] = [];
-  
+
   if (scrapedProducts.length < 15) {
     scraperLogs.push(`ℹ️ Firecrawl found few results (${scrapedProducts.length}). Asking AI to supplement...`);
-    
+
     const recentTitles = existingTitles.slice(-50);
-    const excludePrompt = recentTitles.length > 0 
-      ? `\nCRITICAL: You MUST NOT return any of these items: ${recentTitles.join(', ')}. Find DIFFERENT products.` 
+    const excludePrompt = recentTitles.length > 0
+      ? `\nCRITICAL: You MUST NOT return any of these items: ${recentTitles.join(', ')}. Find DIFFERENT products.`
       : '';
 
     try {
@@ -1901,7 +1901,7 @@ export async function findProductsByCategory(
   }
 
   let allProducts = [...scrapedProducts, ...aiProducts];
-  
+
   if (allProducts.length === 0) {
     scraperLogs.push(`🚨 CRITICAL: All search methods failed. Providing emergency static fallback.`);
     const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
@@ -1916,7 +1916,7 @@ export async function findProductsByCategory(
 
   const uniqueMap = new Map(allProducts.map(p => [p.title.toLowerCase(), p]));
   const uniqueProducts = Array.from(uniqueMap.values());
-  
+
   return {
     products: uniqueProducts,
     meta: {
@@ -2011,7 +2011,7 @@ export async function searchProductsDirectly(query: string): Promise<HighStockPr
   try {
     const response = await fetch(`/api/direct-scrape?q=${encodeURIComponent(query)}`);
     const data = await response.json();
-    
+
     if (!response.ok) {
       console.error("Direct search failed:", data.details || data.error);
       return [];
@@ -2035,7 +2035,7 @@ export async function searchNews(query: string, lang?: string, region?: string):
     let url = `/api/news?q=${encodeURIComponent(query)}`;
     if (lang) url += `&lang=${lang}`;
     if (region) url += `&region=${region}`;
-    
+
     const response = await fetch(url);
     const data = await response.json();
     return data.results || [];
@@ -2049,7 +2049,7 @@ export async function searchScholar(query: string, yearFrom?: number): Promise<a
   try {
     let url = `/api/scholar?q=${encodeURIComponent(query)}`;
     if (yearFrom) url += `&year_from=${yearFrom}`;
-    
+
     const response = await fetch(url);
     const data = await response.json();
     return data.results || [];
@@ -2095,7 +2095,7 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
 
   if (settings.preferredProvider === 'firebase') {
     const model = getVertexModel(settings.geminiModel);
-    
+
     let content: any = fullPrompt;
     if (image) {
       const base64Data = image.split(',')[1];
@@ -2110,7 +2110,7 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
         }
       ];
     }
-    
+
     const result = await model.generateContent(content);
     const response = await result.response;
     return response.text() || '';
@@ -2121,7 +2121,7 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
   }
 
   const ai = getAi();
-  
+
   let contents: any = fullPrompt;
   if (image) {
     const base64Data = image.split(',')[1];
@@ -2136,7 +2136,7 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
       }
     ];
   }
-  
+
   const response = await ai.models.generateContent({
     model: settings.geminiModel,
     contents,
@@ -2192,7 +2192,7 @@ export async function generateGenericJson(prompt: string, systemInstruction?: st
 export async function generateAnalyticsReport(prompt: string): Promise<any> {
   const settings = getAiSettings();
   const ai = getAi();
-  
+
   const response = await ai.models.generateContent({
     model: settings.geminiModel,
     contents: prompt,
@@ -2279,14 +2279,14 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
           }
         },
         required: [
-          "bestTime", "formatSuggestions", "hashtagPerformance", "summary", 
-          "engagementRate", "audienceDemographics", "competitorInsights", 
+          "bestTime", "formatSuggestions", "hashtagPerformance", "summary",
+          "engagementRate", "audienceDemographics", "competitorInsights",
           "growthTrend", "followerGrowth", "topPosts", "engagementOverTime", "contentPillars"
         ]
       }
     }
   });
-  
+
   return JSON.parse(response.text || '{}');
 }
 
@@ -2387,7 +2387,7 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
     PAS: "Problem, Agitate, Solution",
     BAB: "Before, After, Bridge"
   };
-  
+
   const businessName = business?.name || 'our business';
   const prompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". 
   Use the ${framework} marketing framework: ${frameworkPrompts[framework]}.
@@ -2440,11 +2440,11 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
 
 export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<string, string>> {
   const settings = getAiSettings();
-  
+
   if (jsonData.length === 0) return {};
 
   const sampleData = jsonData.slice(0, 3);
-  
+
   const prompt = `
     I have an Excel file with ${jsonData.length} rows. I need you to identify the mapping between the Excel columns and my "Post" object fields.
     
@@ -2479,7 +2479,7 @@ export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<str
         try {
           const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
           if (puterResponse) {
-             result = safeParseJSON(puterResponse);
+            result = safeParseJSON(puterResponse);
           }
         } catch (pe) {
           console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
@@ -2520,7 +2520,7 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
   const settings = getAiSettings();
   const industryConfig = getIndustryConfig(business?.industry);
   const businessContext = business ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || 'General'}.` : 'Business: Forge Enterprises (Professional Services)';
-  
+
   const aiContext = systemInstruction || (settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`);
 
   let designContext = '';
@@ -2549,7 +2549,7 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
       const parsed = safeParseJSON(puterResponse || '{}');
       return parsed.posts || parsed || [];
     }
-    
+
     if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
       if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
         try {
@@ -2612,19 +2612,19 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
   }
-  
+
   const fullPrompt = `${prompt}. 
   Style: ${style}. 
   ${designGuide ? `\nDESIGN GUIDE & BRAND GUIDELINES:\n${designGuide}\n` : ''}
   High quality, professional social media content for ${businessName}.`;
-  
+
   const settings = getAiSettings();
 
   if (settings.imageProvider === 'pollination') {
     const encodedPrompt = encodeURIComponent(fullPrompt);
     const model = settings.pollinationModel || 'flux';
     const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&model=${model}`;
-    
+
     // Fetch the image and convert to base64
     const headers: Record<string, string> = {};
     if (settings.pollinationApiKey) {
@@ -2655,15 +2655,27 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
       throw new Error("Please sign in to Puter.js in Settings to use this image provider.");
     }
 
+    if ((window as any).isPuterDisabledForSession) {
+      throw new Error("Puter is disabled for this session due to insufficient funds.");
+    }
+
     const model = settings.puterImageModel || 'dall-e-3';
     console.log(`[Puter] Generating image with model ${model}...`);
-    const image = await puterInstance.ai.txt2img(fullPrompt, { model });
-    
-    if (!image || !image.src) {
-      throw new Error("Puter.js failed to generate an image.");
+    try {
+      const image = await puterInstance.ai.txt2img(fullPrompt, { model });
+      
+      if (!image || !image.src) {
+        throw new Error("Puter.js failed to generate an image.");
+      }
+      
+      return { url: image.src, provider: 'Puter.js' };
+    } catch (e: any) {
+      const errorMsg = e.message || String(e);
+      if (errorMsg.toLowerCase().includes('insufficient funds') || errorMsg.toLowerCase().includes('balance')) {
+        (window as any).isPuterDisabledForSession = true;
+      }
+      throw e;
     }
-    
-    return { url: image.src, provider: 'Puter.js' };
   }
 
   if (settings.preferredProvider === 'firebase') {
@@ -2691,7 +2703,7 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
     }
   } else {
     const ai = getAi();
-    
+
     let parts: any[] = [{ text: fullPrompt }];
     if (image) {
       const base64Data = image.split(',')[1];
@@ -2703,7 +2715,7 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
         }
       });
     }
-    
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -2789,7 +2801,7 @@ export async function generateGreeting(userName: string, timeOfDay: string): Pro
       const puterResponse = await fetchFromPuter(prompt);
       if (puterResponse) return puterResponse.replace(/["']/g, '').trim();
     }
-    
+
     if (!isGeminiKeyAvailable()) {
       await fetchServerConfig();
     }
@@ -2841,7 +2853,7 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
 
     const parsed = safeParseJSON(text);
     if (parsed && parsed.morning) return parsed;
-    
+
     throw new Error("Invalid greeting format");
   } catch (error) {
     console.error("Failed to generate daily greetings:", error);
@@ -2887,7 +2899,7 @@ export async function chatWithAi(
   contextStr: string
 ): Promise<ChatResponse> {
   const settings = getAiSettings();
-  
+
   const systemInstruction = `You are Forge AI, an expert social media manager and creative assistant.
 Your goal is to help the user create, improve, or brainstorm social media posts, products, and ideas.
 You have access to the current workspace schedule, business information, and brand kit.
@@ -2950,12 +2962,12 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
         await fetchServerConfig();
       }
       const ai = getAi();
-      
+
       const contents = messages.map((msg) => {
         const parts: any[] = [];
-        
+
         parts.push({ text: msg.content });
-        
+
         if (msg.images && msg.images.length > 0) {
           for (const img of msg.images) {
             const base64Data = img.split(',')[1] || img;
@@ -2968,7 +2980,7 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
             });
           }
         }
-        
+
         return {
           role: msg.role === 'user' ? 'user' : 'model',
           parts
@@ -2990,7 +3002,7 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     if (parsed && parsed.message) {
       return parsed as ChatResponse;
     }
-    
+
     return { message: "I'm sorry, I couldn't process that request properly." };
   } catch (error) {
     console.error("Chat AI error:", error);
@@ -3022,7 +3034,7 @@ export async function chatToBuildWidget(
   currentWidgetState: { title: string; description: string; promptTemplate: string }
 ): Promise<WidgetBuilderChatResponse> {
   const settings = getAiSettings();
-  
+
   const systemInstruction = `You are an expert App Coder and AI Widget Builder without any limitations. Your goal is to help the user create powerful, custom AI workflow widgets and mini-apps.
 A widget consists of:
 1. Title: A short, catchy name (e.g., "Viral Hook Generator", "Code Explainer").
@@ -3082,7 +3094,7 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
         await fetchServerConfig();
       }
       const ai = getAi();
-      
+
       const contents = messages.map((msg) => {
         return {
           role: msg.role === 'user' ? 'user' : 'model',
@@ -3105,7 +3117,7 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
     if (parsed && parsed.reply) {
       return parsed as WidgetBuilderChatResponse;
     }
-    
+
     return { reply: "I'm sorry, I couldn't process that request properly." };
   } catch (error) {
     console.error("Widget Builder Chat error:", error);
@@ -3123,7 +3135,7 @@ export async function generateAppletCode(
   businessContext?: any
 ): Promise<AppletResponse> {
   const settings = getAiSettings();
-  
+
   const systemInstruction = `You are an elite full-stack developer and AI Architect. Your goal is to help the user build "Mini Apps" (Applets) that run inside their Forge workspace.
   
   RULES FOR APPLET CODE:

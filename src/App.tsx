@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  DndContext, 
+import {
+  DndContext,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
@@ -16,7 +16,7 @@ import {
   rectIntersection,
   useDroppable
 } from '@dnd-kit/core';
-import { 
+import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
@@ -28,7 +28,7 @@ import * as XLSX from 'xlsx';
 import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
-import { 
+import {
   Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2, Terminal,
   Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock
 } from 'lucide-react';
@@ -59,9 +59,9 @@ import { NotebookTab } from './components/NotebookTab';
 import { FloatingChat } from './components/FloatingChat';
 import { WorkspaceManagementTab } from './components/WorkspaceManagementTab';
 import { AiStudioTab } from './components/AiStudioTab';
-import { 
-  generatePostContent, 
-  generateMockupImage, 
+import {
+  generatePostContent,
+  generateMockupImage,
   generatePostFromImage,
   GEMINI_MODELS,
   GROQ_MODELS,
@@ -75,15 +75,15 @@ import { db, auth, storage, googleProvider, handleFirestoreError, OperationType 
 import { uploadBase64Image } from './lib/storage';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  doc, 
-  setDoc, 
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  setDoc,
   getDoc,
-  deleteDoc, 
+  deleteDoc,
   getDocs,
   writeBatch,
   serverTimestamp,
@@ -124,14 +124,14 @@ function DroppableTab({ id, children, className, onClick, title }: { id: string,
 
 function DroppableZone({ id, label, icon, color }: { id: string, label: string, icon: React.ReactNode, color: string }) {
   const { setNodeRef, isOver } = useDroppable({ id });
-  
+
   return (
-    <div 
+    <div
       ref={setNodeRef}
       className={cn(
         "px-10 py-6 rounded-[32px] flex flex-col items-center justify-center gap-3 transition-all border-4 shadow-2xl min-w-[160px]",
-        isOver 
-          ? `${color} border-white scale-125 z-[110] ring-8 ring-white/20` 
+        isOver
+          ? `${color} border-white scale-125 z-[110] ring-8 ring-white/20`
           : "bg-white/10 backdrop-blur-xl border-white/30 text-white scale-100",
         "pointer-events-auto cursor-pointer"
       )}
@@ -149,7 +149,7 @@ export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const [authTimeout, setAuthTimeout] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  
+
   const isCtrlPressed = useRef(false);
 
   useEffect(() => {
@@ -165,7 +165,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    
+
     // Also track mouse blurs which can mess up key states
     const handleBlur = () => { isCtrlPressed.current = false; };
     window.addEventListener('blur', handleBlur);
@@ -200,14 +200,14 @@ export default function App() {
   }, []);
 
   const [aiSettings, setAiSettingsState] = useState(getAiSettings());
-  
+
   useEffect(() => {
     fetchServerConfig().catch(console.error);
   }, []);
 
   const [analyticsSettings, setAnalyticsSettingsState] = useState(getAnalyticsSettings());
   const [isSigningIn, setIsSigningIn] = useState(false);
-  
+
   const handleLogin = async () => {
     if (isSigningIn) return;
     setIsSigningIn(true);
@@ -234,13 +234,13 @@ export default function App() {
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [isBusinessModalOpen, setIsBusinessModalOpen] = useState(false);
-  
+
   const isAdmin = useMemo(() => !!(user && activeBusiness && (
-    activeBusiness.ownerId === user.uid || 
+    activeBusiness.ownerId === user.uid ||
     activeBusiness.memberRoles?.[user.uid] === 'admin' ||
     activeBusiness.memberRoles?.[user.uid] === 'editor'
   )), [user, activeBusiness]);
-  
+
   const isViewer = useMemo(() => !!(user && activeBusiness && activeBusiness.memberRoles?.[user.uid] === 'viewer'), [user, activeBusiness]);
   const isGuest = !user;
   const [calendarMode, setCalendarMode] = useState<'work' | 'personal'>('work');
@@ -314,7 +314,7 @@ export default function App() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'account' | 'workspaces' | 'ai' | 'analytics' | 'maintenance'>('account');
-  const [googleTokens, setGoogleTokens] = useState<{access_token: string, refresh_token?: string, expires_in: number} | null>(() => {
+  const [googleTokens, setGoogleTokens] = useState<{ access_token: string, refresh_token?: string, expires_in: number } | null>(() => {
     const saved = localStorage.getItem('google_drive_tokens');
     return saved ? JSON.parse(saved) : null;
   });
@@ -330,8 +330,8 @@ export default function App() {
           return;
         }
         console.log("[Forge Companion] Extension requested state. Sending:", user.email);
-        window.postMessage({ 
-          type: 'FORGE_USER_STATE_DATA', 
+        window.postMessage({
+          type: 'FORGE_USER_STATE_DATA',
           data: {
             email: user.email,
             workspaces: businesses.map(b => ({ id: b.id, name: b.name })),
@@ -346,8 +346,8 @@ export default function App() {
         try {
           // Fallback to activeBusiness if workspaceId wasn't passed by the extension
           const targetWorkspaceId = event.data.workspaceId || activeBusiness?.id;
-          
-          if(!targetWorkspaceId) throw new Error("No active workspace to route into.");
+
+          if (!targetWorkspaceId) throw new Error("No active workspace to route into.");
           // Find the notebook for this business
           const q = query(
             collection(db, 'notebooks'),
@@ -355,10 +355,10 @@ export default function App() {
             where('userId', '==', user.uid)
           );
           const snapshot = await getDocs(q);
-          
+
           let notebookId: string;
           let currentBlocks: any[] = [];
-          
+
           if (!snapshot.empty) {
             notebookId = snapshot.docs[0].id;
             currentBlocks = snapshot.docs[0].data().blocks || [];
@@ -410,7 +410,7 @@ export default function App() {
           toast.error("Failed to add note from extension.");
         }
       }
-      
+
       // 3. Calendar fetch
       if (event.data?.type === 'FORGE_GET_CALENDAR' && user) {
         try {
@@ -419,7 +419,7 @@ export default function App() {
 
           const q = query(collection(db, 'posts'), where('businessId', '==', targetWorkspaceId));
           const snapshot = await getDocs(q);
-          const data = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+          const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
           window.postMessage({ type: 'FORGE_CALENDAR_DATA', data }, '*');
         } catch (error) {
           console.error("Error fetching calendar for extension:", error);
@@ -480,7 +480,7 @@ export default function App() {
   const [currentImages, setCurrentImages] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [currentAiProvider, setCurrentAiProvider] = useState<string | null>(null);
-  
+
   const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
   const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -508,7 +508,7 @@ export default function App() {
       root.classList.remove('dark');
       localStorage.setItem('forge_theme_mode', 'light');
     }
-    
+
     // Apply theme preset
     root.setAttribute('data-theme', themePreset);
     localStorage.setItem('forge_theme_preset', themePreset);
@@ -520,7 +520,7 @@ export default function App() {
   // Sync AI settings from Firestore
   useEffect(() => {
     if (!user) return;
-    
+
     const userRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -546,7 +546,7 @@ export default function App() {
     setSharedBusiness(bizData);
     setActiveBusiness(bizData);
     setIsViewOnly(true);
-    
+
     // Update analytics
     try {
       const newViews = (bizData.shareAnalytics?.views || 0) + 1;
@@ -562,7 +562,7 @@ export default function App() {
     const q = query(collection(db, 'posts'), where('businessId', '==', bizData.id));
     const snapshot = await getDocs(q);
     const sharedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-    
+
     // Apply filters
     let filteredPosts = sharedPosts;
     if (bizData.shareFilters) {
@@ -576,7 +576,7 @@ export default function App() {
         filteredPosts = filteredPosts.filter(p => p.date <= bizData.shareFilters!.dateRange!.end);
       }
     }
-    
+
     setPosts(filteredPosts);
     setActiveTab('calendar');
     addSyncLog(`Viewing shared calendar for ${bizData.name}`, 'success');
@@ -597,7 +597,7 @@ export default function App() {
     const handleUrlActions = async () => {
       const pathParts = window.location.pathname.split('/');
       const params = new URLSearchParams(window.location.search);
-      
+
       // 1. Handle Short Link Redirection
       if (pathParts[1] === 's' && pathParts[2]) {
         const shortCode = pathParts[2];
@@ -692,15 +692,15 @@ export default function App() {
     if (!user || isViewOnly) return;
 
     const q = query(
-      collection(db, 'businesses'), 
+      collection(db, 'businesses'),
       or(where('ownerId', '==', user.uid), where('members', 'array-contains', user.uid))
     );
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const bizList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Business));
       setBusinesses(bizList);
       setLoadingBusinesses(false);
-      
+
       // If user has no businesses and we're not in view-only mode, show onboarding
       if (bizList.length === 0 && !isViewOnly && !loadingBusinesses) {
         setShowOnboarding(true);
@@ -838,7 +838,7 @@ export default function App() {
         });
 
         const categoriesMap = JSON.parse(response.text || "{}");
-        
+
         batch.forEach(p => {
           const index = updatedProducts.findIndex(up => up.title === p.title);
           if (index !== -1 && categoriesMap[p.title]) {
@@ -888,14 +888,14 @@ export default function App() {
   );
 
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
-  const [dropActionPrompt, setDropActionPrompt] = useState<{dateStr: string, files: File[]} | null>(null);
+  const [dropActionPrompt, setDropActionPrompt] = useState<{ dateStr: string, files: File[] } | null>(null);
 
   const handleSavePost = async (post: Post) => {
     if (!user) return;
     try {
       setIsSyncing(true);
       addSyncLog(`Saving post: ${post.title || 'Untitled'}`, 'info');
-      
+
       const imageUrls: string[] = [];
 
       if (post.images && post.images.length > 0) {
@@ -965,10 +965,10 @@ export default function App() {
           if (catSnap.exists()) {
             currentCats = catSnap.data().categories || [];
           }
-          
+
           const existingNames = new Set(currentCats.map(c => `${c.type}:${c.name}`));
           const newCats: any[] = [];
-          
+
           if (post.productCategory && !existingNames.has(`category:${post.productCategory}`)) {
             newCats.push({ id: uuidv4(), name: post.productCategory, type: 'category', enabled: true });
           }
@@ -981,7 +981,7 @@ export default function App() {
             if (ct.toLowerCase() === 'non-boosted') normalized = 'Non-Boosted';
             else if (ct.toLowerCase() === 'boosted') normalized = 'Boosted';
             else if (ct.toLowerCase() === 'campaign') normalized = 'Campaign';
-            
+
             if (!existingNames.has(`campaign:${normalized}`)) {
               newCats.push({ id: uuidv4(), name: normalized, type: 'campaign', enabled: true });
             }
@@ -989,7 +989,7 @@ export default function App() {
           if (post.type && !existingNames.has(`type:${post.type}`)) {
             newCats.push({ id: uuidv4(), name: post.type, type: 'type', enabled: true });
           }
-          
+
           if (newCats.length > 0) {
             await setDoc(catRef, { categories: [...currentCats, ...newCats] }, { merge: true });
             addSyncLog(`Auto-synced ${newCats.length} new categories to Brand Kit`, 'info');
@@ -1081,13 +1081,13 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    
+
     let isChecking = false;
-    
+
     const checkScheduledPosts = async () => {
       if (isChecking) return;
       isChecking = true;
-      
+
       try {
         const now = new Date();
         const due = posts.filter(p =>
@@ -1095,14 +1095,14 @@ export default function App() {
           p.scheduledTime &&
           new Date(p.scheduledTime) <= now
         );
-        
+
         if (due.length > 0) {
           for (const post of due) {
             console.log(`[Scheduler] Auto-publishing: ${post.title}`);
             await handlePublishPostRef.current(post);
           }
         }
-        
+
         // Handle evergreen/repeat posts
         const repeatPosts = posts.filter(p =>
           p.repeatEnabled &&
@@ -1114,7 +1114,7 @@ export default function App() {
         if (repeatPosts.length > 0) {
           let batch = writeBatch(db);
           let batchCount = 0;
-          
+
           for (const post of repeatPosts) {
             const lastDate = new Date(post.lastRepeatDate || post.publishedAt!);
             const intervalDays = post.repeatInterval === 'weekly' ? 7 : post.repeatInterval === 'biweekly' ? 14 : 30;
@@ -1135,12 +1135,12 @@ export default function App() {
                 facebookPostId: undefined,
                 lastRepeatDate: nowIso,
               };
-              
+
               batch.set(doc(db, 'posts', newPostId), { ...newPost, userId: user.uid });
               // Update the original post's lastRepeatDate
               batch.update(doc(db, 'posts', post.id), { lastRepeatDate: nowIso });
               batchCount += 2;
-              
+
               if (batchCount >= 40) { // Firestore batch limit is 500, but we stay safe
                 await batch.commit();
                 batch = writeBatch(db);
@@ -1148,7 +1148,7 @@ export default function App() {
               }
             }
           }
-          
+
           if (batchCount > 0) {
             await batch.commit();
           }
@@ -1159,7 +1159,7 @@ export default function App() {
         isChecking = false;
       }
     };
-    
+
     const interval = setInterval(checkScheduledPosts, 60000);
     return () => clearInterval(interval);
   }, [posts.length, user?.uid]); // Only re-run if count changes or user changes
@@ -1227,11 +1227,11 @@ export default function App() {
     if (!user) return;
     try {
       setIsSyncing(true);
-      
+
       // Find the post to get image URLs
       const postToDelete = posts.find(p => p.id === id);
       addSyncLog(`Deleting post: ${postToDelete?.title || id}`, 'info');
-      
+
       // Delete images from storage if they are storage URLs
       if (postToDelete?.images) {
         for (const url of postToDelete.images) {
@@ -1250,11 +1250,11 @@ export default function App() {
               const lastPart = parts[parts.length - 1];
               const publicIdWithExt = parts.slice(parts.indexOf('upload') + 2).join('/');
               const publicId = publicIdWithExt.split('.')[0];
-              
+
               await fetch('/api/cloudinary/delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                   publicId,
                   cloudName: aiSettings.cloudinaryCloudName,
                   apiKey: aiSettings.cloudinaryApiKey,
@@ -1282,10 +1282,10 @@ export default function App() {
   const prevDeps = useRef<any>({});
   useEffect(() => {
     if (loading) return; // Wait for auth to finish loading
-    
+
     const currentDeps = { user: user?.uid, activeBusiness: activeBusiness?.id, sharedBusiness: sharedBusiness?.id, isViewOnly, calendarMode };
     const changedDeps = Object.keys(currentDeps).filter(k => (currentDeps as any)[k] !== prevDeps.current[k]);
-    
+
     if (changedDeps.length > 0) {
       console.log(`[Sync] Dependencies changed: ${changedDeps.join(', ')}`);
     }
@@ -1295,7 +1295,7 @@ export default function App() {
     const context = calendarMode === 'personal' ? 'personal (all workspaces)' : (activeBusiness ? `business ${activeBusiness.id}` : (isViewOnly && sharedBusiness ? `shared business ${sharedBusiness.id}` : 'no context'));
     addSyncLog(`Connecting to cloud (${context})...`, 'info');
     console.log(`[Sync] Starting sync for ${context}. User: ${user?.uid}`);
-    
+
     let q;
     if (isViewOnly && sharedBusiness && sharedBusiness.id) {
       // Shared view: ONLY show posts for that business, NEVER personal
@@ -1313,9 +1313,9 @@ export default function App() {
       setIsSyncing(false);
       return;
     }
-    
+
     console.log(`[Sync] Attaching onSnapshot listener for ${context}`);
-    
+
     // Test with getDocs first to see if it's an onSnapshot specific issue
     getDocs(query(q, limit(1))).then(() => {
       console.log(`[Sync] getDocs test successful for ${context}`);
@@ -1328,7 +1328,7 @@ export default function App() {
       const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Post);
       addSyncLog(`Received update from cloud: ${fetchedPosts.length} posts`, 'info');
       console.log(`[Sync] Received ${fetchedPosts.length} posts from Firestore`);
-      
+
       setPosts(fetchedPosts);
       console.log(`[Sync] Setting setIsSyncing(false)`);
       setIsSyncing(false);
@@ -1356,7 +1356,7 @@ export default function App() {
   useEffect(() => {
     if (user && userProfileSynced.current !== user.uid) {
       const userRef = doc(db, 'users', user.uid);
-      
+
       // Load AI Settings
       getDoc(userRef).then(docSnap => {
         if (docSnap.exists() && docSnap.data().aiSettings) {
@@ -1409,12 +1409,12 @@ export default function App() {
       const response = await fetch(`/api/auth/google/url?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to get auth URL');
       const { url } = await response.json();
-      
+
       const width = 600;
       const height = 700;
       const left = window.screenX + (window.outerWidth - width) / 2;
       const top = window.screenY + (window.outerHeight - height) / 2;
-      
+
       window.open(
         url,
         'google_oauth_popup',
@@ -1465,11 +1465,11 @@ export default function App() {
     const checkScheduledPosts = () => {
       const now = new Date();
       const todayStr = format(now, 'yyyy-MM-dd');
-      
+
       // Find posts for today that haven't been notified yet
       // We'll use a simple session-based tracking for notifications to avoid spamming
       const todayPosts = posts.filter(p => p.date === todayStr);
-      
+
       if (todayPosts.length > 0 && 'Notification' in window && Notification.permission === 'granted') {
         const lastNotified = sessionStorage.getItem('last_notified_date');
         if (lastNotified !== todayStr) {
@@ -1592,8 +1592,8 @@ export default function App() {
       const newPost: Post = {
         id: uuidv4(),
         date: targetDate,
-        outlet: product.type.includes('Living') ? 'Forge Living Mall' : 
-                product.type.includes('Office') ? 'Forge Office System' : 'Forge Buildware',
+        outlet: product.type.includes('Living') ? 'Forge Living Mall' :
+          product.type.includes('Office') ? 'Forge Office System' : 'Forge Buildware',
         type: `🔴 ${product.type}`,
         title: product.title,
         brief: `Feature ${product.title}. Price: ${product.price || 'N/A'}. Stock: ${product.stock || 'In Stock'}.`,
@@ -1660,7 +1660,7 @@ export default function App() {
         userId: user.uid,
         businessId: activeBusiness?.id
       };
-      
+
       // If it's a postcard, we might want to use the frontText as the title
       if (block.type === 'postcard' && block.postcardData) {
         newPost.title = block.postcardData.frontText;
@@ -1688,10 +1688,10 @@ export default function App() {
         handleSavePost(updatedPost);
       }
     } else if (isCtrlPressed.current) {
-        // Duplicate within the same date
-        const duplicatedPost = { ...activePost, id: uuidv4() };
-        handleSavePost(duplicatedPost);
-        toast.success(`Duplicated post`);
+      // Duplicate within the same date
+      const duplicatedPost = { ...activePost, id: uuidv4() };
+      handleSavePost(duplicatedPost);
+      toast.success(`Duplicated post`);
     }
 
     // If reordering within the same date (and not duplicating)
@@ -1709,7 +1709,7 @@ export default function App() {
 
   const processDroppedFiles = async (dateStr: string, files: File[], mode: 'single' | 'separate') => {
     setDropActionPrompt(null);
-    
+
     // If a post modal is open, add images to it instead of creating new posts
     if (isPostModalOpen) {
       const base64Images = await Promise.all(
@@ -1736,7 +1736,7 @@ export default function App() {
           console.error("Failed to read file", e);
         }
       }
-      
+
       const newPostId = uuidv4();
       const placeholderPost: Post = {
         id: newPostId,
@@ -1750,7 +1750,7 @@ export default function App() {
         images: base64Images,
         userId: user.uid
       };
-      
+
       handleSavePost(placeholderPost);
 
       try {
@@ -1760,7 +1760,7 @@ export default function App() {
           const mimeType = match[1];
           const base64Data = match[2];
           const generatedData = await generatePostFromImage(base64Data, mimeType);
-          
+
           handleSavePost({
             ...placeholderPost,
             title: generatedData.title || 'New Post',
@@ -1781,53 +1781,53 @@ export default function App() {
         });
       }
     } else {
-        for (const file of files) {
-          const { dataUrl, isVideo } = await readFileAsDataURL(file);
-          if (!dataUrl) continue;
+      for (const file of files) {
+        const { dataUrl, isVideo } = await readFileAsDataURL(file);
+        if (!dataUrl) continue;
 
-          const newPostId = uuidv4();
-          const placeholderPost: Post = {
-            id: newPostId,
-            date: dateStr,
-            outlet: 'Forge Enterprises',
-            type: '✨ Generating...',
-            title: isVideo ? 'Analyzing video...' : 'Analyzing image...',
-            brief: 'Please wait while AI generates content...',
-            caption: '',
-            hashtags: '',
-            images: [dataUrl],
-            userId: user.uid
-          };
+        const newPostId = uuidv4();
+        const placeholderPost: Post = {
+          id: newPostId,
+          date: dateStr,
+          outlet: 'Forge Enterprises',
+          type: '✨ Generating...',
+          title: isVideo ? 'Analyzing video...' : 'Analyzing image...',
+          brief: 'Please wait while AI generates content...',
+          caption: '',
+          hashtags: '',
+          images: [dataUrl],
+          userId: user.uid
+        };
 
-          handleSavePost(placeholderPost);
+        handleSavePost(placeholderPost);
 
-          try {
-            const match = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-            if (match) {
-              const mimeType = match[1];
-              const base64Data = match[2];
-              const generatedData = await generatePostFromImage(base64Data, mimeType, undefined, isVideo);
-              
-              handleSavePost({
-                ...placeholderPost,
-                title: generatedData.title || 'New Post',
-                brief: generatedData.brief || '',
-                caption: generatedData.caption || '',
-                hashtags: generatedData.hashtags || '',
-                type: generatedData.type || '🔴 General',
-                outlet: generatedData.outlet || 'Forge Enterprises'
-              });
-            }
-          } catch (error) {
-            console.error("Failed to generate post from image:", error);
+        try {
+          const match = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+          if (match) {
+            const mimeType = match[1];
+            const base64Data = match[2];
+            const generatedData = await generatePostFromImage(base64Data, mimeType, undefined, isVideo);
+
             handleSavePost({
               ...placeholderPost,
-              title: 'New Post',
-              brief: 'Failed to auto-generate content.',
-              type: '🔴 General'
+              title: generatedData.title || 'New Post',
+              brief: generatedData.brief || '',
+              caption: generatedData.caption || '',
+              hashtags: generatedData.hashtags || '',
+              type: generatedData.type || '🔴 General',
+              outlet: generatedData.outlet || 'Forge Enterprises'
             });
           }
+        } catch (error) {
+          console.error("Failed to generate post from image:", error);
+          handleSavePost({
+            ...placeholderPost,
+            title: 'New Post',
+            brief: 'Failed to auto-generate content.',
+            type: '🔴 General'
+          });
         }
+      }
     }
   };
 
@@ -1918,7 +1918,7 @@ export default function App() {
         await setDoc(doc(db, 'posts', newPost.id), newPost);
         toast.dismiss(loadingToast);
         toast.success("AI generated a new post for " + format(parseISO(targetDate), 'MMM d') + "!");
-        
+
         // Optionally open the modal to edit it
         setSelectedPost(newPost);
         setSelectedDate(targetDate);
@@ -1959,8 +1959,8 @@ export default function App() {
     }
     try {
       const result = await generateMockupImage(post.title, post.brief, post.caption, post.images?.[0], activeBusiness);
-      const updatedPost = { 
-        ...post, 
+      const updatedPost = {
+        ...post,
         images: [...(post.images || []), result.url],
         aiProvider: result.provider
       };
@@ -1976,7 +1976,7 @@ export default function App() {
 
   const exportToExcel = async (settings: ExportSettings) => {
     const { startMonth, endMonth, visibleFields, layoutStyle, accentColor } = settings;
-    
+
     const fetchImageAsBase64 = async (url: string): Promise<{ base64: string, extension: string, width: number, height: number } | null> => {
       if (!url || typeof url !== 'string') return null;
       try {
@@ -2011,7 +2011,7 @@ export default function App() {
 
     try {
       toast.loading("Analyzing workspace data for export...", { id: 'excel-export' });
-      
+
       let titles = { type: 'FORMAT', platforms: 'PLATFORM', campaign: 'CAMPAIGN', outlet: 'OUTLET' };
       if (activeBusiness?.id) {
         const catDoc = await getDoc(doc(db, 'categories', activeBusiness.id));
@@ -2026,7 +2026,7 @@ export default function App() {
 
       const workbook = new Workbook();
       await workbook.xlsx.load(templateBuffer);
-      
+
       const intervalMonths = eachDayOfInterval({
         start: startOfMonth(startMonth),
         end: endOfMonth(endMonth)
@@ -2035,7 +2035,7 @@ export default function App() {
       const requestedMonthKeys = intervalMonths.map(m => format(m, 'yyyy-MM'));
       const requestedMonthLabelsOriginal = intervalMonths.map(m => format(m, 'MMM yyyy'));
       const requestedMonthLabelsLower = requestedMonthLabelsOriginal.map(l => l.toLowerCase().trim());
-      
+
       const postsByMonth: { [key: string]: Post[] } = {};
       posts.forEach(post => {
         if (!post.date) return;
@@ -2056,7 +2056,7 @@ export default function App() {
       const allSheetNames = workbook.worksheets.map(s => s.name);
       for (const name of allSheetNames) {
         if (!requestedMonthLabelsLower.includes(name.toLowerCase().trim())) {
-           workbook.removeWorksheet(name);
+          workbook.removeWorksheet(name);
         }
       }
 
@@ -2067,7 +2067,7 @@ export default function App() {
       for (const monthDate of intervalMonths) {
         const monthKey = format(monthDate, 'yyyy-MM');
         const searchLabel = format(monthDate, 'MMM yyyy').toLowerCase().trim();
-        
+
         let sheet = workbook.worksheets.find(s => s.name.toLowerCase().trim() === searchLabel);
         if (!sheet) continue;
 
@@ -2079,10 +2079,10 @@ export default function App() {
         const bannerCell = sheet.getCell('A1');
         bannerCell.value = `${format(monthDate, 'MMMM yyyy').toUpperCase()}   ·   ${activeBusiness?.name?.toUpperCase() || 'FORGE'} — CONTENT CALENDAR`;
         bannerCell.style = {
-           ...bannerCell.style,
-           font: { ...bannerCell.font, color: { argb: 'FFFFFFFF' }, bold: true, size: 14, italic: false },
-           fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColors.accent } },
-           alignment: { vertical: 'middle', horizontal: 'center' }
+          ...bannerCell.style,
+          font: { ...bannerCell.font, color: { argb: 'FFFFFFFF' }, bold: true, size: 14, italic: false },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColors.accent } },
+          alignment: { vertical: 'middle', horizontal: 'center' }
         };
 
         const monthPosts = postsByMonth[monthKey] || [];
@@ -2100,9 +2100,9 @@ export default function App() {
 
           // Data Clearing (B-H) - Including Row 7 for placeholders
           for (let col = 2; col <= 8; col++) {
-             for (let rowInWeek = 1; rowInWeek <= 7; rowInWeek++) {
-                sheet.getCell(rBase + rowInWeek, col).value = "";
-             }
+            for (let rowInWeek = 1; rowInWeek <= 7; rowInWeek++) {
+              sheet.getCell(rBase + rowInWeek, col).value = "";
+            }
           }
         }
 
@@ -2110,7 +2110,7 @@ export default function App() {
         const imagePromises: Promise<any>[] = [];
         monthPosts.forEach(post => {
           const dateObj = parseISO(post.date);
-          const col = 2 + dateObj.getDay(); 
+          const col = 2 + dateObj.getDay();
           const weekIndex = Math.floor((dateObj.getDate() + monthStartDay - 1) / 7);
           const rBase = 4 + weekIndex * 8;
           if (rBase > 50) return;
@@ -2128,7 +2128,7 @@ export default function App() {
           injectCell(3, post.campaignType || '');
           injectCell(4, post.outlet || '');
           injectCell(5, post.title || '');
-          
+
           const captionCell = sheet.getCell(rBase + 6, col);
           captionCell.value = `  ✍️ ${post.caption || ''}`;
           captionCell.font = { ...captionCell.font, italic: false, size: 8 };
@@ -2181,7 +2181,7 @@ export default function App() {
       toast.loading("Packaging finalized workbook...", { id: 'excel-export' });
       const buffer = await workbook.xlsx.writeBuffer();
       saveAs(new Blob([buffer]), `Forge_Export_${activeBusiness?.name?.replace(/\s+/g, '_') || 'Calendar'}.xlsx`);
-      
+
       setIsExportModalOpen(false);
       toast.success("Branded export complete!", { id: 'excel-export' });
     } catch (e) {
@@ -2216,14 +2216,14 @@ export default function App() {
         addSyncLog('Parsing Excel file...', 'info');
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
-        
+
         // Priority 1: Look for hidden _DATA_ sheet
         // Priority 2: Look for 'Post List' sheet
         // Priority 3: Use first sheet
         let worksheet = workbook.Sheets['_DATA_'];
         if (!worksheet) worksheet = workbook.Sheets['Post List'];
         if (!worksheet) worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        
+
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
         if (jsonData.length === 0) {
@@ -2233,13 +2233,13 @@ export default function App() {
 
         // Map Excel columns to Post fields
         let importedPosts: Post[];
-        
+
         // Try AI mapping if preferred
         const { preferredProvider } = getAiSettings();
         if (preferredProvider === 'groq' || preferredProvider === 'gemini') {
           addSyncLog('Using AI to map Excel columns properly...', 'info');
           const mapping = await getExcelMappingWithAi(jsonData);
-          
+
           if (mapping && Object.keys(mapping).length > 0) {
             importedPosts = jsonData.map((row: any) => {
               const post: any = {
@@ -2313,7 +2313,7 @@ export default function App() {
         if (user) {
           setIsSyncing(true);
           addSyncLog(`Starting import of ${importedPosts.length} posts from Excel...`, 'info');
-          
+
           try {
             const processedPosts: Post[] = [];
             for (let index = 0; index < importedPosts.length; index++) {
@@ -2339,11 +2339,11 @@ export default function App() {
                   if (trimmed.startsWith('data:') || trimmed.length > 10000) {
                     let dataUrl = trimmed.startsWith('data:') ? trimmed : `data:image/jpeg;base64,${trimmed}`;
                     const storagePath = `posts/${user.uid}/${postId}/image_${i}`;
-                    
+
                     try {
                       addSyncLog(`  Uploading image ${i + 1} from Excel...`, 'info');
                       const uploadPromise = uploadBase64Image(dataUrl, storagePath);
-                      const timeoutPromise = new Promise<never>((_, reject) => 
+                      const timeoutPromise = new Promise<never>((_, reject) =>
                         setTimeout(() => reject(new Error('Upload timeout after 120s')), 120000)
                       );
                       const url = await Promise.race([uploadPromise, timeoutPromise]);
@@ -2372,25 +2372,25 @@ export default function App() {
                 batch.set(postRef, post);
               });
               await batch.commit();
+            }
+            addSyncLog(`Successfully imported ${processedPosts.length} posts from Excel`, 'success');
+            toast.success('Excel schedule imported and synced successfully!');
+          } catch (err) {
+            console.error('Failed to sync Excel posts:', err);
+            addSyncLog('Failed to sync Excel posts to cloud', 'error');
+            toast.error('Failed to sync Excel posts to cloud.');
+          } finally {
+            setIsSyncing(false);
           }
-          addSyncLog(`Successfully imported ${processedPosts.length} posts from Excel`, 'success');
-          toast.success('Excel schedule imported and synced successfully!');
-        } catch (err) {
-          console.error('Failed to sync Excel posts:', err);
-          addSyncLog('Failed to sync Excel posts to cloud', 'error');
-          toast.error('Failed to sync Excel posts to cloud.');
-        } finally {
-          setIsSyncing(false);
+        } else {
+          toast.info('Excel schedule imported locally. Log in to sync.');
         }
-      } else {
-        toast.info('Excel schedule imported locally. Log in to sync.');
+      } catch (error) {
+        console.error('Failed to parse Excel file:', error);
+        toast.error('Failed to parse Excel file. Make sure it is a valid .xlsx or .xls file.');
+      } finally {
+        setIsSyncing(false);
       }
-    } catch (error) {
-      console.error('Failed to parse Excel file:', error);
-      toast.error('Failed to parse Excel file. Make sure it is a valid .xlsx or .xls file.');
-    } finally {
-      setIsSyncing(false);
-    }
     };
     reader.readAsArrayBuffer(file);
     e.target.value = '';
@@ -2417,7 +2417,7 @@ export default function App() {
                 const post = data.posts[index];
                 const postId = post.id || uuidv4();
                 addSyncLog(`Processing post ${index + 1}/${data.posts.length}: ${post.title || 'Untitled'}`, 'info');
-                
+
                 const imageUrls: string[] = [];
                 if (post.images && post.images.length > 0) {
                   for (let i = 0; i < post.images.length; i++) {
@@ -2451,14 +2451,14 @@ export default function App() {
                     try {
                       const sizeInMB = (dataUrl.length * 0.75) / (1024 * 1024);
                       addSyncLog(`  Uploading image ${i + 1}/${post.images.length} (${sizeInMB.toFixed(2)} MB)...`, 'info');
-                      
+
                       // Retry mechanism for image uploads with 60s timeout
                       let url = '';
                       let retries = 2;
                       while (retries >= 0) {
                         try {
                           const uploadPromise = uploadBase64Image(dataUrl, storagePath);
-                          const timeoutPromise = new Promise<never>((_, reject) => 
+                          const timeoutPromise = new Promise<never>((_, reject) =>
                             setTimeout(() => reject(new Error('Upload timeout after 60s')), 60000)
                           );
                           url = await Promise.race([uploadPromise, timeoutPromise]);
@@ -2495,7 +2495,7 @@ export default function App() {
                   }
                 });
                 await batch.commit();
-                addSyncLog(`Saved batch ${Math.floor(i/BATCH_SIZE) + 1} of ${Math.ceil(processedPosts.length/BATCH_SIZE)}`, 'info');
+                addSyncLog(`Saved batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(processedPosts.length / BATCH_SIZE)}`, 'info');
               }
               addSyncLog(`Successfully imported and synced ${processedPosts.length} posts`, 'success');
               toast.success('Schedule imported and synced successfully!');
@@ -2543,14 +2543,14 @@ export default function App() {
           <h2 className="text-xl font-bold text-white mb-2">Connection is slow</h2>
           <p className="text-[#909094] mb-6">We're having trouble connecting to the cloud. This might be due to a slow network or a temporary service issue.</p>
           <div className="flex flex-col gap-3">
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="w-full px-6 py-3 bg-[#2383E2] text-white rounded-[12px] font-medium hover:bg-[#1C6AB8] transition-colors flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
               Retry Connection
             </button>
-            <button 
+            <button
               onClick={() => {
                 localStorage.clear();
                 window.location.reload();
@@ -2572,7 +2572,7 @@ export default function App() {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-red-400 mb-2">Authentication Error</h2>
           <p className="text-red-300/70 mb-6">{authError.message}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="px-6 py-2 bg-red-500 text-white rounded-[12px] font-medium hover:bg-red-600 transition-colors"
           >
@@ -2587,7 +2587,7 @@ export default function App() {
     if (showLogin) return <Login />;
     return <LandingView onLogin={() => setShowLogin(true)} />;
   }
-  
+
   if (isGuest && (loading || isCheckingShare) && !isViewOnly) {
     return (
       <div className="min-h-screen bg-white dark:bg-[#191919] flex items-center justify-center">
@@ -2602,7 +2602,7 @@ export default function App() {
       toast.warning("No product data to export.");
       return;
     }
-    
+
     try {
       const products = JSON.parse(savedProducts);
       if (!Array.isArray(products) || products.length === 0) {
@@ -2630,13 +2630,13 @@ export default function App() {
   const exportProductJson = () => {
     const savedProducts = localStorage.getItem('rainbowStockCheck');
     const savedCounts = localStorage.getItem('rainbowCategoryCounts');
-    
+
     const data = {
       products: savedProducts ? JSON.parse(savedProducts) : [],
       categoryCounts: savedCounts ? JSON.parse(savedCounts) : [],
       timestamp: new Date().toISOString()
     };
-    
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2652,11 +2652,11 @@ export default function App() {
     try {
       setIsSyncing(true);
       addSyncLog('Preparing extension source files...', 'info');
-      
+
       const JSZip = (await import('jszip')).default;
       const { saveAs } = await import('file-saver');
       const zip = new JSZip();
-      
+
       // Fetch and add extension files
       const extensionFiles = ['manifest.json', 'content.js', 'popup.html', 'popup.js'];
       for (const file of extensionFiles) {
@@ -2679,7 +2679,7 @@ export default function App() {
           console.error(`Error fetching ${file}:`, e);
         }
       }
-      
+
       // Add project metadata
       zip.file('metadata.json', JSON.stringify({
         name: activeBusiness?.name || 'Forge Extension',
@@ -2699,7 +2699,7 @@ export default function App() {
       addSyncLog('Generating ZIP archive...', 'info');
       const content = await zip.generateAsync({ type: 'blob' });
       saveAs(content, `Forge_Companion_Extension_${format(new Date(), 'yyyy-MM-dd')}.zip`);
-      
+
       addSyncLog('Extension ZIP exported successfully', 'success');
       toast.success('Extension package downloaded!');
     } catch (error) {
@@ -2721,7 +2721,7 @@ export default function App() {
         const data = JSON.parse(event.target?.result as string);
         if (data.products && Array.isArray(data.products)) {
           localStorage.setItem(`rainbowStockCheck_${activeBusiness?.id || 'default'}`, JSON.stringify(data.products));
-          
+
           if (user && activeBusiness?.id) {
             const syncToFirestore = async () => {
               try {
@@ -2746,7 +2746,7 @@ export default function App() {
         }
         if (data.categoryCounts && Array.isArray(data.categoryCounts)) {
           localStorage.setItem(`rainbowCategoryCounts_${activeBusiness?.id || 'default'}`, JSON.stringify(data.categoryCounts));
-          
+
           if (user && activeBusiness?.id) {
             const syncCounts = async () => {
               try {
@@ -2765,7 +2765,7 @@ export default function App() {
           }
         }
         toast.success('Product data imported successfully! Please refresh or switch tabs to see changes.');
-        window.dispatchEvent(new Event('storage')); 
+        window.dispatchEvent(new Event('storage'));
       } catch (err) {
         console.error('Failed to import product data:', err);
         toast.error('Invalid backup file.');
@@ -2793,7 +2793,7 @@ export default function App() {
       };
 
       await setDoc(doc(db, 'businesses', bizId), newBiz);
-      
+
       // Initialize Brand Kit
       await setDoc(doc(db, 'brand_kits', bizId), {
         businessId: bizId,
@@ -2812,8 +2812,8 @@ export default function App() {
 
       // Update AI Settings & Theme
       if (data.targetUrl || data.geminiApiKey) {
-        const newSettings = { 
-          ...aiSettings, 
+        const newSettings = {
+          ...aiSettings,
           targetUrl: data.targetUrl || aiSettings.targetUrl,
           geminiApiKey: data.geminiApiKey || aiSettings.geminiApiKey
         };
@@ -2843,943 +2843,943 @@ export default function App() {
   return (
     <ErrorBoundary>
       {showOnboarding && user && (
-        <OnboardingWizard 
-          userEmail={user.email || ''} 
-          onComplete={handleOnboardingComplete} 
+        <OnboardingWizard
+          userEmail={user.email || ''}
+          onComplete={handleOnboardingComplete}
         />
       )}
       <AppWorkspaceProvider activeBusiness={activeBusiness}>
         <ConfigWorkspaceProvider activeBusiness={activeBusiness}>
-          <DndContext 
-        sensors={sensors}
-        collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
-        onDragOver={(event) => {
-          const { over } = event;
-          if (over && (over.id === 'calendar-tab-droppable' || over.id === 'calendar-tab-droppable-mobile')) {
-            setActiveTab('schedule');
-          }
-        }}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="min-h-[100dvh] w-full bg-white dark:bg-[#191919] flex flex-col font-sans text-[#37352F] dark:text-[#EBE9ED] relative print:h-auto print:overflow-visible print:bg-white">
-        {/* Drag and Drop Overlays */}
-        <AnimatePresence>
-          {activeDragItem && (
-            <motion.div 
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 50 }}
-              className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] flex gap-4 pointer-events-none"
-            >
-              <DroppableZone id="cancel-zone" label="Cancel" icon={<X className="w-5 h-5" />} color="bg-gray-500" />
-              {activeDragItem.type === 'post' && (
-                <DroppableZone id="delete-zone" label="Delete" icon={<Trash2 className="w-5 h-5" />} color="bg-red-500" />
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragOver={(event) => {
+              const { over } = event;
+              if (over && (over.id === 'calendar-tab-droppable' || over.id === 'calendar-tab-droppable-mobile')) {
+                setActiveTab('schedule');
+              }
+            }}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="min-h-[100dvh] w-full bg-white dark:bg-[#191919] flex flex-col font-sans text-[#37352F] dark:text-[#EBE9ED] relative print:h-auto print:overflow-visible print:bg-white">
+              {/* Drag and Drop Overlays */}
+              <AnimatePresence>
+                {activeDragItem && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] flex gap-4 pointer-events-none"
+                  >
+                    <DroppableZone id="cancel-zone" label="Cancel" icon={<X className="w-5 h-5" />} color="bg-gray-500" />
+                    {activeDragItem.type === 'post' && (
+                      <DroppableZone id="delete-zone" label="Delete" icon={<Trash2 className="w-5 h-5" />} color="bg-red-500" />
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-        <ContextMenu items={[
-          { 
-            label: 'New Post', 
-            icon: <Plus className="w-3.5 h-3.5" />, 
-            disabled: activeTab === 'notebook' || activeTab === 'brandkit' || activeTab === 'analytics',
-            onClick: () => openNewPostModal() 
-          },
-          { label: 'Refresh Data', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => window.location.reload() },
-          { 
-            label: 'Export to Excel', 
-            icon: <FileSpreadsheet className="w-3.5 h-3.5" />, 
-            disabled: activeTab === 'notebook' || activeTab === 'brandkit',
-            onClick: () => setIsExportModalOpen(true) 
-          },
-          { label: 'Manage Workspaces', icon: <Settings className="w-3.5 h-3.5" />, onClick: () => setIsBusinessModalOpen(true) },
-          { label: 'Sign Out', icon: <LogOut className="w-3.5 h-3.5" />, variant: 'danger', onClick: () => signOut(auth) },
-        ]}>
-          <div className="flex flex-1 w-full relative">
-            {/* Sidebar (Desktop Only) */}
-      <aside className="hidden md:flex sticky top-0 h-screen w-20 bg-[#F7F7F5] dark:bg-[#202020] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
-        <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
-          {/* Logo */}
-          <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
-            <ForgeLogo size={28} className="p-1" />
-          </div>
+              <ContextMenu items={[
+                {
+                  label: 'New Post',
+                  icon: <Plus className="w-3.5 h-3.5" />,
+                  disabled: activeTab === 'notebook' || activeTab === 'brandkit' || activeTab === 'analytics',
+                  onClick: () => openNewPostModal()
+                },
+                { label: 'Refresh Data', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => window.location.reload() },
+                {
+                  label: 'Export to Excel',
+                  icon: <FileSpreadsheet className="w-3.5 h-3.5" />,
+                  disabled: activeTab === 'notebook' || activeTab === 'brandkit',
+                  onClick: () => setIsExportModalOpen(true)
+                },
+                { label: 'Manage Workspaces', icon: <Settings className="w-3.5 h-3.5" />, onClick: () => setIsBusinessModalOpen(true) },
+                { label: 'Sign Out', icon: <LogOut className="w-3.5 h-3.5" />, variant: 'danger', onClick: () => signOut(auth) },
+              ]}>
+                <div className="flex flex-1 w-full relative">
+                  {/* Sidebar (Desktop Only) */}
+                  <aside className="hidden md:flex sticky top-0 h-screen w-20 bg-[#F7F7F5] dark:bg-[#202020] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
+                    <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
+                      {/* Logo */}
+                      <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
+                        <ForgeLogo size={28} className="p-1" />
+                      </div>
 
 
-          {/* Business Selector */}
-          {user && !isViewOnly && (
-            <div className="flex flex-col gap-3 w-full items-center px-2 py-3 border-y border-[#E9E9E7] dark:border-[#2E2E2E] relative">
-              {activeBusiness && (
-                <button
-                  onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
-                  title={activeBusiness.name}
-                  className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-brand text-white border-brand-hover  hover:scale-105"
-                >
-                  {activeBusiness.name.substring(0, 2).toUpperCase()}
-                </button>
-              )}
-              
-              {isWorkspaceDropdownOpen && createPortal(
-                <>
-                  <div 
-                    className="fixed inset-0 z-[100]" 
-                    onClick={() => setIsWorkspaceDropdownOpen(false)}
-                  />
-                  <div className="fixed top-20 left-20 ml-2 w-56 bg-white dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px]  z-[101] py-2 overflow-hidden flex flex-col max-h-[60vh]">
-                    <div className="px-3 py-2 text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">
-                      Workspaces
-                    </div>
-                    <div className="overflow-y-auto no-scrollbar flex-1">
-                      {businesses.map(biz => (
+                      {/* Business Selector */}
+                      {user && !isViewOnly && (
+                        <div className="flex flex-col gap-3 w-full items-center px-2 py-3 border-y border-[#E9E9E7] dark:border-[#2E2E2E] relative">
+                          {activeBusiness && (
+                            <button
+                              onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
+                              title={activeBusiness.name}
+                              className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-brand text-white border-brand-hover  hover:scale-105"
+                            >
+                              {activeBusiness.name.substring(0, 2).toUpperCase()}
+                            </button>
+                          )}
+
+                          {isWorkspaceDropdownOpen && createPortal(
+                            <>
+                              <div
+                                className="fixed inset-0 z-[100]"
+                                onClick={() => setIsWorkspaceDropdownOpen(false)}
+                              />
+                              <div className="fixed top-20 left-20 ml-2 w-56 bg-white dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px]  z-[101] py-2 overflow-hidden flex flex-col max-h-[60vh]">
+                                <div className="px-3 py-2 text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">
+                                  Workspaces
+                                </div>
+                                <div className="overflow-y-auto no-scrollbar flex-1">
+                                  {businesses.map(biz => (
+                                    <button
+                                      key={biz.id}
+                                      onClick={() => {
+                                        setActiveBusiness(biz);
+                                        setIsWorkspaceDropdownOpen(false);
+                                      }}
+                                      className={cn(
+                                        "w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] transition-colors",
+                                        activeBusiness?.id === biz.id ? "text-brand font-medium" : "text-[#37352F] dark:text-[#EBE9ED]"
+                                      )}
+                                    >
+                                      <span className="truncate">{biz.name}</span>
+                                      {activeBusiness?.id === biz.id && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="border-t border-[#E9E9E7] dark:border-[#3E3E3E] mt-2 pt-2 px-2 flex flex-col gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setIsWorkspaceDropdownOpen(false);
+                                      setIsBusinessModalOpen(true);
+                                    }}
+                                    className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-[#757681] dark:text-[#9B9A97]"
+                                  >
+                                    <Settings className="w-4 h-4" />
+                                    Manage Workspaces
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setIsWorkspaceDropdownOpen(false);
+                                      setShowOnboarding(true);
+                                    }}
+                                    className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-brand"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                    Add New Workspace
+                                  </button>
+                                </div>
+                              </div>
+                            </>,
+                            document.body
+                          )}
+                        </div>
+                      )}
+
+                      {/* Nav */}
+                      <nav className="flex flex-col gap-1 lg:gap-2 w-full px-2">
                         <button
-                          key={biz.id}
-                          onClick={() => {
-                            setActiveBusiness(biz);
-                            setIsWorkspaceDropdownOpen(false);
-                          }}
+                          onClick={() => setActiveTab('home')}
+                          title="Home"
                           className={cn(
-                            "w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] transition-colors",
-                            activeBusiness?.id === biz.id ? "text-brand font-medium" : "text-[#37352F] dark:text-[#EBE9ED]"
+                            "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                            activeTab === 'home' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                           )}
                         >
-                          <span className="truncate">{biz.name}</span>
-                          {activeBusiness?.id === biz.id && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+                          <LayoutGrid className="w-5 h-5 shrink-0" />
                         </button>
-                      ))}
+                        <DroppableTab
+                          id="calendar-tab-droppable"
+                          onClick={() => setActiveTab('schedule')}
+                          title={industryConfig.terminology.calendar}
+                          className={cn(
+                            "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                            activeTab === 'schedule' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                          )}
+                        >
+                          <CalendarIcon className="w-5 h-5 shrink-0" />
+                        </DroppableTab>
+                        {isAdmin ? (
+                          <>
+                            <button
+                              onClick={() => setActiveTab('search')}
+                              title={industryConfig.terminology.products}
+                              className={cn(
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'search' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
+                            >
+                              <Database className="w-5 h-5 shrink-0" />
+                            </button>
+                            <button
+                              onClick={() => setActiveTab('notebook')}
+                              title="Notebook"
+                              className={cn(
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'notebook' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
+                            >
+                              <Notebook className="w-5 h-5 shrink-0" />
+                            </button>
+                            <button
+                              onClick={() => setActiveTab('brandkit')}
+                              title={industryConfig.terminology.assets}
+                              className={cn(
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'brandkit' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
+                            >
+                              <Palette className="w-5 h-5 shrink-0" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveTab('creative');
+                                setCreativeView('modules');
+                              }}
+                              title="AI Studio"
+                              className={cn(
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'creative' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
+                            >
+                              <Sparkles className="w-5 h-5 shrink-0" />
+                            </button>
+                            <button
+                              onClick={() => setActiveTab('analytics')}
+                              title="Insights & Analytics"
+                              className={cn(
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'analytics' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
+                            >
+                              <BarChart3 className="w-5 h-5 shrink-0" />
+                            </button>
+                          </>
+                        ) : isViewer ? (
+                          <>
+                            <button
+                              onClick={handleRequestAccess}
+                              title="Request Access to Products"
+                              className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                            >
+                              <Database className="w-5 h-5 shrink-0" />
+                              <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                              <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                                Request Access
+                              </div>
+                            </button>
+                            <button
+                              onClick={handleRequestAccess}
+                              title="Request Access to Notebook"
+                              className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                            >
+                              <Notebook className="w-5 h-5 shrink-0" />
+                              <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                            </button>
+                            <button
+                              onClick={handleRequestAccess}
+                              title="Request Access to Brand Kit"
+                              className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                            >
+                              <Palette className="w-5 h-5 shrink-0" />
+                              <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                            </button>
+                            <button
+                              onClick={handleRequestAccess}
+                              title="Request Access to AI Studio"
+                              className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                            >
+                              <Sparkles className="w-5 h-5 shrink-0" />
+                              <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                            </button>
+                            <button
+                              onClick={handleRequestAccess}
+                              title="Request Access to Analytics"
+                              className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
+                            >
+                              <BarChart3 className="w-5 h-5 shrink-0" />
+                              <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
+                            </button>
+                          </>
+                        ) : null}
+                        {isGuest && (
+                          <button
+                            onClick={handleLogin}
+                            disabled={isSigningIn}
+                            title="Sign In (Admin)"
+                            className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400 disabled:opacity-50"
+                          >
+                            <Smartphone className="w-5 h-5 shrink-0" />
+                          </button>
+                        )}
+                      </nav>
                     </div>
-                    <div className="border-t border-[#E9E9E7] dark:border-[#3E3E3E] mt-2 pt-2 px-2 flex flex-col gap-1">
-                      <button
-                        onClick={() => {
-                          setIsWorkspaceDropdownOpen(false);
-                          setIsBusinessModalOpen(true);
-                        }}
-                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-[#757681] dark:text-[#9B9A97]"
-                      >
-                        <Settings className="w-4 h-4" />
-                        Manage Workspaces
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsWorkspaceDropdownOpen(false);
-                          setShowOnboarding(true);
-                        }}
-                        className="w-full text-left px-2 py-2 text-sm flex items-center gap-2 hover:bg-[#F7F7F5] dark:hover:bg-[#3E3E3E] rounded-[8px] transition-colors text-brand"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add New Workspace
-                      </button>
+
+                    {/* Bottom section: User & Sync */}
+                    <div className="flex flex-col gap-2 lg:gap-4 w-full items-center px-2 mt-4 lg:mt-0 pb-4 shrink-0">
+                      <div className="relative group flex justify-center w-full cursor-help mb-2">
+                        {isSyncing ? (
+                          <ForgeLoader size={18} />
+                        ) : (
+                          <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        )}
+                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity z-50">
+                          {isSyncing ? 'Syncing to Cloud...' : 'Synced to Cloud'}
+                        </div>
+                      </div>
+
+                      {user ? (
+                        <button
+                          onClick={() => setActiveTab('more')}
+                          className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand"
+                          title="Settings"
+                        >
+                          <img
+                            src={user.photoURL || `https://ui-avatars.com/api/?name=${user.email}&background=random`}
+                            alt="User"
+                            className="w-full h-full object-cover transition-opacity duration-200 group-hover:opacity-30"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/20">
+                            <Settings className="w-5 h-5 text-white drop-" />
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Guest">
+                          <User className="w-5 h-5 text-gray-400" />
+                        </div>
+                      )}
                     </div>
+                  </aside>
+
+                  {/* Main Content Area */}
+                  <div className={cn("flex-1 flex flex-col min-w-0 relative print:h-auto print:overflow-visible", activeTab === 'chat' && "md:flex")}>
+                    <main className={cn(
+                      "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-32 md:pb-28 print:p-0 print:overflow-visible",
+                      (activeTab === 'chat' || activeTab === 'home' || activeTab === 'notebook') && "p-0 sm:p-0 md:p-0 pb-0",
+                      activeTab !== 'search' && "no-scrollbar"
+                    )}>
+                      <div className={cn("w-full flex-1 flex flex-col print:max-w-none print:h-auto print:block", (activeTab === 'chat' || activeTab === 'home') && "max-w-none h-full")}>
+                        {/* Page Title */}
+                        <div className={cn("mb-2 md:mb-4 flex items-center justify-between shrink-0 print:hidden px-2 md:px-0", (activeTab === 'chat' || activeTab === 'home' || activeTab === 'more') && "hidden", "md:hidden")}>
+                          <div className="flex items-center gap-3">
+                            {user && !isViewOnly && (
+                              <button
+                                onClick={() => setIsBusinessModalOpen(true)}
+                                className="w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] flex items-center justify-center font-bold text-xs text-brand  active:scale-95 transition-transform"
+                              >
+                                {activeBusiness?.name.substring(0, 2).toUpperCase() || '??'}
+                              </button>
+                            )}
+                            <div className="flex flex-col">
+                              <h1 className="text-xs md:text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">
+                                {activeTab === 'home' && 'Home'}
+                                {activeTab === 'schedule' && industryConfig.terminology.calendar}
+                                {activeTab === 'search' && industryConfig.terminology.products}
+                                {activeTab === 'brandkit' && industryConfig.terminology.assets}
+                                {activeTab === 'creative' && 'AI Studio'}
+                                {activeTab === 'analytics' && 'Insights & Analytics'}
+                                {activeTab === 'notebook' && 'Notebook'}
+                                {activeTab === 'more' && 'Settings'}
+                              </h1>
+                              {/* Mobile Sync Indicator */}
+                              <div className="md:hidden flex items-center gap-1 mt-0.5">
+                                {isSyncing ? (
+                                  <ForgeLoader size={12} />
+                                ) : (
+                                  <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                )}
+                                <span className="text-[10px] font-medium text-[#757681] dark:text-[#9B9A97]">
+                                  {isSyncing ? 'Syncing...' : 'Cloud Synced'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 md:gap-3">
+                            {/* Desktop Sync Indicator (redundant but nice to have in header too) */}
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                              {isSyncing ? (
+                                <ForgeLoader size={14} />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                              )}
+                              <span className="text-xs font-medium text-[#757681] dark:text-[#9B9A97]">
+                                {isSyncing ? 'Syncing' : 'Synced'}
+                              </span>
+                            </div>
+                            {activeTab === 'schedule' && isAdmin && (
+                              <div className="flex items-center gap-2">
+                                <CalendarSharing activeBusiness={activeBusiness} onUpdateBusiness={setActiveBusiness} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={cn(
+                          "flex-1 flex flex-col print:block",
+                          activeTab !== 'home' && activeTab !== 'schedule' && activeTab !== 'chat' && "hidden print:hidden"
+                        )}>
+                          {activeTab === 'home' && (
+                            <HomeTab
+                              posts={posts}
+                              activeBusiness={activeBusiness}
+                              setActiveTab={setActiveTab}
+                              onAddPost={openNewPostModal}
+                              isAdmin={isAdmin}
+                              isViewer={isViewer}
+                              onHandleRequestAccess={handleRequestAccess}
+                              user={user}
+                            />
+                          )}
+                          <div className={cn("flex-1 flex flex-col", activeTab === 'home' && "hidden", activeTab === 'chat' && "hidden md:flex")}>
+                            <Calendar
+                              currentDate={currentMonth}
+                              posts={isAdmin ? posts : posts.filter(p => !p.isHiddenForOthers)}
+                              onEditPost={openEditPostModal}
+                              onDeletePost={isAdmin ? handleDeletePost : undefined}
+                              onCopyPost={isAdmin ? handleCopyPost : undefined}
+                              onAddPost={isAdmin ? openNewPostModal : undefined}
+                              onGenerateWithAi={isAdmin ? handleGenerateWithAi : undefined}
+                              onImageClick={handleImageClick}
+                              onRegeneratePost={isAdmin ? handleRegeneratePost : undefined}
+                              onGenerateMockup={isAdmin ? handleGenerateMockup : undefined}
+                              onUpdatePost={isAdmin ? handleSavePost : undefined}
+                              onPrevMonth={handlePrevMonth}
+                              onNextMonth={handleNextMonth}
+                              onFileDrop={isAdmin ? handleFileDrop : undefined}
+                              isAdmin={isAdmin}
+                              isGuest={isGuest}
+                              activeBusiness={activeBusiness}
+                              onUpdateBusiness={setActiveBusiness}
+                              isDarkMode={isDarkMode}
+                              toggleDarkMode={toggleDarkMode}
+                              calendarMode={calendarMode}
+                              onCalendarModeChange={setCalendarMode}
+                            />
+                          </div>
+                        </div>
+
+                        {isAdmin && (
+                          <div className={cn("flex-1", activeTab === 'search' ? 'block' : 'hidden')}>
+                            <LocalDb onAddPost={(products) => {
+                              setIsPostModalOpen(true);
+                              setSelectedPost(null);
+                              setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+                              setInitialProductsForModal(products);
+                            }} activeBusiness={activeBusiness} />
+                          </div>
+                        )}
+
+                        {isAdmin && (
+                          <div className={cn("flex-1", activeTab === 'brandkit' ? 'block' : 'hidden')}>
+                            <BrandKitTab activeBusiness={activeBusiness} posts={posts} aiSettings={aiSettings} />
+                          </div>
+                        )}
+
+                        {isAdmin && (
+                          <div className={cn("flex-1", activeTab === 'creative' ? 'block' : 'hidden')}>
+                            {creativeView === 'modules' ? (
+                              <CreativeStudioTab
+                                userId={user?.uid}
+                                activeBusiness={activeBusiness}
+                                onOpenSandbox={() => setCreativeView('sandbox')}
+                              />
+                            ) : (
+                              <AiStudioTab
+                                userId={user?.uid}
+                                activeBusiness={activeBusiness}
+                                onBack={() => setCreativeView('modules')}
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {isAdmin && (
+                          <div className={cn("flex-1", activeTab === 'analytics' ? 'block' : 'hidden')}>
+                            <AnalyticsTab setActiveTab={setActiveTab} />
+                          </div>
+                        )}
+
+
+                        {isAdmin && (
+                          <div className={cn("flex-1", activeTab === 'notebook' ? 'block' : 'hidden')}>
+                            <NotebookTab activeBusiness={activeBusiness} />
+                          </div>
+                        )}
+
+                        {isAdmin && (
+                          <div className={cn("flex-1", activeTab === 'workspace_management' ? 'block' : 'hidden')}>
+                            <WorkspaceManagementTab
+                              activeBusiness={activeBusiness}
+                              onUpdateBusiness={setActiveBusiness}
+                              setActiveTab={setActiveTab}
+                            />
+                          </div>
+                        )}
+
+                        {isAdmin && (
+                          <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' || activeTab === 'settings' ? 'block' : 'hidden')}>
+                            <SettingsView
+                              user={user}
+                              settingsTab={settingsTab}
+                              setSettingsTab={setSettingsTab}
+                              isDarkMode={isDarkMode}
+                              toggleDarkMode={toggleDarkMode}
+                              isInstallable={isInstallable}
+                              handleInstallClick={handleInstallClick}
+                              setIsAddToHomeModalOpen={setIsAddToHomeModalOpen}
+                              businesses={businesses}
+                              activeBusiness={activeBusiness}
+                              setBusinesses={setBusinesses}
+                              setActiveBusiness={setActiveBusiness}
+                              aiSettings={aiSettings}
+                              handleAiSettingChange={handleAiSettingChange}
+                              setAiSettingsState={setAiSettingsState}
+                              setAiSettings={setAiSettings}
+                              analyticsSettings={analyticsSettings}
+                              handleAnalyticsSettingChange={handleAnalyticsSettingChange}
+                              setIsExportModalOpen={setIsExportModalOpen}
+                              exportScheduleJson={exportScheduleJson}
+                              importScheduleJson={importScheduleJson}
+                              importScheduleExcel={importScheduleExcel}
+                              initialPosts={initialPosts}
+                              handleSavePost={handleSavePost}
+                              setIsSyncing={setIsSyncing}
+                              addSyncLog={addSyncLog}
+                              setIsExcelImportModalOpen={setIsExcelImportModalOpen}
+                              exportProductExcel={exportProductExcel}
+                              handleAutoCategorizeAll={handleAutoCategorizeAll}
+                              isAutoCategorizing={isAutoCategorizing}
+                              exportProductJson={exportProductJson}
+                              exportExtensionZip={handleExportExtensionZip}
+                              importProductJson={importProductJson}
+                              onThemePresetChange={setThemePreset}
+                              googleTokens={googleTokens}
+                              handleDisconnectGoogleDrive={handleDisconnectGoogleDrive}
+                              handleConnectGoogleDrive={handleConnectGoogleDrive}
+                              setConfirmAction={setConfirmAction}
+                              syncLogs={syncLogs}
+                              signOut={signOut}
+                              auth={auth}
+                              db={db}
+                              setPosts={setPosts}
+                              query={query}
+                              collection={collection}
+                              where={where}
+                              getDocs={getDocs}
+                              writeBatch={writeBatch}
+                              industryConfig={industryConfig}
+                              setActiveTab={setActiveTab}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </main>
                   </div>
-                </>,
-                document.body
-              )}
-            </div>
-          )}
 
-          {/* Nav */}
-          <nav className="flex flex-col gap-1 lg:gap-2 w-full px-2">
-            <button 
-              onClick={() => setActiveTab('home')} 
-              title="Home"
-              className={cn(
-                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
-                activeTab === 'home' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-              )}
-            >
-              <LayoutGrid className="w-5 h-5 shrink-0" />
-            </button>
-            <DroppableTab 
-              id="calendar-tab-droppable"
-              onClick={() => setActiveTab('schedule')} 
-              title={industryConfig.terminology.calendar}
-              className={cn(
-                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
-                activeTab === 'schedule' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-              )}
-            >
-              <CalendarIcon className="w-5 h-5 shrink-0" />
-            </DroppableTab>
-            {isAdmin ? (
-              <>
-                <button 
-                  onClick={() => setActiveTab('search')} 
-                  title={industryConfig.terminology.products}
-                  className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
-                    activeTab === 'search' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-                  )}
-                >
-                  <Database className="w-5 h-5 shrink-0" />
-                </button>
-                <button 
-                  onClick={() => setActiveTab('notebook')} 
-                  title="Notebook"
-                  className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
-                    activeTab === 'notebook' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-                  )}
-                >
-                  <Notebook className="w-5 h-5 shrink-0" />
-                </button>
-                <button 
-                  onClick={() => setActiveTab('brandkit')} 
-                  title={industryConfig.terminology.assets}
-                  className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
-                    activeTab === 'brandkit' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-                  )}
-                >
-                  <Palette className="w-5 h-5 shrink-0" />
-                </button>
-                <button 
-                  onClick={() => {
-                    setActiveTab('creative');
-                    setCreativeView('modules');
-                  }} 
-                  title="AI Studio"
-                  className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
-                    activeTab === 'creative' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-                  )}
-                >
-                  <Sparkles className="w-5 h-5 shrink-0" />
-                </button>
-                <button 
-                  onClick={() => setActiveTab('analytics')} 
-                  title="Insights & Analytics"
-                  className={cn(
-                    "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors", 
-                    activeTab === 'analytics' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-                  )}
-                >
-                  <BarChart3 className="w-5 h-5 shrink-0" />
-                </button>
-              </>
-            ) : isViewer ? (
-              <>
-                <button 
-                  onClick={handleRequestAccess}
-                  title="Request Access to Products"
-                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
-                >
-                  <Database className="w-5 h-5 shrink-0" />
-                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
-                    Request Access
-                  </div>
-                </button>
-                <button 
-                  onClick={handleRequestAccess}
-                  title="Request Access to Notebook"
-                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
-                >
-                  <Notebook className="w-5 h-5 shrink-0" />
-                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
-                </button>
-                <button 
-                  onClick={handleRequestAccess}
-                  title="Request Access to Brand Kit"
-                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
-                >
-                  <Palette className="w-5 h-5 shrink-0" />
-                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
-                </button>
-                <button 
-                  onClick={handleRequestAccess}
-                  title="Request Access to AI Studio"
-                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
-                >
-                  <Sparkles className="w-5 h-5 shrink-0" />
-                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
-                </button>
-                <button 
-                  onClick={handleRequestAccess}
-                  title="Request Access to Analytics"
-                  className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
-                >
-                  <BarChart3 className="w-5 h-5 shrink-0" />
-                  <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
-                </button>
-              </>
-            ) : null}
-            {isGuest && (
-              <button 
-                onClick={handleLogin}
-                disabled={isSigningIn}
-                title="Sign In (Admin)"
-                className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400 disabled:opacity-50"
-              >
-                <Smartphone className="w-5 h-5 shrink-0" />
-              </button>
-            )}
-          </nav>
-        </div>
-
-        {/* Bottom section: User & Sync */}
-        <div className="flex flex-col gap-2 lg:gap-4 w-full items-center px-2 mt-4 lg:mt-0 pb-4 shrink-0">
-          <div className="relative group flex justify-center w-full cursor-help mb-2">
-            {isSyncing ? (
-              <ForgeLoader size={18} />
-            ) : (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            )}
-            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity z-50">
-              {isSyncing ? 'Syncing to Cloud...' : 'Synced to Cloud'}
-            </div>
-          </div>
-
-          {user ? (
-            <button 
-              onClick={() => setActiveTab('more')}
-              className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand"
-              title="Settings"
-            >
-              <img 
-                src={user.photoURL || `https://ui-avatars.com/api/?name=${user.email}&background=random`} 
-                alt="User" 
-                className="w-full h-full object-cover transition-opacity duration-200 group-hover:opacity-30" 
-              />
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/20">
-                <Settings className="w-5 h-5 text-white drop-" />
-              </div>
-            </button>
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Guest">
-              <User className="w-5 h-5 text-gray-400" />
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <div className={cn("flex-1 flex flex-col min-w-0 relative print:h-auto print:overflow-visible", activeTab === 'chat' && "md:flex")}>
-          <main className={cn(
-            "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-32 md:pb-28 print:p-0 print:overflow-visible", 
-            (activeTab === 'chat' || activeTab === 'home' || activeTab === 'notebook') && "p-0 sm:p-0 md:p-0 pb-0",
-            activeTab !== 'search' && "no-scrollbar"
-          )}>
-          <div className={cn("w-full flex-1 flex flex-col print:max-w-none print:h-auto print:block", (activeTab === 'chat' || activeTab === 'home') && "max-w-none h-full")}>
-            {/* Page Title */}
-            <div className={cn("mb-2 md:mb-4 flex items-center justify-between shrink-0 print:hidden px-2 md:px-0", (activeTab === 'chat' || activeTab === 'home' || activeTab === 'more') && "hidden", "md:hidden")}>
-              <div className="flex items-center gap-3">
-                {user && !isViewOnly && (
-                  <button
-                    onClick={() => setIsBusinessModalOpen(true)}
-                    className="w-10 h-10 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] flex items-center justify-center font-bold text-xs text-brand  active:scale-95 transition-transform"
-                  >
-                    {activeBusiness?.name.substring(0, 2).toUpperCase() || '??'}
-                  </button>
-                )}
-                <div className="flex flex-col">
-                  <h1 className="text-xs md:text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">
-                    {activeTab === 'home' && 'Home'}
-                    {activeTab === 'schedule' && industryConfig.terminology.calendar}
-                    {activeTab === 'search' && industryConfig.terminology.products}
-                    {activeTab === 'brandkit' && industryConfig.terminology.assets}
-                    {activeTab === 'creative' && 'AI Studio'}
-                    {activeTab === 'analytics' && 'Insights & Analytics'}
-                    {activeTab === 'notebook' && 'Notebook'}
-                    {activeTab === 'more' && 'Settings'}
-                  </h1>
-                  {/* Mobile Sync Indicator */}
-                  <div className="md:hidden flex items-center gap-1 mt-0.5">
-                    {isSyncing ? (
-                      <ForgeLoader size={12} />
-                    ) : (
-                      <CheckCircle2 className="w-3 h-3 text-green-500" />
-                    )}
-                    <span className="text-[10px] font-medium text-[#757681] dark:text-[#9B9A97]">
-                      {isSyncing ? 'Syncing...' : 'Cloud Synced'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 md:gap-3">
-                {/* Desktop Sync Indicator (redundant but nice to have in header too) */}
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                  {isSyncing ? (
-                    <ForgeLoader size={14} />
-                  ) : (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-                  )}
-                  <span className="text-xs font-medium text-[#757681] dark:text-[#9B9A97]">
-                    {isSyncing ? 'Syncing' : 'Synced'}
-                  </span>
-                </div>
-                {activeTab === 'schedule' && isAdmin && (
-                  <div className="flex items-center gap-2">
-                    <CalendarSharing activeBusiness={activeBusiness} onUpdateBusiness={setActiveBusiness} />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className={cn(
-              "flex-1 flex flex-col print:block",
-              activeTab !== 'home' && activeTab !== 'schedule' && activeTab !== 'chat' && "hidden print:hidden"
-            )}>
-              {activeTab === 'home' && (
-                <HomeTab 
-                  posts={posts}
-                  activeBusiness={activeBusiness}
-                  setActiveTab={setActiveTab}
-                  onAddPost={openNewPostModal}
-                  isAdmin={isAdmin}
-                  isViewer={isViewer}
-                  onHandleRequestAccess={handleRequestAccess}
-                  user={user}
-                />
-              )}
-              <div className={cn("flex-1 flex flex-col", activeTab === 'home' && "hidden", activeTab === 'chat' && "hidden md:flex")}>
-                <Calendar 
-                  currentDate={currentMonth} 
-                  posts={isAdmin ? posts : posts.filter(p => !p.isHiddenForOthers)} 
-                  onEditPost={openEditPostModal}
-                  onDeletePost={isAdmin ? handleDeletePost : undefined}
-                  onCopyPost={isAdmin ? handleCopyPost : undefined}
-                  onAddPost={isAdmin ? openNewPostModal : undefined}
-                  onGenerateWithAi={isAdmin ? handleGenerateWithAi : undefined}
-                  onImageClick={handleImageClick}
-                  onRegeneratePost={isAdmin ? handleRegeneratePost : undefined}
-                  onGenerateMockup={isAdmin ? handleGenerateMockup : undefined}
-                  onUpdatePost={isAdmin ? handleSavePost : undefined}
-                  onPrevMonth={handlePrevMonth}
-                  onNextMonth={handleNextMonth}
-                  onFileDrop={isAdmin ? handleFileDrop : undefined}
-                  isAdmin={isAdmin}
-                  isGuest={isGuest}
-                  activeBusiness={activeBusiness}
-                  onUpdateBusiness={setActiveBusiness}
-                  isDarkMode={isDarkMode}
-                  toggleDarkMode={toggleDarkMode}
-                  calendarMode={calendarMode}
-                  onCalendarModeChange={setCalendarMode}
-                />
-              </div>
-            </div>
-            
-            {isAdmin && (
-              <div className={cn("flex-1", activeTab === 'search' ? 'block' : 'hidden')}>
-                <LocalDb onAddPost={(products) => {
-                  setIsPostModalOpen(true);
-                  setSelectedPost(null);
-                  setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
-                  setInitialProductsForModal(products);
-                }} activeBusiness={activeBusiness} />
-              </div>
-            )}
-            
-            {isAdmin && (
-              <div className={cn("flex-1", activeTab === 'brandkit' ? 'block' : 'hidden')}>
-                <BrandKitTab activeBusiness={activeBusiness} posts={posts} aiSettings={aiSettings} />
-              </div>
-            )}
-
-            {isAdmin && (
-              <div className={cn("flex-1", activeTab === 'creative' ? 'block' : 'hidden')}>
-                {creativeView === 'modules' ? (
-                  <CreativeStudioTab 
-                    userId={user?.uid}
-                    activeBusiness={activeBusiness}
-                    onOpenSandbox={() => setCreativeView('sandbox')}
-                  />
-                ) : (
-                  <AiStudioTab 
-                    userId={user?.uid}
-                    activeBusiness={activeBusiness}
-                    onBack={() => setCreativeView('modules')}
-                  />
-                )}
-              </div>
-            )}
-
-            {isAdmin && (
-              <div className={cn("flex-1", activeTab === 'analytics' ? 'block' : 'hidden')}>
-                <AnalyticsTab setActiveTab={setActiveTab} />
-              </div>
-            )}
-
-
-            {isAdmin && (
-              <div className={cn("flex-1", activeTab === 'notebook' ? 'block' : 'hidden')}>
-                <NotebookTab activeBusiness={activeBusiness} />
-              </div>
-            )}
-            
-            {isAdmin && (
-              <div className={cn("flex-1", activeTab === 'workspace_management' ? 'block' : 'hidden')}>
-                <WorkspaceManagementTab 
-                  activeBusiness={activeBusiness} 
-                  onUpdateBusiness={setActiveBusiness} 
-                  setActiveTab={setActiveTab} 
-                />
-              </div>
-            )}
-            
-            {isAdmin && (
-              <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' || activeTab === 'settings' ? 'block' : 'hidden')}>
-                <SettingsView 
-                  user={user}
-                  settingsTab={settingsTab}
-                  setSettingsTab={setSettingsTab}
-                  isDarkMode={isDarkMode}
-                  toggleDarkMode={toggleDarkMode}
-                  isInstallable={isInstallable}
-                  handleInstallClick={handleInstallClick}
-                  setIsAddToHomeModalOpen={setIsAddToHomeModalOpen}
-                  businesses={businesses}
-                  activeBusiness={activeBusiness}
-                  setBusinesses={setBusinesses}
-                  setActiveBusiness={setActiveBusiness}
-                  aiSettings={aiSettings}
-                  handleAiSettingChange={handleAiSettingChange}
-                  setAiSettingsState={setAiSettingsState}
-                  setAiSettings={setAiSettings}
-                  analyticsSettings={analyticsSettings}
-                  handleAnalyticsSettingChange={handleAnalyticsSettingChange}
-                  setIsExportModalOpen={setIsExportModalOpen}
-                  exportScheduleJson={exportScheduleJson}
-                  importScheduleJson={importScheduleJson}
-                  importScheduleExcel={importScheduleExcel}
-                  initialPosts={initialPosts}
-                  handleSavePost={handleSavePost}
-                  setIsSyncing={setIsSyncing}
-                  addSyncLog={addSyncLog}
-                  setIsExcelImportModalOpen={setIsExcelImportModalOpen}
-                  exportProductExcel={exportProductExcel}
-                  handleAutoCategorizeAll={handleAutoCategorizeAll}
-                  isAutoCategorizing={isAutoCategorizing}
-                  exportProductJson={exportProductJson}
-                  exportExtensionZip={handleExportExtensionZip}
-                  importProductJson={importProductJson}
-                  onThemePresetChange={setThemePreset}
-                  googleTokens={googleTokens}
-                  handleDisconnectGoogleDrive={handleDisconnectGoogleDrive}
-                  handleConnectGoogleDrive={handleConnectGoogleDrive}
-                  setConfirmAction={setConfirmAction}
-                  syncLogs={syncLogs}
-                  signOut={signOut}
-                  auth={auth}
-                  db={db}
-                  setPosts={setPosts}
-                  query={query}
-                  collection={collection}
-                  where={where}
-                  getDocs={getDocs}
-                  writeBatch={writeBatch}
-                  industryConfig={industryConfig}
-                  setActiveTab={setActiveTab}
-                />
-              </div>
-            )}
-</div>
-</main>
-</div>
-        
-        <DragOverlay dropAnimation={{
-          sideEffects: defaultDropAnimationSideEffects({
-            styles: {
-              active: {
-                opacity: '0.5',
-              },
-            },
-          }),
-        }}>
-          {activeDragItem ? (
-            <div className="opacity-80 scale-105  pointer-events-none">
-              {activeDragItem.type === 'product' && (
-                <div className="bg-white dark:bg-[#191919] border border-brand rounded-[6px] p-3 w-64 ">
-                  <div className="text-[10px] font-bold text-brand uppercase mb-1">{activeDragItem.product.type}</div>
-                  <div className="text-sm font-bold">{activeDragItem.product.title}</div>
-                </div>
-              )}
-              {activeDragItem.type === 'image' && (
-                <div className="w-20 h-20 rounded-[6px] overflow-hidden border-2 border-brand">
-                  <img src={activeDragItem.imageUrl} alt="" className="w-full h-full object-cover" />
-                </div>
-              )}
-              {activeDragItem.type === 'idea' && (
-                <div className="bg-white dark:bg-[#1E1E1E] border border-brand rounded-[24px] p-5  w-64">
-                  <div className="flex gap-2 mb-2">
-                    <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">
-                      {activeDragItem.idea.type}
-                    </span>
-                  </div>
-                  <h4 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight mb-2">
-                    {activeDragItem.idea.title}
-                  </h4>
-                </div>
-              )}
-              {activeDragItem.type === 'notebook-block' && (
-                <div className="bg-white dark:bg-[#1E1E1E] border border-purple-500 rounded-xl p-4 w-64 shadow-2xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-purple-500" />
-                    <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest">
-                      {activeDragItem.block.type}
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">
-                    {activeDragItem.block.title || 'Untitled Block'}
-                  </h4>
-                  <p className="text-[10px] text-[#757681] truncate mt-1">
-                    {activeDragItem.block.content}
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </DragOverlay>
-        {isAdmin && (
-          <FloatingChat 
-            posts={posts}
-            activeBusiness={activeBusiness}
-            brandKit={brandKit}
-            products={products}
-            onUpdatePost={(updatedPost) => {
-              handleSavePost(updatedPost);
-            }}
-            onCreatePost={(newPost, date) => {
-              handleSavePost({ ...newPost, date: date || newPost.date });
-            }}
-            onDeletePost={handleDeletePost}
-            onPreviewPost={(partialPost) => {
-              setSelectedPost({
-                id: 'preview-' + Date.now(),
-                date: new Date().toISOString().split('T')[0],
-                images: [],
-                outlet: 'Rainbow Enterprises',
-                type: '🔴 General',
-                title: '',
-                brief: '',
-                caption: '',
-                hashtags: '',
-                userId: user?.uid || '',
-                businessId: activeBusiness?.id || '',
-                ...partialPost
-              } as Post);
-              setIsPostModalOpen(true);
-            }}
-            droppedItem={droppedToChat}
-            onClearDroppedItem={() => setDroppedToChat(null)}
-            isFullPage={activeTab === 'chat'}
-            onClose={() => setActiveTab('schedule')}
-            onFullScreen={() => setActiveTab('chat')}
-          />
-        )}
-      </div>
-    </ContextMenu>
-
-    {/* Mobile Bottom Navigation */}
-      <div className={cn(
-        "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white dark:bg-[#191919] border-t border-[#E9E9E7] dark:border-[#2E2E2E] h-[64px] flex items-center px-2"
-      )}>
-        {isAdmin ? (
-          <nav className="flex-1 flex flex-row justify-between w-full h-full items-center">
-            {[
-              { id: 'home', icon: LayoutGrid, title: 'Home' },
-              { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
-              { id: 'chat', icon: MessageSquare, title: 'Chat' },
-              { id: 'notebook', icon: Notebook, title: 'Notebook' },
-              { id: 'more', icon: Menu, title: 'More' }
-            ].map(tab => {
-              const Icon = tab.icon;
-              const isSubTabActive = tab.id === 'more' && ['search', 'ai', 'creative', 'analytics', 'more'].includes(activeTab);
-              const isActive = activeTab === tab.id || isSubTabActive;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={cn(
-                    "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
-                    isActive ? "text-brand" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                  )}
-                  title={tab.title}
-                >
-                  <Icon className="w-6 h-6" />
-                  {isActive && (
-                    <motion.div
-                      layoutId="mobileActiveTabIndicator"
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
-                      initial={false}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  <DragOverlay dropAnimation={{
+                    sideEffects: defaultDropAnimationSideEffects({
+                      styles: {
+                        active: {
+                          opacity: '0.5',
+                        },
+                      },
+                    }),
+                  }}>
+                    {activeDragItem ? (
+                      <div className="opacity-80 scale-105  pointer-events-none">
+                        {activeDragItem.type === 'product' && (
+                          <div className="bg-white dark:bg-[#191919] border border-brand rounded-[6px] p-3 w-64 ">
+                            <div className="text-[10px] font-bold text-brand uppercase mb-1">{activeDragItem.product.type}</div>
+                            <div className="text-sm font-bold">{activeDragItem.product.title}</div>
+                          </div>
+                        )}
+                        {activeDragItem.type === 'image' && (
+                          <div className="w-20 h-20 rounded-[6px] overflow-hidden border-2 border-brand">
+                            <img src={activeDragItem.imageUrl} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        {activeDragItem.type === 'idea' && (
+                          <div className="bg-white dark:bg-[#1E1E1E] border border-brand rounded-[24px] p-5  w-64">
+                            <div className="flex gap-2 mb-2">
+                              <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">
+                                {activeDragItem.idea.type}
+                              </span>
+                            </div>
+                            <h4 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight mb-2">
+                              {activeDragItem.idea.title}
+                            </h4>
+                          </div>
+                        )}
+                        {activeDragItem.type === 'notebook-block' && (
+                          <div className="bg-white dark:bg-[#1E1E1E] border border-purple-500 rounded-xl p-4 w-64 shadow-2xl">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-2 h-2 rounded-full bg-purple-500" />
+                              <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest">
+                                {activeDragItem.block.type}
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">
+                              {activeDragItem.block.title || 'Untitled Block'}
+                            </h4>
+                            <p className="text-[10px] text-[#757681] truncate mt-1">
+                              {activeDragItem.block.content}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                  {isAdmin && (
+                    <FloatingChat
+                      posts={posts}
+                      activeBusiness={activeBusiness}
+                      brandKit={brandKit}
+                      products={products}
+                      onUpdatePost={(updatedPost) => {
+                        handleSavePost(updatedPost);
+                      }}
+                      onCreatePost={(newPost, date) => {
+                        handleSavePost({ ...newPost, date: date || newPost.date });
+                      }}
+                      onDeletePost={handleDeletePost}
+                      onPreviewPost={(partialPost) => {
+                        setSelectedPost({
+                          id: 'preview-' + Date.now(),
+                          date: new Date().toISOString().split('T')[0],
+                          images: [],
+                          outlet: 'Rainbow Enterprises',
+                          type: '🔴 General',
+                          title: '',
+                          brief: '',
+                          caption: '',
+                          hashtags: '',
+                          userId: user?.uid || '',
+                          businessId: activeBusiness?.id || '',
+                          ...partialPost
+                        } as Post);
+                        setIsPostModalOpen(true);
+                      }}
+                      droppedItem={droppedToChat}
+                      onClearDroppedItem={() => setDroppedToChat(null)}
+                      isFullPage={activeTab === 'chat'}
+                      onClose={() => setActiveTab('schedule')}
+                      onFullScreen={() => setActiveTab('chat')}
                     />
                   )}
-                </button>
-              );
-            })}
-          </nav>
-        ) : (
-          <div className="flex-1 flex flex-row justify-between w-full h-full items-center px-4">
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={cn(
-                "flex flex-col items-center justify-center transition-all duration-200 relative h-full px-4",
-                activeTab === 'schedule' ? "text-brand" : "text-[#757681] dark:text-[#9B9A97]"
-              )}
-            >
-              <CalendarIcon className="w-6 h-6" />
-              {activeTab === 'schedule' && (
-                <motion.div
-                  layoutId="mobileActiveTabIndicatorGuest"
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
-                  initial={false}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                />
-              )}
-            </button>
-            
-            {isGuest && (
-              <button 
-                onClick={handleLogin}
-                disabled={isSigningIn}
-                className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-[12px] font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
-              >
-                <Smartphone className="w-4 h-4" />
-                {isSigningIn ? '...' : 'Sign In'}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+                </div>
+              </ContextMenu>
 
-      {/* Modals */}
-      {dropActionPrompt && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#191919] rounded-[12px]  max-w-md w-full p-6 border border-[#E9E9E7] dark:border-[#2E2E2E]">
-            <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED] mb-4">Multiple Images Dropped</h2>
-            <p className="text-[#757681] dark:text-[#9B9A97] mb-6">
-              You dropped {dropActionPrompt.files.length} images. How would you like to add them?
-            </p>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => processDroppedFiles(dropActionPrompt.dateStr, dropActionPrompt.files, 'single')}
-                className="w-full py-2.5 px-4 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-[8px] font-medium transition-colors"
-              >
-                Create as one single post (Carousel)
-              </button>
-              <button
-                onClick={() => processDroppedFiles(dropActionPrompt.dateStr, dropActionPrompt.files, 'separate')}
-                className="w-full py-2.5 px-4 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] font-medium transition-colors"
-              >
-                Create as separate tasks
-              </button>
-              <button
-                onClick={() => setDropActionPrompt(null)}
-                className="w-full py-2.5 px-4 text-[#757681] dark:text-[#9B9A97] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] font-medium transition-colors mt-2"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              {/* Mobile Bottom Navigation */}
+              <div className={cn(
+                "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white dark:bg-[#191919] border-t border-[#E9E9E7] dark:border-[#2E2E2E] h-[64px] flex items-center px-2"
+              )}>
+                {isAdmin ? (
+                  <nav className="flex-1 flex flex-row justify-between w-full h-full items-center">
+                    {[
+                      { id: 'home', icon: LayoutGrid, title: 'Home' },
+                      { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
+                      { id: 'chat', icon: MessageSquare, title: 'Chat' },
+                      { id: 'notebook', icon: Notebook, title: 'Notebook' },
+                      { id: 'more', icon: Menu, title: 'More' }
+                    ].map(tab => {
+                      const Icon = tab.icon;
+                      const isSubTabActive = tab.id === 'more' && ['search', 'ai', 'creative', 'analytics', 'more'].includes(activeTab);
+                      const isActive = activeTab === tab.id || isSubTabActive;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id as any)}
+                          className={cn(
+                            "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
+                            isActive ? "text-brand" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                          )}
+                          title={tab.title}
+                        >
+                          <Icon className="w-6 h-6" />
+                          {isActive && (
+                            <motion.div
+                              layoutId="mobileActiveTabIndicator"
+                              className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
+                              initial={false}
+                              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </nav>
+                ) : (
+                  <div className="flex-1 flex flex-row justify-between w-full h-full items-center px-4">
+                    <button
+                      onClick={() => setActiveTab('schedule')}
+                      className={cn(
+                        "flex flex-col items-center justify-center transition-all duration-200 relative h-full px-4",
+                        activeTab === 'schedule' ? "text-brand" : "text-[#757681] dark:text-[#9B9A97]"
+                      )}
+                    >
+                      <CalendarIcon className="w-6 h-6" />
+                      {activeTab === 'schedule' && (
+                        <motion.div
+                          layoutId="mobileActiveTabIndicatorGuest"
+                          className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand rounded-b-full"
+                          initial={false}
+                          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        />
+                      )}
+                    </button>
 
-      {isAddToHomeModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#191919] w-full max-w-md rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]  overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-[12px] flex items-center justify-center text-amber-600 dark:text-amber-400">
-                  <Smartphone className="w-5 h-5" />
-                </div>
-                <h2 className="text-xl font-bold">Add to Home Screen</h2>
-              </div>
-              <button onClick={() => setIsAddToHomeModalOpen(false)} className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
-                  <p className="text-sm text-[#37352F] dark:text-[#EBE9ED]">Open this site in your mobile browser (Safari for iOS, Chrome for Android).</p>
-                </div>
-                
-                <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                  <h3 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest mb-3">On iPhone (Safari)</h3>
-                  <ol className="text-sm space-y-2 list-decimal pl-4">
-                    <li>Tap the <span className="font-bold">Share</span> button (square with arrow up) at the bottom.</li>
-                    <li>Scroll down and tap <span className="font-bold">"Add to Home Screen"</span>.</li>
-                    <li>Tap <span className="font-bold">Add</span> in the top right corner.</li>
-                  </ol>
-                </div>
-
-                <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                  <h3 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest mb-3">On Android (Chrome)</h3>
-                  <ol className="text-sm space-y-2 list-decimal pl-4">
-                    <li>Tap the <span className="font-bold">Menu</span> (three dots) in the top right.</li>
-                    <li>Tap <span className="font-bold">"Add to Home screen"</span>.</li>
-                    <li>Confirm by tapping <span className="font-bold">Add</span>.</li>
-                  </ol>
-                </div>
+                    {isGuest && (
+                      <button
+                        onClick={handleLogin}
+                        disabled={isSigningIn}
+                        className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-[12px] font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
+                      >
+                        <Smartphone className="w-4 h-4" />
+                        {isSigningIn ? '...' : 'Sign In'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-[12px] border border-blue-100 dark:border-blue-900/30">
-                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
-                <p className="text-xs text-blue-700 dark:text-blue-300">
-                  This creates a shortcut on your home screen for instant access. It doesn't use extra storage like a regular app.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-6 bg-[#F7F7F5] dark:bg-[#202020] border-t border-[#E9E9E7] dark:border-[#2E2E2E] space-y-3">
-              {isInstallable && (
-                <button 
-                  onClick={() => {
-                    handleInstallClick();
-                    setIsAddToHomeModalOpen(false);
-                  }}
-                  className="w-full py-3 bg-amber-500 text-white rounded-[12px] font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                >
-                  <Smartphone className="w-5 h-5" />
-                  Install Now
-                </button>
+              {/* Modals */}
+              {dropActionPrompt && (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                  <div className="bg-white dark:bg-[#191919] rounded-[12px]  max-w-md w-full p-6 border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                    <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED] mb-4">Multiple Images Dropped</h2>
+                    <p className="text-[#757681] dark:text-[#9B9A97] mb-6">
+                      You dropped {dropActionPrompt.files.length} images. How would you like to add them?
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={() => processDroppedFiles(dropActionPrompt.dateStr, dropActionPrompt.files, 'single')}
+                        className="w-full py-2.5 px-4 bg-[#2383E2] hover:bg-[#1D6EB8] text-white rounded-[8px] font-medium transition-colors"
+                      >
+                        Create as one single post (Carousel)
+                      </button>
+                      <button
+                        onClick={() => processDroppedFiles(dropActionPrompt.dateStr, dropActionPrompt.files, 'separate')}
+                        className="w-full py-2.5 px-4 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] font-medium transition-colors"
+                      >
+                        Create as separate tasks
+                      </button>
+                      <button
+                        onClick={() => setDropActionPrompt(null)}
+                        className="w-full py-2.5 px-4 text-[#757681] dark:text-[#9B9A97] hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] font-medium transition-colors mt-2"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
-              <button 
-                onClick={() => setIsAddToHomeModalOpen(false)}
-                className="w-full py-3 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-[12px] font-bold hover:opacity-90 transition-opacity"
-              >
-                {isInstallable ? 'Maybe Later' : 'Got it'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
+              {isAddToHomeModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                  <div className="bg-white dark:bg-[#191919] w-full max-w-md rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]  overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-[12px] flex items-center justify-center text-amber-600 dark:text-amber-400">
+                          <Smartphone className="w-5 h-5" />
+                        </div>
+                        <h2 className="text-xl font-bold">Add to Home Screen</h2>
+                      </div>
+                      <button onClick={() => setIsAddToHomeModalOpen(false)} className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-full transition-colors">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="p-6 space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
+                          <p className="text-sm text-[#37352F] dark:text-[#EBE9ED]">Open this site in your mobile browser (Safari for iOS, Chrome for Android).</p>
+                        </div>
+
+                        <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                          <h3 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest mb-3">On iPhone (Safari)</h3>
+                          <ol className="text-sm space-y-2 list-decimal pl-4">
+                            <li>Tap the <span className="font-bold">Share</span> button (square with arrow up) at the bottom.</li>
+                            <li>Scroll down and tap <span className="font-bold">"Add to Home Screen"</span>.</li>
+                            <li>Tap <span className="font-bold">Add</span> in the top right corner.</li>
+                          </ol>
+                        </div>
+
+                        <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                          <h3 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest mb-3">On Android (Chrome)</h3>
+                          <ol className="text-sm space-y-2 list-decimal pl-4">
+                            <li>Tap the <span className="font-bold">Menu</span> (three dots) in the top right.</li>
+                            <li>Tap <span className="font-bold">"Add to Home screen"</span>.</li>
+                            <li>Confirm by tapping <span className="font-bold">Add</span>.</li>
+                          </ol>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-[12px] border border-blue-100 dark:border-blue-900/30">
+                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          This creates a shortcut on your home screen for instant access. It doesn't use extra storage like a regular app.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-6 bg-[#F7F7F5] dark:bg-[#202020] border-t border-[#E9E9E7] dark:border-[#2E2E2E] space-y-3">
+                      {isInstallable && (
+                        <button
+                          onClick={() => {
+                            handleInstallClick();
+                            setIsAddToHomeModalOpen(false);
+                          }}
+                          className="w-full py-3 bg-amber-500 text-white rounded-[12px] font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                        >
+                          <Smartphone className="w-5 h-5" />
+                          Install Now
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setIsAddToHomeModalOpen(false)}
+                        className="w-full py-3 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-[12px] font-bold hover:opacity-90 transition-opacity"
+                      >
+                        {isInstallable ? 'Maybe Later' : 'Got it'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
 
 
-      <PostModal
-        isOpen={isPostModalOpen}
-        onClose={() => {
-          setIsPostModalOpen(false);
-          setInitialProductsForModal([]);
-        }}
-        post={selectedPost}
-        selectedDate={selectedDate || undefined}
-        onSave={isAdmin ? handleSavePost : undefined}
-        onDelete={isAdmin ? handleDeletePost : undefined}
-        readOnly={!isAdmin}
-        user={user}
-        googleTokens={googleTokens}
-        initialProducts={initialProductsForModal}
-        activeBusiness={activeBusiness}
-        posts={posts}
-        dbMode={getDbMode(activeBusiness?.industry)}
-        droppedImages={droppedImagesForModal}
-        onImagesConsumed={() => setDroppedImagesForModal([])}
-      />
-
-      <DirectSearch
-        isOpen={isDirectSearchOpen}
-        onClose={() => setIsDirectSearchOpen(false)}
-      />
-
-      <Toaster position="top-right" richColors />
-      {/* Confirmation Modal */}
-      {confirmAction && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-[#191919] rounded-[12px]  border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-md p-6">
-            <h3 className="text-lg font-bold mb-2">Confirm Action</h3>
-            <p className="text-[#757681] dark:text-[#9B9A97] mb-6">
-              Are you sure you want to {confirmAction.type.toLowerCase()}? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setConfirmAction(null)}
-                className="px-4 py-2 text-sm font-medium text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-[8px] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  await confirmAction.onConfirm();
-                  setConfirmAction(null);
+              <PostModal
+                isOpen={isPostModalOpen}
+                onClose={() => {
+                  setIsPostModalOpen(false);
+                  setInitialProductsForModal([]);
                 }}
-                className="px-4 py-2 text-sm font-medium bg-[#EB5757] text-white rounded-[8px] hover:bg-[#D43D3D] transition-colors "
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isPasswordModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-[#191919] p-8 rounded-[24px]  border border-[#E9E9E7] dark:border-[#2E2E2E] max-w-md w-full space-y-6"
-          >
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-[16px] flex items-center justify-center mx-auto text-blue-600 dark:text-blue-400">
-                <Lock className="w-8 h-8" />
-              </div>
-              <h2 className="text-2xl font-bold">Protected Calendar</h2>
-              <p className="text-sm text-[#757681] dark:text-[#9B9A97]">This calendar is password protected. Please enter the password to view.</p>
-            </div>
-            <div className="space-y-4">
-              <input 
-                type="password"
-                value={sharePassword}
-                onChange={(e) => setSharePassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-                placeholder="Enter password"
-                className="w-full p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] outline-none focus:ring-2 focus:ring-blue-500/20 text-center text-lg font-bold tracking-widest"
-                autoFocus
+                post={selectedPost}
+                selectedDate={selectedDate || undefined}
+                onSave={isAdmin ? handleSavePost : undefined}
+                onDelete={isAdmin ? handleDeletePost : undefined}
+                readOnly={!isAdmin}
+                user={user}
+                googleTokens={googleTokens}
+                initialProducts={initialProductsForModal}
+                activeBusiness={activeBusiness}
+                posts={posts}
+                dbMode={getDbMode(activeBusiness?.industry)}
+                droppedImages={droppedImagesForModal}
+                onImagesConsumed={() => setDroppedImagesForModal([])}
               />
-              <button 
-                onClick={handlePasswordSubmit}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-[16px] font-bold transition-all   active:scale-95"
-              >
-                Access Calendar
-              </button>
+
+              <DirectSearch
+                isOpen={isDirectSearchOpen}
+                onClose={() => setIsDirectSearchOpen(false)}
+              />
+
+              <Toaster position="top-right" richColors />
+              {/* Confirmation Modal */}
+              {confirmAction && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+                  <div className="bg-white dark:bg-[#191919] rounded-[12px]  border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-md p-6">
+                    <h3 className="text-lg font-bold mb-2">Confirm Action</h3>
+                    <p className="text-[#757681] dark:text-[#9B9A97] mb-6">
+                      Are you sure you want to {confirmAction.type.toLowerCase()}? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => setConfirmAction(null)}
+                        className="px-4 py-2 text-sm font-medium text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-[8px] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await confirmAction.onConfirm();
+                          setConfirmAction(null);
+                        }}
+                        className="px-4 py-2 text-sm font-medium bg-[#EB5757] text-white rounded-[8px] hover:bg-[#D43D3D] transition-colors "
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isPasswordModalOpen && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-white dark:bg-[#191919] p-8 rounded-[24px]  border border-[#E9E9E7] dark:border-[#2E2E2E] max-w-md w-full space-y-6"
+                  >
+                    <div className="text-center space-y-2">
+                      <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-[16px] flex items-center justify-center mx-auto text-blue-600 dark:text-blue-400">
+                        <Lock className="w-8 h-8" />
+                      </div>
+                      <h2 className="text-2xl font-bold">Protected Calendar</h2>
+                      <p className="text-sm text-[#757681] dark:text-[#9B9A97]">This calendar is password protected. Please enter the password to view.</p>
+                    </div>
+                    <div className="space-y-4">
+                      <input
+                        type="password"
+                        value={sharePassword}
+                        onChange={(e) => setSharePassword(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                        placeholder="Enter password"
+                        className="w-full p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] outline-none focus:ring-2 focus:ring-blue-500/20 text-center text-lg font-bold tracking-widest"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handlePasswordSubmit}
+                        className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-[16px] font-bold transition-all   active:scale-95"
+                      >
+                        Access Calendar
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              <ImageViewer
+                isOpen={isImageViewerOpen}
+                images={currentImages}
+                initialIndex={currentImageIndex}
+                aiProvider={currentAiProvider}
+                onClose={() => setIsImageViewerOpen(false)}
+              />
+
+              <ExportModal
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                onExport={exportToExcel}
+              />
+
+              <ExcelImportModal
+                isOpen={isExcelImportModalOpen}
+                onClose={() => setIsExcelImportModalOpen(false)}
+                onImport={async (newPosts) => {
+                  for (const post of newPosts) {
+                    await handleSavePost(post);
+                  }
+                }}
+                userId={user?.uid}
+              />
+
+              <BusinessModal
+                isOpen={isBusinessModalOpen}
+                onClose={() => setIsBusinessModalOpen(false)}
+                businesses={businesses}
+                activeBusiness={activeBusiness}
+                onSelect={setActiveBusiness}
+                onCreate={handleCreateBusiness}
+                onDelete={handleDeleteBusiness}
+                onAddNewWorkspace={() => setShowOnboarding(true)}
+              />
             </div>
-          </motion.div>
-        </div>
-      )}
-
-      <ImageViewer
-        isOpen={isImageViewerOpen}
-        images={currentImages}
-        initialIndex={currentImageIndex}
-        aiProvider={currentAiProvider}
-        onClose={() => setIsImageViewerOpen(false)}
-      />
-
-      <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        onExport={exportToExcel}
-      />
-
-      <ExcelImportModal
-        isOpen={isExcelImportModalOpen}
-        onClose={() => setIsExcelImportModalOpen(false)}
-        onImport={async (newPosts) => {
-          for (const post of newPosts) {
-            await handleSavePost(post);
-          }
-        }}
-        userId={user?.uid}
-      />
-
-      <BusinessModal
-        isOpen={isBusinessModalOpen}
-        onClose={() => setIsBusinessModalOpen(false)}
-        businesses={businesses}
-        activeBusiness={activeBusiness}
-        onSelect={setActiveBusiness}
-        onCreate={handleCreateBusiness}
-        onDelete={handleDeleteBusiness}
-        onAddNewWorkspace={() => setShowOnboarding(true)}
-      />
-    </div>
-  </DndContext>
-</ConfigWorkspaceProvider>
-</AppWorkspaceProvider>
-</ErrorBoundary>
+          </DndContext>
+        </ConfigWorkspaceProvider>
+      </AppWorkspaceProvider>
+    </ErrorBoundary>
   );
 }
