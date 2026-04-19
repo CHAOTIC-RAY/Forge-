@@ -9,9 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const navSettings = document.getElementById('navSettings');
 
   const enableTabs = () => {
-    navCapture.disabled = false; navCapture.style.opacity = '1';
-    navChat.disabled = false; navChat.style.opacity = '1';
-    navCalendar.disabled = false; navCalendar.style.opacity = '1';
+    navCapture.disabled = false;
+    navChat.disabled = false;
+    navCalendar.disabled = false;
   };
 
   const switchTab = (targetId) => {
@@ -300,8 +300,17 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ contents })
       });
       
-      const data = await res.json();
-      if(data.error) throw new Error(data.error.message || data.error);
+      const text = await res.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        throw new Error("Invalid API response format from server.");
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error?.message || data?.error || `Server Error (${res.status})`);
+      }
       
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
       appendMsg(reply, "ai");

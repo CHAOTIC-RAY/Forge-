@@ -2,226 +2,318 @@
 <html>
 <head>
   <style>
+    /* Forge App UI Design System Variables */
     :root {
       --bg: #ffffff;
-      --text: #171717;
-      --border: #e5e7eb;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --surface: #f3f4f6;
+      --bg-surface: #F7F7F5;
+      --text-main: #37352F;
+      --text-sub: #757681;
+      --border: #E9E9E7;
+      /* Brand Color (Purple/Blue-ish) approximation from main app */
+      --brand: #4F46E5; 
+      --brand-hover: #4338CA;
+      --brand-transparent: rgba(79, 70, 229, 0.1);
+      --red: #ef4444;
+      --radius-sm: 6px;
+      --radius: 8px;
+      --radius-lg: 12px;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #0f172a;
-        --text: #f8fafc;
-        --border: #334155;
-        --primary: #3b82f6;
-        --primary-hover: #2563eb;
-        --surface: #1e293b;
+        --bg: #191919;
+        --bg-surface: #202020;
+        --text-main: #EBE9ED;
+        --text-sub: #9B9A97;
+        --border: #2E2E2E;
+        /* Brand Color remains same or slightly lighter */
+        --brand: #6366f1; 
+        --brand-hover: #4f46e5;
+        --brand-transparent: rgba(99, 102, 241, 0.15);
       }
     }
+    
+    * {
+      box-sizing: border-box;
+    }
+
     body { 
-      width: 350px; 
-      height: 500px;
+      width: 360px; 
+      height: 520px;
       margin: 0;
       padding: 0; 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
-      color: var(--text);
+      color: var(--text-main);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
-    h1 {
-      font-size: 18px;
-      font-weight: 700;
-      margin: 16px;
-      text-align: center;
-    }
+
+    /* Tabs Bar - mimics sidebar nav feeling */
     .tabs {
       display: flex;
       border-bottom: 1px solid var(--border);
-      background: var(--surface);
+      background: var(--bg);
+      padding: 4px 8px 0 8px;
     }
     .tab-btn {
       flex: 1;
-      padding: 10px 0;
+      padding: 12px 0 10px 0;
       background: none;
-      color: var(--text);
+      color: var(--text-sub);
       border: none;
       border-bottom: 2px solid transparent;
       cursor: pointer;
-      font-weight: bold;
+      font-weight: 600;
       font-size: 12px;
-      border-radius: 0;
-      margin: 0;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+    .tab-btn:hover:not(:disabled) {
+      color: var(--text-main);
     }
     .tab-btn.active {
-      border-bottom: 2px solid var(--primary);
-      color: var(--primary);
+      border-bottom: 2px solid var(--brand);
+      color: var(--brand);
     }
+    .tab-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Main View Area */
     .view-container {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      padding: 20px;
+      background: var(--bg-surface);
     }
-    .view { display: none; }
+    .view { display: none; animation: fadeIn 0.15s ease-out; }
     .view.active { display: block; }
-    input, textarea {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px;
-      margin-bottom: 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--text);
-      font-family: inherit;
-      resize: vertical;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
+
+    /* Forms & Inputs */
+    label.text-sm {
+      font-size: 13px;
+      margin-bottom: 8px;
+      display: block;
+      color: var(--text-sub);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--brand);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 70px;
+    }
+
+    /* Buttons */
     button { 
       width: 100%; 
-      padding: 10px; 
+      padding: 10px 14px; 
       margin-bottom: 12px;
-      background: var(--primary); 
-      color: white; 
-      border: none; 
-      border-radius: 8px; 
+      background: var(--bg);
+      color: var(--text-main); 
+      border: 1px solid var(--border); 
+      border-radius: var(--radius); 
       cursor: pointer; 
       font-weight: 600;
-      transition: background 0.2s;
+      font-size: 13px;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
-    button:hover { background: var(--primary-hover); }
-    .status { margin-top: 10px; font-size: 12px; color: #64748b; text-align: center; }
+    button:hover { 
+      background: var(--border);
+    }
+    button.primary {
+      background: var(--brand); 
+      color: white; 
+      border: 1px solid var(--brand);
+    }
+    button.primary:hover { 
+      background: var(--brand-hover); 
+    }
+    
+    .status { 
+      margin-top: 8px; 
+      font-size: 12px; 
+      color: var(--text-sub); 
+      text-align: center; 
+      min-height: 16px;
+    }
+
+    /* Layouts */
     .widget-grid {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 0px;
     }
-    .widget-grid button { margin-bottom: 0; }
-    .text-sm { font-size: 14px; margin-bottom: 8px; display: block; color: #64748b; font-weight: bold; }
-    
-    /* Chat specific styles */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    /* Chat specifically mimicking FloatingChat.tsx */
     .chat-history {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin-bottom: 12px;
-      padding-bottom: 12px;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
-      min-height: 200px;
+      min-height: 240px;
     }
     .chat-msg {
-      padding: 8px 12px;
-      border-radius: 8px;
+      padding: 10px 14px;
+      border-radius: var(--radius-lg);
       font-size: 13px;
-      line-height: 1.4;
+      line-height: 1.5;
       word-wrap: break-word;
+      position: relative;
     }
     .chat-msg.user {
-      background: var(--primary);
+      background: var(--brand);
       color: white;
       align-self: flex-end;
-      max-width: 80%;
+      max-width: 85%;
+      border-bottom-right-radius: 4px;
     }
     .chat-msg.ai {
-      background: var(--surface);
+      background: var(--bg);
       border: 1px solid var(--border);
+      color: var(--text-main);
       align-self: flex-start;
       max-width: 90%;
+      border-bottom-left-radius: 4px;
     }
     .chat-img-preview {
-      max-height: 80px;
-      border-radius: 4px;
+      max-height: 100px;
+      border-radius: var(--radius-sm);
       border: 1px solid var(--border);
       margin-bottom: 8px;
       display: none;
+      object-fit: cover;
     }
     
-    /* Calendar styles */
+    /* Calendar items mimicking Forge posts format */
     .calendar-item {
-      padding: 10px;
+      padding: 12px;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      background: var(--surface);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
     }
-    .calendar-item-title { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
-    .calendar-item-date { font-size: 12px; color: #64748b; }
+    .calendar-item-title { 
+      font-weight: 600; 
+      font-size: 14px; 
+      color: var(--text-main);
+    }
+    .calendar-item-date { 
+      font-size: 11px; 
+      color: var(--text-sub); 
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
   </style>
 </head>
 <body>
   
   <div class="tabs" id="mainTabs">
     <button class="tab-btn" data-target="settingsView" id="navSettings">Login</button>
-    <button class="tab-btn active" data-target="captureView" id="navCapture" disabled style="opacity: 0.5;">Capture</button>
-    <button class="tab-btn" data-target="chatView" id="navChat" disabled style="opacity: 0.5;">Chat UI</button>
-    <button class="tab-btn" data-target="calendarView" id="navCalendar" disabled style="opacity: 0.5;">Calendar</button>
+    <button class="tab-btn active" data-target="captureView" id="navCapture" disabled>Capture</button>
+    <button class="tab-btn" data-target="chatView" id="navChat" disabled>Chat UI</button>
+    <button class="tab-btn" data-target="calendarView" id="navCalendar" disabled>Calendar</button>
   </div>
 
   <div class="view-container">
     
+    <!-- LOGIN VIEW -->
     <div id="settingsView" class="view">
       <div id="setupStep1">
-        <label class="text-sm">1. Target Forge Application</label>
+        <label class="text-sm">Forge Web URL</label>
         <input type="text" id="forgeUrl" placeholder="https://your-forge.com/*" value="https://ais-dev-lkdab6rylgfzl4qvouhnor-22311204047.asia-southeast1.run.app/*" />
-        <button id="connectBtn">Connect to Open Tab</button>
+        <button id="connectBtn" class="primary">Verify Connection</button>
       </div>
 
-      <div id="setupStep2" style="display: none; margin-top: 16px;">
-        <div style="border-top: 1px solid var(--border); margin: 16px 0;"></div>
-        <label class="text-sm">2. Select Routing Workspace</label>
-        <p id="loggedInUserText" style="font-size:12px; margin-bottom:8px;">Logged in as: ...</p>
-        <select id="workspaceSelect" style="width:100%; padding: 8px; margin-bottom: 12px; border-radius: 6px; background:var(--surface); color:var(--text); border:1px solid var(--border);"></select>
-        <button id="saveWorkspaceBtn">Finalize Connection</button>
+      <div id="setupStep2" style="display: none;">
+        <div class="divider"></div>
+        <label class="text-sm">Link Workspace</label>
+        <p id="loggedInUserText" style="font-size:12px; margin-bottom:12px; color:var(--text-sub);">Validating user...</p>
+        <select id="workspaceSelect"></select>
+        <button id="saveWorkspaceBtn" class="primary">Connect Workspace</button>
       </div>
 
       <div id="loginStatus" class="status"></div>
     </div>
 
+    <!-- CAPTURE VIEW -->
     <div id="captureView" class="view active">
-      <label class="text-sm">Page Scraping</label>
-      <div class="widget-grid">
-        <button id="clipBasicBtn">Standard DOM Scrape</button>
-        <button id="clipFirecrawlBtn">Firecrawl Scrape (Advanced)</button>
-      </div>
-      
-      <div style="border-top: 1px solid var(--border); margin: 16px 0;"></div>
-      
-      <label class="text-sm">Screenshots</label>
+      <label class="text-sm">Quick Actions</label>
       <div class="widget-grid">
         <button id="screenshotVisibleBtn">Capture Visible Area</button>
         <button id="screenshotFullBtn">Capture Full Page (DevTools)</button>
+        <button id="clipBasicBtn">Scrape Page Content</button>
+        <button class="primary" id="clipFirecrawlBtn">Advanced Firecrawl Scrape</button>
       </div>
-
-      <div style="border-top: 1px solid var(--border); margin: 16px 0;"></div>
+      
+      <div class="divider"></div>
       
       <label class="text-sm">Quick Note</label>
       <div class="widget-grid">
-        <textarea id="quickNoteText" rows="3" placeholder="Jot down a quick idea..."></textarea>
-        <button id="quickNoteBtn">Send to Forge</button>
+        <textarea id="quickNoteText" placeholder="Jot down an idea..."></textarea>
+        <button id="quickNoteBtn" class="primary">Send Idea to Notebook</button>
       </div>
       
       <div id="captureStatus" class="status"></div>
     </div>
     
+    <!-- CHAT VIEW -->
     <div id="chatView" class="view">
       <div class="chat-history" id="chatHistory">
-        <div class="chat-msg ai">Hello! I am connected to Forge. Ask me anything about this page or your notes.</div>
+        <div class="chat-msg ai">Hello! I'm your Forge AI Companion. How can I help you today?</div>
       </div>
       <div class="chat-input-area">
         <img id="chatImagePreview" class="chat-img-preview" src="" alt="preview" />
         <textarea id="chatInput" rows="2" placeholder="Ask AI..."></textarea>
         <div style="display:flex; gap: 8px;">
-          <button id="chatAttachBtn" style="flex:1; background: var(--surface); color: var(--text); border: 1px solid var(--border);">Attach Screen</button>
-          <button id="chatSendBtn" style="flex:1;">Send AI</button>
+          <button id="chatAttachBtn">Attach Screen</button>
+          <button id="chatSendBtn" class="primary">Send AI</button>
         </div>
       </div>
     </div>
 
+    <!-- CALENDAR VIEW -->
     <div id="calendarView" class="view">
-      <button id="refreshCalendarBtn">Refresh Calendar</button>
+      <button id="refreshCalendarBtn" class="primary">Refresh Schedule</button>
       <div id="calendarList">
-        <div class="status">Click refresh to load upcoming posts from Forge...</div>
+        <div class="status" style="margin-top: 20px;">Click refresh to sync.</div>
       </div>
     </div>
 
