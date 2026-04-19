@@ -57,6 +57,7 @@ import { SettingsView } from './components/SettingsView';
 import { BrandKitTab } from './components/BrandKitTab';
 import { NotebookTab } from './components/NotebookTab';
 import { FloatingChat } from './components/FloatingChat';
+import { WorkspaceManagementTab } from './components/WorkspaceManagementTab';
 import { 
   generatePostContent, 
   generateMockupImage, 
@@ -321,12 +322,30 @@ export default function App() {
   // Listen for Chrome Extension messages
   useEffect(() => {
     const handleExtensionMessage = async (event: MessageEvent) => {
-      if ((event.data?.type === 'FORGE_ADD_NOTE' || event.data?.type === 'FORGE_QUICK_NOTE') && activeBusiness && user) {
+      // 1. Return User State for Login
+      if (event.data?.type === 'FORGE_GET_USER_STATE' && user) {
+        window.postMessage({ 
+          type: 'FORGE_USER_STATE_DATA', 
+          data: {
+            email: user.email,
+            workspaces: businesses.map(b => ({ id: b.id, name: b.name })),
+            activeWorkspaceId: activeBusiness?.id
+          }
+        }, '*');
+        return;
+      }
+
+      // 2. Add Notes / Quick Notes
+      if ((event.data?.type === 'FORGE_ADD_NOTE' || event.data?.type === 'FORGE_QUICK_NOTE') && user) {
         try {
+          // Fallback to activeBusiness if workspaceId wasn't passed by the extension
+          const targetWorkspaceId = event.data.workspaceId || activeBusiness?.id;
+          
+          if(!targetWorkspaceId) throw new Error("No active workspace to route into.");
           // Find the notebook for this business
           const q = query(
             collection(db, 'notebooks'),
-            where('businessId', '==', activeBusiness.id),
+            where('businessId', '==', targetWorkspaceId),
             where('userId', '==', user.uid)
           );
           const snapshot = await getDocs(q);
@@ -341,7 +360,7 @@ export default function App() {
             notebookId = uuidv4();
             await setDoc(doc(db, 'notebooks', notebookId), {
               id: notebookId,
-              businessId: activeBusiness.id,
+              businessId: targetWorkspaceId,
               userId: user.uid,
               title: 'Creative Strategy',
               blocks: [],
@@ -385,9 +404,14 @@ export default function App() {
           toast.error("Failed to add note from extension.");
         }
       }
-      if (event.data?.type === 'FORGE_GET_CALENDAR' && activeBusiness && user) {
+      
+      // 3. Calendar fetch
+      if (event.data?.type === 'FORGE_GET_CALENDAR' && user) {
         try {
-          const q = query(collection(db, 'posts'), where('businessId', '==', activeBusiness.id));
+          const targetWorkspaceId = event.data.workspaceId || activeBusiness?.id;
+          if (!targetWorkspaceId) return;
+
+          const q = query(collection(db, 'posts'), where('businessId', '==', targetWorkspaceId));
           const snapshot = await getDocs(q);
           const data = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
           window.postMessage({ type: 'FORGE_CALENDAR_DATA', data }, '*');
@@ -400,9 +424,9 @@ export default function App() {
 
     window.addEventListener('message', handleExtensionMessage);
     return () => window.removeEventListener('message', handleExtensionMessage);
-  }, [activeBusiness, user]);
+  }, [activeBusiness, user, businesses]);
 
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management'>('home');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -3484,7 +3508,17 @@ export default function App() {
             )}
             
             {isAdmin && (
-              <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' ? 'block' : 'hidden')}>
+              <div className={cn("flex-1", activeTab === 'workspace_management' ? 'block' : 'hidden')}>
+                <WorkspaceManagementTab 
+                  activeBusiness={activeBusiness} 
+                  onUpdateBusiness={setActiveBusiness} 
+                  setActiveTab={setActiveTab} 
+                />
+              </div>
+            )}
+            
+            {isAdmin && (
+              <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' || activeTab === 'settings' ? 'block' : 'hidden')}>
                 <SettingsView 
                   user={user}
                   settingsTab={settingsTab}

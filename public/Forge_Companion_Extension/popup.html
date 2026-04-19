@@ -152,18 +152,29 @@
 <body>
   
   <div class="tabs" id="mainTabs">
-    <button class="tab-btn active" data-target="captureView">Capture</button>
-    <button class="tab-btn" data-target="chatView">Chat UI</button>
-    <button class="tab-btn" data-target="calendarView">Calendar</button>
-    <button class="tab-btn" data-target="settingsView">Config</button>
+    <button class="tab-btn" data-target="settingsView" id="navSettings">Login</button>
+    <button class="tab-btn active" data-target="captureView" id="navCapture" disabled style="opacity: 0.5;">Capture</button>
+    <button class="tab-btn" data-target="chatView" id="navChat" disabled style="opacity: 0.5;">Chat UI</button>
+    <button class="tab-btn" data-target="calendarView" id="navCalendar" disabled style="opacity: 0.5;">Calendar</button>
   </div>
 
   <div class="view-container">
     
     <div id="settingsView" class="view">
-      <label class="text-sm">Connect to Forge App URL</label>
-      <input type="text" id="forgeUrl" placeholder="https://your-forge.com/*" value="https://ais-dev-lkdab6rylgfzl4qvouhnor-22311204047.asia-southeast1.run.app/*" />
-      <button id="connectBtn">Save Configuration</button>
+      <div id="setupStep1">
+        <label class="text-sm">1. Target Forge Application</label>
+        <input type="text" id="forgeUrl" placeholder="https://your-forge.com/*" value="https://ais-dev-lkdab6rylgfzl4qvouhnor-22311204047.asia-southeast1.run.app/*" />
+        <button id="connectBtn">Connect to Open Tab</button>
+      </div>
+
+      <div id="setupStep2" style="display: none; margin-top: 16px;">
+        <div style="border-top: 1px solid var(--border); margin: 16px 0;"></div>
+        <label class="text-sm">2. Select Routing Workspace</label>
+        <p id="loggedInUserText" style="font-size:12px; margin-bottom:8px;">Logged in as: ...</p>
+        <select id="workspaceSelect" style="width:100%; padding: 8px; margin-bottom: 12px; border-radius: 6px; background:var(--surface); color:var(--text); border:1px solid var(--border);"></select>
+        <button id="saveWorkspaceBtn">Finalize Connection</button>
+      </div>
+
       <div id="loginStatus" class="status"></div>
     </div>
 

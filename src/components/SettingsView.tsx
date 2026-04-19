@@ -847,6 +847,8 @@ export function SettingsView({
                 setBusinesses((prev: any) => prev.map((b: any) => b.id === updatedBiz.id ? updatedBiz : b));
                 if (activeBusiness?.id === updatedBiz.id) setActiveBusiness(updatedBiz);
               }}
+              setActiveTab={setActiveTab}
+              setActiveBusiness={setActiveBusiness}
             />
           </div>
         </BentoCard>

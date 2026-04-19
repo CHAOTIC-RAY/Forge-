@@ -1,19 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Business } from '../data';
-import { doc, updateDoc, deleteDoc, collection, query, where, onSnapshot, arrayRemove, deleteField } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { toast } from 'sonner';
-import { Trash2, Edit2, Save, X, Users, Shield, UserPlus, Check, XCircle, Clock } from 'lucide-react';
+import { Trash2, Edit2, Save, Shield, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-interface AccessRequest {
-  id: string;
-  businessId: string;
-  userId: string;
-  userEmail: string;
-  userName: string;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: string;
+interface WorkspacesSettingsProps {
+  businesses: Business[];
+  activeBusiness: Business | null;
+  onUpdateBusiness: (business: Business) => void;
+  setActiveTab?: (tab: string) => void;
+  setActiveBusiness?: (biz: Business) => void;
 }
 
 interface WorkspacesSettingsProps {
@@ -22,7 +20,7 @@ interface WorkspacesSettingsProps {
   onUpdateBusiness: (business: Business) => void;
 }
 
-export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusiness }: WorkspacesSettingsProps) {
+export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusiness, setActiveTab, setActiveBusiness }: WorkspacesSettingsProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editIndustry, setEditIndustry] = useState('');
@@ -31,21 +29,6 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
   const [editAccentColor, setEditAccentColor] = useState('');
   const [editLogoUrl, setEditLogoUrl] = useState('');
   const [editTargetUrl, setEditTargetUrl] = useState('');
-  
-  const [requests, setRequests] = useState<AccessRequest[]>([]);
-  const [loadingRequests, setLoadingRequests] = useState(false);
-
-  useEffect(() => {
-    if (!activeBusiness) return;
-    setLoadingRequests(true);
-    const q = query(collection(db, 'access_requests'), where('businessId', '==', activeBusiness.id), where('status', '==', 'pending'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reqs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
-      setRequests(reqs);
-      setLoadingRequests(false);
-    });
-    return () => unsubscribe();
-  }, [activeBusiness?.id]);
 
   const handleEdit = (biz: Business) => {
     setEditingId(biz.id);
@@ -99,64 +82,10 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
     }
   };
 
-  const handleUpdateRole = async (userId: string, role: 'admin' | 'editor' | 'viewer') => {
-    if (!activeBusiness) return;
-    try {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-        [`memberRoles.${userId}`]: role
-      });
-      onUpdateBusiness({
-        ...activeBusiness,
-        memberRoles: { ...(activeBusiness.memberRoles || {}), [userId]: role }
-      });
-      toast.success(`Role updated to ${role}`);
-    } catch (e) {
-      console.error("Error updating role", e);
-      toast.error("Failed to update role.");
-    }
-  };
-
-  const handleRemoveMember = async (userId: string) => {
-    if (!activeBusiness) return;
-    if (!window.confirm("Remove this member from the workspace?")) return;
-    try {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-        members: arrayRemove(userId),
-        [`memberRoles.${userId}`]: deleteField()
-      });
-      
-      const updatedMembers = activeBusiness.members?.filter(m => m !== userId) || [];
-      const updatedRoles = { ...activeBusiness.memberRoles };
-      delete updatedRoles[userId];
-      
-      onUpdateBusiness({
-        ...activeBusiness,
-        members: updatedMembers,
-        memberRoles: updatedRoles
-      });
-      
-      toast.success("Member removed");
-    } catch (e) {
-      console.error("Error removing member", e);
-      toast.error("Failed to remove member.");
-    }
-  };
-
-  const handleHandleRequest = async (requestId: string, userId: string, status: 'approved' | 'rejected') => {
-    if (!activeBusiness) return;
-    try {
-      await updateDoc(doc(db, 'access_requests', requestId), { status });
-      if (status === 'approved') {
-        await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-          [`memberRoles.${userId}`]: 'editor' // Upgrade to editor on approval
-        });
-        toast.success("Access request approved!");
-      } else {
-        toast.info("Access request rejected.");
-      }
-    } catch (e) {
-      console.error("Error handling request", e);
-      toast.error("Failed to process request.");
+  const handleManageTeam = (biz: Business) => {
+    if (setActiveBusiness && setActiveTab) {
+      setActiveBusiness(biz);
+      setTimeout(() => setActiveTab('workspace_management'), 50);
     }
   };
 
@@ -231,6 +160,7 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleManageTeam(biz)} className="p-2 text-brand hover:bg-brand/10 rounded-[8px] transition-all" title="Manage Team & Permissions"><Settings className="w-4 h-4" /></button>
                     <button onClick={() => handleEdit(biz)} className="p-2 text-[#757681] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-[8px] transition-all" title="Edit Workspace"><Edit2 className="w-4 h-4" /></button>
                     <button onClick={() => handleDelete(biz.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-[8px] transition-all" title="Delete Workspace"><Trash2 className="w-4 h-4" /></button>
                   </div>
@@ -241,126 +171,8 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
         </div>
       </section>
 
-      {/* Access Requests */}
-      {activeBusiness && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-orange-500" />
-              <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Pending Access Requests</h2>
-            </div>
-            {requests.length > 0 && (
-              <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-[10px] font-bold rounded-full">
-                {requests.length} New
-              </span>
-            )}
-          </div>
-          <div className="grid gap-3">
-            {requests.length === 0 ? (
-              <div className="p-8 border-2 border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] text-center">
-                <Clock className="w-8 h-8 text-[#757681]/20 mx-auto mb-2" />
-                <p className="text-xs text-[#757681] dark:text-[#9B9A97]">No pending requests</p>
-              </div>
-            ) : (
-              requests.map(req => (
-                <div key={req.id} className="flex items-center justify-between p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center text-brand font-bold">
-                      {req.userName[0]}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold">{req.userName}</h4>
-                      <p className="text-xs text-[#757681]">{req.userEmail}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleHandleRequest(req.id, req.userId, 'rejected')}
-                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-[10px] transition-all"
-                    >
-                      <XCircle className="w-5 h-5" />
-                    </button>
-                    <button 
-                      onClick={() => handleHandleRequest(req.id, req.userId, 'approved')}
-                      className="p-2 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/10 rounded-[10px] transition-all"
-                    >
-                      <Check className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Member Management */}
-      {activeBusiness && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="w-4 h-4 text-blue-500" />
-            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Team Members</h2>
-          </div>
-          <div className="bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden">
-            <div className="divide-y divide-[#E9E9E7] dark:divide-[#2E2E2E]">
-              {activeBusiness.members?.map(memberId => {
-                const role = activeBusiness.memberRoles?.[memberId] || (activeBusiness.ownerId === memberId ? 'admin' : 'viewer');
-                const isOwner = activeBusiness.ownerId === memberId;
-                
-                return (
-                  <div key={memberId} className="flex items-center justify-between p-4 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#E9E9E7] dark:bg-[#2E2E2E] flex items-center justify-center text-[10px] font-bold">
-                        UID
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{memberId === activeBusiness.ownerId ? 'Workspace Owner' : `Member (${memberId.substring(0, 6)}...)`}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className={cn(
-                            "text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider",
-                            role === 'admin' ? "bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400" :
-                            role === 'editor' ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400" :
-                            "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                          )}>
-                            {role}
-                          </span>
-                          {isOwner && <span className="text-[10px] text-brand font-bold uppercase tracking-wider">• Owner</span>}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {!isOwner && (
-                      <div className="flex items-center gap-2">
-                        <select 
-                          value={role}
-                          onChange={(e) => handleUpdateRole(memberId, e.target.value as any)}
-                          className="text-xs font-bold bg-transparent border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[6px] px-2 py-1 outline-none focus:ring-2 focus:ring-brand/20"
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="editor">Editor</option>
-                          <option value="viewer">Viewer</option>
-                        </select>
-                        <button 
-                          onClick={() => handleRemoveMember(memberId)}
-                          className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-[6px] transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-              <button className="flex items-center gap-2 text-xs font-bold text-brand hover:text-brand-hover transition-colors">
-                <UserPlus className="w-4 h-4" />
-                Invite via Email (Coming Soon)
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,15 +1,31 @@
-document.addEventListener('DOMContentLoaded', () => {
   // --- TABS LOGIC ---
   const tabBtns = document.querySelectorAll('.tab-btn');
   const views = document.querySelectorAll('.view');
   
+  const navCapture = document.getElementById('navCapture');
+  const navChat = document.getElementById('navChat');
+  const navCalendar = document.getElementById('navCalendar');
+  const navSettings = document.getElementById('navSettings');
+
+  const enableTabs = () => {
+    navCapture.disabled = false; navCapture.style.opacity = '1';
+    navChat.disabled = false; navChat.style.opacity = '1';
+    navCalendar.disabled = false; navCalendar.style.opacity = '1';
+  };
+
+  const switchTab = (targetId) => {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    views.forEach(v => v.classList.remove('active'));
+    
+    const activeBtn = document.querySelector(`[data-target="${targetId}"]`);
+    if(activeBtn) activeBtn.classList.add('active');
+    document.getElementById(targetId).classList.add('active');
+  };
+
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      tabBtns.forEach(b => b.classList.remove('active'));
-      views.forEach(v => v.classList.remove('active'));
-      
-      btn.classList.add('active');
-      document.getElementById(btn.getAttribute('data-target')).classList.add('active');
+      if (btn.disabled) return;
+      switchTab(btn.getAttribute('data-target'));
     });
   });
 
@@ -17,10 +33,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const forgeUrlInput = document.getElementById('forgeUrl');
   const connectBtn = document.getElementById('connectBtn');
   const loginStatus = document.getElementById('loginStatus');
+  const setupStep1 = document.getElementById('setupStep1');
+  const setupStep2 = document.getElementById('setupStep2');
+  const loggedInUserText = document.getElementById('loggedInUserText');
+  const workspaceSelect = document.getElementById('workspaceSelect');
+  const saveWorkspaceBtn = document.getElementById('saveWorkspaceBtn');
 
-  chrome.storage.local.get(['forgeUrl'], (result) => {
+  // Let's hold active data
+  let activeWorkspaceId = null;
+
+  chrome.storage.local.get(['forgeUrl', 'forgeWorkspaceId'], (result) => {
     if (result.forgeUrl) {
       forgeUrlInput.value = result.forgeUrl;
+    }
+    if (result.forgeWorkspaceId) {
+      activeWorkspaceId = result.forgeWorkspaceId;
+      enableTabs();
+      switchTab('captureView');
+    } else {
+      switchTab('settingsView');
+      navSettings.classList.add('active');
     }
   });
 
@@ -30,12 +62,56 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { element.innerText = ""; }, 4000);
   };
 
-  connectBtn.addEventListener('click', () => {
-    const url = forgeUrlInput.value.trim();
-    if (!url) return setStatus(loginStatus, "Please enter a valid URL");
-    chrome.storage.local.set({ forgeUrl: url }, () => {
-      setStatus(loginStatus, "Configuration Saved!");
+  connectBtn.addEventListener('click', async () => {
+    connectBtn.innerText = "Connecting...";
+    const urlPattern = forgeUrlInput.value.trim();
+    if (!urlPattern) return setStatus(loginStatus, "Please enter a valid URL");
+    
+    // Test connection
+    chrome.tabs.query({ url: urlPattern }, (tabs) => {
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "requestUserState" }, (response) => {
+          if (response && response.email) {
+            setupStep1.style.display = 'none';
+            setupStep2.style.display = 'block';
+            loggedInUserText.innerText = `Logged in as: ${response.email}`;
+            
+            workspaceSelect.innerHTML = "";
+            (response.workspaces || []).forEach(w => {
+              const opt = document.createElement('option');
+              opt.value = w.id;
+              opt.innerText = w.name;
+              workspaceSelect.appendChild(opt);
+            });
+            
+            // pre-select active if possible
+            if (response.activeWorkspaceId) {
+              workspaceSelect.value = response.activeWorkspaceId;
+            }
+          } else {
+            setStatus(loginStatus, "Connected, but user not logged in on Forge App.");
+          }
+          connectBtn.innerText = "Connect to Open Tab";
+        });
+      } else {
+        setStatus(loginStatus, "Forge app not found in any opening tab.");
+        connectBtn.innerText = "Connect to Open Tab";
+      }
     });
+  });
+
+  saveWorkspaceBtn.addEventListener('click', () => {
+    const wId = workspaceSelect.value;
+    const urlPattern = forgeUrlInput.value.trim();
+    if(wId) {
+       chrome.storage.local.set({ forgeUrl: urlPattern, forgeWorkspaceId: wId }, () => {
+         activeWorkspaceId = wId;
+         setStatus(loginStatus, "Workspace Linked!");
+         enableTabs();
+         // switch to capture after short delay
+         setTimeout(() => switchTab('captureView'), 1000);
+       });
+    }
   });
 
   const getForgePattern = async () => {
@@ -57,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlPattern = await getForgePattern();
     chrome.tabs.query({ url: urlPattern }, (tabs) => {
       if (tabs && tabs.length > 0) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: action, data: data });
+        chrome.tabs.sendMessage(tabs[0].id, { action: action, data: data, workspaceId: activeWorkspaceId });
         setStatus(element, "Sent to Forge Successfully!");
       } else {
         setStatus(element, "Forge app not open. Please open it first.");
@@ -246,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     chrome.tabs.query({ url: urlPattern }, (tabs) => {
       if (tabs && tabs.length > 0) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "requestCalendar" }, (response) => {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "requestCalendar", workspaceId: activeWorkspaceId }, (response) => {
           if (response && response.posts) {
             calendarList.innerHTML = "";
             if (response.posts.length === 0) {

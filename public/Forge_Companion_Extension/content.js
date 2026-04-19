@@ -20,7 +20,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "requestCalendar") {
-    window.postMessage({ type: "FORGE_GET_CALENDAR" }, "*");
+    window.postMessage({ type: "FORGE_GET_CALENDAR", workspaceId: request.workspaceId }, "*");
     
     const listener = (event) => {
       if (event.source !== window) return;
@@ -32,12 +32,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     window.addEventListener("message", listener);
     
-    // Timeout after 5 seconds to prevent hanging
     setTimeout(() => {
         window.removeEventListener("message", listener);
         sendResponse({ error: "Timeout fetching calendar" });
     }, 5000);
     
-    return true; // asynchronous response
+    return true;
+  }
+
+  if (request.action === "requestUserState") {
+    window.postMessage({ type: "FORGE_GET_USER_STATE" }, "*");
+    
+    const listener = (event) => {
+      if (event.source !== window) return;
+      if (event.data && event.data.type === "FORGE_USER_STATE_DATA") {
+        sendResponse(event.data.data);
+        window.removeEventListener("message", listener);
+      }
+    };
+    
+    window.addEventListener("message", listener);
+    
+    setTimeout(() => {
+        window.removeEventListener("message", listener);
+        sendResponse({ error: "Timeout fetching user state. Are you logged in?" });
+    }, 5000);
+    
+    return true;
   }
 });

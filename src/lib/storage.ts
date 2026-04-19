@@ -71,9 +71,7 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
     const apiKey = settings.cloudinaryApiKey;
     const apiSecret = settings.cloudinaryApiSecret;
 
-    if (!cloudName || !apiKey || !apiSecret) {
-      throw new Error("Missing Cloudinary credentials in Settings.");
-    }
+    const hasLocalCreds = !!(cloudName && apiKey && apiSecret);
 
     // Convert base64 to Blob to send as multipart/form-data
     console.log("[Storage] Converting base64 to blob...");
@@ -82,47 +80,78 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
     const blob = await response.blob();
     console.log(`[Storage] Blob created: ${blob.size} bytes, type: ${blob.type}`);
     
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const stringToSign = `timestamp=${timestamp}${apiSecret}`;
-    
-    // Generate SHA-1 signature
-    const msgBuffer = new TextEncoder().encode(stringToSign);
-    const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    let secureUrl = '';
 
-    const formData = new FormData();
-    formData.append('file', blob);
-    formData.append('api_key', apiKey);
-    formData.append('timestamp', timestamp);
-    formData.append('signature', signature);
+    if (!hasLocalCreds) {
+      console.log("[Storage] Missing local credentials, delegating to backend proxy...");
+      const formData = new FormData();
+      // the worker endpoint expects 'image'
+      formData.append('image', blob, 'upload.jpg');
+      
+      const uploadResponse = await fetch('/api/cloudinary/upload', {
+        method: 'POST',
+        body: formData
+      });
 
-    console.log("[Storage] Sending POST request directly to Cloudinary API...");
-    const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    console.log(`[Storage] Cloudinary responded with status: ${uploadResponse.status}`);
-
-    if (!uploadResponse.ok) {
-      let errorMessage = 'Failed to upload to Cloudinary';
-      try {
-        const errorData = await uploadResponse.json();
-        console.error('[Storage] Cloudinary returned error JSON:', errorData);
-        errorMessage = errorData.error?.message || errorMessage;
-      } catch (e) {
-        errorMessage = `Upload failed with status ${uploadResponse.status}`;
+      if (!uploadResponse.ok) {
+        let errorMessage = 'Failed to upload via backend proxy';
+        try {
+          const errorData = await uploadResponse.json();
+          errorMessage = errorData.details || errorData.error?.message || errorMessage;
+        } catch (e) {
+          errorMessage = `Proxy upload failed with status ${uploadResponse.status}`;
+        }
+        throw new Error(errorMessage);
       }
-      throw new Error(errorMessage);
+
+      const data = await uploadResponse.json();
+      secureUrl = data.secure_url;
+    } else {
+      console.log("[Storage] Using local credentials for direct direct upload...");
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const stringToSign = `timestamp=${timestamp}${apiSecret}`;
+      
+      // Generate SHA-1 signature
+      const msgBuffer = new TextEncoder().encode(stringToSign);
+      const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const formData = new FormData();
+      formData.append('file', blob);
+      formData.append('api_key', apiKey);
+      formData.append('timestamp', timestamp);
+      formData.append('signature', signature);
+
+      console.log("[Storage] Sending POST request directly to Cloudinary API...");
+      const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      console.log(`[Storage] Cloudinary responded with status: ${uploadResponse.status}`);
+
+      if (!uploadResponse.ok) {
+        let errorMessage = 'Failed to upload to Cloudinary';
+        try {
+          const errorData = await uploadResponse.json();
+          console.error('[Storage] Cloudinary returned error JSON:', errorData);
+          errorMessage = errorData.error?.message || errorMessage;
+        } catch (e) {
+          errorMessage = `Upload failed with status ${uploadResponse.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await uploadResponse.json();
+      secureUrl = data.secure_url;
     }
 
-    const data = await uploadResponse.json();
     const duration = Date.now() - startTime;
-    console.log(`[Storage] Cloudinary upload completed in ${duration}ms: ${data.secure_url}`);
+    console.log(`[Storage] Upload completed in ${duration}ms: ${secureUrl}`);
     
-    return data.secure_url;
+    return secureUrl;
   } catch (e: any) {
-    console.error('[Storage] Cloudinary upload failed:', e);
+    console.error('[Storage] Upload failed:', e);
     throw e;
   }
 }
