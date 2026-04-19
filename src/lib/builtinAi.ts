@@ -3,6 +3,18 @@
  * Runs entirely in-browser using MediaPipe / LiteRT
  */
 
+// WebGPU Polyfill for requestAdapterInfo (Deprecated and removed in modern browsers)
+if (typeof navigator !== 'undefined' && navigator.gpu && !('requestAdapterInfo' in GPUAdapter.prototype)) {
+  try {
+    (GPUAdapter.prototype as any).requestAdapterInfo = async function() {
+      return (this as any).info || { vendor: "", architecture: "", device: "", description: "" };
+    };
+    console.log("[BuiltInAI] WebGPU requestAdapterInfo polyfill applied.");
+  } catch (e) {
+    console.warn("[BuiltInAI] Could not polyfill WebGPU requestAdapterInfo:", e);
+  }
+}
+
 export interface BuiltInAiStatus {
   isLoaded: boolean;
   isLoading: boolean;
