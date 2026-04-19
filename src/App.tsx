@@ -1981,7 +1981,7 @@ export default function App() {
     };
 
     try {
-      toast.loading("Initializing high-fidelity brand export...", { id: 'excel-export' });
+      toast.loading("Analyzing workspace data for export...", { id: 'excel-export' });
       
       let titles = { type: 'FORMAT', platforms: 'PLATFORM', campaign: 'CAMPAIGN', outlet: 'OUTLET' };
       if (activeBusiness?.id) {
@@ -1992,7 +1992,7 @@ export default function App() {
       }
 
       const response = await fetch('/templates/content_calendar_template.xlsx');
-      if (!response.ok) throw new Error("Template fetch failed. Ensure it exists in public/templates/");
+      if (!response.ok) throw new Error("Template fetch failed.");
       const templateBuffer = await response.arrayBuffer();
 
       const workbook = new Workbook();
@@ -2007,7 +2007,6 @@ export default function App() {
       const requestedMonthLabelsOriginal = intervalMonths.map(m => format(m, 'MMM yyyy'));
       const requestedMonthLabelsLower = requestedMonthLabelsOriginal.map(l => l.toLowerCase().trim());
       
-      const postsInExportRange: Post[] = [];
       const postsByMonth: { [key: string]: Post[] } = {};
       posts.forEach(post => {
         if (!post.date) return;
@@ -2015,7 +2014,6 @@ export default function App() {
         if (requestedMonthKeys.includes(key)) {
           if (!postsByMonth[key]) postsByMonth[key] = [];
           postsByMonth[key].push(post);
-          postsInExportRange.push(post);
         }
       });
 
@@ -2025,8 +2023,7 @@ export default function App() {
         accent: (accentColor || '#2383e2').replace('#', 'FF').toUpperCase()
       };
 
-      // 1. Mandatory Sheet Clean-up (SCALPEL)
-      // Deleting all sheets NOT requested ensures January default labels are gone.
+      // 1. Purge non-requested months
       const allSheetNames = workbook.worksheets.map(s => s.name);
       for (const name of allSheetNames) {
         if (!requestedMonthLabelsLower.includes(name.toLowerCase().trim())) {
@@ -2035,7 +2032,7 @@ export default function App() {
       }
 
       if (workbook.worksheets.length === 0) {
-        throw new Error(`The requested months (${requestedMonthLabelsOriginal.join(', ')}) are not available in the template.`);
+        throw new Error(`The requested months (${requestedMonthLabelsOriginal.join(', ')}) are not available.`);
       }
 
       for (const monthDate of intervalMonths) {
@@ -2045,8 +2042,7 @@ export default function App() {
         let sheet = workbook.worksheets.find(s => s.name.toLowerCase().trim() === searchLabel);
         if (!sheet) continue;
 
-        // 2. Comprehensive Branding Injection
-        // We set the first sheet in the export as the active/visible one
+        // Banner Branding
         if (monthKey === requestedMonthKeys[0]) {
           workbook.views = [{ x: 0, y: 0, width: 10000, height: 20000, firstSheet: 0, activeTab: sheet.id as any }];
         }
@@ -2055,7 +2051,7 @@ export default function App() {
         bannerCell.value = `${format(monthDate, 'MMMM yyyy').toUpperCase()}   ·   ${activeBusiness?.name?.toUpperCase() || 'FORGE'} — CONTENT CALENDAR`;
         bannerCell.style = {
            ...bannerCell.style,
-           font: { ...bannerCell.font, color: { argb: 'FFFFFFFF' }, bold: true, size: 14 },
+           font: { ...bannerCell.font, color: { argb: 'FFFFFFFF' }, bold: true, size: 14, italic: false },
            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColors.accent } },
            alignment: { vertical: 'middle', horizontal: 'center' }
         };
@@ -2063,38 +2059,51 @@ export default function App() {
         const monthPosts = postsByMonth[monthKey] || [];
         const monthStartDay = startOfMonth(monthDate).getDay();
 
-        // 3. Structural Grid Reset
+        // 3. COMPLETE GRID RESET (Including Row 7 Image placeholders)
         for (let week = 0; week < 6; week++) {
           const rBase = 4 + week * 8;
-          sheet.getCell(rBase + 1, 1).value = titles.type?.toUpperCase() || 'FORMAT';
-          sheet.getCell(rBase + 2, 1).value = titles.platforms?.toUpperCase() || 'PLATFORM';
-          sheet.getCell(rBase + 3, 1).value = titles.campaign?.toUpperCase() || 'CAMPAIGN';
-          sheet.getCell(rBase + 4, 1).value = titles.outlet?.toUpperCase() || 'OUTLET';
+          // Row A Labels - Force non-italic
+          ['type', 'platforms', 'campaign', 'outlet'].forEach((key, i) => {
+            const cell = sheet.getCell(rBase + i + 1, 1);
+            cell.value = (titles as any)[key]?.toUpperCase();
+            cell.font = { ...cell.font, italic: false, bold: true };
+          });
 
+          // Data Clearing (B-H) - Including Row 7 for placeholders
           for (let col = 2; col <= 8; col++) {
-             for (let rowInWeek = 1; rowInWeek <= 6; rowInWeek++) {
+             for (let rowInWeek = 1; rowInWeek <= 7; rowInWeek++) {
                 sheet.getCell(rBase + rowInWeek, col).value = "";
              }
           }
         }
 
-        // 4. Content Embedding
+        // 4. Data Extraction & Injection
         const imagePromises: Promise<any>[] = [];
         monthPosts.forEach(post => {
           const dateObj = parseISO(post.date);
           const col = 2 + dateObj.getDay(); 
           const weekIndex = Math.floor((dateObj.getDate() + monthStartDay - 1) / 7);
           const rBase = 4 + weekIndex * 8;
-          
           if (rBase > 50) return;
 
+          const injectCell = (offset: number, val: string) => {
+            const cell = sheet.getCell(rBase + offset, col);
+            cell.value = `  ${val || ''}`;
+            cell.font = { ...cell.font, italic: false, size: 9 };
+            cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+          };
+
           sheet.getCell(rBase, col).value = `  ${format(dateObj, 'EEE').toUpperCase()}  ${format(dateObj, 'dd')}`;
-          sheet.getCell(rBase + 1, col).value = `  ${post.type || ''}`;
-          sheet.getCell(rBase + 2, col).value = `  ${Array.isArray(post.platforms) ? post.platforms.join(' + ') : (post.platforms || '')}`;
-          sheet.getCell(rBase + 3, col).value = `  ${post.campaignType || ''}`;
-          sheet.getCell(rBase + 4, col).value = `  ${post.outlet || ''}`;
-          sheet.getCell(rBase + 5, col).value = `  ${post.title || ''}`;
-          sheet.getCell(rBase + 6, col).value = `  ✍️ ${post.caption || ''}`;
+          injectCell(1, post.type || '');
+          injectCell(2, Array.isArray(post.platforms) ? post.platforms.join(' + ') : (post.platforms || ''));
+          injectCell(3, post.campaignType || '');
+          injectCell(4, post.outlet || '');
+          injectCell(5, post.title || '');
+          
+          const captionCell = sheet.getCell(rBase + 6, col);
+          captionCell.value = `  ✍️ ${post.caption || ''}`;
+          captionCell.font = { ...captionCell.font, italic: false, size: 8 };
+          captionCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
 
           if (post.images?.length && visibleFields.includes('images')) {
             const embed = async () => {
@@ -2102,8 +2111,8 @@ export default function App() {
               if (imgData) {
                 const id = workbook.addImage({ base64: imgData.base64, extension: imgData.extension as any });
                 sheet.addImage(id, {
-                  tl: { col: col - 1.05, row: rBase + 7 - 0.95 },
-                  ext: { width: 145, height: 165 },
+                  tl: { col: col - 1.02, row: rBase + 7 - 0.98 },
+                  ext: { width: 135, height: 155 },
                   editAs: 'oneCell'
                 });
               }
@@ -2112,6 +2121,7 @@ export default function App() {
           }
         });
 
+        // 5. Theme Overlay - Strip Italic
         if (layoutStyle === 'Dark') {
           sheet.eachRow((row) => {
             if (row.number > 1) {
@@ -2119,7 +2129,7 @@ export default function App() {
                 cell.style = {
                   ...cell.style,
                   fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColors.darkBg } },
-                  font: { ...cell.font, color: { argb: themeColors.darkText } }
+                  font: { ...cell.font, color: { argb: themeColors.darkText }, italic: false }
                 };
               });
             }
@@ -2139,16 +2149,15 @@ export default function App() {
         await Promise.allSettled(imagePromises);
       }
 
-      toast.loading("Packaging branded workbook...", { id: 'excel-export' });
+      toast.loading("Packaging finalized workbook...", { id: 'excel-export' });
       const buffer = await workbook.xlsx.writeBuffer();
-      const filename = `Forge_Export_${activeBusiness?.name?.replace(/\s+/g, '_') || 'Calendar'}_${format(startMonth, 'MMM_yyyy')}.xlsx`;
-      saveAs(new Blob([buffer]), filename);
+      saveAs(new Blob([buffer]), `Forge_Export_${activeBusiness?.name?.replace(/\s+/g, '_') || 'Calendar'}.xlsx`);
       
       setIsExportModalOpen(false);
       toast.success("Branded export complete!", { id: 'excel-export' });
     } catch (e) {
       console.error(e);
-      toast.error(`Export failed: ${e instanceof Error ? e.message : 'Unknown error'}`, { id: 'excel-export' });
+      toast.error(`Export error: ${e instanceof Error ? e.message : 'Unknown error'}`, { id: 'excel-export' });
     }
   };
 
