@@ -170,9 +170,6 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
           ))}
         </div>
       </section>
-
-        </div>
-      </section>
     </div>
   );
 }
