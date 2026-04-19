@@ -268,8 +268,6 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     return () => unsubscribe();
   }, [userId, businessId]);
 
-    return () => unsubscribe();
-  }, [userId, businessId]);
 
   // Sync brand overview with Firestore
   useEffect(() => {
