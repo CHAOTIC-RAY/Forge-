@@ -203,6 +203,42 @@ export async function startServer(forcePort?: number) {
     }
   });
 
+  // Proxy Model endpoint for large binary model files (Streaming to save memory)
+  app.get("/api/proxy-model", async (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== "string") {
+      return res.status(400).send("URL is required");
+    }
+
+    console.log(`[Server] Proxying model binary: ${url}`);
+
+    try {
+      const response = await axios({
+        method: 'get',
+        url: url,
+        responseType: 'stream',
+        timeout: 600000, // 10 minute timeout for large models
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+
+      // Transfer headers
+      res.setHeader("Content-Type", "application/octet-stream");
+      if (response.headers["content-length"]) {
+        res.setHeader("Content-Length", response.headers["content-length"]);
+      }
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); // Cache for 1 year
+
+      // Pipe the stream directly
+      response.data.pipe(res);
+    } catch (error: any) {
+      console.error("[Server] Model Proxy failed:", error.message);
+      res.status(500).send(`Failed to proxy model: ${error.message}`);
+    }
+  });
+
   // Firecrawl Endpoints
   app.post("/api/map", async (req, res) => {
     const { url, limit = 5000, apiKey } = req.body;

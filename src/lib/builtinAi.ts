@@ -146,7 +146,8 @@ class BuiltInAiService {
       
       this.inference = await LlmInference.createFromOptions(genaiFileset, {
         baseOptions: {
-          modelAssetPath: model.url,
+          // Absolute path to the local model streaming proxy
+          modelAssetPath: `/api/proxy-model?url=${encodeURIComponent(model.url)}`,
         },
         maxTokens: 1024,
         topK: 40,
