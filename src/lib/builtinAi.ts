@@ -34,7 +34,8 @@ export const BUILTIN_MODELS: BuiltInModel[] = [
   { 
     id: 'gemma3-1b', 
     name: 'Gemma 3 1B IT', 
-    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-gpu-int4.bin?download=true',
+    // Gemma 3 is still new, using the litert community mirror which is often un-gated
+    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-gpu-int4.bin',
     size: '1.0GB',
     description: 'Latest Google model. Best balance of speed and power.'
   },
@@ -48,7 +49,7 @@ export const BUILTIN_MODELS: BuiltInModel[] = [
   { 
     id: 'falcon-1b', 
     name: 'Falcon 1B RW', 
-    url: 'https://huggingface.co/tiiuae/falcon-1b-it-tflite/resolve/main/falcon-1b-it-gpu-int4.bin?download=true',
+    url: 'https://storage.googleapis.com/mediapipe-models/llm_inference/falcon_1b_gpu_int4.bin',
     size: '0.7GB',
     description: 'Ultra lightweight. Fast on older devices.'
   }
