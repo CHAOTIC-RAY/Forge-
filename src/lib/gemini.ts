@@ -199,8 +199,8 @@ export const getAiSettings = () => {
       // Ensure targetUrl exists in saved settings
       if (!parsed.targetUrl) parsed.targetUrl = '';
       if (!parsed.imageProvider) parsed.imageProvider = 'gemini';
-      if (!parsed.puterTextModel) parsed.puterTextModel = 'gpt-4o-mini';
       if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
+      if (!parsed.builtinModelId) parsed.builtinModelId = 'gemma3-1b';
       return parsed;
     } catch (e) {}
   }
@@ -214,6 +214,7 @@ export const getAiSettings = () => {
     pollinationApiKey: '',
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
+    builtinModelId: 'gemma3-1b',
     targetUrl: '',
     geminiApiKey: '',
     groqApiKey: '',

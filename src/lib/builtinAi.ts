@@ -10,17 +10,48 @@ export interface BuiltInAiStatus {
   error: string | null;
 }
 
+export interface BuiltInModel {
+  id: string;
+  name: string;
+  url: string;
+  size: string;
+  description: string;
+}
+
+export const BUILTIN_MODELS: BuiltInModel[] = [
+  { 
+    id: 'gemma3-1b', 
+    name: 'Gemma 3 1B IT', 
+    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-gpu-int4.bin',
+    size: '≈1.0GB',
+    description: 'Latest Google model. Best balance of speed and power.'
+  },
+  { 
+    id: 'gemma2-2b', 
+    name: 'Gemma 2 2B IT', 
+    url: 'https://huggingface.co/google/gemma-2-2b-it-libert/resolve/main/gemma-2-2b-it-gpu-int4.bin',
+    size: '≈1.5GB',
+    description: 'Stable and smart. Good for complex instructions.'
+  },
+  { 
+    id: 'falcon-1b', 
+    name: 'Falcon 1B RW', 
+    url: 'https://huggingface.co/tiiuae/falcon-1b-it-tflite/resolve/main/falcon-1b-it-gpu-int4.bin',
+    size: '≈0.7GB',
+    description: 'Ultra lightweight. Fast on older devices.'
+  }
+];
+
 class BuiltInAiService {
   private inference: any = null;
+  private currentModelId: string | null = null;
   private isLoading = false;
   private isLoaded = false;
   private progress = 0;
   private error: string | null = null;
   private statusListeners: ((status: BuiltInAiStatus) => void)[] = [];
 
-  // Gemma 3 1B IT Model (Optimized for WebGPU/LiteRT)
-  private readonly MODEL_URL = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-gpu-int4.bin";
-  private readonly WASM_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm";
+  private readonly WASM_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/wasm";
 
   getStatus(): BuiltInAiStatus {
     return {
@@ -43,18 +74,23 @@ class BuiltInAiService {
     this.statusListeners.forEach(l => l(status));
   }
 
-  async init() {
-    if (this.isLoaded || this.isLoading) return;
+  async init(modelId: string = 'gemma3-1b') {
+    if (this.isLoaded && this.currentModelId === modelId) return;
 
     this.isLoading = true;
     this.error = null;
     this.notify();
 
     try {
-      // Access MediaPipe from Global (loaded via script tag)
-      const GenAI = (window as any).GenAI || (window as any).tasksGenAi;
+      // Find model
+      const model = BUILTIN_MODELS.find(m => m.id === modelId) || BUILTIN_MODELS[0];
+
+      // Access MediaPipe from Global
+      // Try multiple possible global names exposed by different bundle versions
+      const GenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
+      
       if (!GenAI) {
-        throw new Error("MediaPipe GenAI library not loaded. Check your internet connection.");
+        throw new Error("MediaPipe GenAI library not loaded. Ensure genai_bundle.js is included in index.html.");
       }
 
       const { LlmInference, FilesetResolver } = GenAI;
@@ -63,7 +99,7 @@ class BuiltInAiService {
       
       this.inference = await LlmInference.createFromOptions(genaiFileset, {
         baseOptions: {
-          modelAssetPath: this.MODEL_URL,
+          modelAssetPath: model.url,
         },
         maxTokens: 1024,
         topK: 40,
@@ -72,7 +108,8 @@ class BuiltInAiService {
       });
 
       this.isLoaded = true;
-      console.log("[BuiltInAI] Gemma 3 1B IT loaded successfully.");
+      this.currentModelId = modelId;
+      console.log(`[BuiltInAI] ${model.name} loaded successfully.`);
     } catch (err: any) {
       this.error = err.message || "Failed to load Gemma 3 model.";
       console.error("[BuiltInAI] Initialization error:", err);
