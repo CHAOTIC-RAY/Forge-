@@ -171,6 +171,54 @@ export default {
           });
         }
 
+        // GET /api/proxy-model?url=... (Streaming binary proxy for models)
+        if (path === '/api/proxy-model' && request.method === 'GET') {
+          const targetUrl = url.searchParams.get("url");
+          if (!targetUrl) return new Response("URL required", { status: 400 });
+
+          const response = await fetch(targetUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+          
+          if (!response.ok) return new Response("Failed to fetch model", { status: response.status });
+
+          // Stream the response back
+          const newResponse = new Response(response.body, {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/octet-stream',
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'public, max-age=31536000, immutable'
+            }
+          });
+
+          // Forward content length if available
+          const contentLength = response.headers.get('Content-Length');
+          if (contentLength) newResponse.headers.set('Content-Length', contentLength);
+
+          return newResponse;
+        }
+
+        // GET /api/proxy-js?url=... (Proxy for JS bundles)
+        if (path === '/api/proxy-js' && request.method === 'GET') {
+          const targetUrl = url.searchParams.get("url");
+          if (!targetUrl) return new Response("URL required", { status: 400 });
+
+          const response = await fetch(targetUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+          
+          if (!response.ok) return new Response("Failed to fetch JS", { status: response.status });
+
+          return new Response(response.body, {
+            headers: { 
+              'Content-Type': 'application/javascript; charset=utf-8',
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'public, max-age=86400'
+            }
+          });
+        }
+
         // GET /api/proxy-image?url=...
         if (path === '/api/proxy-image' && request.method === 'GET') {
           const imageUrl = url.searchParams.get("url");
