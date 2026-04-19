@@ -109,6 +109,7 @@ export const GEMINI_MODELS = [
   { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
   { id: 'gemini-2.0-flash-exp-image-generation', name: 'Gemini 2.0 Image Generation' },
   { id: 'imagen-3.0-generate-002', name: 'Imagen 3.0' },
+  { id: 'gemma-3-1b-it-builtin', name: 'Gemma 3 1B IT (Built-in)' },
 ];
 
 export const GROQ_MODELS = [
@@ -189,29 +190,15 @@ export const getAiSettings = () => {
     try {
       const parsed = JSON.parse(saved);
       // Ensure targetUrl exists in saved settings
-      if (!parsed.targetUrl) {
-        parsed.targetUrl = '';
-      }
-      if (!parsed.imageProvider) {
-        parsed.imageProvider = 'gemini';
-      }
-      if (!parsed.pollinationModel) {
-        parsed.pollinationModel = 'flux';
-      }
-      if (!parsed.pollinationApiKey) {
-        parsed.pollinationApiKey = '';
-      }
-      if (!parsed.puterTextModel) {
-        parsed.puterTextModel = 'gpt-4o-mini';
-      }
-      if (!parsed.puterImageModel) {
-        parsed.puterImageModel = 'dall-e-3';
-      }
+      if (!parsed.targetUrl) parsed.targetUrl = '';
+      if (!parsed.imageProvider) parsed.imageProvider = 'gemini';
+      if (!parsed.puterTextModel) parsed.puterTextModel = 'gpt-4o-mini';
+      if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
       return parsed;
-    } catch (e) { }
+    } catch (e) {}
   }
   return {
-    preferredProvider: 'groq',
+    preferredProvider: 'builtin', // Default to built-in for free access
     imageProvider: 'gemini',
     geminiModel: 'gemini-2.5-flash',
     groqModel: 'llama-3.3-70b-versatile',
@@ -343,8 +330,20 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
   }
 }
 
+import { builtInAi } from './builtinAi';
+
 export async function generateTextWithCascade(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
   const settings = getAiSettings();
+
+  // Try Built-in AI first if selected or if auto mode is on and we want maximum free access
+  if (settings.preferredProvider === 'builtin' || (settings.preferredProvider === 'auto' && !isGeminiKeyAvailable())) {
+    try {
+      const resp = await builtInAi.generate(prompt);
+      if (resp) return resp;
+    } catch (e) {
+      console.warn('Built-in AI failed or not initialized, cascading...');
+    }
+  }
 
   let designContext = '';
   if (businessId) {

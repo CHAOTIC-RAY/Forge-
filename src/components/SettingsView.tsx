@@ -16,6 +16,8 @@ import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
+import { builtInAi, BuiltInAiStatus } from '../lib/builtinAi';
+import { Cpu } from 'lucide-react';
 
 const GEMINI_MODELS = [
   { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Default)' },
@@ -184,8 +186,11 @@ export function SettingsView({
   const [newName, setNewName] = useState(user?.displayName || '');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
+  const [builtInStatus, setBuiltInStatus] = useState<BuiltInAiStatus>(builtInAi.getStatus());
 
   useEffect(() => {
+    const unsubBuiltin = builtInAi.onStatusChange(setBuiltInStatus);
+    
     const checkPuter = async () => {
       if (typeof window !== 'undefined' && (window as any).puter) {
         try {
@@ -198,7 +203,11 @@ export function SettingsView({
     };
     checkPuter();
     const interval = setInterval(checkPuter, 5000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      unsubBuiltin();
+      clearInterval(interval);
+    };
   }, []);
 
   const handlePuterSignIn = async () => {
@@ -1005,8 +1014,8 @@ export function SettingsView({
         {/* AI Engine Card */}
         <BentoCard
           id="ai"
-          title="Global AI Engine"
-          subtitle={`Provider: ${aiSettings.preferredProvider === 'gemini' ? 'Gemini' : aiSettings.preferredProvider === 'groq' ? 'Groq' : 'Auto'}`}
+          title="AI & Smart Engine"
+          subtitle={`Provider: ${aiSettings.preferredProvider}`}
           icon={Sparkles}
           iconBg="bg-purple-100 dark:bg-purple-900/30"
           iconColor="text-purple-600 dark:text-purple-400"
@@ -1026,7 +1035,7 @@ export function SettingsView({
             <div className="space-y-3">
               <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Preferred AI Provider</label>
               <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                {['auto', 'gemini', 'groq', 'puter'].map((provider) => (
+                {['builtin', 'gemini', 'groq', 'puter', 'auto'].map((provider) => (
                   <button
                     key={provider}
                     onClick={() => handleAiSettingChange('preferredProvider', provider)}
@@ -1090,6 +1099,47 @@ export function SettingsView({
                     >
                       {GROQ_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
+                  </div>
+                </div>
+              ) : aiSettings.preferredProvider === 'builtin' ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 rounded-[16px] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        <h4 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Local Gemma 3 Engine</h4>
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                        builtInStatus.isLoaded ? "bg-green-100 text-green-700" : "bg-brand/10 text-brand"
+                      )}>
+                        {builtInStatus.isLoaded ? 'ON-DEVICE' : 'WASM'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Gemma 3 1B IT runs directly in your browser. No data leaves your machine.</p>
+                    
+                    {!builtInStatus.isLoaded && !builtInStatus.isLoading && (
+                      <button 
+                        onClick={() => builtInAi.init()}
+                        className="w-full py-2 bg-brand text-white text-xs font-bold rounded-[8px] hover:bg-brand-hover transition-colors"
+                      >
+                        Initialize Local AI (≈1GB Download)
+                      </button>
+                    )}
+                    
+                    {builtInStatus.isLoading && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-[#757681]">Downloading Engine...</span>
+                          <span className="font-bold">{builtInStatus.progress}%</span>
+                        </div>
+                        <div className="h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-brand transition-all duration-300" style={{ width: `${builtInStatus.progress}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {builtInStatus.error && <p className="text-[10px] text-red-500 font-medium">{builtInStatus.error}</p>}
                   </div>
                 </div>
               ) : aiSettings.preferredProvider === 'puter' ? (
