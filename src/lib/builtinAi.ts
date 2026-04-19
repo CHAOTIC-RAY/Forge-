@@ -78,22 +78,36 @@ class BuiltInAiService {
     const GenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
     if (GenAI) return GenAI;
 
-    return new Promise((resolve, reject) => {
-      console.log("[BuiltInAI] Library not found in global. Attempting dynamic load...");
-      const script = document.createElement('script');
-      script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js";
-      script.crossOrigin = "anonymous";
-      script.onload = () => {
-        // After loading, check the globals again
+    const cdns = [
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/genai_bundle.js",
+      "https://unpkg.com/@mediapipe/tasks-genai@latest/genai_bundle.js",
+      "https://www.gstatic.com/mediapipe/solutions/genai/genai_bundle.js"
+    ];
+
+    for (const url of cdns) {
+      try {
+        console.log(`[BuiltInAI] Trying CDN: ${url}`);
+        await this.injectScript(url);
         const loadedGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
         if (loadedGenAI) {
-          console.log("[BuiltInAI] Library loaded dynamically.");
-          resolve(loadedGenAI);
-        } else {
-          reject(new Error("MediaPipe loaded but GenAI global not found."));
+          console.log(`[BuiltInAI] Library loaded successfully from ${url}`);
+          return loadedGenAI;
         }
-      };
-      script.onerror = () => reject(new Error("Could not load MediaPipe GenAI library from CDN."));
+      } catch (e) {
+        console.warn(`[BuiltInAI] Failed to load from ${url}, trying next...`);
+      }
+    }
+
+    throw new Error("Could not load MediaPipe GenAI library from any CDN. Please check for extensions blocking scripts.");
+  }
+
+  private injectScript(url: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.crossOrigin = "anonymous";
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Load failed: ${url}`));
       document.head.appendChild(script);
     });
   }
