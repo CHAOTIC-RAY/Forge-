@@ -321,8 +321,7 @@ export default function App() {
   // Listen for Chrome Extension messages
   useEffect(() => {
     const handleExtensionMessage = async (event: MessageEvent) => {
-      if (event.data?.type === 'FORGE_ADD_NOTE' && activeBusiness && user) {
-        const { title, url, content } = event.data.data;
+      if ((event.data?.type === 'FORGE_ADD_NOTE' || event.data?.type === 'FORGE_QUICK_NOTE') && activeBusiness && user) {
         try {
           // Find the notebook for this business
           const q = query(
@@ -352,25 +351,50 @@ export default function App() {
             });
           }
 
-          const newBlock = {
-            id: uuidv4(),
-            type: 'text',
-            title: `Clipped: ${title}`,
-            content: `Source: ${url}\n\n${content}`,
-            status: 'inbox',
-            createdAt: Date.now()
-          };
+          let newBlock: any;
+          if (event.data.type === 'FORGE_ADD_NOTE') {
+            const { title, url, content } = event.data.data;
+            newBlock = {
+              id: uuidv4(),
+              type: 'text',
+              title: `Clipped: ${title}`,
+              content: `Source: ${url}\n\n${content}`,
+              status: 'inbox',
+              createdAt: Date.now()
+            };
+          } else {
+            // FORGE_QUICK_NOTE
+            newBlock = {
+              id: uuidv4(),
+              type: 'text',
+              title: `Quick Note`,
+              content: event.data.data,
+              status: 'inbox',
+              createdAt: Date.now()
+            };
+          }
 
           await updateDoc(doc(db, 'notebooks', notebookId), {
             blocks: [newBlock, ...currentBlocks],
             updatedAt: serverTimestamp()
           });
 
-          toast.success("Note added to notebook!");
+          toast.success(event.data.type === 'FORGE_ADD_NOTE' ? "Note clipped to notebook!" : "Quick note added!");
         } catch (error) {
           console.error("Failed to add note from extension:", error);
           toast.error("Failed to add note from extension.");
         }
+      }
+      if (event.data?.type === 'FORGE_GET_CALENDAR' && activeBusiness && user) {
+        try {
+          const q = query(collection(db, 'posts'), where('businessId', '==', activeBusiness.id));
+          const snapshot = await getDocs(q);
+          const data = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+          window.postMessage({ type: 'FORGE_CALENDAR_DATA', data }, '*');
+        } catch (error) {
+          console.error("Error fetching calendar for extension:", error);
+        }
+        return;
       }
     };
 
