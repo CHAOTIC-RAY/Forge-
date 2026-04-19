@@ -147,6 +147,33 @@ export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const [authTimeout, setAuthTimeout] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  
+  const isCtrlPressed = useRef(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        isCtrlPressed.current = true;
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        isCtrlPressed.current = false;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    // Also track mouse blurs which can mess up key states
+    const handleBlur = () => { isCtrlPressed.current = false; };
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) {
@@ -1237,7 +1264,7 @@ export default function App() {
 
     // Add a timeout to prevent infinite "Connecting to cloud..." state
     const timeoutId = setTimeout(() => {
-      console.warn(`[Sync] Sync timeout reached for ${context}`);
+      console.log(`[Sync] Sync timeout reached for ${context}`);
       addSyncLog(`Sync taking longer than expected...`, 'info');
       setIsSyncing(false); // Force it to false so user can at least use the app
     }, 15000);
@@ -1567,18 +1594,31 @@ export default function App() {
       return;
     }
 
-    // Case 4: Rescheduling an existing post
+    // Case 4: Rescheduling or Duplicating an existing post
     const activePost = posts.find(p => p.id === activeId);
     if (!activePost) return;
 
     // If moving to a different date
     if (activePost.date !== targetDate) {
-      const updatedPost = { ...activePost, date: targetDate };
-      handleSavePost(updatedPost);
+      if (isCtrlPressed.current) {
+        // Duplicate the post
+        const duplicatedPost = { ...activePost, id: uuidv4(), date: targetDate };
+        handleSavePost(duplicatedPost);
+        toast.success(`Duplicated post to ${targetDate}`);
+      } else {
+        // Move the post
+        const updatedPost = { ...activePost, date: targetDate };
+        handleSavePost(updatedPost);
+      }
+    } else if (isCtrlPressed.current) {
+        // Duplicate within the same date
+        const duplicatedPost = { ...activePost, id: uuidv4() };
+        handleSavePost(duplicatedPost);
+        toast.success(`Duplicated post`);
     }
 
-    // If reordering within the same date
-    if (overPost && activePost.date === overPost.date) {
+    // If reordering within the same date (and not duplicating)
+    if (overPost && activePost.date === overPost.date && !isCtrlPressed.current) {
       const activeIndex = posts.findIndex((p) => p.id === activeId);
       const overIndex = posts.findIndex((p) => p.id === overId);
       const newPosts = arrayMove(posts, activeIndex, overIndex);

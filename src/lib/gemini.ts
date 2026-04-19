@@ -310,7 +310,11 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
 
     return str;
   } catch (error: any) {
-    console.error("[Puter] Error in fetchFromPuter:", error);
+    if (error?.status === 402 || error?.code === 'insufficient_funds') {
+       // silently fail for known limit errors to let cascade take over cleanly
+    } else {
+       console.warn("[Puter] fetchFromPuter warning:", error?.message || error);
+    }
     throw error;
   }
 }
@@ -2875,13 +2879,33 @@ Today's date is: ${new Date().toISOString().split('T')[0]}. Use this as a refere
 Return ONLY valid JSON. No markdown formatting for the JSON block itself, no backticks around the JSON.`;
 
   try {
-    let text = '';
-    
-    if (settings.preferredProvider === 'puter') {
-      const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
-      const prompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
-      text = await fetchFromPuter(prompt);
-    } else {
+    let parsed: any = null;
+    let fallbackToGemini = true;
+
+    const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+    const flatPrompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
+
+    if (settings.preferredProvider === 'puter' || settings.preferredProvider === 'auto') {
+      try {
+        const text = await fetchFromPuter(flatPrompt);
+        parsed = safeParseJSON(text || '{}');
+        if (parsed && parsed.message) fallbackToGemini = false;
+      } catch (e) {
+        console.warn("Puter chat failed, falling back...");
+      }
+    }
+
+    if (fallbackToGemini && (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto')) {
+      try {
+        const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
+        parsed = safeParseJSON(groqText || '{}');
+        if (parsed && parsed.message) fallbackToGemini = false;
+      } catch (e) {
+        console.warn("Groq chat failed, falling back to Gemini...");
+      }
+    }
+
+    if (fallbackToGemini) {
       if (!isGeminiKeyAvailable()) {
         await fetchServerConfig();
       }
@@ -2912,7 +2936,7 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
       });
 
       const response = await ai.models.generateContent({
-        model: settings.model || "gemini-2.5-flash",
+        model: settings.geminiModel || "gemini-2.5-flash",
         contents: contents,
         config: {
           systemInstruction: systemInstruction,
@@ -2920,10 +2944,9 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
           temperature: 0.7,
         }
       });
-      text = response.text || '{}';
+      parsed = safeParseJSON(response.text || '{}');
     }
 
-    const parsed = safeParseJSON(text);
     if (parsed && parsed.message) {
       return parsed as ChatResponse;
     }
@@ -2988,13 +3011,33 @@ You MUST respond with a valid JSON object containing:
 Always return valid JSON. Do not include markdown code blocks around the JSON.`;
 
   try {
-    let text = '';
-    
-    if (settings.preferredProvider === 'puter') {
-      const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
-      const prompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
-      text = await fetchFromPuter(prompt);
-    } else {
+    let parsed: any = null;
+    let fallbackToGemini = true;
+
+    const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+    const flatPrompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
+
+    if (settings.preferredProvider === 'puter' || settings.preferredProvider === 'auto') {
+      try {
+        const text = await fetchFromPuter(flatPrompt);
+        parsed = safeParseJSON(text || '{}');
+        if (parsed && parsed.reply) fallbackToGemini = false;
+      } catch (e) {
+        console.warn("Puter widget builder failed, falling back...");
+      }
+    }
+
+    if (fallbackToGemini && (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto')) {
+      try {
+        const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
+        parsed = safeParseJSON(groqText || '{}');
+        if (parsed && parsed.reply) fallbackToGemini = false;
+      } catch (e) {
+        console.warn("Groq widget builder failed, falling back to Gemini...");
+      }
+    }
+
+    if (fallbackToGemini) {
       if (!isGeminiKeyAvailable()) {
         await fetchServerConfig();
       }
@@ -3008,7 +3051,7 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
       });
 
       const response = await ai.models.generateContent({
-        model: settings.model || "gemini-2.5-flash",
+        model: settings.geminiModel || "gemini-2.5-flash",
         contents: contents,
         config: {
           systemInstruction: systemInstruction,
@@ -3016,10 +3059,9 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
           temperature: 0.7,
         }
       });
-      text = response.text || '{}';
+      parsed = safeParseJSON(response.text || '{}');
     }
 
-    const parsed = safeParseJSON(text);
     if (parsed && parsed.reply) {
       return parsed as WidgetBuilderChatResponse;
     }
