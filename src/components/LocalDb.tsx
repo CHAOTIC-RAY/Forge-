@@ -61,9 +61,11 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
   const [brandKitCategories, setBrandKitCategories] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [isCrawling, setIsCrawling] = useState(false);
-  const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
   const [crawlJobId, setCrawlJobId] = useState<string | null>(null);
+  const [siteMap, setSiteMap] = useState<any[]>([]);
+  const [isSiteMapOpen, setIsSiteMapOpen] = useState(false);
+  const [brandOverview, setBrandOverview] = useState<string | null>(null);
+  const [isGeneratingOverview, setIsGeneratingOverview] = useState(false);
   const crawlIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Scroll to top listener
@@ -246,6 +248,45 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     return () => unsubscribe();
   }, [userId, businessId]);
 
+  // Sync site map with Firestore
+  useEffect(() => {
+    if (!userId || !businessId) return;
+
+    const mapRef = doc(db, 'inventory_maps', businessId);
+    const unsubscribe = onSnapshot(mapRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        if (data.links && Array.isArray(data.links)) {
+          setSiteMap(data.links);
+          addLog(`📦 Loaded site map from cloud (${data.links.length} links).`);
+        }
+      }
+    }, (error) => {
+      console.warn("Map sync failed (might not exist yet):", error);
+    });
+
+    return () => unsubscribe();
+  }, [userId, businessId]);
+
+    return () => unsubscribe();
+  }, [userId, businessId]);
+
+  // Sync brand overview with Firestore
+  useEffect(() => {
+    if (!userId || !businessId) return;
+
+    const overviewRef = doc(db, 'brand_overviews', businessId);
+    const unsubscribe = onSnapshot(overviewRef, (doc) => {
+      if (doc.exists()) {
+        setBrandOverview(doc.data().overview);
+      }
+    }, (error) => {
+      console.warn("Overview sync failed:", error);
+    });
+
+    return () => unsubscribe();
+  }, [userId, businessId]);
+
   // Fetch Brand Kit Categories
   useEffect(() => {
     if (!businessId) return;
@@ -327,7 +368,13 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     }
   }, [categoryCounts, hasCheckedCounts, userId, businessId]);
 
-  const handleCheckCounts = async () => {
+  const handleCheckCounts = async (force: boolean = false) => {
+    // Only run if map is missing or force=true
+    if (!force && siteMap.length > 0 && categoryCounts.length > 0) {
+      toast.info("Map already exists. Using cached data.");
+      return;
+    }
+
     setIsCheckingCounts(true);
     try {
       const urlToMap = activeBusiness?.targetUrl || manualUrl;
@@ -364,7 +411,30 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         })).sort((a, b) => b.count - a.count).slice(0, 50);
 
         setCategoryCounts(newCounts);
+        setSiteMap(mapData.links);
         setHasCheckedCounts(true);
+
+        // Save to Firestore
+        if (userId && businessId) {
+          addLog(`💾 Saving site map to cloud...`);
+          const mapRef = doc(db, 'inventory_maps', businessId);
+          await setDoc(mapRef, {
+            links: mapData.links,
+            businessId,
+            userId,
+            updatedAt: new Date().toISOString()
+          });
+
+          // Also save counts to their respective documents
+          const batch = writeBatch(db);
+          newCounts.forEach((c) => {
+            const docId = c.category.replace(/[^a-zA-Z0-9]/g, '_');
+            const docRef = doc(db, 'inventory_category_counts', `${businessId}_${docId}`);
+            batch.set(docRef, { ...c, userId, businessId, updatedAt: new Date().toISOString() });
+          });
+          await batch.commit();
+        }
+
         toast.success(`Mapped ${mapData.links.length} URLs into ${newCounts.length} categories.`);
         addLog(`✅ Map completed. Found ${mapData.links.length} links, grouped into ${newCounts.length} categories.`);
       } else {
@@ -388,7 +458,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     setIsCrawling(true);
     
     // Check if we need to map first (if categoryCounts is empty or we force it)
-    if (categoryCounts.length === 0) {
+    if (categoryCounts.length === 0 && siteMap.length === 0) {
       addLog(`🗺️ Starting map for ${manualUrl}...`);
       await handleCheckCounts();
     }
@@ -628,7 +698,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       const matchOutlet = filterOutlet === 'All' || (p.outlet || 'Forge Enterprises') === filterOutlet;
       const matchSearch = searchQuery === '' || 
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+        (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (p.stockInfo && p.stockInfo.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchCategory && matchOutlet && matchSearch;
     });
   }, [products, filterCategory, filterOutlet, searchQuery]);
@@ -751,6 +822,57 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     
     // Reset file input
     if (e.target) e.target.value = '';
+  };
+
+  const handleGenerateBrandOverview = async () => {
+    if (!userId || !businessId || products.length === 0) {
+      toast.error("Need insights first to generate an overview.");
+      return;
+    }
+
+    setIsGeneratingOverview(true);
+    addLog("🧠 AI is analyzing brand insights and generating identity overview...");
+    
+    try {
+      const insightsText = products
+        .filter(p => p.stockInfo)
+        .slice(0, 50)
+        .map(p => `- ${p.title}: ${p.stockInfo}`)
+        .join('\n');
+
+      const ai = getAi();
+      const prompt = `Based on the following extracted insights from a business website, generate a cohesive, professional "Brand Identity Overview". 
+      Focus on what the site is about, their core mission, important information for customers, and key details that define their value proposition.
+      
+      INSIGHTS:
+      ${insightsText}
+      
+      Write a clear, structured summary (max 3-4 paragraphs) that would serve as the ultimate reference for this brand.`;
+
+      const result = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+      });
+      
+      const overview = result.response.text();
+      if (overview) {
+        setBrandOverview(overview);
+        // Save to Firestore
+        await setDoc(doc(db, 'brand_overviews', businessId), {
+          overview,
+          businessId,
+          userId,
+          updatedAt: new Date().toISOString()
+        });
+        toast.success("Brand Identity Overview generated!");
+        addLog("✨ Brand Identity Overview successfully updated.");
+      }
+    } catch (e) {
+      console.error("Failed to generate overview:", e);
+      toast.error("Failed to generate brand overview.");
+    } finally {
+      setIsGeneratingOverview(false);
+    }
   };
 
   const handleConsolePaste = async () => {
@@ -1135,15 +1257,25 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                 className="text-[10px] font-bold text-[#2383E2] hover:underline disabled:opacity-50"
               >
               </button>
-              <button 
-                onClick={handleCheckCounts}
-                    disabled={isCheckingCounts}
-                    className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors disabled:opacity-50"
-                  >
-                    {isCheckingCounts ? <ForgeLoader size={16} /> : <RefreshCw className="w-4 h-4" />}
-                  </button>
+                    <button 
+                      onClick={() => handleCheckCounts(true)}
+                      disabled={isCheckingCounts}
+                      title="Force Re-Map Site"
+                      className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                    {siteMap.length > 0 && (
+                      <button 
+                        onClick={() => setIsSiteMapOpen(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-[8px] text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-all"
+                      >
+                        <Globe className="w-3 h-3" />
+                        View Map
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
               
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-[12px] border border-blue-100 dark:border-blue-900/30">
@@ -1362,6 +1494,52 @@ JSON.stringify(items);`}
             </div>
           </div>
         )}
+
+        {/* Brand Overview Header (Info Mode Only) */}
+        {dbMode === 'info' && hasSearched && (
+          <div className="mt-8 mb-8">
+            <div className="bg-white dark:bg-[#191919] p-8 rounded-[32px] border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-2 h-full bg-blue-500/50" />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-[20px] flex items-center justify-center text-blue-600">
+                    <Sparkles className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl text-[#37352F] dark:text-[#EBE9ED]">Brand Identity Overview</h3>
+                    <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] tracking-wider uppercase">Forge AI Insights Engine</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleGenerateBrandOverview}
+                  disabled={isGeneratingOverview || products.length === 0}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[16px] text-sm font-bold shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50"
+                >
+                  {isGeneratingOverview ? <ForgeLoader size={20} /> : <RefreshCw className="w-4 h-4" />}
+                  {brandOverview ? 'Regenerate Focus' : 'Analyze Brand Identity'}
+                </button>
+              </div>
+
+              {brandOverview ? (
+                <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-[#37352F] dark:text-[#EBE9ED] leading-relaxed whitespace-pre-wrap font-medium">
+                    {brandOverview}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center bg-[#F7F7F5] dark:bg-[#202020] rounded-[24px] border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <div className="w-16 h-16 bg-white dark:bg-[#2E2E2E] rounded-full flex items-center justify-center mb-4 shadow-sm">
+                    <BookOpen className="w-8 h-8 text-[#9B9A97] opacity-40" />
+                  </div>
+                  <h4 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2">No Brand Identity Yet</h4>
+                  <p className="text-sm text-[#757681] dark:text-[#9B9A97] max-w-md mb-6">
+                    Ready to build your knowledge base? Fetch some insights using the crawler, then click "Analyze" to generate a professional overview.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Products List Section */}
         {hasSearched && (
@@ -1446,6 +1624,62 @@ JSON.stringify(items);`}
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Site Map Modal */}
+        {isSiteMapOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-[#191919] w-full max-w-4xl max-h-[80vh] rounded-[24px] border border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between sticky top-0 bg-white dark:bg-[#191919] z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-[12px] flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <Globe className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Site Map Structure</h2>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">{siteMap.length} unique URLs discovered</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsSiteMapOpen(false)} className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-full transition-colors">
+                  <X className="w-5 h-5 text-[#757681]" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {siteMap.map((link, i) => (
+                    <div key={i} className="group flex items-center justify-between p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-emerald-500/50 transition-all">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#9B9A97]">URL {i + 1}</span>
+                        </div>
+                        <span className="text-sm text-[#37352F] dark:text-[#EBE9ED] truncate pr-4 font-mono">{link.url}</span>
+                      </div>
+                      <a 
+                        href={link.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="p-2 text-[#757681] hover:text-emerald-500 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-6 bg-[#F7F7F5] dark:bg-[#202020] border-t border-[#E9E9E7] dark:border-[#2E2E2E] flex justify-between items-center">
+                <p className="text-xs text-[#757681]">These links were mapped using the initial crawl of {activeBusiness?.targetUrl}.</p>
+                <button 
+                  onClick={() => setIsSiteMapOpen(false)}
+                  className="px-6 py-2 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-[12px] font-bold hover:opacity-90 transition-opacity"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         )}
