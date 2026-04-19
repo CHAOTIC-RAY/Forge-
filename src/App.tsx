@@ -1946,7 +1946,7 @@ export default function App() {
   };
 
   const exportToExcel = async (settings: ExportSettings) => {
-    const { startMonth, endMonth, visibleFields, viewVariation, layoutStyle, accentColor } = settings;
+    const { startMonth, endMonth, visibleFields, layoutStyle, accentColor } = settings;
     
     const fetchImageAsBase64 = async (url: string): Promise<{ base64: string, extension: string, width: number, height: number } | null> => {
       if (!url || typeof url !== 'string') return null;
@@ -1981,7 +1981,7 @@ export default function App() {
     };
 
     try {
-      toast.loading("Preparing high-performance export...", { id: 'excel-export' });
+      toast.loading("Initializing high-fidelity brand export...", { id: 'excel-export' });
       
       let titles = { type: 'FORMAT', platforms: 'PLATFORM', campaign: 'CAMPAIGN', outlet: 'OUTLET' };
       if (activeBusiness?.id) {
@@ -1992,7 +1992,7 @@ export default function App() {
       }
 
       const response = await fetch('/templates/content_calendar_template.xlsx');
-      if (!response.ok) throw new Error("Could not find the Excel template file.");
+      if (!response.ok) throw new Error("Template fetch failed. Ensure it exists in public/templates/");
       const templateBuffer = await response.arrayBuffer();
 
       const workbook = new Workbook();
@@ -2003,11 +2003,20 @@ export default function App() {
         end: endOfMonth(endMonth)
       }).filter(d => d.getDate() === 1);
 
+      const requestedMonthKeys = intervalMonths.map(m => format(m, 'yyyy-MM'));
+      const requestedMonthLabelsOriginal = intervalMonths.map(m => format(m, 'MMM yyyy'));
+      const requestedMonthLabelsLower = requestedMonthLabelsOriginal.map(l => l.toLowerCase().trim());
+      
+      const postsInExportRange: Post[] = [];
       const postsByMonth: { [key: string]: Post[] } = {};
       posts.forEach(post => {
+        if (!post.date) return;
         const key = format(parseISO(post.date), 'yyyy-MM');
-        if (!postsByMonth[key]) postsByMonth[key] = [];
-        postsByMonth[key].push(post);
+        if (requestedMonthKeys.includes(key)) {
+          if (!postsByMonth[key]) postsByMonth[key] = [];
+          postsByMonth[key].push(post);
+          postsInExportRange.push(post);
+        }
       });
 
       const themeColors = {
@@ -2016,80 +2025,76 @@ export default function App() {
         accent: (accentColor || '#2383e2').replace('#', 'FF').toUpperCase()
       };
 
+      // 1. Mandatory Sheet Clean-up (SCALPEL)
+      // Deleting all sheets NOT requested ensures January default labels are gone.
+      const allSheetNames = workbook.worksheets.map(s => s.name);
+      for (const name of allSheetNames) {
+        if (!requestedMonthLabelsLower.includes(name.toLowerCase().trim())) {
+           workbook.removeWorksheet(name);
+        }
+      }
+
+      if (workbook.worksheets.length === 0) {
+        throw new Error(`The requested months (${requestedMonthLabelsOriginal.join(', ')}) are not available in the template.`);
+      }
+
       for (const monthDate of intervalMonths) {
         const monthKey = format(monthDate, 'yyyy-MM');
-        const monthLabel = format(monthDate, 'MMM yyyy');
+        const searchLabel = format(monthDate, 'MMM yyyy').toLowerCase().trim();
         
-        let sheet = workbook.getWorksheet(monthLabel);
-        if (!sheet) {
-          const genericName = format(monthDate, 'MMM') + " 2026";
-          const templateSheet = workbook.getWorksheet(genericName);
-          if (templateSheet) {
-            sheet = templateSheet;
-            sheet.name = monthLabel;
-          } else continue;
+        let sheet = workbook.worksheets.find(s => s.name.toLowerCase().trim() === searchLabel);
+        if (!sheet) continue;
+
+        // 2. Comprehensive Branding Injection
+        // We set the first sheet in the export as the active/visible one
+        if (monthKey === requestedMonthKeys[0]) {
+          workbook.views = [{ x: 0, y: 0, width: 10000, height: 20000, firstSheet: 0, activeTab: sheet.id as any }];
         }
 
-        // 1. Clear ALL Placeholders first for a clean look
-        // We clear 6 weeks (8 rows each) starting from row 4
+        const bannerCell = sheet.getCell('A1');
+        bannerCell.value = `${format(monthDate, 'MMMM yyyy').toUpperCase()}   ·   ${activeBusiness?.name?.toUpperCase() || 'FORGE'} — CONTENT CALENDAR`;
+        bannerCell.style = {
+           ...bannerCell.style,
+           font: { ...bannerCell.font, color: { argb: 'FFFFFFFF' }, bold: true, size: 14 },
+           fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColors.accent } },
+           alignment: { vertical: 'middle', horizontal: 'center' }
+        };
+
+        const monthPosts = postsByMonth[monthKey] || [];
+        const monthStartDay = startOfMonth(monthDate).getDay();
+
+        // 3. Structural Grid Reset
         for (let week = 0; week < 6; week++) {
-          const baseRow = 4 + week * 8;
+          const rBase = 4 + week * 8;
+          sheet.getCell(rBase + 1, 1).value = titles.type?.toUpperCase() || 'FORMAT';
+          sheet.getCell(rBase + 2, 1).value = titles.platforms?.toUpperCase() || 'PLATFORM';
+          sheet.getCell(rBase + 3, 1).value = titles.campaign?.toUpperCase() || 'CAMPAIGN';
+          sheet.getCell(rBase + 4, 1).value = titles.outlet?.toUpperCase() || 'OUTLET';
+
           for (let col = 2; col <= 8; col++) {
-            // Row 4 is Date, we overwrite it later
-            for (let sub = 1; sub <= 7; sub++) {
-              sheet.getCell(baseRow + sub, col).value = null; // null keeps validation usually
-            }
+             for (let rowInWeek = 1; rowInWeek <= 6; rowInWeek++) {
+                sheet.getCell(rBase + rowInWeek, col).value = "";
+             }
           }
         }
 
-        // Apply Theming
-        if (layoutStyle === 'Dark') {
-          sheet.eachRow((row) => {
-            row.eachCell((cell) => {
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColors.darkBg } };
-              cell.font = { ...cell.font, color: { argb: themeColors.darkText } };
-            });
-          });
-        }
-
-        // Banner Branding
-        const bannerCell = sheet.getCell(1, 1);
-        bannerCell.value = `${format(monthDate, 'MMMM yyyy').toUpperCase()}   ·   ${activeBusiness?.name?.toUpperCase() || 'FORGE'} — CONTENT CALENDAR`;
-        bannerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColors.accent } };
-        bannerCell.font = { ...bannerCell.font, color: { argb: 'FFFFFFFF' }, bold: true };
-
-        // Column A Labels
-        for (let week = 0; week < 6; week++) {
-          const r = 4 + week * 8;
-          sheet.getCell(r + 1, 1).value = titles.type?.toUpperCase() || 'FORMAT';
-          sheet.getCell(r + 2, 1).value = titles.platforms?.toUpperCase() || 'PLATFORM';
-          sheet.getCell(r + 3, 1).value = titles.campaign?.toUpperCase() || 'CAMPAIGN';
-          sheet.getCell(r + 4, 1).value = titles.outlet?.toUpperCase() || 'OUTLET';
-        }
-
-        const monthPosts = postsByMonth[monthKey] || [];
-        const monthStartDay = startOfMonth(monthDate).getDay(); // 0 is Sun
-
-        // Precise Grid Injection
+        // 4. Content Embedding
         const imagePromises: Promise<any>[] = [];
         monthPosts.forEach(post => {
           const dateObj = parseISO(post.date);
-          const dayOfMonth = dateObj.getDate();
+          const col = 2 + dateObj.getDay(); 
+          const weekIndex = Math.floor((dateObj.getDate() + monthStartDay - 1) / 7);
+          const rBase = 4 + weekIndex * 8;
           
-          const col = 2 + dateObj.getDay(); // 0=Sun (Col B), 6=Sat (Col H)
-          const weekIndex = Math.floor((dayOfMonth + monthStartDay - 1) / 7);
-          const baseRow = 4 + weekIndex * 8;
-          
-          if (baseRow > 50) return;
+          if (rBase > 50) return;
 
-          // Fill Data
-          sheet.getCell(baseRow, col).value = `  ${format(dateObj, 'EEE').toUpperCase()}  ${format(dateObj, 'dd')}`;
-          sheet.getCell(baseRow + 1, col).value = `  ${post.type || ''}`;
-          sheet.getCell(baseRow + 2, col).value = `  ${Array.isArray(post.platforms) ? post.platforms.join(' + ') : post.platforms || ''}`;
-          sheet.getCell(baseRow + 3, col).value = `  ${post.campaignType || ''}`;
-          sheet.getCell(baseRow + 4, col).value = `  ${post.outlet || ''}`;
-          sheet.getCell(baseRow + 5, col).value = `  ${post.title || ''}`;
-          sheet.getCell(baseRow + 6, col).value = `  ✍️ ${post.caption || ''}`;
+          sheet.getCell(rBase, col).value = `  ${format(dateObj, 'EEE').toUpperCase()}  ${format(dateObj, 'dd')}`;
+          sheet.getCell(rBase + 1, col).value = `  ${post.type || ''}`;
+          sheet.getCell(rBase + 2, col).value = `  ${Array.isArray(post.platforms) ? post.platforms.join(' + ') : (post.platforms || '')}`;
+          sheet.getCell(rBase + 3, col).value = `  ${post.campaignType || ''}`;
+          sheet.getCell(rBase + 4, col).value = `  ${post.outlet || ''}`;
+          sheet.getCell(rBase + 5, col).value = `  ${post.title || ''}`;
+          sheet.getCell(rBase + 6, col).value = `  ✍️ ${post.caption || ''}`;
 
           if (post.images?.length && visibleFields.includes('images')) {
             const embed = async () => {
@@ -2097,8 +2102,8 @@ export default function App() {
               if (imgData) {
                 const id = workbook.addImage({ base64: imgData.base64, extension: imgData.extension as any });
                 sheet.addImage(id, {
-                  tl: { col: col - 1, row: baseRow + 7 - 1 },
-                  ext: { width: 140, height: 160 },
+                  tl: { col: col - 1.05, row: rBase + 7 - 0.95 },
+                  ext: { width: 145, height: 165 },
                   editAs: 'oneCell'
                 });
               }
@@ -2107,34 +2112,40 @@ export default function App() {
           }
         });
 
-        // Branding Logos
+        if (layoutStyle === 'Dark') {
+          sheet.eachRow((row) => {
+            if (row.number > 1) {
+              row.eachCell((cell) => {
+                cell.style = {
+                  ...cell.style,
+                  fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColors.darkBg } },
+                  font: { ...cell.font, color: { argb: themeColors.darkText } }
+                };
+              });
+            }
+          });
+        }
+
         if (activeBusiness?.logoUrl) {
-          const embedLogo = async () => {
+          imagePromises.push((async () => {
             const logo = await fetchImageAsBase64(activeBusiness.logoUrl!);
             if (logo) {
               const id = workbook.addImage({ base64: logo.base64, extension: logo.extension as any });
-              sheet.addImage(id, { tl: { col: 0, row: 0 }, ext: { width: 60, height: 60 } });
+              sheet.addImage(id, { tl: { col: 0.1, row: 0.1 }, ext: { width: 85, height: 85 } });
             }
-          };
-          imagePromises.push(embedLogo());
+          })());
         }
-
-        // Footer Banner
-        const footerRow = 52;
-        sheet.getCell(footerRow, 1).value = "POWERED BY FORGE AI — INTELLIGENT CONTENT MANAGEMENT";
-        sheet.getCell(footerRow, 1).font = { italic: true, size: 9, color: { argb: layoutStyle === 'Dark' ? 'FF9B9A97' : 'FF757681' } };
-        sheet.mergeCells(footerRow, 1, footerRow, 8);
 
         await Promise.allSettled(imagePromises);
       }
 
-      toast.loading("Almost ready... Writing buffer.", { id: 'excel-export' });
+      toast.loading("Packaging branded workbook...", { id: 'excel-export' });
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      saveAs(blob, `Content_Calendar_${activeBusiness?.name?.replace(/\s+/g, '_') || 'Forge'}.xlsx`);
+      const filename = `Forge_Export_${activeBusiness?.name?.replace(/\s+/g, '_') || 'Calendar'}_${format(startMonth, 'MMM_yyyy')}.xlsx`;
+      saveAs(new Blob([buffer]), filename);
       
       setIsExportModalOpen(false);
-      toast.success("Calendar exported successfully!", { id: 'excel-export' });
+      toast.success("Branded export complete!", { id: 'excel-export' });
     } catch (e) {
       console.error(e);
       toast.error(`Export failed: ${e instanceof Error ? e.message : 'Unknown error'}`, { id: 'excel-export' });
