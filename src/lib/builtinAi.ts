@@ -75,53 +75,31 @@ class BuiltInAiService {
   }
 
   private async loadLibrary(): Promise<any> {
-    if ((this as any)._cachedLib) return (this as any)._cachedLib;
+    try {
+      // Import from local node_modules
+      // We use @mediapipe/tasks-genai which was just installed via npm
+      const pkg = await import('@mediapipe/tasks-genai');
+      if (pkg && pkg.LlmInference) return pkg;
+    } catch (e) {
+      console.warn("[BuiltInAI] Local package import failed:", e);
+    }
 
-    // Use the official ESM bundle for MediaPipe GenAI
+    // Official CDN Fallback (UMD)
     const cdns = [
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/bundle_mjs.js",
-      "https://unpkg.com/@mediapipe/tasks-genai/bundle_mjs.js"
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/genai_bundle.js",
+      "https://www.gstatic.com/mediapipe/solutions/genai/genai_bundle.js"
     ];
 
     for (const url of cdns) {
       try {
-        console.log(`[BuiltInAI] Importing ESM bundle: ${url}`);
-        const module = await import(/* @vite-ignore */ url);
-        if (module && module.LlmInference) {
-          (this as any)._cachedLib = module;
-          return module;
-        }
-      } catch (e) {
-        console.warn(`[BuiltInAI] ESM Import failed for ${url}:`, e);
-      }
+        console.log(`[BuiltInAI] Trying Fallback CDN: ${url}`);
+        await this.injectScript(url);
+        const globalGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
+        if (globalGenAI) return globalGenAI;
+      } catch (e) {}
     }
 
-    // Proxy Fallback with ESM import
-    try {
-      const proxyUrl = `/api/proxy-js?url=${encodeURIComponent("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/bundle_mjs.js")}`;
-      console.log(`[BuiltInAI] Trying proxied ESM bundle: ${proxyUrl}`);
-      const module = await import(/* @vite-ignore */ proxyUrl);
-      if (module && module.LlmInference) {
-        (this as any)._cachedLib = module;
-        return module;
-      }
-    } catch (e) {
-      console.error("[BuiltInAI] Proxied import failed:", e);
-    }
-
-    // FINAL DITCH: Try loading as a global script again but with the UMD bundle
-    try {
-      const umdUrl = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js";
-      console.log(`[BuiltInAI] Falling back to UMD Script: ${umdUrl}`);
-      await this.injectScript(umdUrl);
-      const globalGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
-      if (globalGenAI) {
-        (this as any)._cachedLib = globalGenAI;
-        return globalGenAI;
-      }
-    } catch (e) {}
-
-    throw new Error("Could not load Local AI Engine. This often happens if the MediaPipe CDN is unreachable or blocked. Check your connection.");
+    throw new Error("Local AI Engine library missing. Please restart your dev server or check browser console.");
   }
 
   private injectScript(url: string): Promise<void> {
