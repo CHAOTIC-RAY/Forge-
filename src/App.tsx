@@ -2879,9 +2879,16 @@ export default function App() {
       const extensionFiles = ['manifest.json', 'content.js', 'popup.html', 'popup.js'];
       for (const file of extensionFiles) {
         try {
-          const res = await fetch(`/extension/${file}`);
+          const res = await fetch(`/Forge_Companion_Extension/${file}`);
           if (res.ok) {
             const text = await res.text();
+
+            // Guard against SPA router answering with index.html for 404s
+            if (file !== 'popup.html' && text.trim().toLowerCase().startsWith('<!doctype html>')) {
+              console.warn(`Failed to fetch true ${file} (received SPA fallback).`);
+              continue;
+            }
+
             zip.file(file, text);
           } else {
             console.warn(`Failed to fetch ${file}`);
@@ -2909,7 +2916,7 @@ export default function App() {
 
       addSyncLog('Generating ZIP archive...', 'info');
       const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, `${activeBusiness?.name?.replace(/\s+/g, '_') || 'Forge'}_Extension_${format(new Date(), 'yyyy-MM-dd')}.zip`);
+      saveAs(content, `Forge_Companion_Extension_${format(new Date(), 'yyyy-MM-dd')}.zip`);
       
       addSyncLog('Extension ZIP exported successfully', 'success');
       toast.success('Extension package downloaded!');
