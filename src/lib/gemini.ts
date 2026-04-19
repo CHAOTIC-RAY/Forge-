@@ -3145,8 +3145,8 @@ export async function generateAppletCode(
 
   try {
     let parsed: any = null;
-    const conversation = messages.map(m => \`\${m.role === 'user' ? 'User' : 'Assistant'}: \${m.content}\`).join('\\n');
-    const flatPrompt = \`\${systemInstruction}\\n\\nConversation History:\\n\${conversation}\\n\\nGenerate the JSON response:\`;
+    const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+    const flatPrompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
 
     if (settings.preferredProvider === 'puter' || settings.preferredProvider === 'auto') {
       try {
