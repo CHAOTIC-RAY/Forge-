@@ -75,56 +75,53 @@ class BuiltInAiService {
   }
 
   private async loadLibrary(): Promise<any> {
-    // Try to detect if already loaded into a local variable
     if ((this as any)._cachedLib) return (this as any)._cachedLib;
 
+    // Use the official ESM bundle for MediaPipe GenAI
     const cdns = [
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js",
-      "https://unpkg.com/@mediapipe/tasks-genai@0.10.14/genai_bundle.js",
-      "https://www.gstatic.com/mediapipe/solutions/genai/genai_bundle.js"
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/bundle_mjs.js",
+      "https://unpkg.com/@mediapipe/tasks-genai/bundle_mjs.js"
     ];
 
     for (const url of cdns) {
       try {
-        console.log(`[BuiltInAI] Attempting ESM import from: ${url}`);
-        // Many MediaPipe bundles are UMD but can be imported as modules in modern browsers
-        // or they might be exported as global after import.
-        
-        // Strategy 1: Dynamic Import
+        console.log(`[BuiltInAI] Importing ESM bundle: ${url}`);
         const module = await import(/* @vite-ignore */ url);
-        if (module && (module.LlmInference || module.default?.LlmInference)) {
-          const lib = module.LlmInference ? module : module.default;
-          (this as any)._cachedLib = lib;
-          return lib;
-        }
-
-        // Strategy 2: If dynamic import doesn't yield exports, it might have populated global
-        await this.injectScript(url);
-        const globalGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
-        if (globalGenAI) {
-          (this as any)._cachedLib = globalGenAI;
-          return globalGenAI;
+        if (module && module.LlmInference) {
+          (this as any)._cachedLib = module;
+          return module;
         }
       } catch (e) {
-        console.warn(`[BuiltInAI] Import/Script failed for ${url}:`, e);
+        console.warn(`[BuiltInAI] ESM Import failed for ${url}:`, e);
       }
     }
 
-    // ULTIMATE FALLBACK: Same-origin proxy + Dynamic Import
+    // Proxy Fallback with ESM import
     try {
-      const proxyUrl = `/api/proxy-js?url=${encodeURIComponent("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js")}`;
-      console.log(`[BuiltInAI] Trying same-origin ESM import proxy: ${proxyUrl}`);
+      const proxyUrl = `/api/proxy-js?url=${encodeURIComponent("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/bundle_mjs.js")}`;
+      console.log(`[BuiltInAI] Trying proxied ESM bundle: ${proxyUrl}`);
       const module = await import(/* @vite-ignore */ proxyUrl);
-      if (module && (module.LlmInference || module.default?.LlmInference)) {
-        const lib = module.LlmInference ? module : module.default;
-        (this as any)._cachedLib = lib;
-        return lib;
+      if (module && module.LlmInference) {
+        (this as any)._cachedLib = module;
+        return module;
       }
     } catch (e) {
-      console.error("[BuiltInAI] All loading strategies failed.");
+      console.error("[BuiltInAI] Proxied import failed:", e);
     }
 
-    throw new Error("Local AI Engine could not be loaded. Please ensure you are using a modern browser (Chrome/Edge/Firefox) and that your connection is stable.");
+    // FINAL DITCH: Try loading as a global script again but with the UMD bundle
+    try {
+      const umdUrl = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js";
+      console.log(`[BuiltInAI] Falling back to UMD Script: ${umdUrl}`);
+      await this.injectScript(umdUrl);
+      const globalGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
+      if (globalGenAI) {
+        (this as any)._cachedLib = globalGenAI;
+        return globalGenAI;
+      }
+    } catch (e) {}
+
+    throw new Error("Could not load Local AI Engine. This often happens if the MediaPipe CDN is unreachable or blocked. Check your connection.");
   }
 
   private injectScript(url: string): Promise<void> {
