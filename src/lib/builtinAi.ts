@@ -34,22 +34,22 @@ export const BUILTIN_MODELS: BuiltInModel[] = [
   { 
     id: 'gemma3-1b', 
     name: 'Gemma 3 1B IT', 
-    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-gpu-int4.bin',
-    size: '≈1.0GB',
+    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-gpu-int4.bin?download=true',
+    size: '1.0GB',
     description: 'Latest Google model. Best balance of speed and power.'
   },
   { 
     id: 'gemma2-2b', 
     name: 'Gemma 2 2B IT', 
-    url: 'https://huggingface.co/google/gemma-2-2b-it-libert/resolve/main/gemma-2-2b-it-gpu-int4.bin',
-    size: '≈1.5GB',
+    url: 'https://storage.googleapis.com/mediapipe-models/llm_inference/gemma2-2b-it-gpu-int4.bin',
+    size: '1.5GB',
     description: 'Stable and smart. Good for complex instructions.'
   },
   { 
     id: 'falcon-1b', 
     name: 'Falcon 1B RW', 
-    url: 'https://huggingface.co/tiiuae/falcon-1b-it-tflite/resolve/main/falcon-1b-it-gpu-int4.bin',
-    size: '≈0.7GB',
+    url: 'https://huggingface.co/tiiuae/falcon-1b-it-tflite/resolve/main/falcon-1b-it-gpu-int4.bin?download=true',
+    size: '0.7GB',
     description: 'Ultra lightweight. Fast on older devices.'
   }
 ];
