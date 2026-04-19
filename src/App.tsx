@@ -323,7 +323,12 @@ export default function App() {
   useEffect(() => {
     const handleExtensionMessage = async (event: MessageEvent) => {
       // 1. Return User State for Login
-      if (event.data?.type === 'FORGE_GET_USER_STATE' && user) {
+      if (event.data?.type === 'FORGE_GET_USER_STATE') {
+        if (!user) {
+          console.warn("[Forge Companion] Extension requested state but user is not logged in.");
+          return;
+        }
+        console.log("[Forge Companion] Extension requested state. Sending:", user.email);
         window.postMessage({ 
           type: 'FORGE_USER_STATE_DATA', 
           data: {

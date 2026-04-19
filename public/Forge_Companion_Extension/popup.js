@@ -65,17 +65,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   connectBtn.addEventListener('click', async () => {
     connectBtn.innerText = "Connecting...";
-    const urlPattern = forgeUrlInput.value.trim();
+    let urlPattern = forgeUrlInput.value.trim();
     if (!urlPattern) return setStatus(loginStatus, "Please enter a valid URL");
     
-    // Test connection
+    // Ensure pattern ends with * for broad matching
+    if (!urlPattern.endsWith('*')) {
+      urlPattern = urlPattern.endsWith('/') ? urlPattern + '*' : urlPattern + '/*';
+    }
+
+    console.log('Querying for tabs matching:', urlPattern);
+    
     chrome.tabs.query({ url: urlPattern }, (tabs) => {
       if (tabs && tabs.length > 0) {
         chrome.tabs.sendMessage(tabs[0].id, { action: "requestUserState" }, (response) => {
+          if (chrome.runtime.lastError) {
+             console.error(chrome.runtime.lastError);
+             setStatus(loginStatus, "Error: Script not active on tab. Please refresh Forge.");
+             connectBtn.innerText = "Connect to Open Tab";
+             return;
+          }
+
           if (response && response.email) {
             setupStep1.style.display = 'none';
             setupStep2.style.display = 'block';
-            loggedInUserText.innerText = `Logged in as: ${response.email}`;
+            loggedInUserText.innerText = `Connected: ${response.email}`;
             
             workspaceSelect.innerHTML = "";
             (response.workspaces || []).forEach(w => {
@@ -85,12 +98,12 @@ document.addEventListener('DOMContentLoaded', () => {
               workspaceSelect.appendChild(opt);
             });
             
-            // pre-select active if possible
             if (response.activeWorkspaceId) {
               workspaceSelect.value = response.activeWorkspaceId;
             }
           } else {
-            setStatus(loginStatus, "Connected, but user not logged in on Forge App.");
+            console.warn('Empty response or missing email:', response);
+            setStatus(loginStatus, "Connected, but could not detect login. Refresh Forge.");
           }
           connectBtn.innerText = "Connect to Open Tab";
         });

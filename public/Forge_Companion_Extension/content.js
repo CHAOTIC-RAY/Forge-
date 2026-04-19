@@ -41,11 +41,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "requestUserState") {
+    console.log("[Forge Extension] Requesting user state from page...");
     window.postMessage({ type: "FORGE_GET_USER_STATE" }, "*");
     
     const listener = (event) => {
-      if (event.source !== window) return;
+      // Remove sensitive source check that might fail on some subdomains
       if (event.data && event.data.type === "FORGE_USER_STATE_DATA") {
+        console.log("[Forge Extension] Received user state:", event.data.data);
         sendResponse(event.data.data);
         window.removeEventListener("message", listener);
       }
@@ -55,8 +57,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     setTimeout(() => {
         window.removeEventListener("message", listener);
-        sendResponse({ error: "Timeout fetching user state. Are you logged in?" });
-    }, 5000);
+        // If we timeout, we send at least an empty object so popup doesn't hang
+        sendResponse({ error: "Timeout fetching user state. Please refresh the Forge App tab." });
+    }, 4000);
     
     return true;
   }

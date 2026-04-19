@@ -232,7 +232,15 @@ export const setAiSettings = (settings: any) => {
   localStorage.setItem('forge_ai_settings', JSON.stringify(settings));
 };
 
+ // Session-level flags to skip providers that are failing consistently (e.g. out of balance or invalid key)
+let isPuterDisabledForSession = false;
+let isGroqDisabledForSession = false;
+
 async function fetchFromPuter(prompt: string, images?: { base64: string, mimeType: string }[]) {
+  if (isPuterDisabledForSession) {
+    throw new Error("Puter is disabled for this session due to insufficient funds.");
+  }
+
   const settings = getAiSettings();
   const model = settings.puterTextModel || 'gpt-4o-mini';
   
@@ -310,10 +318,17 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
 
     return str;
   } catch (error: any) {
-    if (error?.status === 402 || error?.code === 'insufficient_funds') {
-       // silently fail for known limit errors to let cascade take over cleanly
+    const errorMsg = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
+    const isBalanceError = error?.status === 402 || error?.code === 'insufficient_funds' || errorMsg.toLowerCase().includes('insufficient funds') || errorMsg.toLowerCase().includes('low balance');
+
+    if (isBalanceError) {
+       if (!isPuterDisabledForSession) {
+         isPuterDisabledForSession = true;
+         // Removed toast notification from here to prevent cascade spam
+       }
+       console.warn("[Puter] Insufficient funds. Puter disabled for session.");
     } else {
-       console.warn("[Puter] fetchFromPuter warning:", error?.message || error);
+       console.warn("[Puter] fetchFromPuter warning:", errorMsg);
     }
     throw error;
   }
@@ -405,7 +420,11 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
   }
 }
 
-async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
+ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
+  if (isGroqDisabledForSession) {
+    throw new Error("Groq is disabled for this session due to invalid API key.");
+  }
+
   const settings = getAiSettings();
   
   if (!settings.groqApiKey && !serverConfig?.hasGroqApiKey && !GROQ_API_KEY) {
@@ -464,8 +483,14 @@ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType
   });
 
   if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Groq API error: ${err}`);
+    const errText = await response.text();
+    if (response.status === 401) {
+       if (!isGroqDisabledForSession) {
+         isGroqDisabledForSession = true;
+         // Removed toast from here to prevent cascade spam
+       }
+    }
+    throw new Error(`Groq API error: ${errText}`);
   }
 
   const data = await response.json();

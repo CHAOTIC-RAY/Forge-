@@ -16,6 +16,7 @@
   "externally_connectable": {
     "matches": [
       "https://ais-dev-lkdab6rylgfzl4qvouhnor-22311204047.asia-southeast1.run.app/*",
+      "https://forge.chaoticstudio.workers.dev/*",
       "http://localhost/*"
     ]
   }
