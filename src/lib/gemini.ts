@@ -3113,5 +3113,83 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
   }
 }
 
+export interface AppletResponse {
+  reply: string;
+  code?: string;
+}
+
+export async function generateAppletCode(
+  messages: ChatMessage[],
+  businessContext?: any
+): Promise<AppletResponse> {
+  const settings = getAiSettings();
+  
+  const systemInstruction = `You are an elite full-stack developer and AI Architect. Your goal is to help the user build "Mini Apps" (Applets) that run inside their Forge workspace.
+  
+  RULES FOR APPLET CODE:
+  1. Return a SINGLE, STANDALONE HTML string.
+  2. Use Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>.
+  3. Include ALL CSS in <style> tags and ALL Javascript in <script> tags.
+  4. Use ANY standard web technology (Canvas, SVG, Web Audio, etc.).
+  5. USER INTERFACE: Make the UI feel premium, modern, and aligned with standard Forge aesthetics (clean, high-end, responsive).
+  6. DATA INJECTION: You have access to a global variable window.FORGE_CONTEXT which contains the current business data. Use this data if relevant to the app's purpose.
+  7. LIBRARIES: You can use CDNs for helpful libraries like Lucide icons, Chart.js, D3.js, or Framer Motion (via script tags).
+  8. RESPONSE FORMAT: You MUST respond with a valid JSON object:
+     {
+       "reply": "A brief explanation of what you built or updated.",
+       "code": "<!DOCTYPE html><html>...</html>"
+     }
+  9. INCREMENTAL UPDATES: If the user asks for a change, regenerate the FULL code with the changes applied.
+  
+  Do not include markdown code blocks. Just raw JSON.`;
+
+  try {
+    let parsed: any = null;
+    const conversation = messages.map(m => \`\${m.role === 'user' ? 'User' : 'Assistant'}: \${m.content}\`).join('\\n');
+    const flatPrompt = \`\${systemInstruction}\\n\\nConversation History:\\n\${conversation}\\n\\nGenerate the JSON response:\`;
+
+    if (settings.preferredProvider === 'puter' || settings.preferredProvider === 'auto') {
+      try {
+        const text = await fetchFromPuter(flatPrompt);
+        parsed = safeParseJSON(text || '{}');
+      } catch (e) {
+        console.warn("Puter applet builder failed, falling back...");
+      }
+    }
+
+    if ((!parsed || !parsed.reply) && (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto')) {
+      try {
+        const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
+        parsed = safeParseJSON(groqText || '{}');
+      } catch (e) {
+        console.warn("Groq applet builder failed, falling back to Gemini...");
+      }
+    }
+
+    if (!parsed || !parsed.reply) {
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
+      const ai = getAi();
+      const response = await ai.models.generateContent({
+        model: settings.geminiModel || "gemini-2.0-flash",
+        contents: messages.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] })),
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: "application/json",
+          temperature: 0.7,
+        }
+      });
+      parsed = safeParseJSON(response.text || '{}');
+    }
+
+    return (parsed && parsed.reply) ? parsed : { reply: "Error generating applet." };
+  } catch (error) {
+    console.error("Applet Generation error:", error);
+    return { reply: "Critical error in AI Studio engine." };
+  }
+}
+
+
 
 

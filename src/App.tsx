@@ -29,7 +29,7 @@ import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import { 
-  Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2,
+  Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2, Terminal,
   Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock
 } from 'lucide-react';
 import { Type } from "@google/genai";
@@ -58,6 +58,7 @@ import { BrandKitTab } from './components/BrandKitTab';
 import { NotebookTab } from './components/NotebookTab';
 import { FloatingChat } from './components/FloatingChat';
 import { WorkspaceManagementTab } from './components/WorkspaceManagementTab';
+import { AiStudioTab } from './components/AiStudioTab';
 import { 
   generatePostContent, 
   generateMockupImage, 
@@ -431,7 +432,7 @@ export default function App() {
     return () => window.removeEventListener('message', handleExtensionMessage);
   }, [activeBusiness, user, businesses]);
 
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -3016,7 +3017,7 @@ export default function App() {
                     activeTab === 'creative' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                   )}
                 >
-                  <Sparkles className="w-5 h-5 shrink-0" />
+                  <Terminal className="w-5 h-5 shrink-0" />
                 </button>
                 <button 
                   onClick={() => setActiveTab('analytics')} 
@@ -3251,8 +3252,7 @@ export default function App() {
 
             {isAdmin && (
               <div className={cn("flex-1", activeTab === 'creative' ? 'block' : 'hidden')}>
-                <CreativeStudioTab 
-                  onSavePost={handleSavePost}
+                <AiStudioTab 
                   userId={user?.uid}
                   activeBusiness={activeBusiness}
                 />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ForgeLoader } from './ForgeLoader';
-import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Save, Moon, Camera, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database } from 'lucide-react';
+import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Save, Moon, Camera, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
