@@ -290,6 +290,12 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
     console.log("[Puter] Raw response:", response);
 
     // Puter.js v2 chat response handling
+    // Check if response is an error object (some Puter versions return {success: false, error: ...} instead of throwing)
+    if (response && typeof response === 'object' && (response.success === false || response.error)) {
+      const pError = response.error?.message || response.error || "Unknown Puter error";
+      throw new Error(pError);
+    }
+
     if (typeof response === 'string') return response;
     
     // Check for response.message.content (standard OpenAI-like)
@@ -319,14 +325,17 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
     return str;
   } catch (error: any) {
     const errorMsg = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
-    const isBalanceError = error?.status === 402 || error?.code === 'insufficient_funds' || errorMsg.toLowerCase().includes('insufficient funds') || errorMsg.toLowerCase().includes('low balance');
+    const isBalanceError = error?.status === 402 || error?.code === 'insufficient_funds' || errorMsg.toLowerCase().includes('insufficient funds') || errorMsg.toLowerCase().includes('low balance') || errorMsg.toLowerCase().includes('quota');
 
-    if (isBalanceError) {
+    if (isBalanceError || errorMsg.toLowerCase().includes('invalid api key')) {
        if (!isPuterDisabledForSession) {
          isPuterDisabledForSession = true;
-         // Removed toast notification from here to prevent cascade spam
+         // Use a crisp notification that specifies exactly which AI failed
+         import('sonner').then(({ toast }) => {
+           toast.error(`Puter (${model}) failed: ${isBalanceError ? 'Insufficient funds' : 'Authentication error'}. Switching to fallbacks.`);
+         });
        }
-       console.warn("[Puter] Insufficient funds. Puter disabled for session.");
+       console.warn(`[Puter] ${model} disabled for session:`, errorMsg);
     } else {
        console.warn("[Puter] fetchFromPuter warning:", errorMsg);
     }
@@ -457,8 +466,9 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
   messages.push({ role: 'user', content });
 
   const isJsonExpected = prompt.toLowerCase().includes('json');
+  const model = images && images.length > 0 ? settings.groqVisionModel : settings.groqModel;
   const body: any = {
-    model: images && images.length > 0 ? settings.groqVisionModel : settings.groqModel,
+    model,
     messages,
     temperature: 0.7,
   };
@@ -484,10 +494,15 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
 
   if (!response.ok) {
     const errText = await response.text();
-    if (response.status === 401) {
+    const isAuthError = response.status === 401 || errText.toLowerCase().includes('invalid api key');
+    const isQuotaError = response.status === 429 || errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('limit');
+
+    if (isAuthError || isQuotaError) {
        if (!isGroqDisabledForSession) {
          isGroqDisabledForSession = true;
-         // Removed toast from here to prevent cascade spam
+         import('sonner').then(({ toast }) => {
+            toast.error(`Groq (${model}) failed: ${isAuthError ? 'Invalid API Key' : 'Rate limit/Quota'}. Switching to fallbacks.`);
+         });
        }
     }
     throw new Error(`Groq API error: ${errText}`);
