@@ -123,13 +123,20 @@ export const GROQ_MODELS = [
 ];
 
 export const safeParseJSON = (text: string) => {
+  if (!text) return null;
   try {
     let cleaned = text.trim();
+    // Remove markdown code block markers if the AI wrapped the whole response
+    cleaned = cleaned.replace(/^```json/g, '').replace(/```$/g, '').trim();
+    
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
-    if (start !== -1 && end !== -1) cleaned = cleaned.substring(start, end + 1);
+    if (start !== -1 && end !== -1) {
+      cleaned = cleaned.substring(start, end + 1);
+    }
     return JSON.parse(cleaned);
-  } catch {
+  } catch (e) {
+    console.warn("[safeParseJSON] Failed to parse:", text.substring(0, 100));
     return null;
   }
 };
@@ -458,20 +465,16 @@ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType
     model,
     messages,
     temperature: 0.7,
+    apiKey // Pass key to proxy
   };
 
   if (isJsonExpected) {
     body.response_format = { type: 'json_object' };
   }
 
-  const fetchUrl = useProxy ? '/api/groq' : 'https://api.groq.com/openai/v1/chat/completions';
-  const headers: any = {
-    'Content-Type': 'application/json'
-  };
-
-  if (!useProxy) {
-    headers['Authorization'] = `Bearer ${apiKey}`;
-  }
+  // Always use local proxy to avoid CORS
+  const fetchUrl = '/api/groq';
+  const headers = { 'Content-Type': 'application/json' };
 
   const response = await fetch(fetchUrl, {
     method: 'POST',
@@ -3174,7 +3177,7 @@ export async function generateAppletCode(
     }
 
     // Puter as absolute last resort for applet builder
-    if ((!parsed || !parsed.reply) && settings.preferredProvider === 'auto') {
+    if ((!parsed || !parsed.reply || !parsed.code) && settings.preferredProvider === 'auto') {
       try {
         const text = await fetchFromPuter(flatPrompt);
         parsed = safeParseJSON(text || '{}');
@@ -3182,14 +3185,14 @@ export async function generateAppletCode(
     }
 
     // Final check for explicit Puter preference
-    if ((!parsed || !parsed.reply) && settings.preferredProvider === 'puter') {
+    if ((!parsed || !parsed.reply || !parsed.code) && settings.preferredProvider === 'puter') {
       try {
         const text = await fetchFromPuter(flatPrompt);
         parsed = safeParseJSON(text || '{}');
       } catch (e) {}
     }
 
-    return (parsed && parsed.reply) ? parsed : { reply: "Error generating applet." };
+    return (parsed && parsed.reply && parsed.code) ? parsed : (parsed && parsed.reply) ? parsed : { reply: "Error generating applet code." };
   } catch (error) {
     console.error("Applet Generation error:", error);
     return { reply: "Critical error in AI Studio engine." };

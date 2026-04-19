@@ -143,3 +143,20 @@ html {
     overflow: visible !important;
   }
 }
+/* Scorched Earth suppression for external library popups (Shadow DOM & Custom Elements) */
+usage-limit-dialog, 
+[class*="usage-limit"],
+.puter-modal-container,
+[class*="puter-modal-container"],
+[class*="usage-limit-modal"],
+#puter-modal-backdrop {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -9999 !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+}

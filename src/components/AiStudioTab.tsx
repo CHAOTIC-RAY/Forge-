@@ -33,6 +33,16 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Strip markdown code blocks if present
+  const stripMarkdown = (code: string) => {
+    return code
+      .replace(/```html/g, '')
+      .replace(/```javascript/g, '')
+      .replace(/```css/g, '')
+      .replace(/```/g, '')
+      .trim();
+  };
+
   // Update Iframe content
   useEffect(() => {
     if (iframeRef.current && generatedCode) {
@@ -42,7 +52,13 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
         // Inject context into window
         const contextStr = JSON.stringify(activeBusiness || {});
         // Try to inject right after <head> or at start
-        let finalCode = generatedCode;
+        let finalCode = stripMarkdown(generatedCode);
+        
+        // Ensure some basic HTML structure if missing
+        if (!finalCode.toLowerCase().includes('<html')) {
+          finalCode = `<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script></head><body>${finalCode}</body></html>`;
+        }
+
         if (finalCode.includes('<head>')) {
           finalCode = finalCode.replace(
             '<head>',

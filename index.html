@@ -17,11 +17,20 @@
         for (const mutation of mutations) {
           mutation.addedNodes.forEach((node) => {
             if (node instanceof HTMLElement) {
+              // 1. Direct tag name check (for custom elements like <usage-limit-dialog>)
+              const tagName = node.tagName.toLowerCase();
+              if (tagName.includes('usage-limit') || tagName.includes('puter-modal')) {
+                node.remove();
+                console.log("[Forge] Suppression active: Blocked custom element " + tagName);
+                return;
+              }
+
+              // 2. Keyword check for dynamic content
               const text = (node.innerText || "").toLowerCase();
-              if (text.includes("low balance") && text.includes("funding")) {
+              if (text.includes("low balance") || (text.includes("funding") && text.includes("account"))) {
                 node.style.display = 'none';
                 node.remove();
-                console.log("[Forge] Suppression active: Blocked external balance alert.");
+                console.log("[Forge] Suppression active: Blocked external balance alert via text.");
               }
             }
           });

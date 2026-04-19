@@ -102,6 +102,40 @@ export async function startServer(forcePort?: number) {
     }
   });
 
+  // Groq API Proxy
+  app.post("/api/groq", async (req, res) => {
+    const { model, messages, temperature, response_format, apiKey: userKey } = req.body;
+    
+    // Use user-provided key or server environment key
+    const apiKey = userKey || process.env.GROQ_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(400).json({ error: "Groq API key is missing. Please provide one in Settings or server environment." });
+    }
+
+    try {
+      const response = await axios.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          model: model || "llama-3.3-70b-versatile",
+          messages,
+          temperature: temperature ?? 0.7,
+          response_format
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("[Server] Groq Proxy Error:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json(error.response?.data || { error: error.message });
+    }
+  });
+
   app.use("/api", scraperRouter);
 
   // Proxy image endpoint to bypass CORS
