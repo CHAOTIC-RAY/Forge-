@@ -187,18 +187,18 @@ export async function startServer(forcePort?: number) {
 
     try {
       const response = await axios.get(url, { 
-        responseType: "text",
-        timeout: 20000,
+        responseType: "arraybuffer", // Use arraybuffer for binary integrity
+        timeout: 30000,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
       });
 
-      res.setHeader("Content-Type", "application/javascript");
+      res.setHeader("Content-Type", "application/javascript; charset=utf-8");
       res.setHeader("Cache-Control", "public, max-age=86400"); // Cache for 1 day
-      res.send(response.data);
+      res.send(Buffer.from(response.data));
     } catch (error: any) {
-      console.error("Proxy JS failed:", error.message);
+      console.error("Proxy JS failed:", error.response?.data || error.message);
       res.status(500).send(`Failed to proxy JS: ${error.message}`);
     }
   });
