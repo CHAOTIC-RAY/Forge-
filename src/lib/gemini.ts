@@ -374,18 +374,11 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       console.warn('Groq failed, cascading...');
     }
   } else if (settings.preferredProvider === 'auto') {
-    // In auto mode, try Groq first (speed), then Puter if signed in (reliability/gpt4), then Gemini
+    // In auto mode, try Groq first (fast/free), then Gemini, then Puter as absolute last resort
     try {
       return await fetchFromGroq(fullPrompt);
     } catch (e) {
-      console.warn('Auto mode: Groq failed, trying Puter...');
-      if (isPuterSignedIn) {
-        try {
-          return await fetchFromPuter(fullPrompt);
-        } catch (pe) {
-          console.warn('Auto mode: Puter failed, falling through to Gemini...');
-        }
-      }
+      console.warn('Auto mode: Groq failed, trying Gemini...');
     }
   }
 
@@ -413,19 +406,14 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     }
     return '';
   } catch (error) {
-    console.warn("Gemini failed, cascading final fallback...");
-    // If auto and Gemini failed, try Puter as last resort if we haven't already
+    console.warn("Gemini failed, cascading to last resort Puter...");
+    // If auto and Gemini/Groq failed, try Puter as absolute last resort
     if (settings.preferredProvider === 'auto' && isPuterSignedIn) {
       try {
         return await fetchFromPuter(fullPrompt);
       } catch (e) { }
     }
-  }
-
-  try {
-    return await fetchFromGroq(fullPrompt);
-  } catch (e) {
-    throw new Error("All AI providers failed to generate text.");
+    throw new Error("All AI providers failed to generate contents.");
   }
 }
 
@@ -3160,21 +3148,12 @@ export async function generateAppletCode(
     const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
     const flatPrompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
 
-    if (settings.preferredProvider === 'puter' || settings.preferredProvider === 'auto') {
-      try {
-        const text = await fetchFromPuter(flatPrompt);
-        parsed = safeParseJSON(text || '{}');
-      } catch (e) {
-        console.warn("Puter applet builder failed, falling back...");
-      }
-    }
-
-    if ((!parsed || !parsed.reply) && (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto')) {
+    if (settings.preferredProvider === 'auto' || settings.preferredProvider === 'groq') {
       try {
         const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
         parsed = safeParseJSON(groqText || '{}');
       } catch (e) {
-        console.warn("Groq applet builder failed, falling back to Gemini...");
+        console.warn("Groq applet builder failed, falling back...");
       }
     }
 
@@ -3193,6 +3172,22 @@ export async function generateAppletCode(
         }
       });
       parsed = safeParseJSON(response.text || '{}');
+    }
+
+    // Puter as absolute last resort for applet builder
+    if ((!parsed || !parsed.reply) && settings.preferredProvider === 'auto') {
+      try {
+        const text = await fetchFromPuter(flatPrompt);
+        parsed = safeParseJSON(text || '{}');
+      } catch (e) {}
+    }
+
+    // Final check for explicit Puter preference
+    if ((!parsed || !parsed.reply) && settings.preferredProvider === 'puter') {
+      try {
+        const text = await fetchFromPuter(flatPrompt);
+        parsed = safeParseJSON(text || '{}');
+      } catch (e) {}
     }
 
     return (parsed && parsed.reply) ? parsed : { reply: "Error generating applet." };

@@ -432,27 +432,6 @@ export default function App() {
     return () => window.removeEventListener('message', handleExtensionMessage);
   }, [activeBusiness, user, businesses]);
 
-  // Global "Scorched Earth" for the unwanted Low Balance popup
-  useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'childList') {
-          mutation.addedNodes.forEach((node) => {
-            if (node instanceof HTMLElement) {
-              const text = node.innerText || "";
-              if (text.includes("Low Balance") && text.includes("funding")) {
-                console.log("[Forge] Suppressing external Low Balance popup...");
-                node.remove();
-              }
-            }
-          });
-        }
-      }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
 
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
   const [creativeView, setCreativeView] = useState<'modules' | 'sandbox'>('modules');
