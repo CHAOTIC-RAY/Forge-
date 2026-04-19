@@ -74,7 +74,32 @@ class BuiltInAiService {
     this.statusListeners.forEach(l => l(status));
   }
 
+  private async loadLibrary(): Promise<any> {
+    const GenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
+    if (GenAI) return GenAI;
+
+    return new Promise((resolve, reject) => {
+      console.log("[BuiltInAI] Library not found in global. Attempting dynamic load...");
+      const script = document.createElement('script');
+      script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js";
+      script.crossOrigin = "anonymous";
+      script.onload = () => {
+        // After loading, check the globals again
+        const loadedGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
+        if (loadedGenAI) {
+          console.log("[BuiltInAI] Library loaded dynamically.");
+          resolve(loadedGenAI);
+        } else {
+          reject(new Error("MediaPipe loaded but GenAI global not found."));
+        }
+      };
+      script.onerror = () => reject(new Error("Could not load MediaPipe GenAI library from CDN."));
+      document.head.appendChild(script);
+    });
+  }
+
   async init(modelId: string = 'gemma3-1b') {
+    if (this.isLoading) return;
     if (this.isLoaded && this.currentModelId === modelId) return;
 
     this.isLoading = true;
@@ -85,14 +110,9 @@ class BuiltInAiService {
       // Find model
       const model = BUILTIN_MODELS.find(m => m.id === modelId) || BUILTIN_MODELS[0];
 
-      // Access MediaPipe from Global
-      // Try multiple possible global names exposed by different bundle versions
-      const GenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
+      // Ensure library is loaded
+      const GenAI = await this.loadLibrary();
       
-      if (!GenAI) {
-        throw new Error("MediaPipe GenAI library not loaded. Ensure genai_bundle.js is included in index.html.");
-      }
-
       const { LlmInference, FilesetResolver } = GenAI;
 
       const genaiFileset = await FilesetResolver.forGenAiTasks(this.WASM_PATH);
