@@ -126,8 +126,8 @@ export const safeParseJSON = (text: string) => {
   if (!text) return null;
   try {
     let cleaned = text.trim();
-    // Remove markdown code block markers if the AI wrapped the whole response
-    cleaned = cleaned.replace(/^```json/g, '').replace(/```$/g, '').trim();
+    // Broad match for markdown code block, handling trailing chars
+    cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/g, '').replace(/```$/g, '').trim();
     
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
@@ -135,22 +135,25 @@ export const safeParseJSON = (text: string) => {
       cleaned = cleaned.substring(start, end + 1);
     }
 
-    // Fix common hallucinated syntax errors from small models
-    // 1. "key" = "value" -> "key": "value"
-    cleaned = cleaned.replace(/"([^"]+)"\s*=\s*"/g, '"$1": "');
-    // 2. Trailing commas before closing braces/brackets
-    cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
-    
     try {
       return JSON.parse(cleaned);
     } catch (innerError) {
-      // Third attempt: try to use regex to find keys and values if it still fails
-      // This is a last resort and might not be perfect
-      console.warn("[safeParseJSON] Standard cleanup failed, trying regex fallback...");
-      return JSON.parse(cleaned.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":'));
+      // Small model hallucination fixes:
+      // Replace '=' with ':' only in keys
+      cleaned = cleaned.replace(/"([^"]+)"\s*=/g, '"$1":');
+      // Remove trailing commas
+      cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+      // Attempt parse again
+      return JSON.parse(cleaned);
     }
   } catch (e) {
     console.warn("[safeParseJSON] Failed to parse:", text.substring(0, 200));
+    // Final fallback for completely truncated local AI responses
+    const messageMatch = text.match(/"message"\s*:\s*"([^"]*)/);
+    if (messageMatch && messageMatch[1]) {
+      console.log("[safeParseJSON] Rescued message via regex:", messageMatch[1]);
+      return { message: messageMatch[1].trim() };
+    }
     return null;
   }
 };
@@ -2928,6 +2931,7 @@ export interface ChatMessage {
 export interface ChatResponse {
   message: string;
   action?: 'delete' | 'update' | 'create';
+  tool_call?: { name: string; query?: string; url?: string };
   suggestedPosts?: {
     title?: string;
     brief?: string;
@@ -2957,10 +2961,12 @@ export async function chatWithAi(
 ): Promise<ChatResponse> {
   const settings = getAiSettings();
 
-  const systemInstruction = `You are Forge AI, an expert social media manager and creative assistant.
+  const systemInstruction = `You are Forge AI, an expert social media manager acting as the ultimate Brand Simulant.
 Your goal is to help the user create, improve, or brainstorm social media posts, products, and ideas.
-You have access to the current workspace schedule, business information, and brand kit.
-You are highly capable of understanding complex tasks and analyzing patterns in the schedule.
+
+CRITICAL DIRECTIVE - PERSONA SIMULATION: 
+You are no longer a generic assistant. Look at the workspace context. You MUST adopt the brand's 'Brand Profile', tone, and identity. When you reply, sound like a team member of THAT brand. 
+If no brand is set, default to a high-end, creative agency professional.
 
 Context about the workspace and current item:
 ${contextStr || 'None'}
@@ -2970,8 +2976,13 @@ ${settings.systemInstructions ? `\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.syste
 You MUST respond with a valid JSON object containing:
 1. "message": Your conversational response to the user. Be helpful, concise, and smart. Use Markdown formatting for better readability (bold, lists, etc.).
 2. "action": (OPTIONAL) Set to "delete" if the user explicitly asks to delete the attached item. Set to "update" if modifying an existing item.
-3. "imagePrompt": (OPTIONAL) If the user explicitly asks you to "generate an image", "paint", or "draw" something, provide a highly detailed photorealistic image prompt here.
-4. "suggestedPosts": (OPTIONAL) An array of post objects if the user asks to create multiple posts or schedule them. Each object should include:
+3. "tool_call": (OPTIONAL) If you need more information to answer the user's request, you can request to use a tool by providing an object here instead of providing a final answer. 
+   Supported tools:
+   - {"name": "search_web", "query": "search query here"} => Use this to find real-time information or look up facts not in your context.
+   - {"name": "read_url", "url": "https://..."} => Use this to read the content of a specific webpage if the user provides a link.
+   If you use a tool_call, you can leave "message", "suggestedPosts", and "imagePrompt" empty, as the system will run the tool and feed the result back to you.
+4. "imagePrompt": (OPTIONAL) If the user explicitly asks you to "generate an image", "paint", or "draw" something, provide a highly detailed photorealistic image prompt here.
+5. "suggestedPosts": (OPTIONAL) An array of post objects if the user asks to create multiple posts or schedule them. Each object should include:
    - title: A short, catchy title
    - brief: Visual instructions for the graphic designer. It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
    - caption: A SHORT, engaging caption (max 2-3 sentences)
@@ -2979,7 +2990,7 @@ You MUST respond with a valid JSON object containing:
    - type: Post type (e.g., '🔴 General')
    - outlet: Platform or outlet name
    - date: (OPTIONAL) The target date in YYYY-MM-DD format. If not specified, it will default to today.
-5. "suggestedPost": (OPTIONAL) If the user asks for a single post modification, you can use this single object instead of the array.
+6. "suggestedPost": (OPTIONAL) If the user asks for a single post modification, you can use this single object instead of the array.
 
 If the user asks to delete the attached item, set "action": "delete" and provide a confirmation message in "message".
 If the user asks to edit/modify, set "action": "update" and provide the changes in "suggestedPost".
@@ -3002,40 +3013,46 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
         ? contextStr.substring(0, 3000) + "\n\n[Context truncated]" 
         : contextStr;
 
-      finalSystemInstruction = `You are Forge Local AI. 
-Role: Social Media Manager & Creative Assistant.
-Personality: Professional, creative, and friendly.
-
+      finalSystemInstruction = `You are a social media assistant for the brand. Look at the CONTEXT below and adopt the brand's voice.
+      
 CONTEXT:
 ${truncatedContext}
 
-${settings.systemInstructions ? `PERSONALITY NOTES: ${settings.systemInstructions}` : ''}
-
-STRICT OUTPUT FORMAT:
-You MUST respond with a JSON object ONLY. No other text.
-{
-  "message": "Direct answer to user. Use Markdown. If user says 'hi', just greet them normally.",
-  "action": null | "update" | "delete",
-  "imagePrompt": "Detailed prompt ONLY if user asked to draw/show/generate an image",
-  "suggestedPost": null | { "title": "...", "caption": "...", "type": "...", "outlet": "..." }
-}
-
-IMPORTANT:
-- If the user says 'hi' or greets you, just respond in "message" and set others to null.
-- DO NOT copy placeholder strings like "Your visible response here".
-- DO NOT use "=" for keys. Use ":" only.`;
+${settings.systemInstructions ? `NOTES: ${settings.systemInstructions}` : ''}`;
     }
 
-    const flatPrompt = `### System Instruction:\n${finalSystemInstruction}\n\n### Conversation History:\n${conversation}\n\n### Task:\nGenerate a valid JSON response based on the latest user message:`;
+    let flatPrompt = `### System Instruction:\n${finalSystemInstruction}\n\n### Conversation History:\n${conversation}\n\n### Task:\nGenerate a valid JSON response based on the latest user message:`;
+    if (settings.preferredProvider === 'builtin') {
+       // Gemma instruction tuning format
+       flatPrompt = `<start_of_turn>user\n${finalSystemInstruction}\n\nConversation:\n${conversation}\n\nAnswer the user's last message directly in plain text. No intros.<end_of_turn>\n<start_of_turn>model\n`;
+    }
 
     if (settings.preferredProvider === 'builtin') {
       try {
         const localResponse = await builtInAi.generate(flatPrompt);
-        parsed = safeParseJSON(localResponse || '{}');
-        if (parsed && parsed.message) {
-          parsed.provider = 'Local AI';
-          fallbackToGemini = false;
+        
+        // Remove markdown wrappers and assistant prefixes that small models sometimes hallucinate
+        let cleanedLocal = localResponse.replace(/^### [^\n]*\n/gm, '').replace(/User's latest message:/g, '').trim();
+        
+        let parsedLocal: any = null;
+        
+        // Try parsing only if it looks remotely like JSON, to avoid spamming safeParseJSON warnings
+        if (cleanedLocal.startsWith('{') || cleanedLocal.startsWith('`')) {
+            parsedLocal = safeParseJSON(cleanedLocal);
         }
+
+        if (parsedLocal && parsedLocal.message) {
+            parsed = parsedLocal;
+        } else if (cleanedLocal) {
+            // It followed plain-text instructions, so wrap it
+            parsed = { message: cleanedLocal };
+        }
+        
+        if (parsed && parsed.message) {
+            parsed.provider = 'Local AI';
+            fallbackToGemini = false;
+        }
+        
       } catch (e) {
         console.warn("Local AI chat failed, falling back...");
       }
@@ -3129,8 +3146,18 @@ IMPORTANT:
     }
 
     return { message: "I'm sorry, I couldn't process that request properly.", provider: 'System' };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chat AI error:", error);
+    
+    // Check for Quota/Rate Limit
+    const errorStr = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+    if (errorStr.includes('429') || errorStr.includes('quota') || errorStr.includes('RESOURCE_EXHAUSTED')) {
+       return { 
+         message: "⚠️ **Quota Exceeded.** You have hit the rate limit for the free AI service. Please wait a few minutes, or configure your own free API keys in the **Settings -> AI Studio** tab to continue seamlessly.", 
+         provider: 'System' 
+       };
+    }
+    
     return { message: "I encountered an error while trying to respond. Please try again.", provider: 'System' };
   }
 }

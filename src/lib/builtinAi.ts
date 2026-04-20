@@ -252,9 +252,8 @@ class BuiltInAiService {
           modelAssetPath: objectUrl,
         },
         maxTokens: 4096,
-        topK: 40,
-        temperature: 0.7,
-        randomSeed: Math.floor(Math.random() * 1000),
+        topK: 10,
+        temperature: 0.3,
       });
 
       URL.revokeObjectURL(objectUrl);

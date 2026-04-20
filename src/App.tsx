@@ -313,6 +313,16 @@ export default function App() {
   };
 
   const [posts, setPosts] = useState<Post[]>([]);
+  
+  // --- HYBRID INTELLIGENCE: Data Sync (Phase 4) ---
+  useEffect(() => {
+    if (activeBusiness) {
+      import('./lib/rag').then(({ syncDatabase }) => {
+         syncDatabase(activeBusiness, products, posts, brandKit);
+      });
+    }
+  }, [activeBusiness, products, posts, brandKit]);
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'account' | 'workspaces' | 'ai' | 'analytics' | 'maintenance'>('account');
   const [googleTokens, setGoogleTokens] = useState<{ access_token: string, refresh_token?: string, expires_in: number } | null>(() => {

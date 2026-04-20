@@ -153,45 +153,72 @@ export function FloatingChat({
     setAttachedImages([]); // Clear images after sending
 
     try {
+      // --- HYBRID INTELLIGENCE: Local RAG (Phase 1) ---
       let contextStr = "";
       
-      const workspaceContext = {
-        business: activeBusiness ? {
-          name: activeBusiness.name,
-          industry: activeBusiness.industry,
-          position: activeBusiness.position
-        } : null,
-        scheduleSummary: posts.length > 0 
-          ? posts.slice(0, 50).map(p => `- [${p.date}] ${p.title} (${p.outlet}): ${p.type}`).join('\n')
-          : "No posts scheduled yet.",
-        brandKit: brandKit ? {
-          colors: brandKit.colors?.map((c: any) => `${c.name}: ${c.hex}`).join(', '),
-          fonts: brandKit.fonts,
-          hasLogos: (brandKit.logos?.length || 0) > 0,
-          designGuideExcerpt: brandKit.designGuide?.substring(0, 500) + '...',
-          brandProfile: brandKit.brandProfile
-        } : "Not configured",
-        productsSummary: products && products.length > 0
-          ? `${products.length} products available. Top categories: ${Array.from(new Set(products.map(p => p.type))).slice(0, 5).join(', ')}`
-          : "No products in database"
-      };
-
-      contextStr = `WORKSPACE CONTEXT:\n${JSON.stringify(workspaceContext, null, 2)}\n\n`;
-
-      if (currentAttached) {
-        if (currentAttached.type === 'post') {
-          contextStr = `Existing Post Data: ${JSON.stringify(currentAttached.post)}`;
-        } else if (currentAttached.type === 'product') {
-          contextStr = `Product Data: ${JSON.stringify(currentAttached.product)}`;
-        } else if (currentAttached.type === 'idea') {
-          contextStr = `Idea Data: ${JSON.stringify(currentAttached.idea)}`;
-        }
-      }
-
       const chatHistory = messages.map(m => ({ role: m.role, content: m.content, images: m.images }));
       chatHistory.push({ role: 'user', content: input, images: currentImages.length > 0 ? currentImages : undefined });
 
-      const response = await chatWithAi(chatHistory, contextStr);
+      try {
+        // Build the local index
+        const { getDatabase, syncDatabase, searchChunks } = await import('../lib/rag');
+        
+        let chunks = getDatabase();
+        if (chunks.length === 0) {
+           // Fallback or Initial sync if missed
+           chunks = syncDatabase(activeBusiness, products || [], posts || [], brandKit);
+        }
+        
+        // Form a search query from the last few messages to gather context
+        const recentContext = chatHistory.slice(-3).map(m => m.content).join(" ");
+        const relevantChunks = searchChunks(recentContext, chunks, 5); // get top 5 chunks
+        
+        if (relevantChunks.length > 0) {
+           contextStr = "RELEVANT WORKSPACE KNOWLEDGE (Retrieved from local database):\n" + 
+             relevantChunks.map((c, i) => `[Source: ${c.source}]\n${c.content}`).join("\n\n") + "\n\n";
+        } else {
+           contextStr = "WORKSPACE CONTEXT: No specific relevant info found. Answer generally.\n\n";
+        }
+      } catch (e) {
+        console.warn("RAG retrieval failed, falling back to basic context", e);
+      }
+
+      if (currentAttached) {
+        if (currentAttached.type === 'post') {
+          contextStr += `\nExisting Post User Attached: ${JSON.stringify(currentAttached.post)}`;
+        } else if (currentAttached.type === 'product') {
+          contextStr += `\nProduct Info Attached: ${JSON.stringify(currentAttached.product)}`;
+        } else if (currentAttached.type === 'idea') {
+          contextStr += `\nIdea Data Attached: ${JSON.stringify(currentAttached.idea)}`;
+        }
+      }
+
+      let finalResponse = await chatWithAi(chatHistory, contextStr);
+      
+      // TOOL INTERCEPTOR LOOP
+      if (finalResponse.tool_call && finalResponse.provider !== 'Local AI') {
+         setMessages(prev => [...prev, { id: 'tool-' + Date.now().toString(), role: 'assistant', content: `*[Thinking: Calling ${finalResponse.tool_call?.name}...]*` }]);
+         
+         let toolResult = "";
+         if (finalResponse.tool_call.name === 'search_web') {
+           toolResult = `Mock search results for "${finalResponse.tool_call.query}":\nThis is a mocked result since actual live internet access is disconnected in this UI test framework. You can tell the user you've found what they need.`;
+         } else if (finalResponse.tool_call.name === 'read_url') {
+           toolResult = `Mock page content for ${finalResponse.tool_call.url}:\n[Mock HTML content...]`;
+         } else {
+           toolResult = `Tool ${finalResponse.tool_call.name} not found or supported.`;
+         }
+         
+         // Update context string with tool result
+         contextStr += `\n\nTOOL RESULT (${finalResponse.tool_call.name}):\n${toolResult}\n\nNow, answer the user.`;
+         
+         // Re-run the generation
+         finalResponse = await chatWithAi(chatHistory, contextStr);
+         
+         // Remove the thinking message
+         setMessages(prev => prev.filter(m => !m.id.startsWith('tool-')));
+      }
+      
+      const response = finalResponse;
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
