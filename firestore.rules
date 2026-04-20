@@ -289,5 +289,15 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isValidNotebook(request.resource.data, true);
       allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
+
+    match /inventory_maps/{businessId} {
+      allow read: if isAuthenticated() && canAccessBusiness(businessId);
+      allow write: if isAuthenticated() && (isBusinessMember(businessId) || isAdmin());
+    }
+
+    match /brand_overviews/{businessId} {
+      allow read: if isAuthenticated() && canAccessBusiness(businessId);
+      allow write: if isAuthenticated() && (isBusinessMember(businessId) || isAdmin());
+    }
   }
 }

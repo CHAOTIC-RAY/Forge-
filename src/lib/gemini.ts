@@ -134,9 +134,23 @@ export const safeParseJSON = (text: string) => {
     if (start !== -1 && end !== -1) {
       cleaned = cleaned.substring(start, end + 1);
     }
-    return JSON.parse(cleaned);
+
+    // Fix common hallucinated syntax errors from small models
+    // 1. "key" = "value" -> "key": "value"
+    cleaned = cleaned.replace(/"([^"]+)"\s*=\s*"/g, '"$1": "');
+    // 2. Trailing commas before closing braces/brackets
+    cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+    
+    try {
+      return JSON.parse(cleaned);
+    } catch (innerError) {
+      // Third attempt: try to use regex to find keys and values if it still fails
+      // This is a last resort and might not be perfect
+      console.warn("[safeParseJSON] Standard cleanup failed, trying regex fallback...");
+      return JSON.parse(cleaned.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":'));
+    }
   } catch (e) {
-    console.warn("[safeParseJSON] Failed to parse:", text.substring(0, 100));
+    console.warn("[safeParseJSON] Failed to parse:", text.substring(0, 200));
     return null;
   }
 };
@@ -400,17 +414,16 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       config.responseMimeType = "application/json";
     }
 
-    const result = await ai.models.generateContent({
+    const response = await ai.models.generateContent({
       model: settings.geminiModel || "gemini-2.5-flash",
       contents: fullPrompt,
       config
     });
 
-    const text = result.text;
-    if (text) {
-      return text;
-    } else if (result.candidates?.[0]?.content?.parts) {
-      return result.candidates[0].content.parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
+    if (response.text) {
+      return response.text;
+    } else if (response.candidates?.[0]?.content?.parts) {
+      return response.candidates[0].content.parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
     }
     return '';
   } catch (error) {
@@ -2612,6 +2625,54 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
 
   const settings = getAiSettings();
 
+  if (settings.imageProvider === 'auto') {
+    const puterInstance = (window as any).puter;
+    let puterSignedIn = false;
+    try {
+      if (puterInstance) {
+        puterSignedIn = await puterInstance.auth.isSignedIn();
+      }
+    } catch(e) {}
+    
+    if (puterSignedIn && !(window as any).isPuterDisabledForSession) {
+      settings.imageProvider = 'puter';
+    } else {
+      settings.imageProvider = 'gemini';
+    }
+  }
+
+  if (settings.imageProvider === 'builtin') {
+    try {
+      console.log("[BuiltInAI] Orchestrating image prompt locally...");
+      const orchestrationPrompt = `You are a professional Creative Director. 
+Enhance the following image request into a high-quality, descriptive photorealistic stable diffusion prompt.
+Request: "${prompt}"
+Context: Business ${businessName}, Style: ${style}.
+Return ONLY the final prompt text. No quotes, no intro.`;
+      
+      const localPrompt = await builtInAi.generate(orchestrationPrompt);
+      const finalPrompt = localPrompt || fullPrompt;
+      
+      // Use pollination as the backend renderer for Local AI orchestration
+      const encodedPrompt = encodeURIComponent(finalPrompt);
+      const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=flux`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Local AI Orchestration fetch failed");
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      return { url: base64, provider: 'Local AI (Orchestrated)' };
+    } catch (e) {
+      console.error("Local AI image orchestration failed, falling back to Gemini", e);
+      settings.imageProvider = 'gemini';
+    }
+  }
+
   if (settings.imageProvider === 'pollination') {
     const encodedPrompt = encodeURIComponent(fullPrompt);
     const model = settings.pollinationModel || 'flux';
@@ -2884,6 +2945,10 @@ export interface ChatResponse {
     type?: string;
     outlet?: string;
   };
+  imagePrompt?: string;
+  provider?: string;
+  generatedImage?: string;
+  generatedImageProvider?: string;
 }
 
 export async function chatWithAi(
@@ -2905,7 +2970,8 @@ ${settings.systemInstructions ? `\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.syste
 You MUST respond with a valid JSON object containing:
 1. "message": Your conversational response to the user. Be helpful, concise, and smart. Use Markdown formatting for better readability (bold, lists, etc.).
 2. "action": (OPTIONAL) Set to "delete" if the user explicitly asks to delete the attached item. Set to "update" if modifying an existing item.
-3. "suggestedPosts": (OPTIONAL) An array of post objects if the user asks to create multiple posts or schedule them. Each object should include:
+3. "imagePrompt": (OPTIONAL) If the user explicitly asks you to "generate an image", "paint", or "draw" something, provide a highly detailed photorealistic image prompt here.
+4. "suggestedPosts": (OPTIONAL) An array of post objects if the user asks to create multiple posts or schedule them. Each object should include:
    - title: A short, catchy title
    - brief: Visual instructions for the graphic designer. It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
    - caption: A SHORT, engaging caption (max 2-3 sentences)
@@ -2913,7 +2979,7 @@ You MUST respond with a valid JSON object containing:
    - type: Post type (e.g., '🔴 General')
    - outlet: Platform or outlet name
    - date: (OPTIONAL) The target date in YYYY-MM-DD format. If not specified, it will default to today.
-4. "suggestedPost": (OPTIONAL) If the user asks for a single post modification, you can use this single object instead of the array.
+5. "suggestedPost": (OPTIONAL) If the user asks for a single post modification, you can use this single object instead of the array.
 
 If the user asks to delete the attached item, set "action": "delete" and provide a confirmation message in "message".
 If the user asks to edit/modify, set "action": "update" and provide the changes in "suggestedPost".
@@ -2927,13 +2993,63 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     let fallbackToGemini = true;
 
     const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
-    const flatPrompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
+    let finalSystemInstruction = systemInstruction;
 
-    if (settings.preferredProvider === 'puter' || settings.preferredProvider === 'auto') {
+    if (settings.preferredProvider === 'builtin') {
+      // Local AI (Gemma 3 1B) needs very concise and direct instructions to stay on track.
+      // We reduce the context size further for local models to leave more room for "reasoning".
+      const truncatedContext = contextStr.length > 3000 
+        ? contextStr.substring(0, 3000) + "\n\n[Context truncated]" 
+        : contextStr;
+
+      finalSystemInstruction = `You are Forge Local AI. 
+Role: Social Media Manager & Creative Assistant.
+Personality: Professional, creative, and friendly.
+
+CONTEXT:
+${truncatedContext}
+
+${settings.systemInstructions ? `PERSONALITY NOTES: ${settings.systemInstructions}` : ''}
+
+STRICT OUTPUT FORMAT:
+You MUST respond with a JSON object ONLY. No other text.
+{
+  "message": "Direct answer to user. Use Markdown. If user says 'hi', just greet them normally.",
+  "action": null | "update" | "delete",
+  "imagePrompt": "Detailed prompt ONLY if user asked to draw/show/generate an image",
+  "suggestedPost": null | { "title": "...", "caption": "...", "type": "...", "outlet": "..." }
+}
+
+IMPORTANT:
+- If the user says 'hi' or greets you, just respond in "message" and set others to null.
+- DO NOT copy placeholder strings like "Your visible response here".
+- DO NOT use "=" for keys. Use ":" only.`;
+    }
+
+    const flatPrompt = `### System Instruction:\n${finalSystemInstruction}\n\n### Conversation History:\n${conversation}\n\n### Task:\nGenerate a valid JSON response based on the latest user message:`;
+
+    if (settings.preferredProvider === 'builtin') {
+      try {
+        const localResponse = await builtInAi.generate(flatPrompt);
+        parsed = safeParseJSON(localResponse || '{}');
+        if (parsed && parsed.message) {
+          parsed.provider = 'Local AI';
+          fallbackToGemini = false;
+        }
+      } catch (e) {
+        console.warn("Local AI chat failed, falling back...");
+      }
+    }
+
+    if (fallbackToGemini && (settings.preferredProvider === 'puter' || settings.preferredProvider === 'auto')) {
       try {
         const text = await fetchFromPuter(flatPrompt);
         parsed = safeParseJSON(text || '{}');
         if (parsed && parsed.message) fallbackToGemini = false;
+        
+        if (parsed) {
+          parsed.provider = 'Puter';
+        }
       } catch (e) {
         console.warn("Puter chat failed, falling back...");
       }
@@ -2944,6 +3060,10 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
         const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
         parsed = safeParseJSON(groqText || '{}');
         if (parsed && parsed.message) fallbackToGemini = false;
+        
+        if (parsed) {
+          parsed.provider = 'Groq';
+        }
       } catch (e) {
         console.warn("Groq chat failed, falling back to Gemini...");
       }
@@ -2979,7 +3099,7 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
         };
       });
 
-      const result = await ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: settings.geminiModel || "gemini-2.5-flash",
         contents: contents,
         config: {
@@ -2988,17 +3108,30 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
           temperature: 0.7,
         }
       });
-      parsed = safeParseJSON(result.text || '{}');
+      parsed = safeParseJSON(response.text || '{}');
+      if (parsed) {
+        parsed.provider = 'Gemini';
+      }
     }
 
     if (parsed && parsed.message) {
+      if (parsed.imagePrompt) {
+        try {
+           const imgRes = await generateAiImage(parsed.imagePrompt, 'photorealistic');
+           parsed.generatedImage = imgRes.url;
+           parsed.generatedImageProvider = imgRes.provider;
+        } catch (e) {
+           console.error("Failed to generate image from imagePrompt", e);
+           parsed.message += "\n\n*(Note: I tried to generate an image but it failed. Please check your image generation API settings.)*";
+        }
+      }
       return parsed as ChatResponse;
     }
 
-    return { message: "I'm sorry, I couldn't process that request properly." };
+    return { message: "I'm sorry, I couldn't process that request properly.", provider: 'System' };
   } catch (error) {
     console.error("Chat AI error:", error);
-    return { message: "I encountered an error while trying to respond. Please try again." };
+    return { message: "I encountered an error while trying to respond. Please try again.", provider: 'System' };
   }
 }
 

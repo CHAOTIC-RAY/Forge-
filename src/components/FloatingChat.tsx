@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3, AlertCircle } from 'lucide-react';
+import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3, AlertCircle, Globe } from 'lucide-react';
 import { Post } from '../data';
 import { cn } from '../lib/utils';
 import { chatWithAi } from '../lib/gemini';
@@ -17,6 +17,7 @@ interface Message {
   suggestedPosts?: Partial<Post>[];
   action?: 'delete' | 'update' | 'create';
   images?: string[];
+  provider?: string;
 }
 
 interface FloatingChatProps {
@@ -197,8 +198,13 @@ export function FloatingChat({
         role: 'assistant',
         content: response.message || `I've prepared some drafts for you.`,
         attachedItem: currentAttached,
-        action: response.action
+        action: response.action,
+        provider: response.provider,
       };
+      
+      if (response.generatedImage) {
+        assistantMessage.images = [response.generatedImage];
+      }
 
       if (response.suggestedPosts && response.suggestedPosts.length > 0) {
         assistantMessage.suggestedPosts = response.suggestedPosts.map(p => ({
@@ -214,10 +220,10 @@ export function FloatingChat({
         };
       }
 
-      if (assistantMessage.suggestedPost || assistantMessage.suggestedPosts) {
+      if (assistantMessage.suggestedPost || assistantMessage.suggestedPosts || assistantMessage.images) {
         setMessages(prev => [...prev, assistantMessage]);
       } else {
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: response.message || "I couldn't generate a valid post from that. Could you be more specific?" }]);
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: response.message || "I couldn't generate a valid post from that. Could you be more specific?", provider: response.provider }]);
       }
 
     } catch (error: any) {
@@ -391,7 +397,17 @@ export function FloatingChat({
                     {msg.images && msg.images.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
                         {msg.images.map((img, idx) => (
-                          <img key={idx} src={img} alt="Attached" className="w-20 h-20 object-cover rounded-lg border border-white/20" />
+                          <img 
+                            key={idx} 
+                            src={img} 
+                            alt="Attached/Generated" 
+                            className={cn(
+                              "object-cover rounded-lg border shadow-sm",
+                              msg.role === 'assistant' 
+                                ? "w-full max-h-64 border-[#E9E9E7] dark:border-[#2E2E2E]" 
+                                : "w-16 h-16 border-white/20"
+                            )} 
+                          />
                         ))}
                       </div>
                     )}
@@ -417,6 +433,18 @@ export function FloatingChat({
                            msg.attachedItem.type === 'product' ? msg.attachedItem.product.title : 
                            msg.attachedItem.idea.title}
                         </span>
+                      </div>
+                    )}
+                    
+                    {msg.role === 'assistant' && msg.provider && (
+                      <div className={cn(
+                        "mt-3 text-[9px] font-bold uppercase tracking-widest",
+                        msg.provider === 'Local AI' 
+                          ? "text-emerald-500 flex items-center gap-1.5" 
+                          : "text-slate-400 dark:text-slate-500"
+                      )}>
+                        {msg.provider === 'Local AI' && <Globe className="w-2.5 h-2.5" />}
+                        AI: {msg.provider}
                       </div>
                     )}
                   </div>

@@ -40,7 +40,8 @@ import { Post, initialPosts, Business } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
-import { HighStockProduct, getAi, isGeminiKeyAvailable } from './lib/gemini';
+import { getAi, isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
+import { builtInAi } from './lib/builtinAi';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
 import { CalendarSharing } from './components/CalendarSharing';
@@ -441,6 +442,11 @@ export default function App() {
     setSyncLogs(prev => [{ id: uuidv4(), time: new Date(), message, type }, ...prev].slice(0, 100));
   };
 
+  const [builtInStatus, setBuiltInStatus] = useState(builtInAi.getStatus());
+  useEffect(() => {
+    return builtInAi.onStatusChange(setBuiltInStatus);
+  }, []);
+
   // Modal states
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [initialProductsForModal, setInitialProductsForModal] = useState<HighStockProduct[]>([]);
@@ -513,6 +519,14 @@ export default function App() {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Auto-initialize Built-in AI if selected
+  useEffect(() => {
+    if (aiSettings.preferredProvider === 'builtin' && aiSettings.builtinModelId && !builtInAi.getStatus().isLoaded && !builtInAi.getStatus().isLoading) {
+      console.log("[App] Auto-initializing Built-in AI...");
+      builtInAi.init(aiSettings.builtinModelId);
+    }
+  }, [aiSettings.preferredProvider, aiSettings.builtinModelId]);
 
   // Migration logic for 2003ray.dark@gmail.com
   // Migration completed. Legacy code removed.
@@ -3097,6 +3111,29 @@ export default function App() {
 
                     {/* Bottom section: User & Sync */}
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center px-2 mt-4 lg:mt-0 pb-4 shrink-0">
+                      {/* Local AI Engine Status */}
+                      {builtInStatus.isLoading && (
+                        <div className="w-full px-2 mb-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse">AI Engine</span>
+                            <span className="text-[10px] font-bold text-emerald-500/60">{Math.round(builtInStatus.progress)}%</span>
+                          </div>
+                          <div className="h-1 w-full bg-emerald-500/10 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-emerald-500 transition-all duration-300" 
+                              style={{ width: `${builtInStatus.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {builtInStatus.isLoaded && !builtInStatus.isLoading && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 mb-2 rounded-full bg-emerald-500/5 border border-emerald-500/10">
+                          <Globe className="w-2.5 h-2.5 text-emerald-500" />
+                          <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter">Local AI Ready</span>
+                        </div>
+                      )}
+
                       <div className="relative group flex justify-center w-full cursor-help mb-2">
                         {isSyncing ? (
                           <ForgeLoader size={18} />

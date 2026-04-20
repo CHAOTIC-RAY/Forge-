@@ -391,6 +391,18 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       });
       
       const mapData = await mapRes.json();
+      
+      if (!mapRes.ok) {
+        const errMsg = mapData.error || mapData.details || "Unknown mapping error";
+        addLog(`⚠️ Map error: ${errMsg}`);
+        if (errMsg.includes("API key is not configured")) {
+          toast.error("Firecrawl API key is missing. Please add it in Settings.");
+        } else {
+          toast.error(`Map failed: ${errMsg}`);
+        }
+        return;
+      }
+
       if (mapData.success && mapData.links) {
         const categoryMap: Record<string, number> = {};
         mapData.links.forEach((link: any) => {

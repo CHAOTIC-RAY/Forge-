@@ -1,12 +1,57 @@
+import { toast } from 'sonner';
+
 /**
  * Built-in AI Service (Gemma 3 1B IT)
  * Runs entirely in-browser using MediaPipe / LiteRT
  */
 
-// WebGPU Polyfill for requestAdapterInfo (Deprecated and removed in modern browsers)
-if (typeof navigator !== 'undefined' && (navigator as any).gpu && !('requestAdapterInfo' in (globalThis as any).GPUAdapter.prototype)) {
+// IndexedDB Cache for models (Faster re-initialization)
+const DB_NAME = 'built_in_ai_db';
+const STORE_NAME = 'models';
+
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const getCachedBlob = async (key: string): Promise<Blob | null> => {
   try {
-    ((globalThis as any).GPUAdapter.prototype).requestAdapterInfo = async function() {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    return null;
+  }
+};
+
+const setCachedBlob = async (key: string, blob: Blob): Promise<void> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put(blob, key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error("[BuiltInAI] Cache write error:", e);
+  }
+};
+
+// WebGPU Polyfill for requestAdapterInfo (Deprecated and removed in modern browsers)
+if (typeof navigator !== 'undefined' && (navigator as any).gpu && typeof (window as any).GPUAdapter !== 'undefined' && !('requestAdapterInfo' in (window as any).GPUAdapter.prototype)) {
+  try {
+    ((window as any).GPUAdapter.prototype as any).requestAdapterInfo = async function() {
       return (this as any).info || { vendor: "", architecture: "", device: "", description: "" };
     };
     console.log("[BuiltInAI] WebGPU requestAdapterInfo polyfill applied.");
@@ -33,25 +78,38 @@ export interface BuiltInModel {
 export const BUILTIN_MODELS: BuiltInModel[] = [
   { 
     id: 'gemma3-1b', 
-    name: 'Gemma 3 1B IT', 
-    // Gemma 3 is still new, using the litert community mirror which is often un-gated
-    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-gpu-int4.bin',
-    size: '1.0GB',
-    description: 'Latest Google model. Best balance of speed and power.'
+    name: 'Gemma 3 1B IT (Int4)', 
+    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4-web.task',
+    size: '0.7GB',
+    description: 'Ultra-lightweight Google model. Very fast, under 1GB.'
   },
   { 
     id: 'gemma2-2b', 
-    name: 'Gemma 2 2B IT', 
-    url: 'https://storage.googleapis.com/mediapipe-models/llm_inference/gemma2-2b-it-gpu-int4.bin',
+    name: 'Gemma 2 2B IT (Int8)', 
+    url: 'https://huggingface.co/CarlosJefte/Gemma-2-2b-mediapipe/resolve/main/gemma2-2b-it-gpu-int8.bin',
+    size: '2.6GB',
+    description: 'Latest model with superior reasoning capability.'
+  },
+  { 
+    id: 'gemma-2b', 
+    name: 'Gemma 2B IT (Int4)', 
+    url: 'https://huggingface.co/alexdlov/gemma-2b-it-gpu-int4.bin/resolve/main/gemma-2b-it-gpu-int4.bin',
     size: '1.5GB',
     description: 'Stable and smart. Good for complex instructions.'
   },
   { 
-    id: 'falcon-1b', 
-    name: 'Falcon 1B RW', 
-    url: 'https://storage.googleapis.com/mediapipe-models/llm_inference/falcon_1b_gpu_int4.bin',
-    size: '0.7GB',
+    id: 'falcon-1b-gpu', 
+    name: 'Falcon 1B RW (Int16)', 
+    url: 'https://huggingface.co/a8nova/falcon-1b-gpu-int16/resolve/main/falcon-1b-gpu-int16.bin',
+    size: '1.4GB',
     description: 'Ultra lightweight. Fast on older devices.'
+  },
+  { 
+    id: 'phi2-cpu', 
+    name: 'Phi-2 2.7B (CPU)', 
+    url: 'https://huggingface.co/siddhantchalke/phi2-cpu-mediapipe-llm-inference/resolve/main/phi2_cpu.bin',
+    size: '2.7GB',
+    description: 'Microsoft\'s Phi-2 model. Runs on CPU.'
   }
 ];
 
@@ -135,8 +193,51 @@ class BuiltInAiService {
     this.notify();
 
     try {
+      this.progress = 0;
+      this.notify();
+
       // Find model
       const model = BUILTIN_MODELS.find(m => m.id === modelId) || BUILTIN_MODELS[0];
+
+      // 1. Check IndexedDB Cache first
+      let blob = await getCachedBlob(model.id);
+      
+      if (blob) {
+        console.log(`[BuiltInAI] Loading ${model.name} from local cache...`);
+        this.progress = 50; // Instantly move to 50% if cached
+        this.notify();
+      } else {
+        // 2. Manual fetch to track progress
+        console.log(`[BuiltInAI] Fetching model from ${model.url}`);
+        const response = await fetch(model.url);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const contentLength = response.headers.get('content-length');
+        const total = parseInt(contentLength || '0', 10);
+        
+        let loaded = 0;
+        const chunks: Uint8Array[] = [];
+        const reader = response.body!.getReader();
+        
+        while(true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            loaded += value.length;
+            if (total) {
+              this.progress = Math.min(99, Math.round((loaded / total) * 100)); // Keep at 99% until fully loaded into memory
+              this.notify();
+            }
+          }
+        }
+        
+        console.log(`[BuiltInAI] Download complete. Caching and Creating Object URL...`);
+        blob = new Blob(chunks, { type: 'application/octet-stream' });
+        await setCachedBlob(model.id, blob); // Save to cache for next time
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
 
       // Ensure library is loaded
       const GenAI = await this.loadLibrary();
@@ -147,21 +248,24 @@ class BuiltInAiService {
       
       this.inference = await LlmInference.createFromOptions(genaiFileset, {
         baseOptions: {
-          // Absolute path to the local model streaming proxy
-          modelAssetPath: `/api/proxy-model?url=${encodeURIComponent(model.url)}`,
+          // Absolute path or direct URL
+          modelAssetPath: objectUrl,
         },
-        maxTokens: 1024,
+        maxTokens: 4096,
         topK: 40,
         temperature: 0.7,
         randomSeed: Math.floor(Math.random() * 1000),
       });
 
+      URL.revokeObjectURL(objectUrl);
+      this.progress = 100;
       this.isLoaded = true;
       this.currentModelId = modelId;
       console.log(`[BuiltInAI] ${model.name} loaded successfully.`);
     } catch (err: any) {
       this.error = err.message || "Failed to load Gemma 3 model.";
       console.error("[BuiltInAI] Initialization error:", err);
+      toast.error(`Local AI Load Failed: ${this.error}`);
     } finally {
       this.isLoading = false;
       this.notify();
@@ -170,7 +274,8 @@ class BuiltInAiService {
 
   async generate(prompt: string, onToken?: (token: string) => void): Promise<string> {
     if (!this.isLoaded || !this.inference) {
-      await this.init();
+      // Re-trigger init if lost, this handles the auto-re-init faster now via cache
+      await this.init(this.currentModelId || 'gemma3-1b');
       if (!this.isLoaded) throw new Error(this.error || "Built-in AI not ready.");
     }
 
