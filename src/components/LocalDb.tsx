@@ -854,7 +854,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         contents: prompt
       });
       
-      const overview = result.response.text();
+      const overview = result.text;
       if (overview) {
         setBrandOverview(overview);
         // Save to Firestore
@@ -1324,7 +1324,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                       : 'Check knowledge counts to see what\'s available.'}
                   </p>
                   <button 
-                    onClick={handleCheckCounts}
+                    onClick={() => handleCheckCounts()}
                     className="px-4 py-2 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-sm font-bold rounded-[12px] transition-all  "
                   >
                     Check Now

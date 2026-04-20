@@ -14,12 +14,6 @@ interface WorkspacesSettingsProps {
   setActiveBusiness?: (biz: Business) => void;
 }
 
-interface WorkspacesSettingsProps {
-  businesses: Business[];
-  activeBusiness: Business | null;
-  onUpdateBusiness: (business: Business) => void;
-}
-
 export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusiness, setActiveTab, setActiveBusiness }: WorkspacesSettingsProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');

@@ -2052,7 +2052,7 @@ export default function App() {
 
         // Banner Branding
         if (monthKey === requestedMonthKeys[0]) {
-          workbook.views = [{ x: 0, y: 0, width: 10000, height: 20000, firstSheet: 0, activeTab: sheet.id as any }];
+          workbook.views = [{ x: 0, y: 0, width: 10000, height: 20000, firstSheet: 0, activeTab: sheet.id as any, visibility: 'visible' }];
         }
 
         const bannerCell = sheet.getCell('A1');
@@ -3297,7 +3297,7 @@ export default function App() {
                         )}
 
                         {isAdmin && (
-                          <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' || activeTab === 'settings' ? 'block' : 'hidden')}>
+                          <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' ? 'block' : 'hidden')}>
                             <SettingsView
                               user={user}
                               settingsTab={settingsTab}

@@ -16,8 +16,6 @@ import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
-import { builtInAi, BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
-import { Cpu, Info } from 'lucide-react';
 
 const GEMINI_MODELS = [
   { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Default)' },
@@ -186,11 +184,8 @@ export function SettingsView({
   const [newName, setNewName] = useState(user?.displayName || '');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
-  const [builtInStatus, setBuiltInStatus] = useState<BuiltInAiStatus>(builtInAi.getStatus());
 
   useEffect(() => {
-    const unsubBuiltin = builtInAi.onStatusChange(setBuiltInStatus);
-    
     const checkPuter = async () => {
       if (typeof window !== 'undefined' && (window as any).puter) {
         try {
@@ -203,11 +198,7 @@ export function SettingsView({
     };
     checkPuter();
     const interval = setInterval(checkPuter, 5000);
-    
-    return () => {
-      unsubBuiltin();
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   const handlePuterSignIn = async () => {
@@ -856,8 +847,6 @@ export function SettingsView({
                 setBusinesses((prev: any) => prev.map((b: any) => b.id === updatedBiz.id ? updatedBiz : b));
                 if (activeBusiness?.id === updatedBiz.id) setActiveBusiness(updatedBiz);
               }}
-              setActiveTab={setActiveTab}
-              setActiveBusiness={setActiveBusiness}
             />
           </div>
         </BentoCard>
@@ -1014,8 +1003,8 @@ export function SettingsView({
         {/* AI Engine Card */}
         <BentoCard
           id="ai"
-          title="AI & Smart Engine"
-          subtitle={`Provider: ${aiSettings.preferredProvider}`}
+          title="Global AI Engine"
+          subtitle={`Provider: ${aiSettings.preferredProvider === 'gemini' ? 'Gemini' : aiSettings.preferredProvider === 'groq' ? 'Groq' : 'Auto'}`}
           icon={Sparkles}
           iconBg="bg-purple-100 dark:bg-purple-900/30"
           iconColor="text-purple-600 dark:text-purple-400"
@@ -1035,7 +1024,7 @@ export function SettingsView({
             <div className="space-y-3">
               <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Preferred AI Provider</label>
               <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                {['builtin', 'gemini', 'groq', 'puter', 'auto'].map((provider) => (
+                {['auto', 'gemini', 'groq', 'puter'].map((provider) => (
                   <button
                     key={provider}
                     onClick={() => handleAiSettingChange('preferredProvider', provider)}
@@ -1099,70 +1088,6 @@ export function SettingsView({
                     >
                       {GROQ_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
-                  </div>
-                </div>
-              ) : aiSettings.preferredProvider === 'builtin' ? (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 rounded-[16px] space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Cpu className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        <h4 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Local AI Engine</h4>
-                      </div>
-                      <span className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                        builtInStatus.isLoaded ? "bg-green-100 text-green-700" : "bg-brand/10 text-brand"
-                      )}>
-                        {builtInStatus.isLoaded ? 'READY' : 'SETUP REQUIRED'}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Select Local Model</label>
-                      <select 
-                        value={aiSettings.builtinModelId || 'gemma3-1b'}
-                        onChange={(e) => handleAiSettingChange('builtinModelId', e.target.value)}
-                        className="w-full p-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
-                      >
-                        {BUILTIN_MODELS.map(m => (
-                          <option key={m.id} value={m.id}>{m.name} ({m.size})</option>
-                        ))}
-                      </select>
-                      <div className="flex items-start gap-1 pb-1">
-                        <Info className="w-3 h-3 text-[#757681] mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-[#757681] leading-tight">
-                          {BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'gemma3-1b'))?.description}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {!builtInStatus.isLoaded && !builtInStatus.isLoading && (
-                      <button 
-                        onClick={() => builtInAi.init(aiSettings.builtinModelId)}
-                        className="w-full py-2.5 bg-brand text-white text-xs font-bold rounded-[8px] hover:bg-brand-hover transition-colors shadow-sm"
-                      >
-                        Initialize {BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'gemma3-1b'))?.name} 
-                      </button>
-                    )}
-                    
-                    {builtInStatus.isLoading && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-[#757681] animate-pulse font-medium">Downloading Engine & Model...</span>
-                          <span className="font-bold text-brand">{builtInStatus.progress}%</span>
-                        </div>
-                        <div className="h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-brand transition-all duration-300" style={{ width: `${builtInStatus.progress}%` }} />
-                        </div>
-                        <p className="text-[9px] text-center text-[#9B9A97]">This may take a few minutes depending on your connection.</p>
-                      </div>
-                    )}
-
-                    {builtInStatus.error && (
-                      <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg">
-                        <p className="text-[10px] text-red-500 font-medium">{builtInStatus.error}</p>
-                      </div>
-                    )}
                   </div>
                 </div>
               ) : aiSettings.preferredProvider === 'puter' ? (

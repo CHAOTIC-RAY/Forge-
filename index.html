@@ -1,49 +1,17 @@
 <!doctype html>
 <html lang="en" class="dark">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#030712" />
-  <link rel="icon" type="image/png" href="logo192x192.png" />
-  <link rel="icon" type="image/svg+xml" href="logo.svg" />
-  <title>Forge</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/genai_bundle.js" crossorigin="anonymous"></script>
-  <script src="https://js.puter.com/v2/"></script>
-  <script>
-    // Ultimate suppression of external Low Balance popups
-    (function() {
-      const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-          mutation.addedNodes.forEach((node) => {
-            if (node instanceof HTMLElement) {
-              // 1. Direct tag name check (for custom elements like <usage-limit-dialog>)
-              const tagName = node.tagName.toLowerCase();
-              if (tagName.includes('usage-limit') || tagName.includes('puter-modal')) {
-                node.remove();
-                console.log("[Forge] Suppression active: Blocked custom element " + tagName);
-                return;
-              }
-
-              // 2. Keyword check for dynamic content
-              const text = (node.innerText || "").toLowerCase();
-              if (text.includes("low balance") || (text.includes("funding") && text.includes("account"))) {
-                node.style.display = 'none';
-                node.remove();
-                console.log("[Forge] Suppression active: Blocked external balance alert via text.");
-              }
-            }
-          });
-        }
-      });
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-    })();
-  </script>
-</head>
-
-<body class="bg-gray-950 text-gray-100">
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
-
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#030712" />
+    <link rel="icon" type="image/png" href="logo192x192.png" />
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <title>Forge</title>
+    <script src="https://js.puter.com/v2/"></script>
+  </head>
+  <body class="bg-gray-950 text-gray-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
+

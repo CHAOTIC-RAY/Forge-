@@ -4,9 +4,9 @@
  */
 
 // WebGPU Polyfill for requestAdapterInfo (Deprecated and removed in modern browsers)
-if (typeof navigator !== 'undefined' && navigator.gpu && !('requestAdapterInfo' in GPUAdapter.prototype)) {
+if (typeof navigator !== 'undefined' && (navigator as any).gpu && !('requestAdapterInfo' in (globalThis as any).GPUAdapter.prototype)) {
   try {
-    (GPUAdapter.prototype as any).requestAdapterInfo = async function() {
+    ((globalThis as any).GPUAdapter.prototype).requestAdapterInfo = async function() {
       return (this as any).info || { vendor: "", architecture: "", device: "", description: "" };
     };
     console.log("[BuiltInAI] WebGPU requestAdapterInfo polyfill applied.");

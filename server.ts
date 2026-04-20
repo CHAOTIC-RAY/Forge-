@@ -102,40 +102,6 @@ export async function startServer(forcePort?: number) {
     }
   });
 
-  // Groq API Proxy
-  app.post("/api/groq", async (req, res) => {
-    const { model, messages, temperature, response_format, apiKey: userKey } = req.body;
-    
-    // Use user-provided key or server environment key
-    const apiKey = userKey || process.env.GROQ_API_KEY;
-    
-    if (!apiKey) {
-      return res.status(400).json({ error: "Groq API key is missing. Please provide one in Settings or server environment." });
-    }
-
-    try {
-      const response = await axios.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {
-          model: model || "llama-3.3-70b-versatile",
-          messages,
-          temperature: temperature ?? 0.7,
-          response_format
-        },
-        {
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      res.json(response.data);
-    } catch (error: any) {
-      console.error("[Server] Groq Proxy Error:", error.response?.data || error.message);
-      res.status(error.response?.status || 500).json(error.response?.data || { error: error.message });
-    }
-  });
-
   app.use("/api", scraperRouter);
 
   // Proxy image endpoint to bypass CORS
@@ -175,67 +141,6 @@ export async function startServer(forcePort?: number) {
     } catch (error: any) {
       console.error("Proxy image failed:", error.message);
       res.status(500).send(`Failed to fetch image: ${error.message}`);
-    }
-  });
-
-  // Proxy JS endpoint to bypass CDN blocks
-  app.get("/api/proxy-js", async (req, res) => {
-    const { url } = req.query;
-    if (!url || typeof url !== "string") {
-      return res.status(400).send("URL is required");
-    }
-
-    try {
-      const response = await axios.get(url, { 
-        responseType: "arraybuffer", // Use arraybuffer for binary integrity
-        timeout: 30000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
-
-      res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-      res.setHeader("Cache-Control", "public, max-age=86400"); // Cache for 1 day
-      res.send(Buffer.from(response.data));
-    } catch (error: any) {
-      console.error("Proxy JS failed:", error.response?.data || error.message);
-      res.status(500).send(`Failed to proxy JS: ${error.message}`);
-    }
-  });
-
-  // Proxy Model endpoint for large binary model files (Streaming to save memory)
-  app.get("/api/proxy-model", async (req, res) => {
-    const { url } = req.query;
-    if (!url || typeof url !== "string") {
-      return res.status(400).send("URL is required");
-    }
-
-    console.log(`[Server] Proxying model binary: ${url}`);
-
-    try {
-      const response = await axios({
-        method: 'get',
-        url: url,
-        responseType: 'stream',
-        timeout: 600000, // 10 minute timeout for large models
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
-
-      // Transfer headers
-      res.setHeader("Content-Type", "application/octet-stream");
-      if (response.headers["content-length"]) {
-        res.setHeader("Content-Length", response.headers["content-length"]);
-      }
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); // Cache for 1 year
-
-      // Pipe the stream directly
-      response.data.pipe(res);
-    } catch (error: any) {
-      console.error("[Server] Model Proxy failed:", error.message);
-      res.status(500).send(`Failed to proxy model: ${error.message}`);
     }
   });
 

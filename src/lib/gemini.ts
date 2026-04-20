@@ -400,16 +400,17 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       config.responseMimeType = "application/json";
     }
 
-    const response = await ai.models.generateContent({
+    const result = await ai.models.generateContent({
       model: settings.geminiModel || "gemini-2.5-flash",
       contents: fullPrompt,
       config
     });
 
-    if (response.text) {
-      return response.text;
-    } else if (response.candidates?.[0]?.content?.parts) {
-      return response.candidates[0].content.parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
+    const text = result.text;
+    if (text) {
+      return text;
+    } else if (result.candidates?.[0]?.content?.parts) {
+      return result.candidates[0].content.parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
     }
     return '';
   } catch (error) {
@@ -2978,7 +2979,7 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
         };
       });
 
-      const response = await ai.models.generateContent({
+      const result = await ai.models.generateContent({
         model: settings.geminiModel || "gemini-2.5-flash",
         contents: contents,
         config: {
@@ -2987,7 +2988,7 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
           temperature: 0.7,
         }
       });
-      parsed = safeParseJSON(response.text || '{}');
+      parsed = safeParseJSON(result.text || '{}');
     }
 
     if (parsed && parsed.message) {
