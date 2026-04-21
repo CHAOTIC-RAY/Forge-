@@ -60,7 +60,7 @@ export function chunkText(text: string, source: string, maxWords: number = 200):
   return chunks;
 }
 
-export function searchChunks(query: string, chunks: DocumentChunk[], topK: number = 3): DocumentChunk[] {
+export function searchChunks(query: string, chunks: DocumentChunk[], topK: number = 4): DocumentChunk[] {
   const queryTokens = tokenize(query);
   if (queryTokens.size === 0) return chunks.slice(0, topK); // Fallback
   
@@ -69,23 +69,40 @@ export function searchChunks(query: string, chunks: DocumentChunk[], topK: numbe
     for (const token of queryTokens) {
       if (chunk.keywords.has(token)) score += 1;
     }
+    
+    // IDENTITY PRIORITY: Boost Brand/Business info significantly
+    if (chunk.source.toLowerCase().includes('brand') || chunk.source.toLowerCase().includes('business') || chunk.source.toLowerCase().includes('inventory')) {
+      score += 15;
+    }
+
+    // LIMIT STRATEGY EXPOSURE: Soft penalty for strategy chunks if they are too many
+    if (chunk.source.toLowerCase().includes('expert knowledge')) {
+      score = Math.min(score, 5); // Don't let strategy outscore direct brand info unless highly relevant
+    }
+    
     return { chunk, score };
   });
-  
-  // Also boost if query contains the source name
-  for (const item of scored) {
-    for(const token of queryTokens) {
-        if (item.chunk.source.toLowerCase().includes(token)) item.score += 2;
-    }
-  }
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.filter(s => s.score > 0).slice(0, topK).map(s => s.chunk);
+
+  // For small models, less is more. Max 2 context chunks total.
+  const brandResults = scored.filter(s => s.score > 0 && !s.chunk.source.includes('Expert Knowledge')).slice(0, 2);
+  const strategyResults = scored.filter(s => s.score > 0 && s.chunk.source.includes('Expert Knowledge')).slice(0, 0); // Disable strategy context for local AI until requested
+  
+  const final = [...brandResults, ...strategyResults].map(s => s.chunk);
+  return final.length > 0 ? final : chunks.slice(0, Math.min(topK, 2));
 }
+
+import { SOCIAL_MEDIA_MASTERCLASS } from './knowledgeLibrary';
 
 export function buildLocalIndex(activeBusiness: any, products: any[], posts: any[], brandKit: any): DocumentChunk[] {
   const chunks: DocumentChunk[] = [];
   
+  // 1. Inject Knowledge Library (Static "Training" Data)
+  SOCIAL_MEDIA_MASTERCLASS.forEach(snippet => {
+    chunks.push(...chunkText(`[Masterclass: ${snippet.title}] ${snippet.content}`, `Expert Knowledge: ${snippet.category}`, 100));
+  });
+
   if (activeBusiness) {
     chunks.push(...chunkText(`Business Name: ${activeBusiness.name}. Industry: ${activeBusiness.industry}. Position: ${activeBusiness.position}`, 'Business Info'));
   }

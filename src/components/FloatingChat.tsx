@@ -65,8 +65,9 @@ export function FloatingChat({
     }
   }, [isFullPage]);
   const [input, setInput] = useState('');
+  const [activeStrategy, setActiveStrategy] = useState<'General' | 'Viral' | 'Sales' | 'Educational'>('General');
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', role: 'assistant', content: 'Hi! I can help you create or edit tasks. Drag a task, product, or idea here to get started, or just type your request.' }
+    { id: '1', role: 'assistant', content: 'Hi! I can help you create or edit tasks. My **Social Media Strategy Library** is active and ready to help you grow. Drag anything here or type a request.' }
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [attachedItem, setAttachedItem] = useState<any>(null);
@@ -193,7 +194,11 @@ export function FloatingChat({
         }
       }
 
-      let finalResponse = await chatWithAi(chatHistory, contextStr);
+      const contextPrefix = activeStrategy !== 'General' 
+        ? `[USER SELECTED STRATEGY: ${activeStrategy}]\nPrioritize responses using ${activeStrategy} tactics.\n\n`
+        : '';
+
+      let finalResponse = await chatWithAi(chatHistory, contextPrefix + contextStr);
       
       // TOOL INTERCEPTOR LOOP
       if (finalResponse.tool_call && finalResponse.provider !== 'Local AI') {
@@ -356,7 +361,11 @@ export function FloatingChat({
                   </h3>
                   <div className="flex items-center gap-1">
                     <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                    <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] font-medium">Always active & learning</p>
+                    <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] font-medium mr-2">Always active & learning</p>
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-widest border border-emerald-500/20">
+                      <Globe className="w-2 h-2" />
+                      Knowledge Active
+                    </div>
                   </div>
                 </div>
               </div>
@@ -396,6 +405,24 @@ export function FloatingChat({
             >
               {/* Subtle AI Background Pattern */}
               <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+
+              {/* Strategy Modes Indicator */}
+              <div className="flex flex-wrap gap-2 mb-2 sticky top-0 z-10 p-1 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
+                {(['General', 'Viral', 'Sales', 'Educational'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setActiveStrategy(mode)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                      activeStrategy === mode 
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" 
+                        : "bg-slate-100 dark:bg-black/40 text-[#757681] dark:text-[#9B9A97] hover:bg-slate-200 dark:hover:bg-black/60"
+                    )}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
 
               {messages.map((msg) => (
                 <div 

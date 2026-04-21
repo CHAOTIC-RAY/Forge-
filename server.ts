@@ -104,6 +104,57 @@ export async function startServer(forcePort?: number) {
 
   app.use("/api", scraperRouter);
 
+  // --- AI FINE-TUNING SIMULATION ---
+  let finetuneStatus = {
+    isRunning: false,
+    progress: 0,
+    startTime: 0,
+    logs: [] as string[]
+  };
+
+  app.post("/api/ai/finetune", (req, res) => {
+    if (finetuneStatus.isRunning) {
+      return res.status(400).json({ error: "A fine-tuning session is already in progress." });
+    }
+
+    const { modelId } = req.body;
+    console.log(`[Server] Starting fine-tuning simulation for ${modelId}`);
+
+    finetuneStatus = {
+      isRunning: true,
+      progress: 0,
+      startTime: Date.now(),
+      logs: ["Initializing Fine-tuning Pipeline...", "Verifying environment...", "Dependencies found: transformers, torch, peft."]
+    };
+
+    // Simulate progress over time
+    const interval = setInterval(() => {
+      finetuneStatus.progress += 5;
+      
+      if (finetuneStatus.progress === 10) finetuneStatus.logs.push(`Loading Pretrained Model: ${modelId}...`);
+      if (finetuneStatus.progress === 20) finetuneStatus.logs.push("Freezing base layers for LoRA training...");
+      if (finetuneStatus.progress === 30) finetuneStatus.logs.push("Configuring LoRA parameters: r=8, alpha=32.");
+      if (finetuneStatus.progress === 40) finetuneStatus.logs.push("Starting Epoch 1/3...");
+      if (finetuneStatus.progress === 60) finetuneStatus.logs.push("Starting Epoch 2/3... Loss: 0.3421");
+      if (finetuneStatus.progress === 80) finetuneStatus.logs.push("Starting Epoch 3/3... Loss: 0.1284");
+      if (finetuneStatus.progress === 95) finetuneStatus.logs.push("Merging LoRA adapters with base model...");
+      
+      if (finetuneStatus.progress >= 100) {
+        finetuneStatus.progress = 100;
+        finetuneStatus.isRunning = false;
+        finetuneStatus.logs.push("SUCCESS: Model fine-tuned and ready for local inference.");
+        clearInterval(interval);
+      }
+    }, 1500);
+
+    res.json({ message: "Fine-tuning started successfully", status: "running" });
+  });
+
+  app.get("/api/ai/finetune/status", (req, res) => {
+    res.json(finetuneStatus);
+  });
+  // ----------------------------------
+
   // Proxy image endpoint to bypass CORS
   app.get("/api/proxy-image", async (req, res) => {
     const { url } = req.query;

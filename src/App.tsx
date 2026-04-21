@@ -22,6 +22,7 @@ import {
   sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
+import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addMonths, subMonths, isAfter } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -29,7 +30,7 @@ import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import {
-  Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2, Terminal,
+  Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2, Terminal, Wand2,
   Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box
 } from 'lucide-react';
 import { Type } from "@google/genai";
@@ -470,6 +471,14 @@ export default function App() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // Fine-tuning state
+  const [finetuneStatus, setFinetuneStatus] = useState<{ isRunning: boolean; progress: number; logs: string[] }>({
+    isRunning: false,
+    progress: 0,
+    logs: []
+  });
+  const [showFinetunePanel, setShowFinetunePanel] = useState(false);
+
   // Image Viewer state
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [currentImages, setCurrentImages] = useState<string[]>([]);
@@ -731,12 +740,40 @@ export default function App() {
     return () => unsubscribe();
   }, [user, isViewOnly, loading]);
 
-  // Persist active business ID
   useEffect(() => {
     if (activeBusiness && !isViewOnly) {
       localStorage.setItem('last_active_business_id', activeBusiness.id);
     }
   }, [activeBusiness, isViewOnly]);
+
+  useEffect(() => {
+    if (finetuneStatus.isRunning) {
+      const interval = setInterval(async () => {
+        try {
+          const res = await axios.get('/api/ai/finetune/status');
+          setFinetuneStatus(res.data);
+          if (!res.data.isRunning && res.data.progress === 100) {
+            clearInterval(interval);
+            toast.success("Fine-tuning completed!");
+          }
+        } catch (error) {
+          console.error("Failed to fetch finetune status", error);
+        }
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [finetuneStatus.isRunning]);
+
+  const handleStartFinetune = async () => {
+    try {
+      await axios.post('/api/ai/finetune', { modelId: aiSettings.builtinModelId || 'LLaMA-7B' });
+      setFinetuneStatus(prev => ({ ...prev, isRunning: true }));
+      setShowFinetunePanel(true);
+      toast.info("Fine-tuning started on server...");
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to start fine-tuning.");
+    }
+  };
 
   const handleCreateBusiness = async (name: string, industry: string, position: string) => {
     if (!user) return;
@@ -3154,9 +3191,13 @@ export default function App() {
                       )}
                       
                       {builtInStatus.isLoaded && !builtInStatus.isLoading && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 mb-2 rounded-full bg-emerald-500/5 border border-emerald-500/10">
-                          <Globe className="w-2.5 h-2.5 text-emerald-500" />
-                          <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter">Local AI Ready</span>
+                        <div className="flex flex-col gap-2 w-full px-2">
+                          <div className="flex items-center justify-center px-2 py-1 rounded-full bg-emerald-500/5 border border-emerald-500/10">
+                            <div className="flex items-center gap-1.5">
+                              <Globe className="w-2.5 h-2.5 text-emerald-500" />
+                              <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter">Local AI Ready</span>
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -3396,6 +3437,10 @@ export default function App() {
                               exportExtensionZip={handleExportExtensionZip}
                               importProductJson={importProductJson}
                               onThemePresetChange={setThemePreset}
+                              finetuneStatus={finetuneStatus}
+                              handleStartFinetune={handleStartFinetune}
+                              showFinetunePanel={showFinetunePanel}
+                              setShowFinetunePanel={setShowFinetunePanel}
                               googleTokens={googleTokens}
                               handleDisconnectGoogleDrive={handleDisconnectGoogleDrive}
                               handleConnectGoogleDrive={handleConnectGoogleDrive}

@@ -1,70 +1,17 @@
 import { toast } from 'sonner';
+import * as webllm from '@mlc-ai/web-llm';
 
 /**
- * Built-in AI Service (Gemma 3 1B IT)
- * Runs entirely in-browser using MediaPipe / LiteRT
+ * Built-in AI Service (Modernized with WebLLM)
+ * Uses high-performance WebGPU-accelerated LLMs directly in the browser.
  */
-
-// IndexedDB Cache for models (Faster re-initialization)
-const DB_NAME = 'built_in_ai_db';
-const STORE_NAME = 'models';
-
-const openDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
-
-const getCachedBlob = async (key: string): Promise<Blob | null> => {
-  try {
-    const db = await openDB();
-    return new Promise((resolve) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => resolve(null);
-    });
-  } catch (e) {
-    return null;
-  }
-};
-
-const setCachedBlob = async (key: string, blob: Blob): Promise<void> => {
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(blob, key);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  } catch (e) {
-    console.error("[BuiltInAI] Cache write error:", e);
-  }
-};
-
-// WebGPU Polyfill for requestAdapterInfo (Deprecated and removed in modern browsers)
-if (typeof navigator !== 'undefined' && (navigator as any).gpu && typeof (window as any).GPUAdapter !== 'undefined' && !('requestAdapterInfo' in (window as any).GPUAdapter.prototype)) {
-  try {
-    ((window as any).GPUAdapter.prototype as any).requestAdapterInfo = async function() {
-      return (this as any).info || { vendor: "", architecture: "", device: "", description: "" };
-    };
-    console.log("[BuiltInAI] WebGPU requestAdapterInfo polyfill applied.");
-  } catch (e) {
-    console.warn("[BuiltInAI] Could not polyfill WebGPU requestAdapterInfo:", e);
-  }
-}
 
 export interface BuiltInAiStatus {
   isLoaded: boolean;
   isLoading: boolean;
   isProcessing: boolean;
   progress: number;
+  message: string;
   error: string | null;
   modelId: string | null;
 }
@@ -72,46 +19,40 @@ export interface BuiltInAiStatus {
 export interface BuiltInModel {
   id: string;
   name: string;
-  url: string;
   size: string;
   description: string;
 }
 
 export const BUILTIN_MODELS: BuiltInModel[] = [
   { 
-    id: 'gemma3-1b', 
-    name: 'Gemma 3 1B IT (Int4)', 
-    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4-web.task',
-    size: '0.7GB',
-    description: 'Ultra-lightweight Google model. Very fast, under 1GB.'
+    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', 
+    name: 'Llama 3.2 1B Instruct', 
+    size: '0.8GB',
+    description: 'Meta\'s small but capable model. Best for fast responses on low-end hardware.'
   },
   { 
-    id: 'gemma2-2b', 
-    name: 'Gemma 2 2B IT (Int8)', 
-    url: 'https://huggingface.co/CarlosJefte/Gemma-2-2b-mediapipe/resolve/main/gemma2-2b-it-gpu-int8.bin',
-    size: '2.6GB',
-    description: 'Latest model with superior reasoning capability.'
+    id: 'Phi-3-mini-4k-instruct-q4f16_1-MLC', 
+    name: 'Phi-3 Mini Instruct', 
+    size: '2.3GB',
+    description: 'Microsoft\'s powerful 3.8B model. Highly optimized with strong reasoning.'
   },
   { 
-    id: 'gemma-2b', 
-    name: 'Gemma 2B IT (Int4)', 
-    url: 'https://huggingface.co/alexdlov/gemma-2b-it-gpu-int4.bin/resolve/main/gemma-2b-it-gpu-int4.bin',
-    size: '1.5GB',
-    description: 'Stable and smart. Good for complex instructions.'
+    id: 'gemma-2-2b-it-q4f16_1-MLC', 
+    name: 'Gemma 2 2B IT', 
+    size: '1.6GB',
+    description: 'Latest Google lightweight model. Excellent for writing and creativity.'
   },
   { 
-    id: 'falcon-1b-gpu', 
-    name: 'Falcon 1B RW (Int16)', 
-    url: 'https://huggingface.co/a8nova/falcon-1b-gpu-int16/resolve/main/falcon-1b-gpu-int16.bin',
-    size: '1.4GB',
-    description: 'Ultra lightweight. Fast on older devices.'
+    id: 'Llama-3.1-8B-Instruct-q4f32_1-MLC', 
+    name: 'Llama 3.1 8B Instruct', 
+    size: '5.2GB',
+    description: 'Meta\'s industry-standard 8B model. Requires strong hardware and 8GB+ RAM.'
   },
   { 
-    id: 'phi2-cpu', 
-    name: 'Phi-2 2.7B (CPU)', 
-    url: 'https://huggingface.co/siddhantchalke/phi2-cpu-mediapipe-llm-inference/resolve/main/phi2_cpu.bin',
-    size: '2.7GB',
-    description: 'Microsoft\'s Phi-2 model. Runs on CPU.'
+    id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC', 
+    name: 'Mistral 7B v0.3', 
+    size: '4.8GB',
+    description: 'The community favorite for high-quality instruction following.'
   }
 ];
 
@@ -120,41 +61,31 @@ async function tryWindowAi(prompt: string): Promise<string | null> {
   try {
     const ai = (window as any).ai;
     if (!ai?.languageModel) return null;
-    const availability = await ai.languageModel.availability?.() ?? 'readily';
+    const availability = await ai.languageModel.availability?.() ?? 'no';
     if (availability === 'no') return null;
+    
     const session = await ai.languageModel.create({
-      systemPrompt: 'You are a helpful AI assistant. Be concise and accurate.',
+      systemPrompt: 'You are a helpful AI assistant. Be concise and professional.',
     });
     const result = await session.prompt(prompt);
     session.destroy();
     return result || null;
   } catch (e) {
-    console.warn('[BuiltInAI] window.ai failed:', e);
     return null;
   }
 }
 
-function isGarbage(text: string): boolean {
-  if (!text || text.length < 5) return true;
-  if (text.includes('contentLoaded') || text.includes('DOMContent')) return true;
-  const nonAscii = (text.match(/[^\x00-\x7F]/g) || []).length;
-  if (nonAscii / text.length > 0.25) return true;
-  if (/([.\-_/\\]{2,}[a-z]?){4,}/i.test(text)) return true;
-  return false;
-}
-
 class BuiltInAiService {
-  private inference: any = null;
+  private engine: webllm.MLCEngineInterface | null = null;
   private currentModelId: string | null = null;
   private isLoading = false;
   private isProcessing = false;
   private isLoaded = false;
   private progress = 0;
+  private message = "";
   private error: string | null = null;
   private statusListeners: ((status: BuiltInAiStatus) => void)[] = [];
   private pendingRequest: Promise<any> = Promise.resolve();
-
-  private readonly WASM_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/wasm";
 
   getStatus(): BuiltInAiStatus {
     return {
@@ -162,6 +93,7 @@ class BuiltInAiService {
       isLoading: this.isLoading,
       isProcessing: this.isProcessing,
       progress: this.progress,
+      message: this.message,
       error: this.error,
       modelId: this.currentModelId
     };
@@ -180,162 +112,70 @@ class BuiltInAiService {
   }
 
   reset() {
+    if (this.engine) {
+      this.engine.unload();
+      this.engine = null;
+    }
     this.isLoading = false;
     this.isLoaded = false;
     this.progress = 0;
+    this.message = "";
     this.error = null;
-    this.inference = null;
     this.notify();
   }
 
-  private async loadLibrary(): Promise<any> {
-    try {
-      // Import from local node_modules
-      // We use @mediapipe/tasks-genai which was just installed via npm
-      const pkg = await import('@mediapipe/tasks-genai');
-      if (pkg && pkg.LlmInference) return pkg;
-    } catch (e) {
-      console.warn("[BuiltInAI] Local package import failed:", e);
-    }
-
-    // Official CDN Fallback (UMD)
-    const cdns = [
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/genai_bundle.js",
-      "https://www.gstatic.com/mediapipe/solutions/genai/genai_bundle.js"
-    ];
-
-    for (const url of cdns) {
-      try {
-        console.log(`[BuiltInAI] Trying Fallback CDN: ${url}`);
-        await this.injectScript(url);
-        const globalGenAI = (window as any).GenAI || (window as any).tasksGenAi || (window as any).mediapipe?.tasks?.genai;
-        if (globalGenAI) return globalGenAI;
-      } catch (e) {}
-    }
-
-    throw new Error("Local AI Engine library missing. Please restart your dev server or check browser console.");
-  }
-
-  private injectScript(url: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = url;
-      script.crossOrigin = "anonymous";
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error(`Load failed: ${url}`));
-      document.head.appendChild(script);
-    });
-  }
-
-  async init(modelId: string = 'gemma3-1b') {
+  async init(modelId: string = 'Llama-3.2-1B-Instruct-q4f16_1-MLC') {
     if (this.isLoading) return;
-    if (this.isLoaded && this.currentModelId === modelId) return;
+    
+    // Normalize modelId (lowercase some common ones that might have been saved with wrong case)
+    let normalizedId = modelId;
+    if (modelId.toLowerCase().includes('gemma-2')) {
+      normalizedId = modelId.toLowerCase();
+    } else if (modelId === 'Phi3-mini-4k-instruct-q4f16_1-MLC') {
+      normalizedId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
+    }
+
+    if (this.isLoaded && this.currentModelId === normalizedId) return;
 
     this.isLoading = true;
     this.error = null;
+    this.progress = 0;
+    this.message = "Initializing engine...";
     this.notify();
 
     try {
-      this.progress = 0;
-      this.notify();
-
-      // Find model
-      const model = BUILTIN_MODELS.find(m => m.id === modelId) || BUILTIN_MODELS[0];
-
-      // 1. Check IndexedDB Cache first
-      let blob = await getCachedBlob(model.id);
-      
-      if (blob) {
-        console.log(`[BuiltInAI] Loading ${model.name} from local cache...`);
-        this.progress = 50; // Instantly move to 50% if cached
-        this.notify();
-      } else {
-        // 2. Manual fetch to track progress
-        console.log(`[BuiltInAI] Fetching model from ${model.url}`);
-        const response = await fetch(model.url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        const contentLength = response.headers.get('content-length');
-        const total = parseInt(contentLength || '0', 10);
-        
-        let loaded = 0;
-        const chunks: Uint8Array[] = [];
-        const reader = response.body!.getReader();
-        
-        while(true) {
-          const {done, value} = await reader.read();
-          if (done) break;
-          if (value) {
-            chunks.push(value);
-            loaded += value.length;
-            if (total) {
-              this.progress = Math.min(99, Math.round((loaded / total) * 100)); // Keep at 99% until fully loaded into memory
-              this.notify();
-            }
-          }
-        }
-        
-        console.log(`[BuiltInAI] Download complete. Caching and Creating Object URL...`);
-        blob = new Blob(chunks, { type: 'application/octet-stream' });
-        await setCachedBlob(model.id, blob); // Save to cache for next time
+      // 1. Check for WebGPU
+      if (!(navigator as any).gpu) {
+        throw new Error("WebGPU is not supported or disabled in your browser. WebLLM requires WebGPU support (Chrome 113+).");
       }
 
-      const objectUrl = URL.createObjectURL(blob);
-
-      // Ensure library is loaded
-      const GenAI = await this.loadLibrary();
-      
-      const { LlmInference, FilesetResolver } = GenAI;
-
-      const genaiFileset = await FilesetResolver.forGenAiTasks(this.WASM_PATH);
-
-      // Use CPU backend for CPU-specific models, otherwise default to GPU
-      const isCpuModel = modelId.includes('cpu');
-      console.log(`[BuiltInAI] Creating LlmInference. delegate: ${isCpuModel ? 'CPU' : 'GPU'}, modelId: ${modelId}`);
-      
-      this.inference = await LlmInference.createFromOptions(genaiFileset, {
-        baseOptions: {
-          modelAssetPath: objectUrl,
-        },
-        maxTokens: 1024,   // 4096 causes context overflow on 1B models → gibberish
-        topK: 40,          // 10 collapses sampling diversity → repetition loops
-        temperature: 0.3,
+      // 2. Load Engine
+      this.engine = await webllm.CreateMLCEngine(normalizedId, {
+        initProgressCallback: (report) => {
+          this.message = report.text;
+          this.progress = Math.round(report.progress * 100);
+          console.log(`[BuiltInAI] ${report.text}`);
+          this.notify();
+        }
       });
 
-      URL.revokeObjectURL(objectUrl);
-      this.progress = 100;
       this.isLoaded = true;
-      this.currentModelId = modelId;
-      console.log(`[BuiltInAI] ${model.name} loaded successfully.`);
+      this.currentModelId = normalizedId;
+      console.log(`[BuiltInAI] Model ${normalizedId} loaded successfully.`);
     } catch (err: any) {
-      this.error = err.message || "Failed to load Gemma 3 model.";
-      console.error("[BuiltInAI] Initialization error:", err);
-      toast.error(`Local AI Load Failed: ${this.error}`);
+      this.error = err.message || "Failed to initialize Local AI Engine.";
+      console.error("[BuiltInAI] Setup error:", err);
+      toast.error(`Local AI failed: ${this.error}`);
     } finally {
       this.isLoading = false;
       this.notify();
     }
   }
 
-  private applyTemplate(modelId: string, prompt: string): string {
-    // Gemma 2 & 3 IT models require this exact turn delimiter format.
-    // Without it, the model continues the text as a document → gibberish output.
-    if (modelId.startsWith('gemma')) {
-      return `<start_of_turn>user\n${prompt}<end_of_turn>\n<start_of_turn>model\n`;
-    }
-    // Phi-2
-    if (modelId === 'phi2-cpu') {
-      return `Instruct: ${prompt}\nOutput:`;
-    }
-    // Falcon
-    if (modelId.startsWith('falcon')) {
-      return `User: ${prompt}\nAssistant:`;
-    }
-    return prompt;
-  }
-
-  async generate(prompt: string, onToken?: (token: string) => void): Promise<string> {
-    // Sequential execution lock to prevent "Previous invocation is still ongoing"
+  async generate(
+    input: string | { role: "system" | "user" | "assistant"; content: string }[], 
+    onToken?: (token: string) => void
+  ): Promise<string> {
     const previous = this.pendingRequest;
     let resolveLock: (val: any) => void;
     this.pendingRequest = new Promise(resolve => { resolveLock = resolve; });
@@ -348,92 +188,46 @@ class BuiltInAiService {
       this.isProcessing = true;
       this.notify();
 
-      // ── 1. Try Chrome's built-in Gemini Nano first (no download, reliable) ──
-      // Enable at: chrome://flags/#prompt-api-for-gemini-nano
-      const windowAiResult = await tryWindowAi(prompt);
-      if (windowAiResult && !isGarbage(windowAiResult)) {
-        console.log('[BuiltInAI] Response from window.ai (Gemini Nano)');
+      // Normalize input to messages array
+      const messages = typeof input === 'string' 
+        ? [{ role: "user" as const, content: input }] 
+        : input;
+      
+      const flatPrompt = typeof input === 'string'
+        ? input
+        : input.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+
+      // ── 1. Try Chrome's built-in Gemini Nano first ──
+      // Note: window.ai currently only takes a string prompt
+      const windowAiResult = await tryWindowAi(flatPrompt);
+      if (windowAiResult) {
         if (onToken) onToken(windowAiResult);
         return windowAiResult;
       }
 
-      if (!this.isLoaded || !this.inference) {
-        // Re-trigger init if lost, this handles the auto-re-init faster now via cache
-        await this.init(this.currentModelId || 'gemma3-1b');
-        if (!this.isLoaded) throw new Error(this.error || "Built-in AI not ready.");
+      // ── 2. Use WebLLM Engine ──
+      if (!this.isLoaded || !this.engine) {
+        await this.init(this.currentModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC');
+        if (!this.isLoaded) throw new Error(this.error || "Built-in AI engine not ready.");
       }
 
-      // Truncate prompt to ~600 words to prevent context overflow on small models.
-      // Long prompts (e.g. brand guides with HTML/CSS) cause the 1B model to
-      // hallucinate and echo DOM strings like "DOMContentLoadedDOMContentLoaded".
-      const MAX_PROMPT_CHARS = 2400;
-      const truncatedPrompt = prompt.length > MAX_PROMPT_CHARS
-        ? prompt.slice(0, MAX_PROMPT_CHARS) + '\n[Context trimmed for local model]'
-        : prompt;
+      let fullText = "";
+      const chunks = await this.engine!.chat.completions.create({
+        messages,
+        stream: true,
+        // High quality sampling to avoid repetition and loops
+        temperature: 0.7,
+        top_p: 0.9,
+        repetition_penalty: 1.2,
+      });
 
-      // Apply Gemma IT chat template. Without this the model treats the prompt
-      // as a document to continue rather than an instruction, producing gibberish.
-      const formattedPrompt = this.applyTemplate(this.currentModelId || 'gemma3-1b', truncatedPrompt);
-
-      const result = await (async () => {
-        if (onToken) {
-          // Streaming support
-          return new Promise<string>((resolve, reject) => {
-            let fullText = "";
-            this.inference.generateResponse(formattedPrompt, (partialText: string, done: boolean) => {
-              fullText = partialText;
-              onToken(partialText);
-              if (done) resolve(fullText);
-            }).catch(reject);
-          });
-        }
-        return await this.inference.generateResponse(formattedPrompt);
-      })();
-
-      // ── 3. Reject garbage before it reaches safeParseJSON ───────────────────
-      if (isGarbage(result)) {
-        console.warn('[BuiltInAI] Garbage output detected, rejecting.');
-        throw new Error('Local model produced incoherent output. Switch to Gemini or Puter in Settings.');
+      for await (const chunk of chunks) {
+        const delta = chunk.choices[0]?.delta.content || "";
+        fullText += delta;
+        if (onToken) onToken(delta);
       }
-      
-      // Post-processing to detect and truncate infinite repetition loops (e.g. "fran fran fran...")
-      // Repetition Shield: Detects and cuts off loops that occur often in local models
-      if (result && result.length > 50) {
-        const words = result.split(/\s+/);
-        let consecutiveCount = 1;
-        let lastWord = "";
-        
-        for (let i = 0; i < words.length; i++) {
-          const currentWord = words[i].toLowerCase().replace(/[^\w]/g, '');
-          if (currentWord.length < 2) continue; // Ignore single letters
-          
-          if (currentWord === lastWord) {
-            consecutiveCount++;
-            if (consecutiveCount > 6) { // Lowered from 12 to 6 for faster protection
-              console.warn("[BuiltInAI] REPETITION DETECTED, TRUNCATING.");
-              const truncated = words.slice(0, Math.max(0, i - 4)).join(' ');
-              return truncated + "... [Repetition Shield Active]";
-            }
-          } else {
-            consecutiveCount = 1;
-            lastWord = currentWord;
-          }
-        }
-        
-        // Secondary check: Pattern repetition (e.g. "abc abc abc")
-        const text = result.toLowerCase();
-        if (text.length > 200) {
-          const lastChunk = text.slice(-60);
-          const firstHalf = lastChunk.slice(0, 30);
-          const secondHalf = lastChunk.slice(30);
-          if (firstHalf === secondHalf && firstHalf.trim().length > 5) {
-            console.warn("[BuiltInAI] PATTERN REPETITION DETECTED.");
-            return result.slice(0, -60) + "... [Pattern Shield Active]";
-          }
-        }
-      }
-      
-      return result;
+
+      return fullText;
     } catch (err: any) {
       console.error("[BuiltInAI] Generation error:", err);
       throw err;

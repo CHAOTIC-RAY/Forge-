@@ -5,7 +5,7 @@ import {
   Download, Save, Upload, RefreshCw, FileSpreadsheet, 
   Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
   Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2,
-  FileText, MessageSquareText, Box
+  FileText, MessageSquareText, Box, Wand2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
@@ -170,7 +170,11 @@ export function SettingsView({
   writeBatch,
   industryConfig,
   setActiveTab,
-  onThemePresetChange
+  onThemePresetChange,
+  finetuneStatus,
+  handleStartFinetune,
+  showFinetunePanel,
+  setShowFinetunePanel
 }: any) {
   const [expandedId, setExpandedId] = useState<string | null>(() => typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'account' : null);
   const [themePreset, setThemePreset] = useState(() => localStorage.getItem('forge_theme_preset') || 'default');
@@ -187,7 +191,7 @@ export function SettingsView({
   const [newName, setNewName] = useState(user?.displayName || '');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
-  const [builtInStatus, setBuiltInStatus] = useState<BuiltInAiStatus>(builtInAi.getStatus());
+  const [builtInStatus, setBuiltInStatus] = useState<any>(builtInAi.getStatus());
 
   useEffect(() => {
     const unsubBuiltin = builtInAi.onStatusChange(setBuiltInStatus);
@@ -1134,7 +1138,7 @@ export function SettingsView({
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Select Local Model</label>
                       <select 
-                        value={aiSettings.builtinModelId || 'gemma3-1b'}
+                        value={aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'}
                         onChange={(e) => handleAiSettingChange('builtinModelId', e.target.value)}
                         className="w-full p-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
                       >
@@ -1145,13 +1149,98 @@ export function SettingsView({
                       <div className="flex items-start gap-1 pb-1">
                         <Info className="w-3 h-3 text-[#757681] mt-0.5 shrink-0" />
                         <p className="text-[10px] text-[#757681] leading-tight">
-                          {BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'gemma3-1b'))?.description}
+                          {BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'))?.description}
                         </p>
                       </div>
                     </div>
+
+                    <div className="flex flex-col gap-4 p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-[12px] flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                            <Wand2 className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">AI Fine-tuning</h4>
+                            <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Optimize local models for your business.</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleStartFinetune}
+                          disabled={finetuneStatus.isRunning || !builtInStatus.isLoaded}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2",
+                            finetuneStatus.isRunning 
+                              ? "bg-indigo-500/10 text-indigo-500 cursor-not-allowed"
+                              : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 active:scale-95"
+                          )}
+                        >
+                          {finetuneStatus.isRunning ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              Tuning...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-3 h-3" />
+                              Start Fine-tune
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {!builtInStatus.isLoaded && (
+                        <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-lg flex items-center gap-2">
+                          <Info className="w-3.5 h-3.5 text-amber-500" />
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Please wait for Local AI to load before fine-tuning.</p>
+                        </div>
+                      )}
+
+                      {(finetuneStatus.isRunning || finetuneStatus.progress > 0) && (
+                        <div className="space-y-3 pt-2">
+                          <div className="flex items-center justify-between text-[11px] font-bold">
+                            <span className="text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider flex items-center gap-2">
+                              {finetuneStatus.isRunning ? <RefreshCw className="w-3 h-3 animate-spin text-indigo-500" /> : <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
+                              {finetuneStatus.isRunning ? 'Training Process' : 'Fine-tune Complete'}
+                            </span>
+                            <span className="text-indigo-600 dark:text-indigo-400">{finetuneStatus.progress}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-indigo-500/5 rounded-full overflow-hidden border border-indigo-500/10">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${finetuneStatus.progress}%` }}
+                              className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.5)]" 
+                            />
+                          </div>
+                          
+                          <div className="p-3 bg-[#1A1A1A] border border-[#2E2E2E] rounded-[12px] max-h-[200px] overflow-y-auto scrollbar-hide">
+                            <div className="font-mono text-[10px] text-indigo-400/90 leading-relaxed space-y-1">
+                              {finetuneStatus.logs.map((log: string, i: number) => (
+                                <motion.div 
+                                  initial={{ opacity: 0, x: -4 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  key={i} 
+                                  className="flex gap-2"
+                                >
+                                  <span className="text-gray-600 shrink-0 select-none">{i + 1}</span>
+                                  <span>{log}</span>
+                                </motion.div>
+                              ))}
+                              {finetuneStatus.isRunning && (
+                                <motion.div 
+                                  animate={{ opacity: [0, 1] }} 
+                                  transition={{ repeat: Infinity, duration: 0.8 }}
+                                  className="w-1.5 h-3 bg-indigo-500 inline-block align-middle ml-1"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     
                     {(() => {
-                      const selectedModelId = aiSettings.builtinModelId || 'gemma3-1b';
+                      const selectedModelId = aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
                       const isModelSelectedLoaded = builtInStatus.isLoaded && builtInStatus.modelId === selectedModelId;
                       return !isModelSelectedLoaded && !builtInStatus.isLoading && (
                         <button 
@@ -1166,13 +1255,15 @@ export function SettingsView({
                     {builtInStatus.isLoading && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-[#757681] animate-pulse font-medium">Downloading Engine & Model...</span>
+                          <span className="text-[#757681] animate-pulse font-medium max-w-[80%] truncate">
+                            {builtInStatus.message || 'Downloading Engine & Model...'}
+                          </span>
                           <span className="font-bold text-brand">{builtInStatus.progress}%</span>
                         </div>
                         <div className="h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
                           <div className="h-full bg-brand transition-all duration-300" style={{ width: `${builtInStatus.progress}%` }} />
                         </div>
-                        <p className="text-[9px] text-center text-[#9B9A97]">This may take a few minutes depending on your connection.</p>
+                        <p className="text-[9px] text-center text-[#9B9A97]">This may take a few minutes. Weights are saved to browser cache.</p>
                         <button 
                           onClick={() => builtInAi.reset()}
                           className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 dark:hover:text-red-400 transition-colors"
