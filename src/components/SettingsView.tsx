@@ -1150,14 +1150,18 @@ export function SettingsView({
                       </div>
                     </div>
                     
-                    {!builtInStatus.isLoaded && !builtInStatus.isLoading && (
-                      <button 
-                        onClick={() => builtInAi.init(aiSettings.builtinModelId)}
-                        className="w-full py-2.5 bg-brand text-white text-xs font-bold rounded-[8px] hover:bg-brand-hover transition-colors shadow-sm"
-                      >
-                        Initialize {BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'gemma3-1b'))?.name} 
-                      </button>
-                    )}
+                    {(() => {
+                      const selectedModelId = aiSettings.builtinModelId || 'gemma3-1b';
+                      const isModelSelectedLoaded = builtInStatus.isLoaded && builtInStatus.modelId === selectedModelId;
+                      return !isModelSelectedLoaded && !builtInStatus.isLoading && (
+                        <button 
+                          onClick={() => builtInAi.init(selectedModelId)}
+                          className="w-full py-2.5 bg-brand text-white text-xs font-bold rounded-[8px] hover:bg-brand-hover transition-colors shadow-sm"
+                        >
+                          Initialize {BUILTIN_MODELS.find(m => m.id === selectedModelId)?.name} 
+                        </button>
+                      );
+                    })()}
                     
                     {builtInStatus.isLoading && (
                       <div className="space-y-2">
@@ -1169,6 +1173,12 @@ export function SettingsView({
                           <div className="h-full bg-brand transition-all duration-300" style={{ width: `${builtInStatus.progress}%` }} />
                         </div>
                         <p className="text-[9px] text-center text-[#9B9A97]">This may take a few minutes depending on your connection.</p>
+                        <button 
+                          onClick={() => builtInAi.reset()}
+                          className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                        >
+                          Restart Initialization
+                        </button>
                       </div>
                     )}
 

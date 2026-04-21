@@ -66,6 +66,7 @@ export interface BuiltInAiStatus {
   isProcessing: boolean;
   progress: number;
   error: string | null;
+  modelId: string | null;
 }
 
 export interface BuiltInModel {
@@ -114,6 +115,34 @@ export const BUILTIN_MODELS: BuiltInModel[] = [
   }
 ];
 
+// ─── Chrome Built-in AI (Prompt API) ────────────────────────────────────────
+async function tryWindowAi(prompt: string): Promise<string | null> {
+  try {
+    const ai = (window as any).ai;
+    if (!ai?.languageModel) return null;
+    const availability = await ai.languageModel.availability?.() ?? 'readily';
+    if (availability === 'no') return null;
+    const session = await ai.languageModel.create({
+      systemPrompt: 'You are a helpful AI assistant. Be concise and accurate.',
+    });
+    const result = await session.prompt(prompt);
+    session.destroy();
+    return result || null;
+  } catch (e) {
+    console.warn('[BuiltInAI] window.ai failed:', e);
+    return null;
+  }
+}
+
+function isGarbage(text: string): boolean {
+  if (!text || text.length < 5) return true;
+  if (text.includes('contentLoaded') || text.includes('DOMContent')) return true;
+  const nonAscii = (text.match(/[^\x00-\x7F]/g) || []).length;
+  if (nonAscii / text.length > 0.25) return true;
+  if (/([.\-_/\\]{2,}[a-z]?){4,}/i.test(text)) return true;
+  return false;
+}
+
 class BuiltInAiService {
   private inference: any = null;
   private currentModelId: string | null = null;
@@ -133,7 +162,8 @@ class BuiltInAiService {
       isLoading: this.isLoading,
       isProcessing: this.isProcessing,
       progress: this.progress,
-      error: this.error
+      error: this.error,
+      modelId: this.currentModelId
     };
   }
 
@@ -147,6 +177,15 @@ class BuiltInAiService {
   private notify() {
     const status = this.getStatus();
     this.statusListeners.forEach(l => l(status));
+  }
+
+  reset() {
+    this.isLoading = false;
+    this.isLoaded = false;
+    this.progress = 0;
+    this.error = null;
+    this.inference = null;
+    this.notify();
   }
 
   private async loadLibrary(): Promise<any> {
@@ -249,14 +288,17 @@ class BuiltInAiService {
       const { LlmInference, FilesetResolver } = GenAI;
 
       const genaiFileset = await FilesetResolver.forGenAiTasks(this.WASM_PATH);
+
+      // Use CPU backend for CPU-specific models, otherwise default to GPU
+      const isCpuModel = modelId.includes('cpu');
+      console.log(`[BuiltInAI] Creating LlmInference. delegate: ${isCpuModel ? 'CPU' : 'GPU'}, modelId: ${modelId}`);
       
       this.inference = await LlmInference.createFromOptions(genaiFileset, {
         baseOptions: {
-          // Absolute path or direct URL
           modelAssetPath: objectUrl,
         },
-        maxTokens: 4096,
-        topK: 10,
+        maxTokens: 1024,   // 4096 causes context overflow on 1B models → gibberish
+        topK: 40,          // 10 collapses sampling diversity → repetition loops
         temperature: 0.3,
       });
 
@@ -275,6 +317,23 @@ class BuiltInAiService {
     }
   }
 
+  private applyTemplate(modelId: string, prompt: string): string {
+    // Gemma 2 & 3 IT models require this exact turn delimiter format.
+    // Without it, the model continues the text as a document → gibberish output.
+    if (modelId.startsWith('gemma')) {
+      return `<start_of_turn>user\n${prompt}<end_of_turn>\n<start_of_turn>model\n`;
+    }
+    // Phi-2
+    if (modelId === 'phi2-cpu') {
+      return `Instruct: ${prompt}\nOutput:`;
+    }
+    // Falcon
+    if (modelId.startsWith('falcon')) {
+      return `User: ${prompt}\nAssistant:`;
+    }
+    return prompt;
+  }
+
   async generate(prompt: string, onToken?: (token: string) => void): Promise<string> {
     // Sequential execution lock to prevent "Previous invocation is still ongoing"
     const previous = this.pendingRequest;
@@ -289,26 +348,53 @@ class BuiltInAiService {
       this.isProcessing = true;
       this.notify();
 
+      // ── 1. Try Chrome's built-in Gemini Nano first (no download, reliable) ──
+      // Enable at: chrome://flags/#prompt-api-for-gemini-nano
+      const windowAiResult = await tryWindowAi(prompt);
+      if (windowAiResult && !isGarbage(windowAiResult)) {
+        console.log('[BuiltInAI] Response from window.ai (Gemini Nano)');
+        if (onToken) onToken(windowAiResult);
+        return windowAiResult;
+      }
+
       if (!this.isLoaded || !this.inference) {
         // Re-trigger init if lost, this handles the auto-re-init faster now via cache
         await this.init(this.currentModelId || 'gemma3-1b');
         if (!this.isLoaded) throw new Error(this.error || "Built-in AI not ready.");
       }
 
+      // Truncate prompt to ~600 words to prevent context overflow on small models.
+      // Long prompts (e.g. brand guides with HTML/CSS) cause the 1B model to
+      // hallucinate and echo DOM strings like "DOMContentLoadedDOMContentLoaded".
+      const MAX_PROMPT_CHARS = 2400;
+      const truncatedPrompt = prompt.length > MAX_PROMPT_CHARS
+        ? prompt.slice(0, MAX_PROMPT_CHARS) + '\n[Context trimmed for local model]'
+        : prompt;
+
+      // Apply Gemma IT chat template. Without this the model treats the prompt
+      // as a document to continue rather than an instruction, producing gibberish.
+      const formattedPrompt = this.applyTemplate(this.currentModelId || 'gemma3-1b', truncatedPrompt);
+
       const result = await (async () => {
         if (onToken) {
           // Streaming support
           return new Promise<string>((resolve, reject) => {
             let fullText = "";
-            this.inference.generateResponse(prompt, (partialText: string, done: boolean) => {
+            this.inference.generateResponse(formattedPrompt, (partialText: string, done: boolean) => {
               fullText = partialText;
               onToken(partialText);
               if (done) resolve(fullText);
             }).catch(reject);
           });
         }
-        return await this.inference.generateResponse(prompt);
+        return await this.inference.generateResponse(formattedPrompt);
       })();
+
+      // ── 3. Reject garbage before it reaches safeParseJSON ───────────────────
+      if (isGarbage(result)) {
+        console.warn('[BuiltInAI] Garbage output detected, rejecting.');
+        throw new Error('Local model produced incoherent output. Switch to Gemini or Puter in Settings.');
+      }
       
       // Post-processing to detect and truncate infinite repetition loops (e.g. "fran fran fran...")
       // Repetition Shield: Detects and cuts off loops that occur often in local models
