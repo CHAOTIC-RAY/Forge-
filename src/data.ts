@@ -122,6 +122,13 @@ export interface Business {
     tenantId: string;
     connectedAt: string;
   };
+  applets?: {
+    id: string;
+    name: string;
+    code: string;
+    icon?: string;
+    createdAt: string;
+  }[];
 }
 
 export const OUTLETS = [

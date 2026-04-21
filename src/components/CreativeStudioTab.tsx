@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { ForgeLoader } from './ForgeLoader';
-import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings } from 'lucide-react';
+import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings, Cpu, Terminal } from 'lucide-react';
 import { ImageResizerTab } from './ImageResizerTab';
 import { LinkShortener } from './LinkShortener';
 import { getAi } from '../lib/gemini';
@@ -46,6 +46,7 @@ interface CustomWidget {
   outputType?: 'text' | 'image' | 'html';
   requiresImage?: boolean;
   inputs?: WidgetInput[];
+  code?: string;
 }
 
 interface CreativeStudioTabProps {
@@ -78,6 +79,24 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
   const [builderChatInput, setBuilderChatInput] = useState('');
   const [isBuilderChatting, setIsBuilderChatting] = useState(false);
   const [editingWidgetId, setEditingWidgetId] = useState<string | null>(null);
+  const [newWidgetCode, setNewWidgetCode] = useState('');
+  const [displayedCode, setDisplayedCode] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+
+  const typeCode = (code: string) => {
+    setIsTyping(true);
+    setDisplayedCode('');
+    let i = 0;
+    const interval = setInterval(() => {
+      setDisplayedCode(code.substring(0, i));
+      i += Math.max(1, Math.floor(code.length / 50)); // Fast typing
+      if (i > code.length) {
+        setDisplayedCode(code);
+        setIsTyping(false);
+        clearInterval(interval);
+      }
+    }, 20);
+  };
 
   const openPlayground = () => {
     setEditingWidgetId(null);
@@ -91,6 +110,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
     setPlaygroundTestResult('');
     setBuilderChatMessages([]);
     setBuilderChatInput('');
+    setNewWidgetCode('');
+    setDisplayedCode('');
     setIsPlaygroundOpen(true);
   };
 
@@ -104,6 +125,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
     setNewWidgetOutputType(widget.outputType || 'text');
     setNewWidgetRequiresImage(widget.requiresImage || false);
     setNewWidgetInputs(widget.inputs || []);
+    setNewWidgetCode(widget.code || '');
+    setDisplayedCode(widget.code || '');
     setPlaygroundTestInputs({});
     setPlaygroundTestImage(null);
     setPlaygroundTestResult('');
@@ -222,7 +245,10 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
       if (response.systemInstruction) setNewWidgetSystemInstruction(response.systemInstruction);
       if (response.outputType) setNewWidgetOutputType(response.outputType);
       if (response.requiresImage !== undefined) setNewWidgetRequiresImage(response.requiresImage);
-      if (response.inputs) setNewWidgetInputs(response.inputs);
+      if (response.code) {
+        setNewWidgetCode(response.code);
+        typeCode(response.code);
+      }
       
     } catch (error) {
       console.error("Builder chat failed:", error);
@@ -283,7 +309,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
     if (editingWidgetId) {
       const updatedWidgets = customWidgets.map(w => 
         w.id === editingWidgetId 
-          ? { ...w, title: newWidgetTitle, description: newWidgetDescription, promptTemplate: newWidgetPrompt, systemInstruction: newWidgetSystemInstruction, outputType: newWidgetOutputType, requiresImage: newWidgetRequiresImage, inputs: newWidgetInputs }
+          ? { ...w, title: newWidgetTitle, description: newWidgetDescription, promptTemplate: newWidgetPrompt, systemInstruction: newWidgetSystemInstruction, outputType: newWidgetOutputType, requiresImage: newWidgetRequiresImage, inputs: newWidgetInputs, code: newWidgetCode }
           : w
       );
       saveCustomWidgets(updatedWidgets);
@@ -297,7 +323,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
         systemInstruction: newWidgetSystemInstruction,
         outputType: newWidgetOutputType,
         requiresImage: newWidgetRequiresImage,
-        inputs: newWidgetInputs
+        inputs: newWidgetInputs,
+        code: newWidgetCode
       };
       saveCustomWidgets([...customWidgets, newWidget]);
       toast.success("Widget published successfully!");
@@ -1007,7 +1034,18 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
             )}
           </div>
           <div className="p-6 space-y-6">
-            {customWidget.requiresImage && (
+            {customWidget.code ? (
+              <div className="w-full h-[500px] bg-white rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden shadow-inner">
+                <iframe
+                  srcDoc={customWidget.code}
+                  className="w-full h-full border-none"
+                  sandbox="allow-scripts allow-forms allow-popups allow-modals"
+                  title={customWidget.title}
+                />
+              </div>
+            ) : (
+              <>
+                {customWidget.requiresImage && (
               <div className="space-y-4">
                 <label className="block text-xs font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1 mb-2">Input Image</label>
                 <div className="flex items-center justify-center w-full">
@@ -1127,8 +1165,10 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
               {isGeneratingCustom[widgetId] ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               Generate
             </button>
+          </>
+        )}
 
-            {customResults[widgetId] && (
+        {customResults[widgetId] && (
               <div className="mt-6 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-5">
                 <h4 className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-4">Generated Result</h4>
                 {customWidget?.outputType === 'html' ? (
@@ -1160,86 +1200,101 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
     const vars = extractVariables(newWidgetPrompt);
     
     return (
-      <div className="flex flex-col h-[calc(100vh-120px)] bg-white dark:bg-[#1A1A1A] rounded-[32px] overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] ">
-        <div className="flex items-center justify-between p-6 bg-[#F7F7F5] dark:bg-[#202020] border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
+      <div className="flex flex-col h-[calc(100vh-120px)] bg-black rounded-[32px] overflow-hidden border border-white/10 shadow-2xl shadow-indigo-500/10">
+        <div className="flex items-center justify-between p-6 bg-[#0A0A0A] border-b border-white/5">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-brand-bg rounded-[12px] flex items-center justify-center">
+            <div className="w-10 h-10 bg-brand/10 rounded-[12px] flex items-center justify-center border border-brand/20">
               <Wand2 className="w-5 h-5 text-brand" />
             </div>
             <div>
-              <h3 className="text-xl font-black text-[#37352F] dark:text-white">Playground Builder</h3>
-              <p className="text-xs text-[#757681] dark:text-white/40">Design and test your custom AI workflow</p>
+              <h3 className="text-xl font-black text-white tracking-tight">Studio Builder</h3>
+              <p className="text-[10px] uppercase font-bold text-white/40 tracking-[0.2em]">Build & Design Mini-Apps</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setIsPlaygroundOpen(false)} 
-              className="px-6 py-2.5 text-sm font-bold text-[#757681] hover:text-[#37352F] dark:hover:text-white transition-colors"
+              className="px-6 py-2.5 text-sm font-bold text-white/40 hover:text-white transition-colors"
             >
               Cancel
             </button>
             <button 
               onClick={handleCreateWidget}
-              className="flex items-center gap-2 px-6 py-2.5 bg-brand text-white rounded-[12px] text-sm font-bold hover:scale-105 transition-all   active:scale-95"
+              className="flex items-center gap-2 px-6 py-2.5 bg-brand text-white rounded-[12px] text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-brand/20 active:scale-95"
             >
               <Save className="w-4 h-4" />
-              {editingWidgetId ? 'Update Widget' : 'Publish Widget'}
+              {editingWidgetId ? 'Update App' : 'Publish to Studio'}
             </button>
           </div>
         </div>
 
         <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
           {/* Left Panel: Builder Chat */}
-          <div className="w-full md:w-1/2 flex flex-col border-r border-[#E9E9E7] dark:border-[#2E2E2E]">
-            <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-              <h4 className="text-sm font-black text-[#37352F] dark:text-white uppercase tracking-widest flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-brand" />
-                AI Builder Chat
+          <div className="w-full md:w-1/2 flex flex-col border-r border-white/5 bg-[#000000]">
+            <div className="p-4 border-b border-white/5 bg-[#0A0A0A]">
+              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-brand" />
+                AI Studio Chat
               </h4>
-              <p className="text-xs text-[#757681] dark:text-white/40 mt-1">Describe what you want your widget to do.</p>
+              <p className="text-[10px] text-white/40 mt-1">Describe the functionality you want to build.</p>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
               {builderChatMessages.length === 0 && (
-                <div className="text-center text-[#757681] dark:text-white/40 text-sm mt-10">
-                  Hi! I'm the AI Builder. What kind of widget would you like to create today?
+                <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                    <Cpu className="w-8 h-8 text-brand" />
+                  </div>
+                  <h4 className="text-white font-bold mb-2">Hello, I'm the Studio Architect</h4>
+                  <p className="text-xs text-white/40 max-w-[200px]">
+                    What kind of mini-app or AI workflow should we architect today?
+                  </p>
                 </div>
               )}
               {builderChatMessages.map((msg, i) => (
-                <div key={i} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  key={i} 
+                  className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}
+                >
                   <div className={cn(
-                    "max-w-[80%] rounded-[16px] p-3 text-sm",
+                    "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
                     msg.role === 'user' 
-                      ? "bg-brand text-white rounded-br-none" 
-                      : "bg-[#F7F7F5] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-bl-none"
+                      ? "bg-brand text-white rounded-tr-none shadow-lg shadow-brand/10 border border-white/10" 
+                      : "bg-white/5 backdrop-blur-md text-white/90 rounded-tl-none border border-white/10"
                   )}>
                     {msg.content}
                   </div>
-                </div>
+                </motion.div>
               ))}
               {isBuilderChatting && (
                 <div className="flex justify-start">
-                  <div className="bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[16px] rounded-bl-none p-3">
-                    <ForgeLoader size={16} />
+                  <div className="bg-white/5 rounded-2xl rounded-tl-none px-4 py-3 border border-white/5">
+                    <div className="flex gap-1">
+                      <div className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce [animation-delay:-0.3s]" />
+                      <div className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce [animation-delay:-0.15s]" />
+                      <div className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" />
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-            <div className="p-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A]">
+            <div className="p-4 border-t border-white/5 bg-[#000000]">
               <form 
                 onSubmit={handleBuilderChatSubmit}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 focus-within:border-brand/50 transition-all"
               >
                 <input
                   type="text"
                   value={builderChatInput}
                   onChange={(e) => setBuilderChatInput(e.target.value)}
-                  placeholder="e.g., I want a widget that generates blog post ideas..."
-                  className="flex-1 p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                  placeholder="Ask me to build a tool..."
+                  className="flex-1 px-3 py-2 bg-transparent text-sm outline-none text-white placeholder:text-white/20"
                 />
                 <button
                   type="submit"
                   disabled={isBuilderChatting || !builderChatInput.trim()}
-                  className="p-3 bg-brand text-white rounded-[12px] hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="p-2.5 bg-brand text-white rounded-xl hover:scale-105 active:scale-95 disabled:opacity-50 transition-all shadow-lg shadow-brand/20"
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -1248,258 +1303,183 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
           </div>
 
           {/* Right Panel: Preview & Test */}
-          <div className="w-full md:w-1/2 overflow-y-auto bg-gray-50 dark:bg-[#151515] flex flex-col">
-            <div className="p-6 space-y-8">
-              {/* Widget Configuration Preview */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Settings className="w-4 h-4 text-[#757681] dark:text-white/40" />
-                  <h4 className="text-sm font-black text-[#37352F] dark:text-white uppercase tracking-widest">Widget Configuration</h4>
-                </div>
-                <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Workflow Title</label>
-                    <input 
-                      type="text" 
-                      value={newWidgetTitle}
-                      onChange={(e) => setNewWidgetTitle(e.target.value)}
-                      placeholder="e.g., Viral Hook Generator"
-                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Description</label>
-                    <input 
-                      type="text" 
-                      value={newWidgetDescription}
-                      onChange={(e) => setNewWidgetDescription(e.target.value)}
-                      placeholder="What does this module do?"
-                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Output Type</label>
-                    <div className="flex gap-2 p-1 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px]">
-                      <button
-                        onClick={() => setNewWidgetOutputType('text')}
-                        className={cn(
-                          "flex-1 py-2 text-xs font-bold rounded-[8px] transition-all",
-                          newWidgetOutputType === 'text' 
-                            ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
-                            : "text-[#757681] hover:text-[#37352F] dark:hover:text-white"
-                        )}
-                      >
-                        Text Response
-                      </button>
-                      <button
-                        onClick={() => setNewWidgetOutputType('image')}
-                        className={cn(
-                          "flex-1 py-2 text-xs font-bold rounded-[8px] transition-all",
-                          newWidgetOutputType === 'image' 
-                            ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
-                            : "text-[#757681] hover:text-[#37352F] dark:hover:text-white"
-                        )}
-                      >
-                        AI Image
-                      </button>
-                      <button
-                        onClick={() => setNewWidgetOutputType('html')}
-                        className={cn(
-                          "flex-1 py-2 text-xs font-bold rounded-[8px] transition-all",
-                          newWidgetOutputType === 'html' 
-                            ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
-                            : "text-[#757681] hover:text-[#37352F] dark:hover:text-white"
-                        )}
-                      >
-                        HTML App
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">Input Requirements</label>
-                    <label className="flex items-center gap-2 p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={newWidgetRequiresImage}
-                        onChange={(e) => setNewWidgetRequiresImage(e.target.checked)}
-                        className="w-4 h-4 text-brand rounded border-gray-300 focus:ring-brand"
-                      />
-                      <span className="text-sm font-medium text-[#37352F] dark:text-[#EBE9ED]">Requires Image Upload</span>
-                    </label>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1">System Instructions (Optional)</label>
-                    <textarea 
-                      value={newWidgetSystemInstruction}
-                      onChange={(e) => setNewWidgetSystemInstruction(e.target.value)}
-                      placeholder="e.g., You are an expert copywriter. Always use a professional tone."
-                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all dark:text-white min-h-[80px] resize-y"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between mb-1 ml-1">
-                      <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest">Prompt Template</label>
-                      <button 
-                        onClick={refinePromptWithAi}
-                        disabled={isRefiningPrompt || !newWidgetPrompt}
-                        className="text-[10px] font-black text-brand hover:underline flex items-center gap-1 disabled:opacity-50"
-                      >
-                        {isRefiningPrompt ? <ForgeLoader size={10} /> : <Sparkles className="w-3 h-3" />}
-                        Refine
-                      </button>
-                    </div>
-                    <textarea 
-                      value={newWidgetPrompt}
-                      onChange={(e) => setNewWidgetPrompt(e.target.value)}
-                      placeholder="Write a viral social media hook for: {{topic}}"
-                      className="w-full h-32 p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand resize-none transition-all dark:text-white font-mono"
-                    />
-                  </div>
-                </div>
+          <div className="w-full md:w-1/2 overflow-hidden bg-[#0A0A0A] flex flex-col relative">
+            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-[#111111]">
+              <div className="flex bg-white/5 p-1 rounded-lg">
+                <button 
+                  onClick={() => setNewWidgetOutputType('html')}
+                  className={cn(
+                    "px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2",
+                    newWidgetOutputType === 'html' ? "bg-brand text-white shadow-lg" : "text-white/40 hover:text-white"
+                  )}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  App Preview
+                </button>
+                <button 
+                  onClick={() => setNewWidgetOutputType('text')}
+                  className={cn(
+                    "px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2",
+                    newWidgetOutputType !== 'html' ? "bg-brand text-white shadow-lg" : "text-white/40 hover:text-white"
+                  )}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Configuration
+                </button>
               </div>
 
-              {/* Live Test Mode */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Play className="w-4 h-4 text-emerald-500" />
-                  <h4 className="text-sm font-black text-[#37352F] dark:text-white uppercase tracking-widest">Live Test Mode</h4>
+              {(isTyping || isBuilderChatting) && (
+                <div className="flex items-center gap-2 text-[10px] font-bold text-brand animate-pulse">
+                  <Cpu className="w-3 h-3" />
+                  {isTyping ? 'BUILDING LIVE...' : 'SYNTHESIZING...'}
                 </div>
+              )}
+            </div>
 
-                <div className="space-y-6">
-                  {newWidgetRequiresImage && (
-                    <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                      <h5 className="text-xs font-bold text-[#757681] dark:text-white/40 uppercase tracking-widest mb-4">Input Image</h5>
-                      <div className="flex items-center justify-center w-full">
-                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-[#E9E9E7] dark:border-[#3E3E3E] border-dashed rounded-[12px] cursor-pointer bg-[#F7F7F5] dark:bg-[#151515] hover:bg-gray-50 dark:hover:bg-[#202020] transition-colors">
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <ImageIcon className="w-6 h-6 mb-2 text-[#757681]" />
-                            <p className="text-xs text-[#757681] dark:text-[#9B9A97]">
-                              {playgroundTestImage ? 'Image uploaded' : 'Click to upload image'}
-                            </p>
-                          </div>
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  setPlaygroundTestImage(reader.result as string);
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                          />
-                        </label>
-                      </div>
-                      {playgroundTestImage && (
-                        <div className="mt-2 relative w-full h-32 rounded-[8px] overflow-hidden border border-[#E9E9E7] dark:border-[#3E3E3E]">
-                          <img src={playgroundTestImage} alt="Test Input" className="w-full h-full object-cover" />
-                          <button 
-                            onClick={() => setPlaygroundTestImage(null)}
-                            className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+            <div className="flex-1 overflow-y-auto">
+              {newWidgetOutputType === 'html' ? (
+                <div className="h-full flex flex-col">
+                  {displayedCode ? (
+                    <div className="flex-1 relative group">
+                      <iframe
+                        srcDoc={displayedCode}
+                        className="w-full h-full border-none bg-white"
+                        sandbox="allow-scripts allow-forms allow-popups allow-modals"
+                        title="App Preview"
+                      />
+                      {isTyping && (
+                        <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-[10px] font-mono text-brand flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-brand rounded-full animate-ping" />
+                          UPDATING DOM...
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {newWidgetInputs.length > 0 ? (
-                    <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                      <h5 className="text-xs font-bold text-[#757681] dark:text-white/40 uppercase tracking-widest mb-4">Custom Inputs</h5>
-                      {newWidgetInputs.map(input => (
-                        <div key={input.name}>
-                          <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1 mb-1.5">
-                            {input.label} {input.required && <span className="text-red-500">*</span>}
-                          </label>
-                          {input.type === 'textarea' ? (
-                            <textarea
-                              value={playgroundTestInputs[input.name] || ''}
-                              onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [input.name]: e.target.value }))}
-                              placeholder={`Test value for ${input.label}...`}
-                              className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED] min-h-[80px] resize-y"
-                            />
-                          ) : input.type === 'select' ? (
-                            <select
-                              value={playgroundTestInputs[input.name] || ''}
-                              onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [input.name]: e.target.value }))}
-                              className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED]"
-                            >
-                              <option value="">Select {input.label}...</option>
-                              {input.options?.map(opt => (
-                                <option key={opt} value={opt}>{opt}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              type="text"
-                              value={playgroundTestInputs[input.name] || ''}
-                              onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [input.name]: e.target.value }))}
-                              placeholder={`Test value for ${input.label}...`}
-                              className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED]"
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : vars.length > 0 ? (
-                    <div className="space-y-4 bg-white dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                      <h5 className="text-xs font-bold text-[#757681] dark:text-white/40 uppercase tracking-widest mb-4">Variables Detected</h5>
-                      {vars.map(v => (
-                        <div key={v}>
-                          <label className="block text-[10px] font-black text-[#757681] dark:text-white/40 uppercase tracking-widest ml-1 mb-1.5">{v}</label>
-                          <input
-                            type="text"
-                            value={playgroundTestInputs[v] || ''}
-                            onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [v]: e.target.value }))}
-                            placeholder={`Test value for ${v}...`}
-                            className="w-full p-3 bg-[#F7F7F5] dark:bg-[#151515] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:border-emerald-500 transition-all text-[#37352F] dark:text-[#EBE9ED]"
-                          />
-                        </div>
-                      ))}
                     </div>
                   ) : (
-                    <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 p-4 rounded-[12px] border border-amber-200 dark:border-amber-500/20">
-                      No variables detected. Try adding <code className="font-mono bg-amber-100 dark:bg-amber-500/20 px-1 rounded">{"{{topic}}"}</code> to your prompt.
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleTestPlayground}
-                    disabled={isTestingPlayground || !newWidgetPrompt}
-                    className="flex items-center justify-center gap-2 w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all   active:scale-95"
-                  >
-                    {isTestingPlayground ? <ForgeLoader size={16} /> : <Play className="w-4 h-4 fill-current" />}
-                    Run Test
-                  </button>
-
-                  {playgroundTestResult && (
-                    <div className="bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-5 ">
-                      <h4 className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-4">Output</h4>
-                      {newWidgetOutputType === 'html' ? (
-                        <div className="w-full h-[500px] bg-white rounded-[8px] border border-[#E9E9E7] overflow-hidden">
-                          <iframe
-                            srcDoc={playgroundTestResult}
-                            className="w-full h-full border-none"
-                            sandbox="allow-scripts allow-same-origin"
-                            title="HTML Output"
-                          />
-                        </div>
-                      ) : (
-                        <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {playgroundTestResult}
-                          </ReactMarkdown>
-                        </div>
-                      )}
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-[#050505]">
+                      <div className="w-20 h-20 bg-brand/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                        <Terminal className="w-10 h-10 text-brand" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">No App Generated Yet</h3>
+                      <p className="text-sm text-white/40 max-w-xs">
+                        Use the AI Chat on the left to describe the mini-app you want to build.
+                      </p>
                     </div>
                   )}
                 </div>
-              </div>
+              ) : (
+                <div className="p-6 space-y-8">
+                  {/* Configuration Form */}
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Title</label>
+                        <input 
+                          type="text" 
+                          value={newWidgetTitle}
+                          onChange={(e) => setNewWidgetTitle(e.target.value)}
+                          className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand transition-all text-white"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Type</label>
+                        <div className="flex gap-2 p-1 bg-white/5 border border-white/5 rounded-xl">
+                          {(['text', 'image', 'html'] as const).map(t => (
+                            <button
+                              key={t}
+                              onClick={() => setNewWidgetOutputType(t)}
+                              className={cn(
+                                "flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all",
+                                newWidgetOutputType === t ? "bg-white/10 text-white shadow-sm" : "text-white/40 hover:text-white"
+                              )}
+                            >
+                              {t.toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Description</label>
+                      <input 
+                        type="text" 
+                        value={newWidgetDescription}
+                        onChange={(e) => setNewWidgetDescription(e.target.value)}
+                        className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand transition-all text-white"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between mb-1 ml-1">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Prompt Template</label>
+                        <button 
+                          onClick={refinePromptWithAi}
+                          disabled={isRefiningPrompt || !newWidgetPrompt}
+                          className="text-[10px] font-bold text-brand hover:underline flex items-center gap-1 disabled:opacity-50"
+                        >
+                          {isRefiningPrompt ? <ForgeLoader size={10} /> : <Sparkles className="w-3 h-3" />}
+                          Refine
+                        </button>
+                      </div>
+                      <textarea 
+                        value={newWidgetPrompt}
+                        onChange={(e) => setNewWidgetPrompt(e.target.value)}
+                        className="w-full h-32 p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand resize-none transition-all text-white font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Test Inputs */}
+                  <div className="pt-6 border-t border-white/5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Play className="w-4 h-4 text-emerald-500" />
+                      <h4 className="text-sm font-black text-white uppercase tracking-widest">Live Test Mode</h4>
+                    </div>
+
+                    <div className="space-y-6">
+                      {vars.length > 0 ? (
+                        <div className="space-y-4">
+                          {vars.map(v => (
+                            <div key={v}>
+                              <label className="block text-[10px] font-black text-white/40 uppercase tracking-widest ml-1 mb-1.5">{v}</label>
+                              <input
+                                type="text"
+                                value={playgroundTestInputs[v] || ''}
+                                onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [v]: e.target.value }))}
+                                className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand transition-all text-white"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-white/40 bg-white/5 p-4 rounded-xl border border-white/5">
+                          No dynamic variables detected in prompt.
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleTestPlayground}
+                        disabled={isTestingPlayground || !newWidgetPrompt}
+                        className="flex items-center justify-center gap-2 w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all   active:scale-95 shadow-lg shadow-emerald-500/20"
+                      >
+                        {isTestingPlayground ? <ForgeLoader size={16} /> : <Play className="w-4 h-4 fill-current" />}
+                        Run Test
+                      </button>
+
+                      {playgroundTestResult && (
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-5 ">
+                          <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-4">Execution Result</h4>
+                          <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-white/80">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {playgroundTestResult}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

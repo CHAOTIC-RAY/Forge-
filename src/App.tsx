@@ -30,7 +30,7 @@ import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import {
   Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2, Terminal,
-  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock
+  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box
 } from 'lucide-react';
 import { Type } from "@google/genai";
 
@@ -3058,6 +3058,22 @@ export default function App() {
                             >
                               <BarChart3 className="w-5 h-5 shrink-0" />
                             </button>
+                            {activeBusiness?.applets?.map(applet => (
+                              <button
+                                key={applet.id}
+                                onClick={() => setActiveTab(`applet_${applet.id}` as any)}
+                                title={applet.name}
+                                className={cn(
+                                  "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors relative group",
+                                  activeTab === `applet_${applet.id}` ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-indigo-600 dark:text-indigo-400" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                )}
+                              >
+                                <Box className="w-5 h-5 shrink-0" />
+                                <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                                  {applet.name}
+                                </div>
+                              </button>
+                            ))}
                           </>
                         ) : isViewer ? (
                           <>
@@ -3399,6 +3415,42 @@ export default function App() {
                             />
                           </div>
                         )}
+                        {isAdmin && activeBusiness?.applets?.map(applet => (
+                          <div key={applet.id} className={cn("flex-1 h-[calc(100vh-120px)]", activeTab === `applet_${applet.id}` ? 'block' : 'hidden')}>
+                            <div className="w-full h-full bg-white dark:bg-[#111111] rounded-xl overflow-hidden shadow-sm border border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-col">
+                              <div className="flex items-center justify-between p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
+                                <h2 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2 relative z-10">
+                                  <Box className="w-4 h-4 text-indigo-500" />
+                                  {applet.name}
+                                </h2>
+                                <button
+                                  onClick={async () => {
+                                    if(confirm(`Delete the applet ${applet.name}?`)) {
+                                      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
+                                        applets: activeBusiness.applets?.filter(a => a.id !== applet.id)
+                                      });
+                                      if(activeTab === `applet_${applet.id}`) setActiveTab('home');
+                                    }
+                                  }}
+                                  className="text-[#757681] hover:text-red-500 transition-colors pointer-events-auto relative z-10 p-2"
+                                  title="Delete Applet"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                              <iframe
+                                title={applet.name}
+                                className="w-full flex-1 border-none bg-white"
+                                sandbox="allow-scripts allow-forms allow-popups allow-modals"
+                                 srcDoc={
+                                   applet.code.includes('<head>')
+                                     ? applet.code.replace('<head>', `<head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>window.FORGE_CONTEXT = ${JSON.stringify(activeBusiness || {})};</script>`)
+                                     : `<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>window.FORGE_CONTEXT = ${JSON.stringify(activeBusiness || {})};</script></head><body>${applet.code.replace(/```[a-z]*|```/g, '')}</body></html>`
+                                 }
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </main>
                   </div>
@@ -3510,7 +3562,7 @@ export default function App() {
                       { id: 'more', icon: Menu, title: 'More' }
                     ].map(tab => {
                       const Icon = tab.icon;
-                      const isSubTabActive = tab.id === 'more' && ['search', 'ai', 'creative', 'analytics', 'more'].includes(activeTab);
+                      const isSubTabActive = tab.id === 'more' && (['search', 'workspace_management', 'brandkit', 'creative', 'analytics', 'more'].includes(activeTab) || activeTab.startsWith('applet_'));
                       const isActive = activeTab === tab.id || isSubTabActive;
                       return (
                         <button

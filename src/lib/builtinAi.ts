@@ -63,6 +63,7 @@ if (typeof navigator !== 'undefined' && (navigator as any).gpu && typeof (window
 export interface BuiltInAiStatus {
   isLoaded: boolean;
   isLoading: boolean;
+  isProcessing: boolean;
   progress: number;
   error: string | null;
 }
@@ -117,10 +118,12 @@ class BuiltInAiService {
   private inference: any = null;
   private currentModelId: string | null = null;
   private isLoading = false;
+  private isProcessing = false;
   private isLoaded = false;
   private progress = 0;
   private error: string | null = null;
   private statusListeners: ((status: BuiltInAiStatus) => void)[] = [];
+  private pendingRequest: Promise<any> = Promise.resolve();
 
   private readonly WASM_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14/wasm";
 
@@ -128,6 +131,7 @@ class BuiltInAiService {
     return {
       isLoaded: this.isLoaded,
       isLoading: this.isLoading,
+      isProcessing: this.isProcessing,
       progress: this.progress,
       error: this.error
     };
@@ -272,30 +276,85 @@ class BuiltInAiService {
   }
 
   async generate(prompt: string, onToken?: (token: string) => void): Promise<string> {
-    if (!this.isLoaded || !this.inference) {
-      // Re-trigger init if lost, this handles the auto-re-init faster now via cache
-      await this.init(this.currentModelId || 'gemma3-1b');
-      if (!this.isLoaded) throw new Error(this.error || "Built-in AI not ready.");
-    }
+    // Sequential execution lock to prevent "Previous invocation is still ongoing"
+    const previous = this.pendingRequest;
+    let resolveLock: (val: any) => void;
+    this.pendingRequest = new Promise(resolve => { resolveLock = resolve; });
 
     try {
-      if (onToken) {
-        // Streaming support
-        return new Promise((resolve, reject) => {
-          let fullText = "";
-          this.inference.generateResponse(prompt, (partialText: string, done: boolean) => {
-            fullText = partialText;
-            onToken(partialText);
-            if (done) resolve(fullText);
-          }).catch(reject);
-        });
+      if (this.isProcessing) {
+        console.log("[BuiltInAI] Queuing concurrent request...");
+      }
+      await previous;
+      this.isProcessing = true;
+      this.notify();
+
+      if (!this.isLoaded || !this.inference) {
+        // Re-trigger init if lost, this handles the auto-re-init faster now via cache
+        await this.init(this.currentModelId || 'gemma3-1b');
+        if (!this.isLoaded) throw new Error(this.error || "Built-in AI not ready.");
       }
 
-      const result = await this.inference.generateResponse(prompt);
+      const result = await (async () => {
+        if (onToken) {
+          // Streaming support
+          return new Promise<string>((resolve, reject) => {
+            let fullText = "";
+            this.inference.generateResponse(prompt, (partialText: string, done: boolean) => {
+              fullText = partialText;
+              onToken(partialText);
+              if (done) resolve(fullText);
+            }).catch(reject);
+          });
+        }
+        return await this.inference.generateResponse(prompt);
+      })();
+      
+      // Post-processing to detect and truncate infinite repetition loops (e.g. "fran fran fran...")
+      // Repetition Shield: Detects and cuts off loops that occur often in local models
+      if (result && result.length > 50) {
+        const words = result.split(/\s+/);
+        let consecutiveCount = 1;
+        let lastWord = "";
+        
+        for (let i = 0; i < words.length; i++) {
+          const currentWord = words[i].toLowerCase().replace(/[^\w]/g, '');
+          if (currentWord.length < 2) continue; // Ignore single letters
+          
+          if (currentWord === lastWord) {
+            consecutiveCount++;
+            if (consecutiveCount > 6) { // Lowered from 12 to 6 for faster protection
+              console.warn("[BuiltInAI] REPETITION DETECTED, TRUNCATING.");
+              const truncated = words.slice(0, Math.max(0, i - 4)).join(' ');
+              return truncated + "... [Repetition Shield Active]";
+            }
+          } else {
+            consecutiveCount = 1;
+            lastWord = currentWord;
+          }
+        }
+        
+        // Secondary check: Pattern repetition (e.g. "abc abc abc")
+        const text = result.toLowerCase();
+        if (text.length > 200) {
+          const lastChunk = text.slice(-60);
+          const firstHalf = lastChunk.slice(0, 30);
+          const secondHalf = lastChunk.slice(30);
+          if (firstHalf === secondHalf && firstHalf.trim().length > 5) {
+            console.warn("[BuiltInAI] PATTERN REPETITION DETECTED.");
+            return result.slice(0, -60) + "... [Pattern Shield Active]";
+          }
+        }
+      }
+      
       return result;
     } catch (err: any) {
       console.error("[BuiltInAI] Generation error:", err);
       throw err;
+    } finally {
+      this.isProcessing = false;
+      this.notify();
+      resolveLock!(null);
     }
   }
 }

@@ -5,7 +5,7 @@ import {
   Download, Save, Upload, RefreshCw, FileSpreadsheet, 
   Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
   Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2,
-  FileText, MessageSquareText
+  FileText, MessageSquareText, Box
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
@@ -20,14 +20,15 @@ import { builtInAi, BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
 import { Cpu, Info } from 'lucide-react';
 
 const GEMINI_MODELS = [
-  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Default)' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' },
   { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' }
 ];
 
 const GROQ_MODELS = [
-  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Default)' },
-  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' },
+  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B (Fastest)' },
+  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
   { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
   { id: 'gemma2-9b-it', name: 'Gemma 2 9B' }
 ];
@@ -642,6 +643,19 @@ export function SettingsView({
             <span className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Manage your product database</span>
           </div>
         </button>
+
+        {activeBusiness?.applets?.map(applet => (
+          <button 
+            key={applet.id}
+            onClick={() => setActiveTab?.(`applet_${applet.id}` as any)}
+            className="col-span-3 flex flex-col items-center justify-center p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
+          >
+            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-[16px] flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-2">
+              <Box className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] text-center line-clamp-1">{applet.name}</span>
+          </button>
+        ))}
       </div>
 
       <div className="mb-6">
@@ -1344,8 +1358,8 @@ export function SettingsView({
             <button
               onClick={() => {
                 const defaults = { 
-                  geminiModel: 'gemini-3.1-pro-preview', 
-                  groqModel: 'llama-3.3-70b-versatile', 
+                  geminiModel: 'gemini-2.5-flash', 
+                  groqModel: 'llama-3.1-8b-instant', 
                   groqVisionModel: 'llama-3.2-11b-vision-preview',
                   firecrawlApiKey: '',
                   targetUrl: ''
