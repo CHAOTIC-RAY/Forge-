@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3, AlertCircle, Globe } from 'lucide-react';
+import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3, AlertCircle, Globe, Plus, Settings, History, Zap, Brain, Shield } from 'lucide-react';
 import { Post } from '../data';
 import { cn } from '../lib/utils';
-import { chatWithAi } from '../lib/gemini';
+import { chatWithAi, GEMINI_MODELS, GROQ_MODELS, PUTER_MODELS, LOCAL_MODELS, getAiSettings, setAiSettings } from '../lib/gemini';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -12,6 +12,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  timestamp: number;
   attachedItem?: any;
   suggestedPost?: Partial<Post>;
   suggestedPosts?: Partial<Post>[];
@@ -34,6 +35,37 @@ interface FloatingChatProps {
   isFullPage?: boolean;
   onClose?: () => void;
   onFullScreen?: () => void;
+}
+
+function ModelCategory({ title, models, provider, currentModel, currentProvider, onSelect }: any) {
+  return (
+    <div className="mb-4 last:mb-0">
+      <p className="text-[10px] font-black text-slate-400 px-3 py-2 uppercase tracking-widest bg-black/5 dark:bg-white/5 mb-1 rounded-lg">
+        {title}
+      </p>
+      <div className="space-y-0.5">
+        {models.map((m: any) => (
+          <button 
+            key={m.id}
+            onClick={() => onSelect(m.id, provider === 'builtin' && m.id === 'webllm-local' ? 'webllm' : provider)}
+            className={cn(
+              "w-full text-left px-3 py-2.5 rounded-xl text-[12px] transition-colors flex items-center justify-between group",
+              (currentProvider === provider && currentModel === m.id) || (provider === 'builtin' && m.id === 'webllm-local' && currentModel === 'webllm-local')
+                ? "bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold" 
+                : "hover:bg-black/5 dark:hover:bg-white/5 text-[#444746] dark:text-[#E3E3E3]"
+            )}
+          >
+            <span className="truncate">{m.name}</span>
+            {m.id.includes('flash') || m.id.includes('instant') ? (
+               <Zap className="w-3 h-3 text-orange-400 opacity-60 group-hover:opacity-100" />
+            ) : m.id.includes('pro') || m.id.includes('sonnet') ? (
+               <Sparkles className="w-3 h-3 text-indigo-400 opacity-60 group-hover:opacity-100" />
+            ) : null}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function FloatingChat({ 
@@ -66,13 +98,52 @@ export function FloatingChat({
   }, [isFullPage]);
   const [input, setInput] = useState('');
   const [activeStrategy, setActiveStrategy] = useState<'General' | 'Viral' | 'Sales' | 'Educational'>('General');
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', role: 'assistant', content: 'Hi! I can help you create or edit tasks. My **Social Media Strategy Library** is active and ready to help you grow. Drag anything here or type a request.' }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [attachedItem, setAttachedItem] = useState<any>(null);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [aiSettings, setAiSettingsState] = useState(getAiSettings());
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load and Filter History (Auto-delete older than 1 month)
+  useEffect(() => {
+    const savedHeaders = localStorage.getItem('forge_chat_history');
+    if (savedHeaders) {
+      try {
+        const parsed = JSON.parse(savedHeaders) as Message[];
+        const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const filtered = parsed.filter(m => m.timestamp > oneMonthAgo);
+        
+        if (filtered.length > 0) {
+          setMessages(filtered);
+        } else {
+          setMessages([{ 
+            id: '1', 
+            role: 'assistant', 
+            content: 'Hi! I can help you create or edit tasks. My **Social Media Strategy Library** is active and ready to help you grow. Drag anything here or type a request.',
+            timestamp: Date.now()
+          }]);
+        }
+      } catch (e) {
+        console.error("Failed to load chat history", e);
+      }
+    } else {
+      setMessages([{ 
+        id: '1', 
+        role: 'assistant', 
+        content: 'Hi! I can help you create or edit tasks. My **Social Media Strategy Library** is active and ready to help you grow. Drag anything here or type a request.',
+        timestamp: Date.now()
+      }]);
+    }
+  }, []);
+
+  // Save History
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('forge_chat_history', JSON.stringify(messages));
+    }
+  }, [messages]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -143,6 +214,7 @@ export function FloatingChat({
       id: Date.now().toString(),
       role: 'user',
       content: input,
+      timestamp: Date.now(),
       attachedItem: currentAttached,
       images: currentImages.length > 0 ? currentImages : undefined
     };
@@ -231,6 +303,7 @@ export function FloatingChat({
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: response.message || `I've prepared some drafts for you.`,
+        timestamp: Date.now(),
         attachedItem: currentAttached,
         action: response.action,
         provider: response.provider,
@@ -257,7 +330,7 @@ export function FloatingChat({
       if (assistantMessage.suggestedPost || assistantMessage.suggestedPosts || assistantMessage.images) {
         setMessages(prev => [...prev, assistantMessage]);
       } else {
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: response.message || "I couldn't generate a valid post from that. Could you be more specific?", provider: response.provider }]);
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: response.message || "I couldn't generate a valid post from that. Could you be more specific?", provider: response.provider, timestamp: Date.now() }]);
       }
 
     } catch (error: any) {
@@ -266,7 +339,8 @@ export function FloatingChat({
       setMessages(prev => [...prev, { 
         id: Date.now().toString(), 
         role: 'assistant', 
-        content: errorMessage.includes('JSON') ? 'Sorry, I had trouble formatting the response. Please try again.' : errorMessage 
+        content: errorMessage.includes('JSON') ? 'Sorry, I had trouble formatting the response. Please try again.' : errorMessage,
+        timestamp: Date.now()
       }]);
     } finally {
       setIsTyping(false);
@@ -276,17 +350,17 @@ export function FloatingChat({
   const handleDeleteAction = (originalItem: any) => {
     if (originalItem?.type === 'post' && onDeletePost) {
       onDeletePost(originalItem.post.id);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '🗑️ Post has been deleted.' }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '🗑️ Post has been deleted.', timestamp: Date.now() }]);
       onClearDroppedItem();
     } else {
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '⚠️ I can only delete posts that are currently attached to the chat.' }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '⚠️ I can only delete posts that are currently attached to the chat.', timestamp: Date.now() }]);
     }
   };
 
   const applySuggestion = (suggestion: Partial<Post>, originalItem: any) => {
     if (originalItem?.type === 'post') {
       onUpdatePost({ ...originalItem.post, ...suggestion } as Post);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '✅ Changes applied to the existing post!' }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: '✅ Changes applied to the existing post!', timestamp: Date.now() }]);
     } else {
       // Create new post
       const newPost: Post = {
@@ -296,7 +370,7 @@ export function FloatingChat({
         ...suggestion
       } as Post;
       onCreatePost(newPost);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: `✅ New post created and added to ${newPost.date}!` }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: `✅ New post created and added to ${newPost.date}!`, timestamp: Date.now() }]);
     }
   };
 
@@ -310,7 +384,32 @@ export function FloatingChat({
       } as Post;
       onCreatePost(newPost);
     });
-    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: `✅ ${suggestions.length} new posts created and added to the calendar!` }]);
+    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: `✅ ${suggestions.length} new posts created and added to the calendar!`, timestamp: Date.now() }]);
+  };
+
+  const suggestionPills = [
+    "Write a viral caption for a New Arrival post",
+    "Analyze my recent product analytics",
+    "Generate a sales campaign for kitchenware",
+    "Create 3 educational carousels about interior design",
+    "Suggest hashtags for a minimalist sofa post"
+  ];
+
+  const changeModel = (modelId: string, provider: 'gemini' | 'groq' | 'puter' | 'builtin' | 'webllm') => {
+    let updated = { ...aiSettings, preferredProvider: provider === 'webllm' ? 'auto' : provider };
+    
+    if (provider === 'gemini') updated.geminiModel = modelId;
+    if (provider === 'groq') updated.groqModel = modelId;
+    if (provider === 'puter') updated.puterTextModel = modelId;
+    if (provider === 'builtin') updated.builtinModelId = modelId;
+    if (provider === 'webllm') {
+      updated.geminiModel = 'webllm-local';
+      updated.preferredProvider = 'auto'; // Fallback logic usually handles this
+    }
+
+    setAiSettingsState(updated);
+    setAiSettings(updated);
+    setShowModelSelector(false);
   };
 
   return (
@@ -324,36 +423,154 @@ export function FloatingChat({
         {isOpen && !isMinimized && (
           <motion.div 
             ref={setContainerRef}
-            initial={isFullPage ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={isFullPage ? { opacity: 1 } : { opacity: 0, y: 20, scale: 0.95 }}
+            initial={isFullPage ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.95 }}
+            animate={isFullPage ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={isFullPage ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
             className={cn(
-              "flex flex-col overflow-hidden pointer-events-auto transition-all duration-300 relative",
+              "flex overflow-hidden pointer-events-auto relative",
               isFullPage 
-                ? "w-full h-full rounded-none bg-[#FAFAFA] dark:bg-[#0A0A0A] border-none inset-0 absolute" 
-                : "hidden md:flex w-[400px] md:w-[440px] h-[640px] rounded-[24px] bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-[0_8px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)]",
+                ? "flex-row w-full h-full rounded-none bg-[#FAFAFA] dark:bg-[#131314] border-none inset-0 absolute transition-opacity" 
+                : "flex-col hidden md:flex w-[400px] md:w-[440px] h-[640px] rounded-[24px] bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-[0_8px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] transition-all duration-300",
               isContainerOver && "ring-2 ring-indigo-500"
             )}
           >
+            {/* Sidebar (Full page only) */}
+            {isFullPage && (
+              <div className="hidden lg:flex flex-col w-[260px] bg-[#F0F4F9] dark:bg-[#1E1F20] shrink-0 p-4 border-r border-[#E9E9E7] dark:border-[#333] relative z-10">
+                 <div className="flex items-center gap-3 mb-8 mt-2 px-2">
+                    <button 
+                      onClick={onClose}
+                      className="p-2 -ml-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full text-[#444746] dark:text-[#E3E3E3] transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+                        <Zap className="w-4 h-4 fill-current" />
+                      </div>
+                      <span className="text-[#444746] dark:text-[#E3E3E3] text-[18px] font-medium tracking-wide">Forge AI</span>
+                    </div>
+                 </div>
+
+                 <button 
+                   onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared. How can I help you? My Social Media Strategy Library is active and ready to help you grow.', timestamp: Date.now() }])}
+                   className="flex items-center gap-3 bg-[#D3E3FD] dark:bg-[#1A1A1C] hover:bg-[#B4D0FC] dark:hover:bg-[#333] border dark:border-[#333] border-transparent rounded-[16px] py-3 px-4 text-[#041E49] dark:text-[#E3E3E3] font-medium text-sm w-fit transition-colors mb-6 shadow-sm"
+                 >
+                    <Plus className="w-4 h-4" />
+                    New chat
+                 </button>
+
+                 <div className="flex-1 overflow-y-auto w-full space-y-1">
+                   <div className="flex items-center gap-2 px-4 mb-2 mt-4 text-[12px] font-medium text-[#444746] dark:text-[#8E8E8E]">
+                     <History className="w-3.5 h-3.5" />
+                     Recent
+                   </div>
+                   {messages.filter(m => m.role === 'user').slice(-5).reverse().map((msg, i) => (
+                     <button 
+                       key={i}
+                       onClick={() => setInput(msg.content)}
+                       className="w-full text-left px-4 py-2.5 text-[13px] text-[#444746] dark:text-[#E3E3E3] hover:bg-black/5 dark:hover:bg-[#333] rounded-full flex items-center gap-3 truncate transition-colors font-medium group"
+                     >
+                       <MessageSquare className="w-4 h-4 text-[#444746] dark:text-[#8E8E8E] shrink-0 group-hover:text-indigo-500" />
+                       <span className="truncate">{msg.content}</span>
+                     </button>
+                   ))}
+                 </div>
+
+                 <div className="mt-auto p-4 bg-white/40 dark:bg-black/20 rounded-2xl border border-black/5 dark:border-white/5">
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                      <Shield className="w-3 h-3" /> 
+                      AUTO-CLEAN ACTIVE
+                    </div>
+                    <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">History older than 30 days is automatically deleted for privacy.</p>
+                 </div>
+              </div>
+            )}
+
+            {/* Main Chat Column */}
+            <div className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
+            {/* AI Glow Effect Background for FullPage */}
+            {isFullPage && (
+              <>
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full animate-pulse" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse" />
+              </>
+            )}
+
             {/* Header */}
-            <div className={cn(
-              "relative p-4 border-b flex items-center justify-between shrink-0 z-20",
-              isFullPage 
-                ? "bg-white/80 dark:bg-[#111111]/80 backdrop-blur-xl border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm sticky top-0" 
-                : "bg-white/40 dark:bg-black/20 backdrop-blur-md border-[#E9E9E7] dark:border-[#2E2E2E]"
-            )}>
+            {isFullPage ? (
+              <div className="relative z-30 w-full max-w-4xl mx-auto">
+                {/* Desktop Header */}
+                <div className="hidden lg:flex p-4 items-center justify-between shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-full border border-black/5 dark:border-white/10 shadow-sm cursor-pointer hover:bg-white dark:hover:bg-white/10 transition-all group" onClick={() => setShowModelSelector(!showModelSelector)}>
+                      <Brain className="w-4 h-4 text-indigo-500" />
+                      <span className="text-[12px] font-semibold text-[#444746] dark:text-[#E3E3E3]">
+                        {aiSettings.preferredProvider === 'gemini' ? aiSettings.geminiModel : 
+                         aiSettings.preferredProvider === 'groq' ? aiSettings.groqModel : 
+                         aiSettings.preferredProvider === 'puter' ? aiSettings.puterTextModel : 
+                         aiSettings.preferredProvider === 'builtin' ? 'Built-in AI' : 
+                         aiSettings.geminiModel === 'webllm-local' ? 'Local LLM' : aiSettings.geminiModel}
+                      </span>
+                      <Plus className={cn("w-3 h-3 text-[#444746] dark:text-[#E3E3E3] transition-transform", showModelSelector ? "rotate-45" : "")} />
+                    </div>
+                    <AnimatePresence>
+                      {showModelSelector && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute top-16 left-4 w-72 bg-white dark:bg-[#1E1F20] rounded-2xl shadow-2xl border border-black/5 dark:border-white/10 p-2 z-50 overflow-hidden"
+                        >
+                          <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
+                            <ModelCategory title="Google Gemini" models={GEMINI_MODELS} provider="gemini" currentModel={aiSettings.geminiModel} currentProvider={aiSettings.preferredProvider} onSelect={changeModel} />
+                            <ModelCategory title="Groq (Cloud)" models={GROQ_MODELS} provider="groq" currentModel={aiSettings.groqModel} currentProvider={aiSettings.preferredProvider} onSelect={changeModel} />
+                            <ModelCategory title="Puter (Enterprise)" models={PUTER_MODELS} provider="puter" currentModel={aiSettings.puterTextModel} currentProvider={aiSettings.preferredProvider} onSelect={changeModel} />
+                            <ModelCategory title="Local AI" models={LOCAL_MODELS} provider="builtin" currentModel={aiSettings.geminiModel === 'webllm-local' ? 'webllm-local' : aiSettings.builtinModelId} currentProvider={aiSettings.geminiModel === 'webllm-local' ? 'builtin' : aiSettings.preferredProvider} onSelect={changeModel} />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <button className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full text-[#444746] dark:text-[#E3E3E3]">
+                       <Settings className="w-5 h-5" />
+                     </button>
+                  </div>
+                </div>
+
+                {/* Mobile/Tablet Header for FullPage */}
+                <div className="lg:hidden relative p-4 flex items-center justify-between shrink-0 bg-white/80 dark:bg-[#111111]/80 backdrop-blur-xl border-b border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm sticky top-0">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={onClose}
+                      className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-[#757681] dark:text-[#E3E3E3] transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-black/5 dark:bg-white/5 rounded-full" onClick={() => setShowModelSelector(!showModelSelector)}>
+                      <Brain className="w-3.5 h-3.5 text-indigo-500" />
+                      <span className="text-[11px] font-bold text-[#444746] dark:text-[#E3E3E3] truncate max-w-[100px]">
+                        {aiSettings.preferredProvider === 'gemini' ? aiSettings.geminiModel : 
+                         aiSettings.preferredProvider === 'groq' ? aiSettings.groqModel : 
+                         aiSettings.preferredProvider === 'puter' ? aiSettings.puterTextModel : 
+                         aiSettings.preferredProvider === 'builtin' ? 'Built-in' : 
+                         aiSettings.geminiModel === 'webllm-local' ? 'Local' : aiSettings.geminiModel}
+                      </span>
+                    </div>
+                  </div>
+                  <button className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-[#757681] dark:text-[#E3E3E3]">
+                    <Plus className="w-5 h-5" onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared.', timestamp: Date.now() }])} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+            <div className="relative p-4 border-b flex items-center justify-between shrink-0 z-20 bg-white/40 dark:bg-black/20 backdrop-blur-md border-[#E9E9E7] dark:border-[#2E2E2E]">
               {/* AI Gradient Background */}
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/5 via-purple-600/5 to-blue-600/5 dark:from-indigo-500/10 dark:via-purple-500/10 dark:to-blue-500/10 animate-gradient-x pointer-events-none" />
               
-              <div className={cn("relative flex items-center gap-3 w-full", isFullPage ? "max-w-4xl mx-auto" : "")}>
-                {isFullPage && (
-                  <button 
-                    onClick={onClose}
-                    className="hidden md:block p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors mr-1"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                )}
+              <div className="relative flex items-center gap-3 w-full">
                 <div className="relative">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
                     <Sparkles className="w-5 h-5 animate-pulse" />
@@ -373,13 +590,13 @@ export function FloatingChat({
               </div>
               <div className="relative flex items-center gap-1 shrink-0">
                 <button 
-                  onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared. How can I help you?' }])}
+                  onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared. How can I help you?', timestamp: Date.now() }])}
                   className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
                   title="Clear Chat"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
-                {!isFullPage && onFullScreen && (
+                {onFullScreen && (
                   <button 
                     onClick={onFullScreen}
                     className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
@@ -388,17 +605,16 @@ export function FloatingChat({
                     <Maximize2 className="w-4 h-4" />
                   </button>
                 )}
-                {!isFullPage && (
-                  <button 
-                    onClick={() => setIsMinimized(true)}
-                    className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
-                    title="Minimize"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+                <button 
+                  onClick={() => setIsMinimized(true)}
+                  className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
+                  title="Minimize"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
+            )}
 
             {/* Messages Area */}
             <div className={cn("flex flex-1 flex-col overflow-hidden relative", isFullPage ? "w-full z-10" : "")}>
@@ -413,25 +629,7 @@ export function FloatingChat({
                 <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
                 <div className={cn(isFullPage ? "max-w-4xl mx-auto w-full flex flex-col space-y-6 pt-4" : "flex flex-col space-y-6")}>
-                  {/* Strategy Modes Indicator */}
-                  <div className="flex flex-wrap gap-2 mb-6 sticky top-0 z-10 p-1 bg-white/50 dark:bg-[#1A1A1A]/50 backdrop-blur-xl rounded-[12px] shadow-sm border border-[#E9E9E7] dark:border-[#2E2E2E] mx-auto w-fit">
-                  {(['General', 'Viral', 'Sales', 'Educational'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => setActiveStrategy(mode)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-[8px] text-[11px] font-semibold capitalize transition-all duration-300",
-                        activeStrategy === mode 
-                          ? "bg-white dark:bg-[#2C2C2C] text-[#37352F] dark:text-[#EBE9ED] shadow-[0_2px_10px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-[#E9E9E7] dark:border-[#3E3E3E]" 
-                          : "bg-transparent text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                      )}
-                    >
-                      {mode}
-                    </button>
-                  ))}
-                  </div>
-
-                {messages.map((msg) => (
+                  {messages.map((msg) => (
                 <div 
                   key={msg.id} 
                   className={cn(
@@ -439,11 +637,17 @@ export function FloatingChat({
                     msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start"
                   )}
                 >
+                  {msg.role === 'assistant' && isFullPage && (
+                    <div className="absolute -left-6 top-6 w-3 h-3 bg-indigo-500 rounded-full blur-[8px] opacity-40 animate-pulse" />
+                  )}
                   <div className={cn(
                     "relative p-4 rounded-[20px] text-[13px] leading-relaxed shadow-sm transition-all group/message border",
                     msg.role === 'user' 
                       ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#111111] rounded-tr-[4px] border-transparent" 
-                      : "bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-tl-[4px] border-[#E9E9E7] dark:border-[#2E2E2E]"
+                      : cn(
+                          "bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-tl-[4px] border-[#E9E9E7] dark:border-[#2E2E2E]",
+                          isFullPage && "shadow-[0_4px_24px_rgba(79,70,229,0.04)] dark:shadow-[0_4px_24px_rgba(79,70,229,0.08)]"
+                        )
                   )}>
                     {msg.role === 'assistant' && (
                       <button 
@@ -624,14 +828,56 @@ export function FloatingChat({
 
             {/* Input Area */}
             <div className={cn(
-              "z-20 transition-all duration-300",
+              "z-30 transition-all duration-300",
               isFullPage 
-                ? "fixed bottom-0 left-0 right-0 p-6 pointer-events-none" 
+                ? "fixed bottom-0 left-0 right-0 p-6 pointer-events-none lg:pl-[260px]" 
                 : "p-4 border-t bg-white/90 dark:bg-[#1A1A1A]/90 backdrop-blur-xl border-[#E9E9E7] dark:border-[#2E2E2E] rounded-b-[24px]"
             )}>
-              <div className={cn(
-                isFullPage && "max-w-4xl mx-auto w-full bg-white/70 dark:bg-[#161616]/70 backdrop-blur-2xl border border-[#E9E9E7] dark:border-[#2A2A2A] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] p-4 rounded-[28px] pointer-events-auto"
-              )}>
+              <div className="max-w-3xl mx-auto w-full pointer-events-auto flex flex-col gap-3">
+                {/* Suggestion Pills (Moved here) */}
+                {messages.length <= 1 && (
+                  <div className={cn(
+                    "flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-4 duration-500",
+                    isFullPage ? "justify-start" : "justify-center"
+                   )}>
+                    {suggestionPills.map((pill, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setInput(pill)}
+                        className="px-4 py-2 bg-white/80 dark:bg-white/5 backdrop-blur-md border border-black/5 dark:border-white/10 rounded-full text-[11px] text-[#444746] dark:text-[#E3E3E3] hover:bg-indigo-50 dark:hover:bg-indigo-500/20 hover:border-indigo-200 dark:hover:border-indigo-500/30 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all font-bold shadow-sm"
+                      >
+                        {pill}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Strategy Modes Indicator (Moved here) */}
+                <div className={cn(
+                  "flex flex-wrap gap-2 mb-1 z-10 w-fit",
+                  !isFullPage && "mx-auto sticky top-0 p-1 bg-white/50 dark:bg-[#1A1A1A]/50 backdrop-blur-xl rounded-[12px] shadow-sm border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                )}>
+                  {(['General', 'Viral', 'Sales', 'Educational'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setActiveStrategy(mode)}
+                      className={cn(
+                        "rounded-[8px] font-bold capitalize transition-all duration-300 text-[11px]",
+                        isFullPage ? "px-4 py-2 bg-transparent border dark:border-[#444] border-[#E9E9E7]" : "px-3 py-1.5",
+                        activeStrategy === mode 
+                          ? (isFullPage ? "bg-[#D3E3FD] dark:bg-indigo-500/20 text-[#041E49] dark:text-indigo-400 border-indigo-500/30 shadow-sm" : "bg-white dark:bg-[#2C2C2C] text-[#37352F] dark:text-[#EBE9ED] shadow-sm border border-[#E9E9E7] dark:border-[#3E3E3E]")
+                          : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] hover:bg-black/5 dark:hover:bg-white/5"
+                      )}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+
+                <div className={cn(
+                  isFullPage && "w-full bg-[#f0f4f9] dark:bg-[#1E1F20] border border-black/5 dark:border-white/5 p-2 rounded-[28px] shadow-sm",
+                  !isFullPage && "relative flex flex-col gap-2"
+                )}>
                 {(attachedItem || attachedImages.length > 0) && (
                 <div className="mb-4 flex flex-wrap gap-2">
                   {attachedItem && (
@@ -716,10 +962,12 @@ export function FloatingChat({
               
               {isFullPage && (
                 <div className="mt-3 text-center">
-                  <p className="text-[10px] text-[#A0A0A0] dark:text-[#666]">AI can make mistakes. Verify important information.</p>
+                  <p className="text-[11px] text-[#A0A0A0] dark:text-[#8E8E8E] font-medium tracking-wide">Forge AI can make mistakes. Verify important info.</p>
                 </div>
               )}
-              </div>
+            </div>
+            </div>
+            </div>
             </div>
           </motion.div>
         )}

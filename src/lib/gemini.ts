@@ -100,24 +100,28 @@ const getVertexModel = (modelName: string) => {
 const GROQ_API_KEY = (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) || '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';
 
 export const GEMINI_MODELS = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)' },
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Fastest)' },
+  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Brain)' },
   { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
   { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro Exp' },
-  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-  { id: 'webllm-local', name: 'WebLLM / Local (WebGPU)' },
 ];
 
 export const GROQ_MODELS = [
-  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile' },
-  { id: 'llama-3.1-70b-versatile', name: 'Llama 3.1 70B Versatile' },
-  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant' },
+  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Versatile)' },
+  { id: 'llama-3.1-70b-versatile', name: 'Llama 3.1 70B' },
   { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
   { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
-  { id: 'llama-3.2-11b-vision-preview', name: 'Llama 3.2 11B Vision' },
-  { id: 'llama-3.2-90b-vision-preview', name: 'Llama 3.2 90B Vision' },
+];
+
+export const PUTER_MODELS = [
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Puter)' },
+  { id: 'gpt-4o', name: 'GPT-4o (Puter)' },
+  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet (Puter)' },
+];
+
+export const LOCAL_MODELS = [
+  { id: 'webllm-local', name: 'WebLLM / Local (WebGPU)' },
+  { id: 'builtin', name: 'Browser Built-in AI' },
 ];
 
 export const safeParseJSON = (text: string) => {
@@ -3390,6 +3394,8 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     const allowed = settings.allowedAutoProviders || ['builtin', 'puter', 'groq', 'gemini'];
     const isAuto = settings.preferredProvider === 'auto';
     const forceBuiltin = settings.preferredProvider === 'builtin';
+    const forcePuter = settings.preferredProvider === 'puter';
+    const forceGroq = settings.preferredProvider === 'groq';
 
     let finalSystemInstruction = systemInstruction;
 
@@ -3526,6 +3532,32 @@ Rules:
         console.warn("Local AI optimized chat failed, falling back...");
       }
     }
+
+    // --- Provider-Specific Enforcement ---
+    if (fallbackToGemini && forcePuter) {
+      try {
+        console.log("[AI] Forcing Puter provider...");
+        const text = await fetchFromPuter(flatPrompt);
+        parsed = safeParseJSON(text || '{}');
+        if (parsed && parsed.message) fallbackToGemini = false;
+        if (parsed) parsed.provider = 'Puter';
+      } catch (e) {
+        console.error("Forced Puter chat failed:", e);
+      }
+    }
+
+    if (fallbackToGemini && forceGroq) {
+      try {
+        console.log("[AI] Forcing Groq provider...");
+        const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
+        parsed = safeParseJSON(groqText || '{}');
+        if (parsed && parsed.message) fallbackToGemini = false;
+        if (parsed) parsed.provider = 'Groq';
+      } catch (e) {
+        console.error("Forced Groq chat failed:", e);
+      }
+    }
+    // -------------------------------------
 
     if (fallbackToGemini && isAuto && allowed.includes('puter')) {
       try {
