@@ -124,7 +124,12 @@ export async function startServer(forcePort?: number) {
       isRunning: true,
       progress: 0,
       startTime: Date.now(),
-      logs: ["Initializing Fine-tuning Pipeline...", "Verifying environment...", "Dependencies found: transformers, torch, peft."]
+      logs: [
+        "Initializing Fine-tuning Pipeline...", 
+        "Verifying environment...", 
+        "Dependencies found: transformers, torch, peft.",
+        "Target Task: Postcard Generation & Forge System Assistance Training"
+      ]
     };
 
     // Simulate progress over time
@@ -132,12 +137,13 @@ export async function startServer(forcePort?: number) {
       finetuneStatus.progress += 5;
       
       if (finetuneStatus.progress === 10) finetuneStatus.logs.push(`Loading Pretrained Model: ${modelId}...`);
-      if (finetuneStatus.progress === 20) finetuneStatus.logs.push("Freezing base layers for LoRA training...");
-      if (finetuneStatus.progress === 30) finetuneStatus.logs.push("Configuring LoRA parameters: r=8, alpha=32.");
-      if (finetuneStatus.progress === 40) finetuneStatus.logs.push("Starting Epoch 1/3...");
-      if (finetuneStatus.progress === 60) finetuneStatus.logs.push("Starting Epoch 2/3... Loss: 0.3421");
-      if (finetuneStatus.progress === 80) finetuneStatus.logs.push("Starting Epoch 3/3... Loss: 0.1284");
-      if (finetuneStatus.progress === 95) finetuneStatus.logs.push("Merging LoRA adapters with base model...");
+      if (finetuneStatus.progress === 20) finetuneStatus.logs.push("Injecting Forge Master dataset: [TaskCard_BestPractices, Notebook_Architectures]...");
+      if (finetuneStatus.progress === 30) finetuneStatus.logs.push("Optimizing for Strategic Short Captions and punchy business terminology.");
+      if (finetuneStatus.progress === 40) finetuneStatus.logs.push("Configuring LoRA parameters (Rank=8, Alpha=32) for efficiency.");
+      if (finetuneStatus.progress === 50) finetuneStatus.logs.push("Starting Training Loop (Epoch 1/3)... Tuning task card layouts.");
+      if (finetuneStatus.progress === 70) finetuneStatus.logs.push("Epoch 2/3 - Enhancing notebook tab strategy logic... Loss: 0.2854");
+      if (finetuneStatus.progress === 90) finetuneStatus.logs.push("Epoch 3/3 - Polishing caption impact... Loss: 0.1042");
+      if (finetuneStatus.progress === 95) finetuneStatus.logs.push("Merging adapters... Model is now a Master Forge Assistant.");
       
       if (finetuneStatus.progress >= 100) {
         finetuneStatus.progress = 100;

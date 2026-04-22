@@ -37,7 +37,7 @@ export const BUILTIN_MODELS: BuiltInModel[] = [
     description: 'Microsoft\'s powerful 3.8B model. Highly optimized with strong reasoning.'
   },
   { 
-    id: 'gemma-2-2b-it-q4f16_1-MLC', 
+    id: 'Gemma-2-2b-it-q4f16_1-MLC', 
     name: 'Gemma 2 2B IT', 
     size: '1.6GB',
     description: 'Latest Google lightweight model. Excellent for writing and creativity.'
@@ -75,6 +75,14 @@ async function tryWindowAi(prompt: string): Promise<string | null> {
   }
 }
 
+export const BUILTIN_SYSTEM_PROMPT = `You are the Forge AI Master Assistant. 
+Your core capabilities include:
+1. Generating high-impact Task Cards: Clear, actionable, and professionally formatted.
+2. Notebook Tab Ideas: Creative, organized, and strategic workspace suggestions.
+3. Strategic Short Captions: Engaging, punchy, and results-oriented copy for Forge users.
+Always follow user instructions strictly. Be helpful, concise, and professional. 
+If an instructions file context is provided, prioritize it above all else.`;
+
 class BuiltInAiService {
   private engine: webllm.MLCEngineInterface | null = null;
   private currentModelId: string | null = null;
@@ -86,6 +94,7 @@ class BuiltInAiService {
   private error: string | null = null;
   private statusListeners: ((status: BuiltInAiStatus) => void)[] = [];
   private pendingRequest: Promise<any> = Promise.resolve();
+  private skipCache = false;
 
   getStatus(): BuiltInAiStatus {
     return {
@@ -97,6 +106,39 @@ class BuiltInAiService {
       error: this.error,
       modelId: this.currentModelId
     };
+  }
+
+  toggleSkipCache() {
+    this.skipCache = !this.skipCache;
+    console.log(`[BuiltInAI] Skip Cache toggled to: ${this.skipCache}`);
+    if (this.isLoading || this.isLoaded) {
+      this.reset();
+    }
+    this.notify();
+    toast.info(`Local AI Cache: ${this.skipCache ? 'DISABLED (Run in RAM)' : 'ENABLED (Optimized)'}`);
+  }
+
+  isCacheSkipped() {
+    return this.skipCache;
+  }
+
+  async clearCache(): Promise<void> {
+    try {
+      this.reset(); // Stop engine and clear internal state first
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(name => caches.delete(name))
+        );
+        console.log("[BuiltInAI] Cache cleared successfully.");
+        toast.success("Local AI cache cleared successfully. You can now try re-initializing.");
+      } else {
+        throw new Error("Cache API not available.");
+      }
+    } catch (err: any) {
+      console.error("[BuiltInAI] Failed to clear cache:", err);
+      toast.error(`Failed to clear cache: ${err.message}`);
+    }
   }
 
   onStatusChange(callback: (status: BuiltInAiStatus) => void) {
@@ -124,16 +166,11 @@ class BuiltInAiService {
     this.notify();
   }
 
-  async init(modelId: string = 'Llama-3.2-1B-Instruct-q4f16_1-MLC') {
+  async init(modelId: string = 'Phi-3-mini-4k-instruct-q4f16_1-MLC') {
     if (this.isLoading) return;
     
-    // Normalize modelId (lowercase some common ones that might have been saved with wrong case)
-    let normalizedId = modelId;
-    if (modelId.toLowerCase().includes('gemma-2')) {
-      normalizedId = modelId.toLowerCase();
-    } else if (modelId === 'Phi3-mini-4k-instruct-q4f16_1-MLC') {
-      normalizedId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
-    }
+    // WebLLM internal prebuilt IDs
+    const normalizedId = modelId;
 
     if (this.isLoaded && this.currentModelId === normalizedId) return;
 
@@ -146,15 +183,17 @@ class BuiltInAiService {
     try {
       // 1. Check for WebGPU
       if (!(navigator as any).gpu) {
-        throw new Error("WebGPU is not supported or disabled in your browser. WebLLM requires WebGPU support (Chrome 113+).");
+        throw new Error("WebGPU is not supported or disabled. Please ensure hardware acceleration is enabled in Chrome.");
       }
 
-      // 2. Load Engine
+      console.log(`[BuiltInAI] Initializing ${normalizedId}...`);
+      
+      // Use internal prebuilt patterns. In v0.2.82, passing appConfig is only needed for custom models.
+      // Forcing WebLLM to resolve libraries itself avoids common 404 logic errors.
       this.engine = await webllm.CreateMLCEngine(normalizedId, {
         initProgressCallback: (report) => {
           this.message = report.text;
           this.progress = Math.round(report.progress * 100);
-          console.log(`[BuiltInAI] ${report.text}`);
           this.notify();
         }
       });
@@ -163,9 +202,28 @@ class BuiltInAiService {
       this.currentModelId = normalizedId;
       console.log(`[BuiltInAI] Model ${normalizedId} loaded successfully.`);
     } catch (err: any) {
-      this.error = err.message || "Failed to initialize Local AI Engine.";
-      console.error("[BuiltInAI] Setup error:", err);
-      toast.error(`Local AI failed: ${this.error}`);
+      let errorMsg = err.message || "Failed to initialize Local AI Engine.";
+      
+      if (errorMsg.includes("Failed to execute 'add' on 'Cache'")) {
+        errorMsg = "Browser Cache Restriction: Google AI Studio iframes block local storage. You MUST open this app in a NEW TAB to use local AI models.";
+        console.warn("[BuiltInAI] Detected iframe cache restriction. User must open app in new tab.");
+      }
+
+      this.error = errorMsg;
+      console.error("[BuiltInAI] Setup error details:", {
+        message: err.message,
+        stack: err.stack,
+        modelId: normalizedId
+      });
+      
+      // If we are in an iframe, provide the link directly in the toast
+      if (window.self !== window.top) {
+        toast.error("Initialization Failed: Please open the app in a new tab to enable local storage.", {
+          duration: 10000,
+        });
+      } else {
+        toast.error(`Local AI failed: ${this.error}`);
+      }
     } finally {
       this.isLoading = false;
       this.notify();
@@ -188,13 +246,25 @@ class BuiltInAiService {
       this.isProcessing = true;
       this.notify();
 
-      // Normalize input to messages array
-      const messages = typeof input === 'string' 
-        ? [{ role: "user" as const, content: input }] 
-        : input;
+      // Determine default model if none exists
+      if (!this.currentModelId) this.currentModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
+
+      // Normalize input to messages array and inject Forge Master System Prompt
+      const messages: any[] = [];
+      const hasSystemMessage = typeof input !== 'string' && input.some(m => m.role === 'system');
+      
+      if (!hasSystemMessage) {
+        messages.push({ role: "system", content: BUILTIN_SYSTEM_PROMPT });
+      }
+
+      if (typeof input === 'string') {
+        messages.push({ role: "user", content: input });
+      } else {
+        messages.push(...input);
+      }
       
       const flatPrompt = typeof input === 'string'
-        ? input
+        ? `${BUILTIN_SYSTEM_PROMPT}\n\nUSER: ${input}`
         : input.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
       // ── 1. Try Chrome's built-in Gemini Nano first ──
@@ -207,7 +277,7 @@ class BuiltInAiService {
 
       // ── 2. Use WebLLM Engine ──
       if (!this.isLoaded || !this.engine) {
-        await this.init(this.currentModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC');
+        await this.init(this.currentModelId);
         if (!this.isLoaded) throw new Error(this.error || "Built-in AI engine not ready.");
       }
 

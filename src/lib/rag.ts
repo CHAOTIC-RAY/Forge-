@@ -85,11 +85,22 @@ export function searchChunks(query: string, chunks: DocumentChunk[], topK: numbe
 
   scored.sort((a, b) => b.score - a.score);
 
+  // IDENTITY FORCING: Always include the most relevant Brand Info regardless of score
+  const identityChunks = chunks.filter(c => 
+    c.source.includes('Business Info') || 
+    c.source.includes('Brand Profile')
+  ).slice(0, 1); // Get at least one identity chunk
+
   // For small models, less is more. Max 2 context chunks total.
-  const brandResults = scored.filter(s => s.score > 0 && !s.chunk.source.includes('Expert Knowledge')).slice(0, 2);
-  const strategyResults = scored.filter(s => s.score > 0 && s.chunk.source.includes('Expert Knowledge')).slice(0, 0); // Disable strategy context for local AI until requested
+  const brandResults = scored
+    .filter(s => s.score > 0 && !s.chunk.source.includes('Expert Knowledge') && !identityChunks.some(ic => ic.id === s.chunk.id))
+    .slice(0, 2);
   
-  const final = [...brandResults, ...strategyResults].map(s => s.chunk);
+  const strategyResults = scored
+    .filter(s => s.score > 0 && s.chunk.source.includes('Expert Knowledge'))
+    .slice(0, 0); // Disable strategy context for local AI until requested
+  
+  const final = [...identityChunks, ...brandResults.map(s => s.chunk), ...strategyResults.map(s => s.chunk)];
   return final.length > 0 ? final : chunks.slice(0, Math.min(topK, 2));
 }
 
@@ -104,13 +115,13 @@ export function buildLocalIndex(activeBusiness: any, products: any[], posts: any
   });
 
   if (activeBusiness) {
-    chunks.push(...chunkText(`Business Name: ${activeBusiness.name}. Industry: ${activeBusiness.industry}. Position: ${activeBusiness.position}`, 'Business Info'));
+    chunks.push(...chunkText(`[IDENTITY: brand.md] Business Name: ${activeBusiness.name}. Industry: ${activeBusiness.industry}. Position: ${activeBusiness.position}`, 'Business Info'));
   }
   if (brandKit?.brandProfile) {
-    chunks.push(...chunkText(brandKit.brandProfile, 'Brand Profile'));
+    chunks.push(...chunkText(`[IDENTITY: brand.md] PROFILED BRAND IDENTITY:\n${brandKit.brandProfile}`, 'Brand Profile'));
   }
   if (brandKit?.designGuide) {
-    chunks.push(...chunkText(brandKit.designGuide, 'Design Guide'));
+    chunks.push(...chunkText(`[IDENTITY: design.md] BRAND DESIGN GUIDE:\n${brandKit.designGuide}`, 'Design Guide'));
   }
   if (brandKit?.colors) {
     const colorStr = brandKit.colors.map((c: any) => `${c.name}: ${c.hex}`).join(', ');

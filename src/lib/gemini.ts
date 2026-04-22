@@ -146,16 +146,29 @@ export const safeParseJSON = (text: string) => {
       // 4. Fix single quotes to double quotes
       cleaned = cleaned.replace(/'/g, '"');
       
+      // Markdown intercept: If output is likely a markdown title instead of JSON
+      if (cleaned.startsWith('{##') || cleaned.startsWith('{#') || (cleaned.includes('###') && cleaned.length > 50) || (cleaned.startsWith('{"') && !cleaned.includes('":'))) {
+         return { message: cleaned.replace(/[{}]/g, '').replace(/^"|"$|"/g, '').trim() };
+      }
+
       try {
         return JSON.parse(cleaned);
       } catch (finalError) {
         // Last attempt: RegEx extraction for common fields
         const replyMatch = cleaned.match(/"reply"\s*:\s*"([^"]*)"/);
+        const messageMatch = cleaned.match(/"message"\s*:\s*"([^"]*)"/);
         const titleMatch = cleaned.match(/"title"\s*:\s*"([^"]*)"/);
-        if (replyMatch) {
+        const captionMatch = cleaned.match(/"caption"\s*:\s*"([^"]*)"/) || cleaned.match(/"text"\s*:\s*"([^"]*)"/);
+
+        if (replyMatch || messageMatch) {
           return {
-            reply: replyMatch[1],
-            title: titleMatch ? titleMatch[1] : undefined
+            reply: replyMatch ? replyMatch[1] : undefined,
+            message: messageMatch ? messageMatch[1] : undefined,
+            title: titleMatch ? titleMatch[1] : undefined,
+            suggestedPost: captionMatch ? {
+              title: titleMatch ? titleMatch[1] : undefined,
+              caption: captionMatch[1]
+            } : undefined
           };
         }
         throw finalError;
@@ -164,8 +177,8 @@ export const safeParseJSON = (text: string) => {
   } catch (e) {
     console.warn("[safeParseJSON] Failed to parse:", text.substring(0, 200));
     // If it's a completely failed string from Built-in AI, try to return it as a message
-    if (text.length > 10 && !text.includes('{')) {
-      return { reply: text.substring(0, 500) };
+    if (text.length > 5 && !text.includes('{')) {
+      return { message: text.substring(0, 500) };
     }
     return null;
   }
@@ -259,12 +272,13 @@ export const getAiSettings = () => {
       if (!parsed.targetUrl) parsed.targetUrl = '';
       if (!parsed.imageProvider) parsed.imageProvider = 'gemini';
       if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
-      if (!parsed.builtinModelId) parsed.builtinModelId = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+      if (!parsed.builtinModelId) parsed.builtinModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
+      if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'puter', 'groq', 'gemini'];
       return parsed;
     } catch (e) {}
   }
   return {
-    preferredProvider: 'builtin', // Default to built-in for free access
+    preferredProvider: 'auto', // Default to auto
     imageProvider: 'gemini',
     geminiModel: 'gemini-2.5-flash',
     groqModel: 'llama-3.3-70b-versatile',
@@ -273,7 +287,8 @@ export const getAiSettings = () => {
     pollinationApiKey: '',
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
-    builtinModelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+    builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
+    allowedAutoProviders: ['builtin', 'puter', 'groq', 'gemini'],
     targetUrl: '',
     geminiApiKey: '',
     groqApiKey: '',
@@ -1304,10 +1319,10 @@ Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|st
           impact: item.impact || item.score || 5
         }));
       }
-      return [];
+      throw new Error("Invalid local ideas format");
     } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
+      console.warn("[GenerateTaskIdeas] Local AI failed, falling back to Gemini:", e);
+      // Continue to Gemini fallback
     }
   }
 
@@ -3247,8 +3262,8 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
       if (parsed && parsed.morning) return parsed;
       throw new Error("Invalid local greeting format");
     } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
+      console.warn("[GenerateDailyGreetings] Local AI failed, falling back to Gemini:", e);
+      // Continue to Gemini fallback
     }
   }
 
@@ -3369,32 +3384,47 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     let fallbackToGemini = true;
 
     const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+    const lastUserMessage = messages[messages.length - 1]?.content || "";
+    const isSmallTask = lastUserMessage.length < 200 && !lastUserMessage.toLowerCase().includes('search') && !lastUserMessage.toLowerCase().includes('research') && !lastUserMessage.toLowerCase().includes('read') && !lastUserMessage.toLowerCase().includes('analyze');
+    
+    const allowed = settings.allowedAutoProviders || ['builtin', 'puter', 'groq', 'gemini'];
+    const isAuto = settings.preferredProvider === 'auto';
+    const forceBuiltin = settings.preferredProvider === 'builtin';
+
     let finalSystemInstruction = systemInstruction;
 
-    if (settings.preferredProvider === 'builtin') {
+    if (forceBuiltin || (isAuto && isSmallTask && allowed.includes('builtin'))) {
       // Small 1B-3B models struggle with large prompts. 
       // Keep it extremely blunt and short.
-      const truncatedContext = contextStr.length > 1000 
-        ? contextStr.substring(0, 1000) : contextStr;
+      const truncatedContext = contextStr.length > 800 
+        ? contextStr.substring(0, 800) : contextStr;
 
-      finalSystemInstruction = `Role: Forge AI, Assistant for this brand.
-Context: ${truncatedContext}
+      finalSystemInstruction = `Role: Forge AI Brand Representative.
+Workspace Personality: ${truncatedContext}
 
+IDENTITY CRITICAL: 
+1. You are an employee of the BRAND. 
+2. If an item is labeled [CRITICAL_FOCUS], IGNORE background construction or generic RAG topics and talk ONLY about the subject in [CRITICAL_FOCUS].
+3. Answer AS the brand.
+
+Output MUST be valid RAW JSON only. No markdown. No headers. No text outside braces.
+Schema: {"message": "Brand-focused reply"}
+Optional: ONLY if user explicitly asks for a draft, post, or caption, include "suggestedPost": {"title": "Catchy", "caption": "Engaging text", "hashtags": "#tags"}
 Rules:
-1. Speak in brand tone.
-2. Reply in RAW JSON only.
-3. suggestedPost/imagePrompt = null unless asked to create content.
-
-Schema: {"message": "text", "suggestedPost": null, "imagePrompt": null}`;
+1. NO Markdown format in response.
+2. ALWAYS start with "{".
+3. Use brand tone always.`;
     }
 
     let flatPrompt = `Instruction: ${finalSystemInstruction}\nHistory: ${conversation}\nJSON Response:`;
-    if (settings.preferredProvider === 'builtin') {
+    const shouldUseLocalFirst = forceBuiltin || (isAuto && isSmallTask && allowed.includes('builtin'));
+
+    if (shouldUseLocalFirst) {
        // Llama 3.2 1B usually likes this specific prompt style
        flatPrompt = `<|begin_of_text|><|start_of_turn|>system\n${finalSystemInstruction}<|end_of_turn|><|start_of_turn|>user\n${conversation}\nReply in JSON Format:<|end_of_turn|><|start_of_turn|>assistant\n{`;
     }
 
-    if (settings.preferredProvider === 'builtin') {
+    if (shouldUseLocalFirst) {
       try {
         const localResponse = await builtInAi.generate(flatPrompt);
         
@@ -3402,21 +3432,28 @@ Schema: {"message": "text", "suggestedPost": null, "imagePrompt": null}`;
         const startIndex = localResponse.indexOf('{');
         let fullResponse = startIndex !== -1 ? localResponse.substring(startIndex) : '{' + localResponse.trim();
         
-        // Prepend '{' if it was stripped by the model continuing the prefix
+        // Prepend '{' if it was stripped
         if (!fullResponse.startsWith('{')) fullResponse = '{' + fullResponse;
         
-        // Ensure it ends with '}'
-        if (!fullResponse.endsWith('}')) {
-          fullResponse += '}';
-        }
-
+        // Robust closing: Small models often truncate but safeParseJSON needs a valid-ish start.
+        // We'll try to add up to 3 closing braces to fix simple truncation.
         let cleanedLocal = fullResponse;
         let parsedLocal: any = null;
         
-        // Attempt robust JSON parsing
-        parsedLocal = safeParseJSON(cleanedLocal);
+        for (let i = 0; i < 4; i++) {
+           try {
+             parsedLocal = safeParseJSON(cleanedLocal);
+             if (parsedLocal) break;
+           } catch (e) {}
+           cleanedLocal += '}';
+        }
 
         if (parsedLocal) {
+            // Mapping hallucinated field names
+            if (parsedLocal.suggestedPost && parsedLocal.suggestedPost.text && !parsedLocal.suggestedPost.caption) {
+              parsedLocal.suggestedPost.caption = parsedLocal.suggestedPost.text;
+            }
+
             // Cleanup placeholder values from small model hallucinations
             if (typeof parsedLocal.message === 'string' && (parsedLocal.message === 'reply' || parsedLocal.message === 'Your text reply')) {
               parsedLocal.message = "How can I help you today?";
@@ -3427,31 +3464,43 @@ Schema: {"message": "text", "suggestedPost": null, "imagePrompt": null}`;
             if (parsedLocal.imagePrompt === '...' || parsedLocal.imagePrompt === '') {
               parsedLocal.imagePrompt = null;
             }
+
+            // ENSURE MESSAGE IS STRING: Small models sometimes wrap strings in objects
+            if (parsedLocal.message && typeof parsedLocal.message === 'object') {
+              const m = parsedLocal.message;
+              parsedLocal.message = m.text || m.content || m.message || JSON.stringify(m);
+            }
+
+            // aggressive flush of suggestedPost for small inputs (unless explicitly asked)
+            if (parsedLocal.suggestedPost && lastUserMessage.length < 20 && !lastUserMessage.toLowerCase().includes('post') && !lastUserMessage.toLowerCase().includes('draft')) {
+              parsedLocal.suggestedPost = null;
+            }
+
             parsed = parsedLocal;
         } else {
             // Fallback 1: Partial JSON/Regex extraction (More robust multiline support)
             const getVal = (key: string) => {
-              const regex = new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`, 'i');
+              // Try to find key regardless of whether it's quoted or not, handling some garbage
+              const regex = new RegExp(`"${key}"\\s*:\\s*(?:"([^"]+)"|({[^}]+}))`, 'i');
               const match = cleanedLocal.match(regex);
-              return match ? match[1] : null;
+              return match ? (match[1] || match[2]) : null;
             };
 
             const msgMatch = getVal('message');
             const titleMatch = getVal('title');
-            const captionMatch = getVal('caption');
+            const captionMatch = getVal('caption') || getVal('text');
             const hashtagMatch = getVal('hashtags');
             const promptMatch = getVal('imagePrompt');
             
-            // Fallback 2: Markdown extraction (if model ignores JSON rules)
-            // Use multi-line matching
+            // Fallback 2: Markdown extraction
             const mdTitleMatch = cleanedLocal.match(/\*\*Post Title:\*\*\s*"([^"]+)"/i) || cleanedLocal.match(/\*\*Title:\*\*\s*"([^"]+)"/i);
-            const mdCaptionMatch = cleanedLocal.match(/\*\*Caption:\*\*\s*"([^"]+)"/i) || cleanedLocal.match(/\*\*Post:\*\*\s*"([^"]+)"/i);
+            const mdCaptionMatch = cleanedLocal.match(/\*\*Caption:\*\*\s*"([^"]+)"/i) || cleanedLocal.match(/\*\*Post:\*\*\s*"([^"]+)"/i) || cleanedLocal.match(/\*\*Text:\*\*\s*"([^"]+)"/i);
             const mdPromptMatch = cleanedLocal.match(/\*\*Image Prompt:\*\*\s*"([^"]+)"/i);
 
             if (msgMatch || titleMatch || mdTitleMatch) {
                 parsed = {
                     message: msgMatch || (cleanedLocal.split('**')[0] || "I've drafted a post for you:").replace(/["{}]/g, '').trim(),
-                    suggestedPost: (titleMatch || mdTitleMatch) ? {
+                    suggestedPost: (titleMatch || mdTitleMatch || captionMatch || mdCaptionMatch) ? {
                         title: titleMatch || (mdTitleMatch ? mdTitleMatch[1] : "New Post"),
                         caption: captionMatch || (mdCaptionMatch ? mdCaptionMatch[1] : "Check this out!"),
                         hashtags: hashtagMatch || "#brand #update"
@@ -3461,6 +3510,11 @@ Schema: {"message": "text", "suggestedPost": null, "imagePrompt": null}`;
             } else {
                 // Last resort: Clean text
                 parsed = { message: cleanedLocal.replace(/["{}*]/g, '').replace(/Post Title:|Caption:|Image Prompt:|JSON|RESPONSE|GENERATE/gi, '').trim() };
+            }
+
+            // aggressive flush of suggestedPost for small inputs (unless explicitly asked)
+            if (parsed.suggestedPost && lastUserMessage.length < 20 && !lastUserMessage.toLowerCase().includes('post') && !lastUserMessage.toLowerCase().includes('draft')) {
+              parsed.suggestedPost = undefined;
             }
         }
         
@@ -3473,7 +3527,7 @@ Schema: {"message": "text", "suggestedPost": null, "imagePrompt": null}`;
       }
     }
 
-    if (fallbackToGemini && settings.preferredProvider === 'auto') {
+    if (fallbackToGemini && isAuto && allowed.includes('puter')) {
       try {
         const text = await fetchFromPuter(flatPrompt);
         parsed = safeParseJSON(text || '{}');
@@ -3487,7 +3541,7 @@ Schema: {"message": "text", "suggestedPost": null, "imagePrompt": null}`;
       }
     }
 
-    if (fallbackToGemini && settings.preferredProvider === 'auto') {
+    if (fallbackToGemini && isAuto && allowed.includes('groq')) {
       try {
         const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
         parsed = safeParseJSON(groqText || '{}');
@@ -3501,52 +3555,72 @@ Schema: {"message": "text", "suggestedPost": null, "imagePrompt": null}`;
       }
     }
 
-    if (fallbackToGemini && (settings.preferredProvider === 'auto' || settings.preferredProvider === 'gemini' || settings.preferredProvider === 'firebase')) {
+    if (fallbackToGemini && (isAuto && allowed.includes('gemini') || forceBuiltin || settings.preferredProvider === 'gemini' || settings.preferredProvider === 'firebase')) {
       if (!isGeminiKeyAvailable()) {
         await fetchServerConfig();
       }
-      const ai = getAi();
-
-      const contents = messages.map((msg) => {
-        const parts: any[] = [];
-
-        parts.push({ text: msg.content });
-
-        if (msg.images && msg.images.length > 0) {
-          for (const img of msg.images) {
-            const base64Data = img.split(',')[1] || img;
-            const mimeType = img.split(';')[0].split(':')[1] || 'image/jpeg';
-            parts.push({
-              inlineData: {
-                data: base64Data,
-                mimeType
-              }
-            });
+      try {
+        const ai = getAi();
+        const contents = messages.map((msg) => {
+          const parts: any[] = [];
+          parts.push({ text: msg.content });
+          if (msg.images && msg.images.length > 0) {
+            for (const img of msg.images) {
+              const base64Data = img.split(',')[1] || img;
+              const mimeType = img.split(';')[0].split(':')[1] || 'image/jpeg';
+              parts.push({
+                inlineData: {
+                  data: base64Data,
+                  mimeType
+                }
+              });
+            }
           }
-        }
+          return {
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts
+          };
+        });
 
-        return {
-          role: msg.role === 'user' ? 'user' : 'model',
-          parts
-        };
-      });
-
-      const response = await ai.models.generateContent({
-        model: settings.geminiModel || "gemini-2.5-flash",
-        contents: contents,
-        config: {
-          systemInstruction: systemInstruction,
-          responseMimeType: "application/json",
-          temperature: 0.7,
+        const response = await ai.models.generateContent({
+          model: settings.geminiModel || "gemini-2.5-flash",
+          contents: contents,
+          config: {
+            systemInstruction: systemInstruction,
+            responseMimeType: "application/json",
+            temperature: 0.7,
+          }
+        });
+        parsed = safeParseJSON(response.text || '{}');
+        if (parsed) {
+          parsed.provider = 'Gemini';
+          fallbackToGemini = false;
         }
-      });
-      parsed = safeParseJSON(response.text || '{}');
-      if (parsed) {
-        parsed.provider = 'Gemini';
+      } catch (e) {
+        console.warn("Gemini chat failed, trying final fallbacks...");
       }
     }
 
+    // Final SAFETY Fallback: If EVERYTHING cloud failed, use Local AI as last resort if not tried yet and allowed
+    if (fallbackToGemini && isAuto && allowed.includes('builtin')) {
+      try {
+        const localResponse = await builtInAi.generate(flatPrompt);
+        const parsedLocal = safeParseJSON(localResponse);
+        if (parsedLocal && parsedLocal.message) {
+            parsed = parsedLocal;
+            parsed.provider = 'Local AI (Quota Fallback)';
+            fallbackToGemini = false;
+        }
+      } catch (e) {}
+    }
+
     if (parsed && parsed.message) {
+      // Global sanity check: aggressive flush of suggestedPost for small inputs (unless explicitly asked)
+      // This protects all models (especially smaller local ones or quick Llama runs) from over-generating
+      if (parsed.suggestedPost && lastUserMessage.length < 20 && !lastUserMessage.toLowerCase().includes('post') && !lastUserMessage.toLowerCase().includes('draft') && !lastUserMessage.toLowerCase().includes('caption')) {
+        parsed.suggestedPost = undefined;
+      }
+
       if (parsed.imagePrompt) {
         try {
            const imgRes = await generateAiImage(parsed.imagePrompt, 'photorealistic');

@@ -5,7 +5,7 @@ import {
   Download, Save, Upload, RefreshCw, FileSpreadsheet, 
   Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
   Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2,
-  FileText, MessageSquareText, Box, Wand2
+  FileText, MessageSquareText, Box, Wand2, ExternalLink
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
@@ -1266,16 +1266,49 @@ export function SettingsView({
                         <p className="text-[9px] text-center text-[#9B9A97]">This may take a few minutes. Weights are saved to browser cache.</p>
                         <button 
                           onClick={() => builtInAi.reset()}
-                          className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                          className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-brand/10 hover:text-brand transition-colors"
                         >
                           Restart Initialization
+                        </button>
+                        <button 
+                          onClick={() => builtInAi.clearCache()}
+                          className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                        >
+                          Clear Local AI Cache
                         </button>
                       </div>
                     )}
 
                     {builtInStatus.error && (
-                      <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg">
+                      <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg space-y-3">
                         <p className="text-[10px] text-red-500 font-medium">{builtInStatus.error}</p>
+                        
+                        {(window.self !== window.top) && (
+                          <a 
+                            href={window.location.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-2 bg-brand text-white text-[11px] font-bold rounded-[8px] hover:bg-brand/90 transition-all shadow-sm"
+                          >
+                            <ExternalLink size={14} />
+                            Open in New Tab to Fixed
+                          </a>
+                        )}
+
+                        <div className="flex gap-2">
+                           <button 
+                            onClick={() => builtInAi.clearCache()}
+                            className="flex-1 py-1.5 bg-white dark:bg-gray-900 border border-red-200 dark:border-red-900/40 text-red-600 text-[10px] font-bold rounded-[6px] hover:bg-red-50 transition-all"
+                          >
+                            Wipe Cache
+                          </button>
+                          <button 
+                            onClick={() => builtInAi.reset()}
+                            className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 text-[10px] font-bold rounded-[6px] hover:bg-gray-200 transition-all"
+                          >
+                            Retry
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1345,33 +1378,90 @@ export function SettingsView({
                     </select>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">
-                    Auto mode will automatically select the best provider (Groq for fast text, Gemini for complex reasoning and vision).
-                  </p>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Gemini API Key</label>
-                    <input 
-                      type="password"
-                      value={aiSettings.geminiApiKey || ''}
-                      onChange={(e) => handleAiSettingChange('geminiApiKey', e.target.value)}
-                      placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
-                    />
+              ) : aiSettings.preferredProvider === 'auto' ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 rounded-[16px] space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <h4 className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">Auto Mode Logic</h4>
+                    </div>
+                    <p className="text-[11px] text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+                      Forge intelligently routes tasks. Local AI handles smaller queries (captions, tags) to save quota, while Cloud models take on complex reasoning and vision.
+                    </p>
+                    
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black text-[#757681] dark:text-[#9B9A97] uppercase">Allowed Auto-Providers</label>
+                        <span className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">Enabled</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-2">
+                        {[
+                          { id: 'builtin', name: 'Built-in AI (Phi-3)', icon: Cpu },
+                          { id: 'puter', name: 'Puter.js (Cloud Proxy)', icon: Globe },
+                          { id: 'groq', name: 'Groq (Llama 3.3)', icon: Activity },
+                          { id: 'gemini', name: 'Gemini (Google AI)', icon: Sparkles }
+                        ].map(prov => (
+                          <div 
+                            key={prov.id}
+                            onClick={() => {
+                              const current = aiSettings.allowedAutoProviders || ['builtin', 'puter', 'groq', 'gemini'];
+                              const next = current.includes(prov.id)
+                                ? current.filter(id => id !== prov.id)
+                                : [...current, prov.id];
+                              handleAiSettingChange('allowedAutoProviders', next);
+                            }}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                              (aiSettings.allowedAutoProviders || ['builtin', 'puter', 'groq', 'gemini']).includes(prov.id)
+                                ? "bg-white dark:bg-[#252525] border-blue-200 dark:border-blue-900/50 shadow-sm"
+                                : "bg-transparent border-[#E9E9E7] dark:border-[#2E2E2E] opacity-60 hover:opacity-100"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <prov.icon className="w-4 h-4 text-blue-500" />
+                              <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">{prov.name}</span>
+                            </div>
+                            <div className={cn(
+                              "w-5 h-5 rounded-md border flex items-center justify-center transition-colors",
+                              (aiSettings.allowedAutoProviders || ['builtin', 'puter', 'groq', 'gemini']).includes(prov.id)
+                                ? "bg-blue-600 border-blue-600"
+                                : "border-gray-300 dark:border-gray-600"
+                            )}>
+                              {(aiSettings.allowedAutoProviders || ['builtin', 'puter', 'groq', 'gemini']).includes(prov.id) && (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Groq API Key</label>
-                    <input 
-                      type="password"
-                      value={aiSettings.groqApiKey || ''}
-                      onChange={(e) => handleAiSettingChange('groqApiKey', e.target.value)}
-                      placeholder="Leave empty to use default"
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
-                    />
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                       <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Gemini API Key</label>
+                        <input 
+                          type="password"
+                          value={aiSettings.geminiApiKey || ''}
+                          onChange={(e) => handleAiSettingChange('geminiApiKey', e.target.value)}
+                          placeholder="Leave empty to use default"
+                          className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Groq API Key</label>
+                      <input 
+                        type="password"
+                        value={aiSettings.groqApiKey || ''}
+                        onChange={(e) => handleAiSettingChange('groqApiKey', e.target.value)}
+                        placeholder="Leave empty to use default"
+                        className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="space-y-3 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">

@@ -185,13 +185,15 @@ export function FloatingChat({
       }
 
       if (currentAttached) {
+        contextStr += `\n\n[CRITICAL_FOCUS]: `;
         if (currentAttached.type === 'post') {
-          contextStr += `\nExisting Post User Attached: ${JSON.stringify(currentAttached.post)}`;
+          contextStr += `Target Post: ${JSON.stringify(currentAttached.post)}`;
         } else if (currentAttached.type === 'product') {
-          contextStr += `\nProduct Info Attached: ${JSON.stringify(currentAttached.product)}`;
+          contextStr += `Product Data: ${JSON.stringify(currentAttached.product)}`;
         } else if (currentAttached.type === 'idea') {
-          contextStr += `\nIdea Data Attached: ${JSON.stringify(currentAttached.idea)}`;
+          contextStr += `Idea Data: ${JSON.stringify(currentAttached.idea)}`;
         }
+        contextStr += `\nEND FOCUS.\n\n`;
       }
 
       const contextPrefix = activeStrategy !== 'General' 
@@ -468,10 +470,12 @@ export function FloatingChat({
 
                     {msg.role === 'assistant' ? (
                       <div className="markdown-body prose dark:prose-invert max-w-none text-sm">
-                        <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                        <Markdown remarkPlugins={[remarkGfm]}>
+                          {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
+                        </Markdown>
                       </div>
                     ) : (
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                      <div className="whitespace-pre-wrap">{typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}</div>
                     )}
                     
                     {msg.attachedItem && (

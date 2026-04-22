@@ -541,7 +541,12 @@ export default function App() {
 
   // Auto-initialize Built-in AI if selected
   useEffect(() => {
-    if (aiSettings.preferredProvider === 'builtin' && aiSettings.builtinModelId && !builtInAi.getStatus().isLoaded && !builtInAi.getStatus().isLoading) {
+    const status = builtInAi.getStatus();
+    if (aiSettings.preferredProvider === 'builtin' && 
+        aiSettings.builtinModelId && 
+        !status.isLoaded && 
+        !status.isLoading && 
+        !status.error) {
       console.log("[App] Auto-initializing Built-in AI...");
       builtInAi.init(aiSettings.builtinModelId);
     }
