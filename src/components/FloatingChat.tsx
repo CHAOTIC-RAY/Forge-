@@ -21,6 +21,13 @@ interface Message {
   provider?: string;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  updatedAt: number;
+}
+
 interface FloatingChatProps {
   posts: Post[];
   activeBusiness?: any;
@@ -98,7 +105,8 @@ export function FloatingChat({
   }, [isFullPage]);
   const [input, setInput] = useState('');
   const [activeStrategy, setActiveStrategy] = useState<'General' | 'Viral' | 'Sales' | 'Educational'>('General');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [attachedItem, setAttachedItem] = useState<any>(null);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
@@ -106,44 +114,87 @@ export function FloatingChat({
   const [showModelSelector, setShowModelSelector] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load and Filter History (Auto-delete older than 1 month)
-  useEffect(() => {
-    const savedHeaders = localStorage.getItem('forge_chat_history');
-    if (savedHeaders) {
-      try {
-        const parsed = JSON.parse(savedHeaders) as Message[];
-        const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-        const filtered = parsed.filter(m => m.timestamp > oneMonthAgo);
-        
-        if (filtered.length > 0) {
-          setMessages(filtered);
-        } else {
-          setMessages([{ 
-            id: '1', 
-            role: 'assistant', 
-            content: 'Hi! I can help you create or edit tasks. My **Social Media Strategy Library** is active and ready to help you grow. Drag anything here or type a request.',
-            timestamp: Date.now()
-          }]);
-        }
-      } catch (e) {
-        console.error("Failed to load chat history", e);
-      }
+  const currentSession = sessions.find(s => s.id === currentSessionId);
+  const messages = currentSession?.messages || [];
+
+  const setMessages = (setter: Message[] | ((prev: Message[]) => Message[])) => {
+    if (!currentSessionId) {
+      // Create new session if none exists
+      const newId = Date.now().toString();
+      const initialMessages = typeof setter === 'function' ? setter([]) : setter;
+      const newSession: ChatSession = {
+        id: newId,
+        title: initialMessages.find(m => m.role === 'user')?.content.substring(0, 30) || 'New Chat',
+        messages: initialMessages,
+        updatedAt: Date.now()
+      };
+      setSessions(prev => [newSession, ...prev]);
+      setCurrentSessionId(newId);
     } else {
-      setMessages([{ 
+      setSessions(prev => prev.map(s => {
+        if (s.id === currentSessionId) {
+          const newMessages = typeof setter === 'function' ? setter(s.messages) : setter;
+          return { 
+            ...s, 
+            messages: newMessages, 
+            updatedAt: Date.now(),
+            title: s.title === 'New Chat' && newMessages.some(m => m.role === 'user')
+              ? newMessages.find(m => m.role === 'user')?.content.substring(0, 30) || 'New Chat'
+              : s.title
+          };
+        }
+        return s;
+      }));
+    }
+  };
+
+  const createNewChat = () => {
+    const newId = Date.now().toString();
+    const newSession: ChatSession = {
+      id: newId,
+      title: 'New Chat',
+      messages: [{ 
         id: '1', 
         role: 'assistant', 
         content: 'Hi! I can help you create or edit tasks. My **Social Media Strategy Library** is active and ready to help you grow. Drag anything here or type a request.',
         timestamp: Date.now()
-      }]);
+      }],
+      updatedAt: Date.now()
+    };
+    setSessions(prev => [newSession, ...prev]);
+    setCurrentSessionId(newId);
+  };
+
+  // Load and Filter History (Auto-delete older than 1 month)
+  useEffect(() => {
+    const savedSessions = localStorage.getItem('forge_chat_sessions');
+    if (savedSessions) {
+      try {
+        const parsed = JSON.parse(savedSessions) as ChatSession[];
+        const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const filtered = parsed.filter(s => s.updatedAt > oneMonthAgo);
+        
+        if (filtered.length > 0) {
+          setSessions(filtered);
+          setCurrentSessionId(filtered[0].id);
+        } else {
+          createNewChat();
+        }
+      } catch (e) {
+        console.error("Failed to load chat history", e);
+        createNewChat();
+      }
+    } else {
+      createNewChat();
     }
   }, []);
 
   // Save History
   useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem('forge_chat_history', JSON.stringify(messages));
+    if (sessions.length > 0) {
+      localStorage.setItem('forge_chat_sessions', JSON.stringify(sessions));
     }
-  }, [messages]);
+  }, [sessions]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -176,7 +227,8 @@ export function FloatingChat({
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `I see you've attached "${itemName}". What would you like me to do with it? (e.g., "Improve the caption", "Change the outlet", "Make it more professional")`
+        content: `I see you've attached "${itemName}". What would you like me to do with it? (e.g., "Improve the caption", "Change the outlet", "Make it more professional")`,
+        timestamp: Date.now()
       }]);
     }
   }, [droppedItem, onClearDroppedItem]);
@@ -276,7 +328,12 @@ export function FloatingChat({
       
       // TOOL INTERCEPTOR LOOP
       if (finalResponse.tool_call && finalResponse.provider !== 'Local AI') {
-         setMessages(prev => [...prev, { id: 'tool-' + Date.now().toString(), role: 'assistant', content: `*[Thinking: Calling ${finalResponse.tool_call?.name}...]*` }]);
+         setMessages(prev => [...prev, { 
+           id: 'tool-' + Date.now().toString(), 
+           role: 'assistant', 
+           content: `*[Thinking: Calling ${finalResponse.tool_call?.name}...]*`,
+           timestamp: Date.now()
+         }]);
          
          let toolResult = "";
          if (finalResponse.tool_call.name === 'search_web') {
@@ -431,7 +488,7 @@ export function FloatingChat({
               "flex overflow-hidden pointer-events-auto relative",
               isFullPage 
                 ? "flex-row w-full h-full rounded-none bg-[#FAFAFA] dark:bg-[#131314] border-none inset-0 absolute transition-opacity" 
-                : "flex-col hidden md:flex w-[400px] md:w-[440px] h-[640px] rounded-[24px] bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-[0_8px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] transition-all duration-300",
+                : "flex-col hidden md:flex w-[400px] md:w-[440px] h-[640px] max-h-[calc(100vh-100px)] rounded-[24px] bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-[0_8px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] transition-all duration-300",
               isContainerOver && "ring-2 ring-indigo-500"
             )}
           >
@@ -454,26 +511,45 @@ export function FloatingChat({
                  </div>
 
                  <button 
-                   onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared. How can I help you? My Social Media Strategy Library is active and ready to help you grow.', timestamp: Date.now() }])}
-                   className="flex items-center gap-3 bg-[#D3E3FD] dark:bg-[#1A1A1C] hover:bg-[#B4D0FC] dark:hover:bg-[#333] border dark:border-[#333] border-transparent rounded-[16px] py-3 px-4 text-[#041E49] dark:text-[#E3E3E3] font-medium text-sm w-fit transition-colors mb-6 shadow-sm"
+                   onClick={createNewChat}
+                   className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[16px] py-3 px-4 font-medium text-sm w-fit transition-all mb-6 shadow-lg shadow-indigo-500/20 active:scale-95"
                  >
                     <Plus className="w-4 h-4" />
                     New chat
                  </button>
 
-                 <div className="flex-1 overflow-y-auto w-full space-y-1">
-                   <div className="flex items-center gap-2 px-4 mb-2 mt-4 text-[12px] font-medium text-[#444746] dark:text-[#8E8E8E]">
+                 <div className="flex-1 overflow-y-auto w-full space-y-1 custom-scrollbar pr-1">
+                   <div className="flex items-center gap-2 px-4 mb-2 mt-4 text-[12px] font-bold text-[#444746] dark:text-[#8E8E8E] uppercase tracking-widest">
                      <History className="w-3.5 h-3.5" />
-                     Recent
+                     Recent Sessions
                    </div>
-                   {messages.filter(m => m.role === 'user').slice(-5).reverse().map((msg, i) => (
+                   {sessions.slice(0, 15).map((session) => (
                      <button 
-                       key={i}
-                       onClick={() => setInput(msg.content)}
-                       className="w-full text-left px-4 py-2.5 text-[13px] text-[#444746] dark:text-[#E3E3E3] hover:bg-black/5 dark:hover:bg-[#333] rounded-full flex items-center gap-3 truncate transition-colors font-medium group"
+                       key={session.id}
+                       onClick={() => setCurrentSessionId(session.id)}
+                       className={cn(
+                         "w-full text-left px-4 py-3 text-[13px] rounded-xl flex items-center gap-3 truncate transition-all font-medium group relative overflow-hidden",
+                         currentSessionId === session.id 
+                           ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" 
+                           : "text-[#444746] dark:text-[#E3E3E3] hover:bg-black/5 dark:hover:bg-white/5"
+                       )}
                      >
-                       <MessageSquare className="w-4 h-4 text-[#444746] dark:text-[#8E8E8E] shrink-0 group-hover:text-indigo-500" />
-                       <span className="truncate">{msg.content}</span>
+                       <MessageSquare className={cn(
+                         "w-4 h-4 shrink-0 transition-colors",
+                         currentSessionId === session.id ? "text-indigo-500" : "text-[#444746] dark:text-[#8E8E8E] group-hover:text-indigo-500"
+                       )} />
+                       <span className="truncate flex-1">{session.title}</span>
+                       
+                       <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSessions(prev => prev.filter(s => s.id !== session.id));
+                            if (currentSessionId === session.id) setCurrentSessionId(null);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg text-red-500 transition-all"
+                       >
+                         <Trash2 className="w-3 h-3" />
+                       </button>
                      </button>
                    ))}
                  </div>
@@ -561,7 +637,7 @@ export function FloatingChat({
                     </div>
                   </div>
                   <button className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-[#757681] dark:text-[#E3E3E3]">
-                    <Plus className="w-5 h-5" onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared.', timestamp: Date.now() }])} />
+                    <Plus className="w-5 h-5" onClick={createNewChat} />
                   </button>
                 </div>
               </div>
@@ -590,11 +666,11 @@ export function FloatingChat({
               </div>
               <div className="relative flex items-center gap-1 shrink-0">
                 <button 
-                  onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared. How can I help you?', timestamp: Date.now() }])}
+                  onClick={createNewChat}
                   className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
-                  title="Clear Chat"
+                  title="New Chat"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                 </button>
                 {onFullScreen && (
                   <button 
@@ -735,10 +811,10 @@ export function FloatingChat({
                     </div>
                   )}
 
-                  {msg.suggestedPost && (
+                    {msg.suggestedPost && (
                     <div 
                       onClick={() => onPreviewPost?.(msg.suggestedPost!)}
-                      className="mt-3 w-full bg-white dark:bg-[#202020] rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-indigo-500/50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] transition-all group/card flex flex-col"
+                      className="mt-3 w-full max-w-[500px] bg-white dark:bg-[#202020] rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-indigo-500/50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] transition-all group/card flex flex-col"
                     >
                       <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-slate-50/50 dark:bg-[#1A1A1A]/50 flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -830,7 +906,7 @@ export function FloatingChat({
             <div className={cn(
               "z-30 transition-all duration-300",
               isFullPage 
-                ? "fixed bottom-0 left-0 right-0 p-6 pointer-events-none lg:pl-[260px]" 
+                ? "fixed bottom-4 left-0 right-0 p-4 pb-8 md:p-6 pointer-events-none lg:pl-[260px]" 
                 : "p-4 border-t bg-white/90 dark:bg-[#1A1A1A]/90 backdrop-blur-xl border-[#E9E9E7] dark:border-[#2E2E2E] rounded-b-[24px]"
             )}>
               <div className="max-w-3xl mx-auto w-full pointer-events-auto flex flex-col gap-3">
