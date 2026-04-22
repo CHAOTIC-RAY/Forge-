@@ -328,20 +328,24 @@ export function FloatingChat({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={isFullPage ? { opacity: 1 } : { opacity: 0, y: 20, scale: 0.95 }}
             className={cn(
-              "bg-white dark:bg-[#191919]  border border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-col overflow-hidden pointer-events-auto transition-all duration-300",
-              isFullPage ? "w-full h-full rounded-none border-none" : "hidden md:flex w-80 md:w-96 h-[500px] rounded-[16px]",
-              isContainerOver && "ring-2 ring-green-500"
+              "flex flex-col overflow-hidden pointer-events-auto transition-all duration-300 relative",
+              isFullPage 
+                ? "w-full h-full rounded-none bg-[#FAFAFA] dark:bg-[#0A0A0A] border-none inset-0 absolute" 
+                : "hidden md:flex w-[400px] md:w-[440px] h-[640px] rounded-[24px] bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-[0_8px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)]",
+              isContainerOver && "ring-2 ring-indigo-500"
             )}
           >
             {/* Header */}
             <div className={cn(
-              "relative p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between overflow-hidden",
-              isFullPage ? "pt-12 sm:pt-4" : "bg-white dark:bg-[#202020]"
+              "relative p-4 border-b flex items-center justify-between shrink-0 z-20",
+              isFullPage 
+                ? "bg-white/80 dark:bg-[#111111]/80 backdrop-blur-xl border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm sticky top-0" 
+                : "bg-white/40 dark:bg-black/20 backdrop-blur-md border-[#E9E9E7] dark:border-[#2E2E2E]"
             )}>
               {/* AI Gradient Background */}
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/10 via-purple-600/10 to-blue-600/10 dark:from-indigo-500/20 dark:via-purple-500/20 dark:to-blue-500/20 animate-gradient-x" />
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/5 via-purple-600/5 to-blue-600/5 dark:from-indigo-500/10 dark:via-purple-500/10 dark:to-blue-500/10 animate-gradient-x pointer-events-none" />
               
-              <div className="relative flex items-center gap-3">
+              <div className={cn("relative flex items-center gap-3 w-full", isFullPage ? "max-w-4xl mx-auto" : "")}>
                 {isFullPage && (
                   <button 
                     onClick={onClose}
@@ -357,21 +361,17 @@ export function FloatingChat({
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#191919] rounded-full" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-sm flex items-center gap-1.5">
+                  <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-sm flex items-center gap-2">
                     Forge AI Assistant
-                    <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">v2.0</span>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest border border-indigo-100 dark:border-indigo-500/20 shadow-sm">v2.0</span>
                   </h3>
-                  <div className="flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                     <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] font-medium mr-2">Always active & learning</p>
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-widest border border-emerald-500/20">
-                      <Globe className="w-2 h-2" />
-                      Knowledge Active
-                    </div>
                   </div>
                 </div>
               </div>
-              <div className="relative flex items-center gap-1">
+              <div className="relative flex items-center gap-1 shrink-0">
                 <button 
                   onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Chat cleared. How can I help you?' }])}
                   className="p-1.5 hover:bg-white/20 dark:hover:bg-black/20 rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors"
@@ -400,33 +400,38 @@ export function FloatingChat({
               </div>
             </div>
 
-            {/* Messages */}
-            <div 
-              ref={scrollRef}
-              className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth relative"
-            >
-              {/* Subtle AI Background Pattern */}
-              <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+            {/* Messages Area */}
+            <div className={cn("flex flex-1 flex-col overflow-hidden relative", isFullPage ? "w-full z-10" : "")}>
+              <div 
+                ref={scrollRef}
+                className={cn(
+                  "flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth relative",
+                  isFullPage && "pb-40"
+                )}
+              >
+                {/* Subtle AI Background Pattern */}
+                <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
-              {/* Strategy Modes Indicator */}
-              <div className="flex flex-wrap gap-2 mb-2 sticky top-0 z-10 p-1 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
-                {(['General', 'Viral', 'Sales', 'Educational'] as const).map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setActiveStrategy(mode)}
-                    className={cn(
-                      "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
-                      activeStrategy === mode 
-                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" 
-                        : "bg-slate-100 dark:bg-black/40 text-[#757681] dark:text-[#9B9A97] hover:bg-slate-200 dark:hover:bg-black/60"
-                    )}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
+                <div className={cn(isFullPage ? "max-w-4xl mx-auto w-full flex flex-col space-y-6 pt-4" : "flex flex-col space-y-6")}>
+                  {/* Strategy Modes Indicator */}
+                  <div className="flex flex-wrap gap-2 mb-6 sticky top-0 z-10 p-1 bg-white/50 dark:bg-[#1A1A1A]/50 backdrop-blur-xl rounded-[12px] shadow-sm border border-[#E9E9E7] dark:border-[#2E2E2E] mx-auto w-fit">
+                  {(['General', 'Viral', 'Sales', 'Educational'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setActiveStrategy(mode)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-[8px] text-[11px] font-semibold capitalize transition-all duration-300",
+                        activeStrategy === mode 
+                          ? "bg-white dark:bg-[#2C2C2C] text-[#37352F] dark:text-[#EBE9ED] shadow-[0_2px_10px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-[#E9E9E7] dark:border-[#3E3E3E]" 
+                          : "bg-transparent text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                      )}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                  </div>
 
-              {messages.map((msg) => (
+                {messages.map((msg) => (
                 <div 
                   key={msg.id} 
                   className={cn(
@@ -435,15 +440,15 @@ export function FloatingChat({
                   )}
                 >
                   <div className={cn(
-                    "relative p-4 rounded-2xl text-sm shadow-sm transition-all group/message",
+                    "relative p-4 rounded-[20px] text-[13px] leading-relaxed shadow-sm transition-all group/message border",
                     msg.role === 'user' 
-                      ? "bg-gradient-to-br from-indigo-600 to-blue-600 text-white rounded-tr-none" 
-                      : "bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-tl-none border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                      ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#111111] rounded-tr-[4px] border-transparent" 
+                      : "bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-tl-[4px] border-[#E9E9E7] dark:border-[#2E2E2E]"
                   )}>
                     {msg.role === 'assistant' && (
                       <button 
                         onClick={() => navigator.clipboard.writeText(msg.content)}
-                        className="absolute top-2 right-2 p-1.5 bg-white dark:bg-[#2E2E2E] rounded-md opacity-0 group-hover/message:opacity-100 transition-opacity shadow-sm border border-[#E9E9E7] dark:border-[#3E3E3E] text-[#757681] hover:text-indigo-600"
+                        className="absolute -right-2 -top-2 p-1.5 bg-white dark:bg-[#333] rounded-full opacity-0 group-hover/message:opacity-100 transition-all shadow-md border border-[#E9E9E7] dark:border-[#444] text-[#757681] hover:text-indigo-600 scale-90 hover:scale-100"
                         title="Copy message"
                       >
                         <Copy className="w-3 h-3" />
@@ -469,7 +474,7 @@ export function FloatingChat({
                     )}
 
                     {msg.role === 'assistant' ? (
-                      <div className="markdown-body prose dark:prose-invert max-w-none text-sm">
+                      <div className="markdown-body prose dark:prose-invert max-w-none text-[13px] leading-relaxed">
                         <Markdown remarkPlugins={[remarkGfm]}>
                           {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
                         </Markdown>
@@ -529,28 +534,42 @@ export function FloatingChat({
                   {msg.suggestedPost && (
                     <div 
                       onClick={() => onPreviewPost?.(msg.suggestedPost!)}
-                      className="mt-3 w-full bg-white dark:bg-[#202020] rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-indigo-500/50 transition-all shadow-lg hover:shadow-indigo-500/10 group/card"
+                      className="mt-3 w-full bg-white dark:bg-[#202020] rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-indigo-500/50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] transition-all group/card flex flex-col"
                     >
-                      <div className="p-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-slate-50 dark:bg-[#1A1A1A] flex items-center justify-between">
+                      <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-slate-50/50 dark:bg-[#1A1A1A]/50 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-md bg-indigo-500/10 flex items-center justify-center">
-                            <Sparkles className="w-3 h-3 text-indigo-500" />
+                          <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center border border-indigo-100 dark:border-indigo-500/20">
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
                           </div>
                           <span className="text-[10px] font-black uppercase tracking-widest text-[#757681] dark:text-[#9B9A97]">AI Draft</span>
                         </div>
-                        <Edit3 className="w-3 h-3 text-indigo-500 group-hover/card:scale-110 transition-transform" />
+                        <div className="w-6 h-6 rounded-full bg-white dark:bg-[#333] border border-[#E9E9E7] dark:border-[#444] shadow-sm flex items-center justify-center opacity-0 group-hover/card:opacity-100 scale-75 group-hover/card:scale-100 transition-all">
+                          <Edit3 className="w-3 h-3 text-[#37352F] dark:text-[#EBE9ED]" />
+                        </div>
                       </div>
-                      <div className="p-4 space-y-3">
-                        <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight">{msg.suggestedPost.title}</p>
-                        <p className="text-[11px] text-[#757681] dark:text-[#9B9A97] line-clamp-3 leading-relaxed">{msg.suggestedPost.caption}</p>
+                      <div className="p-4 flex flex-col gap-3">
+                        <h4 className="text-[13px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-snug">{msg.suggestedPost.title}</h4>
+                        <p className="text-[12px] text-[#757681] dark:text-[#9B9A97] line-clamp-3 leading-relaxed whitespace-pre-wrap">{msg.suggestedPost.caption}</p>
+                        
+                        {(msg.suggestedPost.hashtags || msg.suggestedPost.outlet) && (
+                          <div className="flex items-center gap-2 mt-1">
+                            {msg.suggestedPost.outlet && (
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#333] text-[9px] font-bold text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">{msg.suggestedPost.outlet}</span>
+                            )}
+                            {msg.suggestedPost.hashtags && (
+                              <span className="text-[10px] text-indigo-500 font-medium truncate">{msg.suggestedPost.hashtags}</span>
+                            )}
+                          </div>
+                        )}
+                        
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             applySuggestion(msg.suggestedPost!, msg.attachedItem);
                           }}
-                          className="w-full mt-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                          className="w-full mt-2 py-2.5 bg-[#37352F] hover:bg-black dark:bg-white dark:hover:bg-slate-200 text-white dark:text-[#111111] text-[11px] font-bold rounded-[12px] transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
                         >
-                          <Check className="w-3 h-3" />
+                          <Check className="w-3.5 h-3.5" />
                           Apply Changes
                         </button>
                       </div>
@@ -558,14 +577,14 @@ export function FloatingChat({
                   )}
 
                   {msg.suggestedPosts && msg.suggestedPosts.length > 0 && (
-                    <div className="mt-3 w-full space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#757681] dark:text-[#9B9A97]">Suggested Batch ({msg.suggestedPosts.length})</span>
+                    <div className="mt-4 w-full space-y-3 bg-white/50 dark:bg-black/10 p-3 rounded-[24px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                      <div className="flex items-center justify-between px-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-indigo-500" /> Suggested Batch ({msg.suggestedPosts.length})</span>
                         <button 
                           onClick={() => applyBatchSuggestions(msg.suggestedPosts!)}
-                          className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                          className="text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500 dark:hover:text-white px-2 py-1 rounded border border-indigo-100 dark:border-indigo-500/20 transition-all flex items-center gap-1"
                         >
-                          <Check className="w-3 h-3" />
+                          <Check className="w-2.5 h-2.5" />
                           Approve All
                         </button>
                       </div>
@@ -574,14 +593,14 @@ export function FloatingChat({
                           <div 
                             key={idx}
                             onClick={() => onPreviewPost?.(post)}
-                            className="bg-white dark:bg-[#202020] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] p-3 cursor-pointer hover:border-indigo-500/30 transition-all group/item"
+                            className="bg-white dark:bg-[#202020] rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] p-4 cursor-pointer hover:border-indigo-500/40 hover:shadow-md transition-all group/item"
                           >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded uppercase">{post.date}</span>
-                              <span className="text-[9px] font-medium text-[#757681] dark:text-[#9B9A97]">{post.type}</span>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-900/40 uppercase tracking-widest">{post.date}</span>
+                              <span className="text-[9px] font-bold text-[#757681] dark:text-[#9B9A97] tracking-wider uppercase">{post.type}</span>
                             </div>
-                            <p className="text-[11px] font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">{post.title}</p>
-                            <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] line-clamp-1 mt-0.5">{post.caption}</p>
+                            <p className="text-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">{post.title}</p>
+                            <p className="text-[11px] text-[#757681] dark:text-[#9B9A97] line-clamp-2 mt-1 leading-relaxed">{post.caption}</p>
                           </div>
                         ))}
                       </div>
@@ -599,17 +618,29 @@ export function FloatingChat({
                   <span className="text-[10px] font-black uppercase tracking-widest italic">AI is thinking...</span>
                 </div>
               )}
+                </div>
+              </div>
             </div>
 
-            {/* Input */}
-            <div className="p-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919]">
-              {(attachedItem || attachedImages.length > 0) && (
-                <div className="mb-3 flex flex-wrap gap-2">
+            {/* Input Area */}
+            <div className={cn(
+              "z-20 transition-all duration-300",
+              isFullPage 
+                ? "fixed bottom-0 left-0 right-0 p-6 pointer-events-none" 
+                : "p-4 border-t bg-white/90 dark:bg-[#1A1A1A]/90 backdrop-blur-xl border-[#E9E9E7] dark:border-[#2E2E2E] rounded-b-[24px]"
+            )}>
+              <div className={cn(
+                isFullPage && "max-w-4xl mx-auto w-full bg-white/70 dark:bg-[#161616]/70 backdrop-blur-2xl border border-[#E9E9E7] dark:border-[#2A2A2A] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] p-4 rounded-[28px] pointer-events-auto"
+              )}>
+                {(attachedItem || attachedImages.length > 0) && (
+                <div className="mb-4 flex flex-wrap gap-2">
                   {attachedItem && (
-                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300 w-full">
+                    <div className="px-3 py-2 bg-white dark:bg-[#252525] rounded-xl border border-[#E9E9E7] dark:border-[#333] flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300 w-full shadow-sm hover:border-indigo-500/30 transition-colors group">
                       <div className="flex items-center gap-2">
-                        <Paperclip className="w-3 h-3 text-indigo-500" />
-                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest truncate max-w-[200px]">
+                        <div className="w-6 h-6 rounded bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                          <Paperclip className="w-3.5 h-3.5 text-indigo-500" />
+                        </div>
+                        <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] truncate max-w-[200px]">
                           {attachedItem.type === 'post' ? attachedItem.post.title : 
                            attachedItem.type === 'product' ? attachedItem.product.title : 
                            attachedItem.idea.title}
@@ -617,26 +648,27 @@ export function FloatingChat({
                       </div>
                       <button 
                         onClick={() => setAttachedItem(null)}
-                        className="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-full transition-colors"
+                        className="p-1 text-[#757681] hover:bg-slate-100 dark:hover:bg-[#333] rounded-lg transition-colors opacity-60 hover:opacity-100"
                       >
-                        <X className="w-3 h-3 text-indigo-500" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   )}
                   {attachedImages.map((img, idx) => (
                     <div key={idx} className="relative group animate-in slide-in-from-bottom-2 duration-300">
-                      <img src={img} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E]" />
+                      <img src={img} alt="Preview" className="w-14 h-14 object-cover rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] shadow-sm" />
                       <button
                         onClick={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
-                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-[#37352F] text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-500"
                       >
-                        <X className="w-2.5 h-2.5" />
+                        <X className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
-              <div className="relative flex items-center gap-2">
+              
+              <div className="relative flex items-end gap-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[20px] shadow-sm focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500/30 transition-all p-1.5">
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -647,11 +679,12 @@ export function FloatingChat({
                 />
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2.5 text-[#757681] hover:text-indigo-600 dark:text-[#9B9A97] hover:bg-slate-50 dark:hover:bg-[#2E2E2E] rounded-xl transition-colors shrink-0"
+                  className="p-2.5 mb-0.5 text-[#757681] dark:text-[#9B9A97] hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-[#2E2E2E] rounded-[14px] transition-all shrink-0"
                   title="Attach images"
                 >
-                  <Paperclip className="w-4 h-4" />
+                  <Paperclip className="w-4.5 h-4.5" />
                 </button>
+                
                 <textarea 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -662,16 +695,30 @@ export function FloatingChat({
                     }
                   }}
                   disabled={isTyping}
-                  placeholder={isTyping ? "Forge is thinking..." : "Ask Forge anything..."}
-                  className="w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-[#202020] border border-slate-100 dark:border-[#2E2E2E] rounded-2xl text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 transition-all resize-none h-12 max-h-32 text-[#37352F] dark:text-[#EBE9ED] disabled:opacity-50"
+                  placeholder={isTyping ? "Forge is thinking..." : isFullPage ? "Ask Forge to generate campaigns, analyze data, or write content..." : "Ask Forge anything..."}
+                  className="w-full px-2 py-3.5 bg-transparent text-sm focus:outline-none resize-none min-h-[48px] max-h-[160px] text-[#37352F] dark:text-[#EBE9ED] placeholder-[#A0A0A0] dark:placeholder-[#666] disabled:opacity-50"
+                  style={{ height: input ? 'auto' : '48px', overflowY: input.length > 50 ? 'auto' : 'hidden' }}
                 />
+                
                 <button 
                   onClick={handleSend}
                   disabled={(!input.trim() && !attachedItem && attachedImages.length === 0) || isTyping}
-                  className="absolute right-1.5 bottom-1.5 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20 active:scale-95"
+                  className={cn(
+                    "p-3 mb-0.5 rounded-[14px] transition-all shrink-0 flex items-center justify-center",
+                    input.trim() || attachedItem || attachedImages.length > 0
+                      ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20 active:scale-95"
+                      : "bg-[#E9E9E7] dark:bg-[#2E2E2E] text-[#A0A0A0] dark:text-[#666]"
+                  )}
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-4.5 h-4.5" />
                 </button>
+              </div>
+              
+              {isFullPage && (
+                <div className="mt-3 text-center">
+                  <p className="text-[10px] text-[#A0A0A0] dark:text-[#666]">AI can make mistakes. Verify important information.</p>
+                </div>
+              )}
               </div>
             </div>
           </motion.div>
@@ -692,21 +739,21 @@ export function FloatingChat({
               }
             }}
             className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group relative overflow-hidden shadow-xl",
+              "w-14 h-14 rounded-full flex items-center justify-center transition-all duration-500 group relative overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] border border-white/20 dark:border-white/10",
               isButtonOver 
-                ? "bg-green-500 scale-110" 
-                : "bg-gradient-to-br from-indigo-600 to-blue-600 hover:shadow-indigo-500/25",
-              isOpen && !isMinimized ? "rotate-90 rounded-full" : "hover:scale-105"
+                ? "bg-[#37352F] dark:bg-white scale-110" 
+                : "bg-gradient-to-br from-[#111] to-[#333] dark:from-white dark:to-[#E9E9E7] hover:scale-105",
+              isOpen && !isMinimized ? "rotate-90 bg-[#F7F7F5] dark:bg-[#333] text-[#757681]" : ""
             )}
           >
             {/* Animated Glow */}
             <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
             
             {isOpen && !isMinimized ? (
-              <X className="w-6 h-6 text-white relative z-10" />
+              <X className="w-5 h-5 text-[#757681] dark:text-white relative z-10" />
             ) : (
               <div className="relative z-10">
-                <Sparkles className="w-6 h-6 text-white animate-pulse" />
+                <Sparkles className="w-5 h-5 text-white dark:text-[#111] animate-pulse" />
               </div>
             )}
             
