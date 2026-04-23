@@ -118,6 +118,41 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   // Multi-select state
   const [selectedProducts, setSelectedProducts] = useState<HighStockProduct[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const localAiContextKey = useMemo(() => `forge_local_ai_context_${businessId || 'default'}`, [businessId]);
+  const [contextFavorites, setContextFavorites] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(localAiContextKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setContextFavorites(Array.isArray(parsed?.favoriteTitles) ? parsed.favoriteTitles : []);
+      } else {
+        setContextFavorites([]);
+      }
+    } catch {
+      setContextFavorites([]);
+    }
+  }, [localAiContextKey]);
+
+  const saveSelectionToLocalAi = () => {
+    if (selectedProducts.length === 0) return;
+    const payload = {
+      businessId: businessId || 'default',
+      updatedAt: new Date().toISOString(),
+      favoriteTitles: selectedProducts.map(p => p.title).slice(0, 25),
+      items: selectedProducts.slice(0, 25).map(p => ({
+        title: p.title,
+        type: p.type,
+        outlet: p.outlet,
+        stockInfo: p.stockInfo || ''
+      }))
+    };
+    localStorage.setItem(localAiContextKey, JSON.stringify(payload));
+    localStorage.setItem('forge_local_ai_context', JSON.stringify(payload));
+    setContextFavorites(payload.favoriteTitles);
+    toast.success(`Saved ${payload.items.length} records to Local AI context`);
+  };
 
   // Auto-scrape interval
   useEffect(() => {
@@ -716,6 +751,18 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     });
   }, [products, filterCategory, filterOutlet, searchQuery]);
 
+  const dataQuality = useMemo(() => {
+    const missing = products.filter(p => !p.title || !p.type || !p.outlet).length;
+    const stale = products.filter((p: any) => {
+      const updated = p.updatedAt || p.createdAt;
+      if (!updated) return true;
+      const ts = new Date(updated).getTime();
+      if (Number.isNaN(ts)) return true;
+      return Date.now() - ts > (1000 * 60 * 60 * 24 * 45);
+    }).length;
+    return { missing, stale };
+  }, [products]);
+
   const [columns, setColumns] = useState(2);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -1220,6 +1267,13 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               >
                 Create Post with Selected
               </button>
+              <button 
+                onClick={saveSelectionToLocalAi}
+                className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-[6px] flex items-center gap-1"
+              >
+                <Sparkles className="w-3 h-3" />
+                Send to Local AI Context
+              </button>
             </div>
           </div>
         )}
@@ -1301,6 +1355,20 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                   <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                     {products.filter(p => p.type === 'Uncategorized' || !p.type).length}
                   </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div className="p-3 rounded-[10px] bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#757681]">Missing Fields</p>
+                  <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{dataQuality.missing}</p>
+                </div>
+                <div className="p-3 rounded-[10px] bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#757681]">Stale Records</p>
+                  <p className="text-sm font-bold text-orange-600 dark:text-orange-400">{dataQuality.stale}</p>
+                </div>
+                <div className="p-3 rounded-[10px] bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#757681]">AI Context Favorites</p>
+                  <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{contextFavorites.length}</p>
                 </div>
               </div>
 

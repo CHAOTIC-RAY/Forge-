@@ -278,6 +278,10 @@ export const getAiSettings = () => {
       if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
       if (!parsed.builtinModelId) parsed.builtinModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
       if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'puter', 'groq', 'gemini'];
+      if (!parsed.brandVoice) parsed.brandVoice = '';
+      if (!parsed.businessRules) parsed.businessRules = '';
+      if (!parsed.brandKnowledge) parsed.brandKnowledge = '';
+      if (!parsed.localAiDebug) parsed.localAiDebug = false;
       return parsed;
     } catch (e) {}
   }
@@ -297,13 +301,64 @@ export const getAiSettings = () => {
     geminiApiKey: '',
     groqApiKey: '',
     firecrawlApiKey: '',
-    systemInstructions: ''
+    systemInstructions: '',
+    brandVoice: '',
+    businessRules: '',
+    brandKnowledge: '',
+    localAiDebug: false
   };
 };
 
 export const setAiSettings = (settings: any) => {
   localStorage.setItem('forge_ai_settings', JSON.stringify(settings));
 };
+
+const fallbackNoticeTimestamps: Record<string, number> = {};
+const FALLBACK_NOTICE_DEBOUNCE_MS = 7000;
+
+function notifyFallback(reason: string, detail: string) {
+  const key = `${reason}:${detail}`;
+  const now = Date.now();
+  if (fallbackNoticeTimestamps[key] && now - fallbackNoticeTimestamps[key] < FALLBACK_NOTICE_DEBOUNCE_MS) {
+    return;
+  }
+  fallbackNoticeTimestamps[key] = now;
+  import('sonner').then(({ toast }) => toast.info(`${reason}: ${detail}`));
+}
+
+function getLocalDbContextSnippet(): string {
+  try {
+    const saved = localStorage.getItem('forge_local_ai_context');
+    if (!saved) return '';
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed?.items) || parsed.items.length === 0) return '';
+    return parsed.items.slice(0, 8).map((item: any, index: number) =>
+      `${index + 1}. ${item.title || 'Untitled'} | ${item.type || 'General'} | ${item.outlet || 'Default'}`
+    ).join('\n');
+  } catch {
+    return '';
+  }
+}
+
+function withBusinessKnowledge(prompt: string): string {
+  const settings = getAiSettings();
+  const blocks: string[] = [];
+  if (settings.brandVoice) blocks.push(`BRAND VOICE:\n${settings.brandVoice}`);
+  if (settings.businessRules) blocks.push(`BUSINESS RULES:\n${settings.businessRules}`);
+  if (settings.systemInstructions) blocks.push(`AI INSTRUCTIONS:\n${settings.systemInstructions}`);
+  if (settings.brandKnowledge) blocks.push(`MERGED KNOWLEDGE:\n${settings.brandKnowledge}`);
+  const localDbContext = getLocalDbContextSnippet();
+  if (localDbContext) blocks.push(`LOCAL DB CONTEXT:\n${localDbContext}`);
+
+  const maxChars = 4000;
+  let knowledge = blocks.join('\n\n');
+  if (knowledge.length > maxChars) {
+    knowledge = `${knowledge.slice(0, maxChars)}\n\n[Knowledge truncated for local model stability]`;
+  }
+
+  if (!knowledge.trim()) return prompt;
+  return `${prompt}\n\nBUSINESS KNOWLEDGE CONTEXT:\n${knowledge}`;
+}
 
 // Session-level flags to skip providers that are failing consistently (e.g. out of balance or invalid key)
 (window as any).isPuterDisabledForSession = false;
@@ -429,7 +484,8 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     }
   }
 
-  const fullPrompt = expectJson ? prompt + designContext + "\n\nYou MUST return ONLY a valid JSON object or array." : prompt + designContext;
+  const contextualPrompt = withBusinessKnowledge(prompt + designContext);
+  const fullPrompt = expectJson ? `${contextualPrompt}\n\nYou MUST return ONLY a valid JSON object or array.` : contextualPrompt;
 
   // Try Built-in AI if selected or if auto mode is on and we want maximum free access
   if (settings.preferredProvider === 'builtin' || (settings.preferredProvider === 'auto' && !isGeminiKeyAvailable())) {
@@ -438,6 +494,7 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       if (resp) return resp;
     } catch (e) {
       console.error('Built-in AI failed:', e);
+      notifyFallback('Local AI fallback', 'Built-in model failed, trying cloud providers.');
       if (settings.preferredProvider === 'builtin') throw e;
       console.warn('Built-in AI failed, cascading...');
     }
@@ -452,6 +509,7 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       if (resp) return resp;
     } catch (e) {
       console.error('Puter failed:', e);
+      notifyFallback('Provider fallback', 'Puter unavailable, trying next provider.');
       if (settings.preferredProvider === 'puter') throw e;
       console.warn('Puter failed, cascading...');
     }
@@ -461,6 +519,7 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       if (resp) return resp;
     } catch (e) {
       console.error('Groq failed:', e);
+      notifyFallback('Provider fallback', 'Groq unavailable, trying next provider.');
       if (settings.preferredProvider === 'groq') throw e;
       console.warn('Groq failed, cascading...');
     }
@@ -469,6 +528,7 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     try {
       return await fetchFromGroq(fullPrompt);
     } catch (e) {
+      notifyFallback('Provider fallback', 'Groq failed in Auto mode, trying Gemini.');
       console.warn('Auto mode: Groq failed, trying Gemini...');
     }
   }
@@ -498,6 +558,7 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     return '';
   } catch (error) {
     console.warn("Gemini failed, cascading...");
+    notifyFallback('Provider fallback', 'Gemini failed, trying alternates.');
     
     // Fallback 1: Puter (if auto/preferred)
     if (settings.preferredProvider === 'auto' && isPuterSignedIn) {
@@ -511,12 +572,7 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     if (settings.preferredProvider === 'auto') {
       try {
         console.warn("Cloud AI exhausted. Falling back to WebLLM Local AI Engine...");
-        import('sonner').then(({ toast }) => {
-          toast.info("Cloud AI Quota exhausted. Switching to Local AI Engine (WebGPU).", {
-            description: "Your local GPU is now handling the AI processing.",
-            duration: 5000,
-          });
-        });
+        notifyFallback('Auto routing', 'Cloud quota exhausted, switching to Local AI (WebGPU).');
         const localResp = await builtInAi.generate(fullPrompt);
         if (localResp) return localResp;
       } catch (e) {
@@ -2297,8 +2353,8 @@ export async function searchImages(query: string): Promise<any[]> {
 
 export async function generateGenericText(prompt: string, systemInstruction?: string, image?: string): Promise<string> {
   const settings = getAiSettings();
-
-  const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
+  const basePrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
+  const fullPrompt = withBusinessKnowledge(basePrompt);
 
   if (settings.preferredProvider === 'builtin') {
     console.log("[GenerateGenericText] Strict Local AI mode active.");
@@ -2311,6 +2367,7 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
       return puterResponse || '';
     } catch (error) {
       console.error("Puter failed:", error);
+      notifyFallback('Provider fallback', 'Puter failed while generating text.');
       if (settings.preferredProvider === 'puter') throw error;
     }
   }
@@ -2321,6 +2378,7 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
       return groqResponse || '';
     } catch (error) {
       console.error("Groq failed:", error);
+      notifyFallback('Provider fallback', 'Groq failed while generating text.');
       if (settings.preferredProvider === 'groq') throw error;
     }
   }
@@ -2384,6 +2442,7 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
   return text;
 } catch (error) {
   console.warn("generateGenericText: Gemini failed, trying fallback...");
+  notifyFallback('Provider fallback', 'Gemini failed while generating text.');
   if (settings.preferredProvider === 'auto') {
     try {
       return await builtInAi.generate(fullPrompt);

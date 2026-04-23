@@ -82,6 +82,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
   const [newWidgetCode, setNewWidgetCode] = useState('');
   const [displayedCode, setDisplayedCode] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [widgetFormErrors, setWidgetFormErrors] = useState<{ title?: string; prompt?: string; systemInstruction?: string }>({});
 
   const typeCode = (code: string) => {
     setIsTyping(true);
@@ -112,6 +113,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
     setBuilderChatInput('');
     setNewWidgetCode('');
     setDisplayedCode('');
+    setWidgetFormErrors({});
     setIsPlaygroundOpen(true);
   };
 
@@ -132,7 +134,19 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
     setPlaygroundTestResult('');
     setBuilderChatMessages([]);
     setBuilderChatInput('');
+    setWidgetFormErrors({});
     setIsPlaygroundOpen(true);
+  };
+
+  const hasUnsavedPlaygroundChanges = () => {
+    return Boolean(
+      newWidgetTitle.trim() ||
+      newWidgetDescription.trim() ||
+      newWidgetPrompt.trim() ||
+      newWidgetSystemInstruction.trim() ||
+      newWidgetCode.trim() ||
+      builderChatMessages.length > 0
+    );
   };
 
   const handleTestPlayground = async () => {
@@ -265,9 +279,11 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
   const [isGeneratingCustom, setIsGeneratingCustom] = useState<Record<string, boolean>>({});
 
   const [pinnedWidgetIds, setPinnedWidgetIds] = useState<string[]>([]);
+  const widgetStorageKey = `rainbow_custom_widgets_${activeBusiness?.id || 'default'}`;
+  const pinnedStorageKey = `rainbow_pinned_widgets_${activeBusiness?.id || 'default'}`;
 
   useEffect(() => {
-    const saved = localStorage.getItem('rainbow_custom_widgets');
+    const saved = localStorage.getItem(widgetStorageKey);
     if (saved) {
       try {
         setCustomWidgets(JSON.parse(saved));
@@ -275,7 +291,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
         console.error("Failed to parse custom widgets", e);
       }
     }
-    const savedPinned = localStorage.getItem('rainbow_pinned_widgets');
+    const savedPinned = localStorage.getItem(pinnedStorageKey);
     if (savedPinned) {
       try {
         setPinnedWidgetIds(JSON.parse(savedPinned));
@@ -283,11 +299,11 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
         console.error("Failed to parse pinned widgets", e);
       }
     }
-  }, []);
+  }, [widgetStorageKey, pinnedStorageKey]);
 
   const saveCustomWidgets = (widgets: CustomWidget[]) => {
     setCustomWidgets(widgets);
-    localStorage.setItem('rainbow_custom_widgets', JSON.stringify(widgets));
+    localStorage.setItem(widgetStorageKey, JSON.stringify(widgets));
   };
 
   const togglePinWidget = (id: string, e: React.MouseEvent) => {
@@ -296,13 +312,18 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
       ? pinnedWidgetIds.filter(pid => pid !== id)
       : [...pinnedWidgetIds, id];
     setPinnedWidgetIds(newPinned);
-    localStorage.setItem('rainbow_pinned_widgets', JSON.stringify(newPinned));
+    localStorage.setItem(pinnedStorageKey, JSON.stringify(newPinned));
     toast.success(newPinned.includes(id) ? "Widget pinned to home tab." : "Widget unpinned.");
   };
 
   const handleCreateWidget = () => {
-    if (!newWidgetTitle || !newWidgetPrompt) {
-      toast.error("Title and Prompt Template are required.");
+    const errors: { title?: string; prompt?: string; systemInstruction?: string } = {};
+    if (!newWidgetTitle.trim()) errors.title = 'Title is required';
+    if (!newWidgetPrompt.trim()) errors.prompt = 'Prompt template is required';
+    if (newWidgetSystemInstruction.length > 3000) errors.systemInstruction = 'System instruction is too long';
+    setWidgetFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fix widget form errors.");
       return;
     }
 
@@ -1213,7 +1234,10 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
           </div>
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => setIsPlaygroundOpen(false)} 
+              onClick={() => {
+                if (hasUnsavedPlaygroundChanges() && !confirm('Discard unsaved widget changes?')) return;
+                setIsPlaygroundOpen(false);
+              }} 
               className="px-6 py-2.5 text-sm font-bold text-white/40 hover:text-white transition-colors"
             >
               Cancel
@@ -1379,6 +1403,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
                           onChange={(e) => setNewWidgetTitle(e.target.value)}
                           className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand transition-all text-white"
                         />
+                        {widgetFormErrors.title && <p className="text-[10px] text-red-400">{widgetFormErrors.title}</p>}
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Type</label>
@@ -1426,6 +1451,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
                         onChange={(e) => setNewWidgetPrompt(e.target.value)}
                         className="w-full h-32 p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand resize-none transition-all text-white font-mono"
                       />
+                      {widgetFormErrors.prompt && <p className="text-[10px] text-red-400">{widgetFormErrors.prompt}</p>}
                     </div>
                   </div>
 

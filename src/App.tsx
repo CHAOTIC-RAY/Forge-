@@ -3205,6 +3205,20 @@ export default function App() {
                           </div>
                         </div>
                       )}
+                      {!builtInStatus.isLoaded && !builtInStatus.isLoading && ['builtin', 'auto'].includes(aiSettings.preferredProvider) && (
+                        <button
+                          onClick={() => setActiveTab('more')}
+                          title="Open Settings > AI & Smart Engine"
+                          className="w-full px-2 mb-2"
+                        >
+                          <div className="flex items-center justify-center px-2 py-1 rounded-full bg-amber-500/5 border border-amber-500/20 hover:bg-amber-500/10 transition-colors">
+                            <div className="flex items-center gap-1.5">
+                              <AlertCircle className="w-2.5 h-2.5 text-amber-500" />
+                              <span className="text-[9px] font-black text-amber-600 uppercase tracking-tighter">Local AI Not Initialized</span>
+                            </div>
+                          </div>
+                        </button>
+                      )}
 
                       <div className="relative group flex justify-center w-full cursor-help mb-2">
                         {isSyncing ? (

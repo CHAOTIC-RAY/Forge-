@@ -29,6 +29,7 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
   const [displayedCode, setDisplayedCode] = useState<string>('');
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [fullScreen, setFullScreen] = useState(false);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -37,6 +38,29 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const draftKey = `forge_ai_studio_draft_${activeBusiness?.id || 'default'}`;
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(draftKey);
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
+      if (typeof parsed.input === 'string') setInput(parsed.input);
+      if (typeof parsed.generatedCode === 'string') {
+        setGeneratedCode(parsed.generatedCode);
+        setDisplayedCode(parsed.generatedCode);
+      }
+    } catch {
+      // no-op
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    const payload = { messages, input, generatedCode };
+    localStorage.setItem(draftKey, JSON.stringify(payload));
+  }, [messages, input, generatedCode, draftKey]);
 
   // Strip markdown code blocks if present
   const stripMarkdown = (code: string) => {
@@ -82,6 +106,7 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
     setMessages(newMessages);
     setInput('');
     setIsGenerating(true);
+    setErrorBanner(null);
 
     try {
       const response = await generateAppletCode(newMessages, activeBusiness);
@@ -93,6 +118,7 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
       }
     } catch (error) {
       console.error("Studio error:", error);
+      setErrorBanner("Generation failed. Check provider settings and retry.");
       toast.error("Failed to generate code.");
     } finally {
       setIsGenerating(false);
@@ -122,9 +148,11 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
       await updateDoc(doc(db, 'businesses', activeBusiness.id), {
         applets: arrayUnion(newApplet)
       });
+      setErrorBanner(null);
       toast.success(`${name} deployed to your workspace!`);
     } catch (e) {
       console.error(e);
+      setErrorBanner("Deploy failed. Please retry after generation completes.");
       toast.error("Failed to deploy applet.");
     }
   };
@@ -135,6 +163,8 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
       setGeneratedCode('');
       setDisplayedCode('');
       setInput('');
+      setErrorBanner(null);
+      localStorage.removeItem(draftKey);
     }
   };
 
@@ -184,6 +214,11 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
 
         {/* Chat History */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide pb-24">
+          {errorBanner && (
+            <div className="p-3 rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 text-xs text-red-600 dark:text-red-400">
+              {errorBanner}
+            </div>
+          )}
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-6 opacity-60">
               <div className="p-4 bg-indigo-500/5 rounded-full ring-1 ring-indigo-500/20">
@@ -320,7 +355,7 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
             )}
             <button 
               onClick={handleDeploy}
-              disabled={!generatedCode}
+              disabled={!generatedCode || isGenerating || isTyping || displayedCode !== generatedCode}
               className="px-4 py-2 flex items-center gap-2 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-50 transition-all border border-white/10 active:scale-95"
             >
               <Save className="w-3.5 h-3.5" />

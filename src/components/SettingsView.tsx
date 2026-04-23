@@ -458,15 +458,33 @@ export function SettingsView({
 
   const [isAiInstructionModalOpen, setIsAiInstructionModalOpen] = useState(false);
   const [instructionText, setInstructionText] = useState(aiSettings.systemInstructions || '');
+  const [brandVoiceText, setBrandVoiceText] = useState(aiSettings.brandVoice || '');
+  const [businessRulesText, setBusinessRulesText] = useState(aiSettings.businessRules || '');
+  const [localAiDebug, setLocalAiDebug] = useState(!!aiSettings.localAiDebug);
+  const [tunePreset, setTunePreset] = useState<'fast' | 'balanced' | 'quality'>('balanced');
+  const [showAdvancedTune, setShowAdvancedTune] = useState(false);
 
   useEffect(() => {
     setInstructionText(aiSettings.systemInstructions || '');
-  }, [aiSettings.systemInstructions]);
+    setBrandVoiceText(aiSettings.brandVoice || '');
+    setBusinessRulesText(aiSettings.businessRules || '');
+    setLocalAiDebug(!!aiSettings.localAiDebug);
+  }, [aiSettings.systemInstructions, aiSettings.brandVoice, aiSettings.businessRules, aiSettings.localAiDebug]);
 
   const handleSaveInstructions = () => {
+    const mergedKnowledge = [
+      `## Brand Voice\n${brandVoiceText || 'Not set'}`,
+      `## Business Rules\n${businessRulesText || 'Not set'}`,
+      `## AI System Instructions\n${instructionText || 'Not set'}`
+    ].join('\n\n');
+
+    handleAiSettingChange('brandVoice', brandVoiceText);
+    handleAiSettingChange('businessRules', businessRulesText);
     handleAiSettingChange('systemInstructions', instructionText);
+    handleAiSettingChange('brandKnowledge', mergedKnowledge);
+    handleAiSettingChange('localAiDebug', localAiDebug);
     setIsAiInstructionModalOpen(false);
-    toast.success("AI System Instructions updated!");
+    toast.success("Knowledge center updated and synced to Local AI.");
   };
 
   const downloadExtensionFile = async (filename: string) => {
@@ -536,8 +554,8 @@ export function SettingsView({
                     <MessageSquareText className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED]">AI System Instructions</h3>
-                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Define how the AI should behave across the entire app.</p>
+                    <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED]">Brand + AI Knowledge Center</h3>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Manage brand voice, business rules, and AI instructions in one place.</p>
                   </div>
                 </div>
                 <button 
@@ -550,8 +568,28 @@ export function SettingsView({
               
               <div className="p-6 space-y-4">
                 <div className="space-y-2">
+                  <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Brand Voice</label>
+                  <textarea
+                    value={brandVoiceText}
+                    onChange={(e) => setBrandVoiceText(e.target.value)}
+                    placeholder="Describe tone, audience, and writing style."
+                    className="w-full h-[100px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] text-sm outline-none focus:border-brand transition-colors resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Business Rules</label>
+                  <textarea
+                    value={businessRulesText}
+                    onChange={(e) => setBusinessRulesText(e.target.value)}
+                    placeholder="Compliance, banned phrases, mandatory CTA, legal notes."
+                    className="w-full h-[100px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] text-sm outline-none focus:border-brand transition-colors resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Instructions (Markdown)</label>
+                    <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">AI System Instructions</label>
                     <span className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">Saved to Cloud</span>
                   </div>
                   <textarea 
@@ -560,6 +598,10 @@ export function SettingsView({
                     placeholder="# Your Custom AI Instructions&#10;Define tone, style, and specific business rules here...&#10;&#10;Example:&#10;- Always use a professional yet friendly tone.&#10;- Focus on sustainable materials.&#10;- Never mention competitors."
                     className="w-full h-[300px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] text-sm font-mono outline-none focus:border-brand transition-colors resize-none"
                   />
+                  <label className="flex items-center gap-2 text-xs text-[#757681] dark:text-[#9B9A97]">
+                    <input type="checkbox" checked={localAiDebug} onChange={(e) => setLocalAiDebug(e.target.checked)} />
+                    Enable Local AI context debug hints
+                  </label>
                 </div>
                 
                 <div className="flex items-center gap-3 pt-2">
@@ -568,7 +610,7 @@ export function SettingsView({
                     className="flex-1 py-3 bg-brand hover:bg-brand-hover text-white font-bold rounded-[12px] transition-all shadow-lg shadow-[#2665fd]/20 flex items-center justify-center gap-2"
                   >
                     <Save className="w-4 h-4" />
-                    Save Instructions
+                    Save Knowledge
                   </button>
                   <button 
                     onClick={() => setIsAiInstructionModalOpen(false)}
@@ -1047,7 +1089,7 @@ export function SettingsView({
                 className="flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
               >
                 <MessageSquareText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                AI Instructions
+                Knowledge Center
               </button>
             </div>
             <div className="space-y-3">
@@ -1122,6 +1164,19 @@ export function SettingsView({
               ) : aiSettings.preferredProvider === 'builtin' ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 rounded-[16px] space-y-4">
+                    {(() => {
+                      const selectedModelId = aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+                      const selectedModel = BUILTIN_MODELS.find(m => m.id === selectedModelId) || BUILTIN_MODELS[0];
+                      const stageLabel = builtInStatus.isLoading ? 'INITIALIZING' : builtInStatus.isLoaded ? 'READY' : builtInStatus.error ? 'ACTION REQUIRED' : 'NOT INITIALIZED';
+                      return (
+                        <div className="p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px]">
+                          <p className="text-[11px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Setup flow: Select model {'>'} Initialize {'>'} Ready</p>
+                          <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] mt-1">
+                            Status: {stageLabel}. Recommended: {selectedModel.recommendedRamGb}GB RAM, {selectedModel.estimatedVramGb}GB VRAM, dataset {selectedModel.recommendedDatasetMin}-{selectedModel.recommendedDatasetMax} examples.
+                          </p>
+                        </div>
+                      );
+                    })()}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Cpu className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -1129,9 +1184,9 @@ export function SettingsView({
                       </div>
                       <span className={cn(
                         "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                        builtInStatus.isLoaded ? "bg-green-100 text-green-700" : "bg-brand/10 text-brand"
+                        builtInStatus.isLoaded ? "bg-green-100 text-green-700" : builtInStatus.isLoading ? "bg-blue-100 text-blue-700" : "bg-brand/10 text-brand"
                       )}>
-                        {builtInStatus.isLoaded ? 'READY' : 'SETUP REQUIRED'}
+                        {builtInStatus.isLoading ? 'INITIALIZING' : builtInStatus.isLoaded ? 'READY' : 'SETUP REQUIRED'}
                       </span>
                     </div>
 
@@ -1166,7 +1221,10 @@ export function SettingsView({
                           </div>
                         </div>
                         <button
-                          onClick={handleStartFinetune}
+                          onClick={() => {
+                            toast.info(`Fine-tune preset: ${tunePreset.toUpperCase()}`);
+                            handleStartFinetune();
+                          }}
                           disabled={finetuneStatus.isRunning || !builtInStatus.isLoaded}
                           className={cn(
                             "px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2",
@@ -1188,6 +1246,34 @@ export function SettingsView({
                           )}
                         </button>
                       </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['fast', 'balanced', 'quality'] as const).map((preset) => (
+                          <button
+                            key={preset}
+                            onClick={() => setTunePreset(preset)}
+                            className={cn(
+                              "px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase border transition-colors",
+                              tunePreset === preset ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-[#202020] text-[#757681] border-[#E9E9E7] dark:border-[#2E2E2E]"
+                            )}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setShowAdvancedTune(prev => !prev)}
+                        className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline w-fit"
+                      >
+                        {showAdvancedTune ? 'Hide advanced tuning' : 'Show advanced tuning'}
+                      </button>
+                      {showAdvancedTune && (
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="p-2 rounded-lg bg-[#F7F7F5] dark:bg-[#202020]">Epochs: {tunePreset === 'fast' ? '1' : tunePreset === 'balanced' ? '2' : '3'}</div>
+                          <div className="p-2 rounded-lg bg-[#F7F7F5] dark:bg-[#202020]">LR: {tunePreset === 'quality' ? '0.00008' : '0.00015'}</div>
+                          <div className="p-2 rounded-lg bg-[#F7F7F5] dark:bg-[#202020]">Context: {tunePreset === 'fast' ? '2k' : '4k'}</div>
+                          <div className="p-2 rounded-lg bg-[#F7F7F5] dark:bg-[#202020]">Run mode: {tunePreset}</div>
+                        </div>
+                      )}
 
                       {!builtInStatus.isLoaded && (
                         <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-lg flex items-center gap-2">
@@ -1291,7 +1377,7 @@ export function SettingsView({
                             className="flex items-center justify-center gap-2 w-full py-2 bg-brand text-white text-[11px] font-bold rounded-[8px] hover:bg-brand/90 transition-all shadow-sm"
                           >
                             <ExternalLink size={14} />
-                            Open in New Tab to Fixed
+                            Open in New Tab to Fix Local AI
                           </a>
                         )}
 
