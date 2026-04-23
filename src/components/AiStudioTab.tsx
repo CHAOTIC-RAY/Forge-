@@ -169,10 +169,10 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
   };
 
   const initialPrompts = [
-    { title: 'ROI Calculator', prompt: 'Build a premium ROI calculator for a marketing agency with charts.' },
-    { title: 'Product Showcase', prompt: 'Create an interactive 3D-feeling product showcase using the FORGE_CONTEXT data.' },
-    { title: 'Task Dashboard', prompt: 'Build a sleek task management dashboard for small businesses.' },
-    { title: 'SEO Analyzer', prompt: 'Create a tool that simulates an SEO on-page analyzer with a cool UI.' }
+    { title: 'Lead Score Widget', prompt: 'Build a mini lead scoring widget with sliders and instant score output.' },
+    { title: 'Quote Builder', prompt: 'Create a compact pricing quote widget that uses FORGE_CONTEXT business fields when available.' },
+    { title: 'Content Idea Spinner', prompt: 'Build a vibe-style content idea generator widget with category and tone selectors.' },
+    { title: 'Launch Checklist', prompt: 'Create a polished interactive launch checklist widget with progress tracking.' }
   ];
 
   return (
@@ -198,8 +198,8 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
                 <Sparkles className="w-4 h-4 text-indigo-500" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Studio</h2>
-                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Low-Code Sandbox</p>
+                <h2 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Vibe Widget Studio</h2>
+                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Mini HTML Tools</p>
               </div>
             </div>
           </div>
@@ -225,9 +225,9 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
                 <Cpu className="w-10 h-10 text-indigo-400" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Builder</h3>
+                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">Widget Builder</h3>
                 <p className="text-xs text-[#757681] mt-2 max-w-[240px]">
-                  Describe an applet and watch it build itself in real-time.
+                  Describe a mini HTML widget and watch it build live.
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-2 w-full">
@@ -297,7 +297,7 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
                   handleSendMessage();
                 }
               }}
-              placeholder="Message AI Builder..."
+              placeholder="Describe the widget you want..."
               className="w-full bg-[#F7F7F5] dark:bg-[#141414] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl px-4 py-3 pr-12 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none resize-none transition-all max-h-[200px] min-h-[52px] text-[#37352F] dark:text-[#EBE9ED] shadow-inner"
               rows={Math.min(input.split('\n').length || 1, 4)}
             />
@@ -387,9 +387,9 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
                     <div className="w-20 h-20 bg-indigo-500/5 rounded-[32px] flex items-center justify-center mb-6 ring-1 ring-indigo-500/10">
                       <Wand2 className="w-10 h-10 text-indigo-500 opacity-20" />
                     </div>
-                    <h3 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Awaiting Instructions</h3>
+                    <h3 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Ready for a Widget Idea</h3>
                     <p className="text-sm text-[#757681] max-w-sm mt-3 leading-relaxed">
-                      Send a message to start building. The preview will update live as the AI writes the code.
+                      Send a prompt to generate a mini HTML tool. Preview updates live while code is created.
                     </p>
                   </div>
                 ) : (

@@ -131,6 +131,7 @@ class BuiltInAiService {
   private statusListeners: ((status: BuiltInAiStatus) => void)[] = [];
   private pendingRequest: Promise<any> = Promise.resolve();
   private skipCache = false;
+  private corsBlocked = false;
 
   getStatus(): BuiltInAiStatus {
     return {
@@ -199,11 +200,17 @@ class BuiltInAiService {
     this.progress = 0;
     this.message = "";
     this.error = null;
+    this.corsBlocked = false;
     this.notify();
   }
 
   async init(modelId: string = 'Phi-3-mini-4k-instruct-q4f16_1-MLC') {
     if (this.isLoading) return;
+    if (this.corsBlocked) {
+      this.error = "Local AI download blocked by CORS on this hosted domain. Use Auto/Cloud providers, or run Forge from localhost/new tab for WebLLM.";
+      this.notify();
+      return;
+    }
     
     // WebLLM internal prebuilt IDs
     const normalizedId = modelId;
@@ -239,10 +246,15 @@ class BuiltInAiService {
       console.log(`[BuiltInAI] Model ${normalizedId} loaded successfully.`);
     } catch (err: any) {
       let errorMsg = err.message || "Failed to initialize Local AI Engine.";
+      const raw = `${err?.message || ''} ${err?.stack || ''}`.toLowerCase();
       
       if (errorMsg.includes("Failed to execute 'add' on 'Cache'")) {
         errorMsg = "Browser Cache Restriction: Google AI Studio iframes block local storage. You MUST open this app in a NEW TAB to use local AI models.";
         console.warn("[BuiltInAI] Detected iframe cache restriction. User must open app in new tab.");
+      }
+      if (raw.includes("cors") || raw.includes("access-control-allow-origin") || raw.includes("huggingface.co")) {
+        this.corsBlocked = true;
+        errorMsg = "Local AI model download is blocked by CORS (HuggingFace) on this domain. Switch to Auto/Gemini/Groq, or run locally on localhost to use WebLLM models.";
       }
 
       this.error = errorMsg;
@@ -255,6 +267,10 @@ class BuiltInAiService {
       // If we are in an iframe, provide the link directly in the toast
       if (window.self !== window.top) {
         toast.error("Initialization Failed: Please open the app in a new tab to enable local storage.", {
+          duration: 10000,
+        });
+      } else if (this.corsBlocked) {
+        toast.error("Local AI blocked by CORS on this domain. Use Auto/Cloud providers or localhost for Local AI.", {
           duration: 10000,
         });
       } else {

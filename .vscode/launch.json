@@ -1,0 +1,64 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Dev Server + Edge Debug",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "dev"
+            ],
+            "console": "integratedTerminal",
+            "serverReadyAction": {
+                "pattern": "(?:Server running on http://localhost:|Local:\\s+http://localhost:|url: http://localhost:)(\\d+)",
+                "uriFormat": "http://localhost:%s",
+                "action": "debugWithEdge"
+            },
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "Attach to Edge",
+            "type": "msedge",
+            "request": "attach",
+            "port": 9222,
+            "urlFilter": "http://localhost:3000/*",
+            "webRoot": "${workspaceFolder}",
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**",
+                "!chrome-error://**",
+                "!edge://**"
+            ],
+            "skipFiles": [
+                "**/node_modules/**",
+                "chrome-error://**",
+                "edge://**"
+            ]
+        },
+        {
+            "request": "launch",
+            "name": "Launch Edge against localhost",
+            "type": "msedge",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}",
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**",
+                "!chrome-error://**",
+                "!edge://**"
+            ],
+            "skipFiles": [
+                "**/node_modules/**",
+                "chrome-error://**",
+                "edge://**"
+            ]
+        }
+    ]
+}
