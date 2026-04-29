@@ -64,6 +64,7 @@ export function ImageViewer({ isOpen, images, initialIndex = 0, aiProvider, onCl
         <img
           src={currentImageUrl}
           alt={`Preview ${currentIndex + 1}`}
+          crossOrigin="anonymous"
           className="max-w-full max-h-full object-contain rounded-[12px] shadow-2xl"
         />
         

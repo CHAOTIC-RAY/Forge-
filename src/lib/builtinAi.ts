@@ -204,9 +204,9 @@ class BuiltInAiService {
     this.notify();
   }
 
-  async init(modelId: string = 'Phi-3-mini-4k-instruct-q4f16_1-MLC') {
+  async init(modelId: string = 'Phi-3-mini-4k-instruct-q4f16_1-MLC', customConfig?: any) {
     if (this.isLoading) return;
-    if (this.corsBlocked) {
+    if (this.corsBlocked && !customConfig?.model_list) {
       this.error = "Local AI download blocked by CORS on this hosted domain. Use Auto/Cloud providers, or run Forge from localhost/new tab for WebLLM.";
       this.notify();
       return;
@@ -215,7 +215,7 @@ class BuiltInAiService {
     // WebLLM internal prebuilt IDs
     const normalizedId = modelId;
 
-    if (this.isLoaded && this.currentModelId === normalizedId) return;
+    if (this.isLoaded && this.currentModelId === normalizedId && !customConfig) return;
 
     this.isLoading = true;
     this.error = null;
@@ -231,15 +231,22 @@ class BuiltInAiService {
 
       console.log(`[BuiltInAI] Initializing ${normalizedId}...`);
       
-      // Use internal prebuilt patterns. In v0.2.82, passing appConfig is only needed for custom models.
-      // Forcing WebLLM to resolve libraries itself avoids common 404 logic errors.
-      this.engine = await webllm.CreateMLCEngine(normalizedId, {
-        initProgressCallback: (report) => {
+      const engineConfig: any = {
+        initProgressCallback: (report: any) => {
           this.message = report.text;
           this.progress = Math.round(report.progress * 100);
           this.notify();
         }
-      });
+      };
+
+      if (customConfig) {
+        engineConfig.appConfig = customConfig;
+        console.log("[BuiltInAI] Using custom appConfig for local loading/CORS mitigation.");
+      }
+
+      // Use internal prebuilt patterns. In v0.2.82, passing appConfig is only needed for custom models.
+      // Forcing WebLLM to resolve libraries itself avoids common 404 logic errors.
+      this.engine = await webllm.CreateMLCEngine(normalizedId, engineConfig);
 
       this.isLoaded = true;
       this.currentModelId = normalizedId;

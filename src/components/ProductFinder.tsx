@@ -362,6 +362,7 @@ export function ProductFinder() {
                   <img 
                     src={manualScreenshot} 
                     alt="Page Screenshot" 
+                    crossOrigin="anonymous"
                     className="max-w-none w-full h-auto"
                     referrerPolicy="no-referrer"
                   />

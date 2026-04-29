@@ -463,7 +463,12 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
         {...attributes}
         src={imageUrl} 
         alt="" 
+        crossOrigin="anonymous"
         className={cn("w-full h-full object-cover", isDragging && "opacity-50")} 
+        onError={(e) => {
+          (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/f3f4f6/94a3b8?text=Image+Unavailable';
+          (e.target as HTMLImageElement).onerror = null; // Prevent infinite loop
+        }}
       />
       {auth.currentUser && post.aiProvider && imageUrl.startsWith('data:') && (
         <div className="absolute bottom-0.5 left-0.5 px-1 py-0.5 bg-purple-500/80 text-white text-[6px] font-bold rounded uppercase tracking-widest z-10 pointer-events-none">
@@ -566,12 +571,24 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
         viewMode === 'grid' && isSelected && "ring-2 ring-inset ring-brand bg-[#EFEFED]/50 dark:bg-[#2E2E2E]/50",
         "print:bg-white print:min-h-[120px] print:border-r print:border-b print:border-gray-300 print:p-1"
       )}
-      style={backgroundImage ? {
-        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.85)), url(${backgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      } : undefined}
     >
+      {/* Blurred Background Image */}
+      {backgroundImage && (
+        <>
+          <div 
+            className="absolute inset-0 z-0 pointer-events-none opacity-40 dark:opacity-30 mix-blend-luminosity"
+            style={{
+              backgroundImage: `url(${backgroundImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(12px)',
+              transform: 'scale(1.15)',
+            }}
+          />
+          <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
+        </>
+      )}
+
       <div className="flex justify-between items-center mb-1.5 md:mb-2 shrink-0 z-10 relative">
         <div className="flex items-center gap-1.5 flex-row">
           <span className={cn(
@@ -624,7 +641,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
 
       {/* Desktop View Posts */}
       <div className={cn(
-        "flex-1 min-h-0 flex flex-col gap-1.5 print:overflow-visible overflow-y-auto no-scrollbar",
+        "flex-1 min-h-0 flex flex-col gap-1.5 print:overflow-visible overflow-y-auto no-scrollbar relative z-10",
         viewMode === 'grid' ? "hidden md:flex print:flex" : "flex"
       )}>
         <SortableContext items={posts.map(p => p.id)} strategy={rectSortingStrategy}>
@@ -768,7 +785,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           }
         }}
         className={cn(
-          "text-left bg-white dark:bg-[#1E1E1E] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing flex flex-col",
+          "text-left bg-white/90 dark:bg-[#1E1E1E]/80 backdrop-blur-md border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing flex flex-col z-10 relative",
           viewMode === 'grid' ? "p-3 md:p-1.5 gap-2 md:gap-1" : "p-4 gap-3",
           isDragging && "border-brand scale-110 shadow-2xl z-50 ring-4 ring-brand/20 active:scale-110",
           !isDragging && "active:scale-95",
@@ -788,14 +805,14 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
               Private
             </span>
           )}
-          {post.approvalStatus && (
+          {post.approvalStatus && post.approvalStatus !== 'draft' && (
             <span className={cn(
               "rounded-[4px] font-bold uppercase",
               viewMode === 'grid' ? "text-[7px] px-0.5" : "text-[9px] px-1",
               post.approvalStatus === 'approved' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : 
-              post.approvalStatus === 'rejected' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+              post.approvalStatus === 'needs_revision' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
             )}>
-              {viewMode === 'grid' ? post.approvalStatus.charAt(0) : post.approvalStatus}
+              {viewMode === 'grid' ? post.approvalStatus.charAt(0) : post.approvalStatus.replace('_', ' ')}
             </span>
           )}
           {post.publishStatus && (

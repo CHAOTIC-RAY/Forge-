@@ -464,6 +464,10 @@ export function FloatingChat({
       updated.preferredProvider = 'auto'; // Fallback logic usually handles this
     }
 
+    if (provider === 'builtin' && modelId === 'local_proxy') {
+      updated.preferredProvider = 'local_proxy';
+    }
+
     setAiSettingsState(updated);
     setAiSettings(updated);
     setShowModelSelector(false);
@@ -485,10 +489,10 @@ export function FloatingChat({
             exit={isFullPage ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
             className={cn(
-              "flex overflow-hidden pointer-events-auto relative",
+              "flex overflow-hidden pointer-events-auto relative shadow-2xl",
               isFullPage 
                 ? "flex-row w-full h-full rounded-none bg-[#FAFAFA] dark:bg-[#131314] border-none inset-0 absolute transition-opacity" 
-                : "flex-col hidden md:flex w-[400px] md:w-[440px] h-[640px] max-h-[calc(100vh-100px)] rounded-[24px] bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-[0_8px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] transition-all duration-300",
+                : "flex-col hidden md:flex w-[380px] lg:w-[440px] h-[640px] max-h-[85vh] rounded-[24px] bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-2xl border border-white/20 dark:border-white/5 transition-all duration-300",
               isContainerOver && "ring-2 ring-indigo-500"
             )}
           >
@@ -519,9 +523,23 @@ export function FloatingChat({
                  </button>
 
                  <div className="flex-1 overflow-y-auto w-full space-y-1 custom-scrollbar pr-1">
-                   <div className="flex items-center gap-2 px-4 mb-2 mt-4 text-[12px] font-bold text-[#444746] dark:text-[#8E8E8E] uppercase tracking-widest">
-                     <History className="w-3.5 h-3.5" />
-                     Recent Sessions
+                   <div className="flex items-center justify-between px-4 mb-2 mt-4">
+                     <div className="flex items-center gap-2 text-[12px] font-bold text-[#444746] dark:text-[#8E8E8E] uppercase tracking-widest">
+                       <History className="w-3.5 h-3.5" />
+                       Recent Sessions
+                     </div>
+                     <button 
+                       onClick={() => {
+                         if (confirm("Are you sure you want to clear all chat history?")) {
+                           setSessions([]);
+                           setCurrentSessionId(null);
+                           createNewChat();
+                         }
+                       }}
+                       className="text-[10px] font-bold text-red-500 hover:underline uppercase tracking-wider pr-1"
+                     >
+                       Clear All
+                     </button>
                    </div>
                    {sessions.slice(0, 15).map((session) => (
                      <button 
@@ -742,6 +760,7 @@ export function FloatingChat({
                             key={idx} 
                             src={img} 
                             alt="Attached/Generated" 
+                            crossOrigin="anonymous"
                             className={cn(
                               "object-cover rounded-lg border shadow-sm",
                               msg.role === 'assistant' 

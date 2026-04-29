@@ -381,7 +381,16 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
                     <div key={post.id} className="flex items-center gap-4 p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-[12px] border border-[#E9E9E7] dark:border-[#3E3E3E] hover:border-brand transition-colors group cursor-pointer">
                       <div className="w-16 h-16 rounded-[8px] bg-white dark:bg-[#1E1E1E] flex items-center justify-center border border-[#E9E9E7] dark:border-[#3E3E3E] shrink-0 overflow-hidden">
                         {post.images && post.images[0] ? (
-                          <img src={post.images[0]} alt="" className="w-full h-full object-cover" />
+                          <img 
+                            src={post.images[0]} 
+                            alt="" 
+                            crossOrigin="anonymous"
+                            className="w-full h-full object-cover" 
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/f3f4f6/94a3b8?text=Image+Unavailable';
+                              (e.target as HTMLImageElement).onerror = null;
+                            }}
+                          />
                         ) : (
                           <MessageSquare className="w-6 h-6 text-[#757681]" />
                         )}

@@ -122,6 +122,7 @@ export const PUTER_MODELS = [
 export const LOCAL_MODELS = [
   { id: 'webllm-local', name: 'WebLLM / Local (WebGPU)' },
   { id: 'builtin', name: 'Browser Built-in AI' },
+  { id: 'local_proxy', name: 'Local Server (Ollama / LM Studio)' },
 ];
 
 export const safeParseJSON = (text: string) => {
@@ -296,6 +297,8 @@ export const getAiSettings = () => {
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
     builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
+    customModelUrl: '',
+    customModelConfig: null,
     allowedAutoProviders: ['builtin', 'puter', 'groq', 'gemini'],
     targetUrl: '',
     geminiApiKey: '',
@@ -305,7 +308,11 @@ export const getAiSettings = () => {
     brandVoice: '',
     businessRules: '',
     brandKnowledge: '',
-    localAiDebug: false
+    localAiDebug: false,
+    localProxyUrl: 'http://localhost:11434/v1',
+    cloudinaryCloudName: '',
+    cloudinaryApiKey: '',
+    cloudinaryApiSecret: ''
   };
 };
 
@@ -523,6 +530,15 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       if (settings.preferredProvider === 'groq') throw e;
       console.warn('Groq failed, cascading...');
     }
+  } else if (settings.preferredProvider === 'local_proxy') {
+    try {
+      const resp = await fetchFromLocalServer(fullPrompt);
+      if (resp) return resp;
+    } catch (e) {
+      console.error('Local Proxy failed:', e);
+      notifyFallback('Provider fallback', 'Local Server unavailable. Ensure Ollama/LM Studio is running.');
+      throw e;
+    }
   } else if (settings.preferredProvider === 'auto') {
     // In auto mode, try Groq first (fast/free), then Gemini, then Puter as absolute last resort
     try {
@@ -582,6 +598,44 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
 
     throw new Error("All AI providers (Gemini, Groq, Puter, Local) failed or are unavailable.");
   }
+}
+
+async function fetchFromLocalServer(prompt: string, images?: { base64: string, mimeType: string }[]) {
+  const settings = getAiSettings();
+  const url = settings.localProxyUrl || 'http://localhost:11434/v1';
+  
+  const messages: any[] = [{ role: 'user', content: prompt }];
+  
+  if (images && images.length > 0) {
+    // Some local servers support OpenAI vision format
+    messages[0].content = [
+      { type: 'text', text: prompt },
+      ...images.map(img => ({
+        type: 'image_url',
+        image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+      }))
+    ];
+  }
+
+  const response = await fetch(`${url}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: "default", // Most local proxies use a default or mapped model
+      messages,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Local Server Error: ${response.status} - ${err}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
 }
 
 async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
@@ -3896,7 +3950,7 @@ export async function generateAppletCode(
   const systemInstruction = isLocal
     ? `You are a vibe-coding widget developer. Help the user build a mini HTML widget.
 Respond ONLY with JSON: {"reply": "explanation", "code": "<!DOCTYPE html><html>...</html>"}
-Use Tailwind CDN for styling.
+Use Tailwind CDN. Use window.ForgeAPI.saveData(key, data) or window.ForgeAPI.savePost(post) to save to Forge.
 Prioritize one focused widget per request.`
     : `You are Forge Vibe Studio, an elite mini-widget coder. Your goal is to build compact, delightful HTML widgets that run inside Forge.
   
@@ -3907,14 +3961,20 @@ Prioritize one focused widget per request.`
   4. Build for rapid "vibe coding": clear UX, immediate interactivity, no boilerplate bloat.
   5. USER INTERFACE: premium, modern, and Forge-aligned (clean, responsive, useful).
   6. DATA INJECTION: You have access to a global variable window.FORGE_CONTEXT which contains the current business data. Use this data if relevant to the app's purpose.
-  7. Keep widgets lightweight by default; use extra CDNs only when clearly needed.
-  8. RESPONSE FORMAT: You MUST respond with a valid JSON object:
+  7. FORGE API: The backend is automatically integrated with Forge. Use \`window.ForgeAPI\` to read/write persistent data.
+     It provides the following async methods (all return Promises):
+     - \`window.ForgeAPI.getBusiness()\` -> returns active workspace info.
+     - \`window.ForgeAPI.saveData(key: string, data: any)\` -> persists data natively to the Forge workspace.
+     - \`window.ForgeAPI.savePost({ title, brief, caption, type, ... })\` -> Creates a real post in the social media planner.
+     - \`window.ForgeAPI.notify(message: string)\` -> Displays a toast notification outside the widget.
+  8. Keep widgets lightweight by default; use extra CDNs only when clearly needed.
+  9. RESPONSE FORMAT: You MUST respond with a valid JSON object:
      {
       "reply": "A brief explanation of the widget built or updated.",
        "code": "<!DOCTYPE html><html>...</html>"
      }
-  9. INCREMENTAL UPDATES: if user asks for changes, regenerate FULL code with updates applied.
-  10. Prefer practical mini tools: calculators, planners, generators, dashboards, checklists, converters, visualizers.
+  10. INCREMENTAL UPDATES: if user asks for changes, regenerate FULL code with updates applied.
+  11. Prefer practical mini tools: calculators, planners, generators, dashboards, checklists, converters, visualizers.
   
   Do not include markdown code blocks. Just raw JSON.`;
 

@@ -37,7 +37,8 @@ async function saveToIndexedDB(key: string, data: string): Promise<void> {
 }
 
 /**
- * Uploads a base64 image string to Cloudinary via client-side direct upload and returns the secure URL.
+ * Uploads a base64 image string to Cloudinary or Firebase Storage.
+ * Firebase Storage is used as a fallback if Cloudinary credentials are missing.
  * @param base64Data The base64 data URL string.
  * @param path The path (used as folder/filename hint).
  * @returns The secure URL of the uploaded image.
@@ -62,25 +63,44 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
     console.warn("[Storage] Could not save image to local backup", e);
   }
 
+  const settings = getAiSettings();
+  const cloudName = settings.cloudinaryCloudName;
+  const apiKey = settings.cloudinaryApiKey;
+  const apiSecret = settings.cloudinaryApiSecret;
+
+  // Check if Cloudinary credentials are missing
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error('Cloudinary credentials missing. Please configure Cloudinary in API settings.');
+  }
+
+  const waitForOnline = async () => {
+    if (navigator.onLine) return;
+    return new Promise<void>((resolve) => {
+      const handleOnline = () => {
+        window.removeEventListener('online', handleOnline);
+        resolve();
+      };
+      window.addEventListener('online', handleOnline);
+    });
+  };
+
   try {
     console.log(`[Storage] Starting Cloudinary upload for path: ${path}`);
     const startTime = Date.now();
-
-    const settings = getAiSettings();
-    const cloudName = settings.cloudinaryCloudName;
-    const apiKey = settings.cloudinaryApiKey;
-    const apiSecret = settings.cloudinaryApiSecret;
-
-    if (!cloudName || !apiKey || !apiSecret) {
-      throw new Error("Missing Cloudinary credentials in Settings.");
-    }
-
+    
+    // Wait for online status before attempting
+    await waitForOnline();
+    
     // Convert base64 to Blob to send as multipart/form-data
-    console.log("[Storage] Converting base64 to blob...");
-    const response = await fetch(base64Data);
-    if (!response.ok) throw new Error(`Failed to fetch base64 data: ${response.statusText}`);
-    const blob = await response.blob();
-    console.log(`[Storage] Blob created: ${blob.size} bytes, type: ${blob.type}`);
+    const arr = base64Data.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
     
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const stringToSign = `timestamp=${timestamp}${apiSecret}`;
@@ -97,22 +117,17 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
     formData.append('timestamp', timestamp);
     formData.append('signature', signature);
 
-    console.log("[Storage] Sending POST request directly to Cloudinary API...");
     const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
       method: 'POST',
       body: formData,
     });
-    console.log(`[Storage] Cloudinary responded with status: ${uploadResponse.status}`);
 
     if (!uploadResponse.ok) {
       let errorMessage = 'Failed to upload to Cloudinary';
       try {
         const errorData = await uploadResponse.json();
-        console.error('[Storage] Cloudinary returned error JSON:', errorData);
         errorMessage = errorData.error?.message || errorMessage;
-      } catch (e) {
-        errorMessage = `Upload failed with status ${uploadResponse.status}`;
-      }
+      } catch (e) {}
       throw new Error(errorMessage);
     }
 
@@ -126,3 +141,46 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
     throw e;
   }
 }
+
+export async function deleteAppStorageFile(url: string): Promise<void> {
+  if (url.includes('firebasestorage.googleapis.com')) {
+    try {
+      const { ref, deleteObject } = await import('firebase/storage');
+      const { storage } = await import('./firebase');
+      const imageRef = ref(storage, url);
+      await deleteObject(imageRef);
+      console.log(`[Storage] Deleted Firebase image: ${url}`);
+    } catch (e: any) {
+      if (e?.code === 'storage/object-not-found') {
+        console.warn(`[Storage] Firebase image already deleted or not found: ${url}`);
+      } else {
+        console.error("[Storage] Failed to delete image from Firebase storage:", e);
+      }
+    }
+  } else if (url.includes('res.cloudinary.com')) {
+    try {
+      const parts = url.split('/');
+      const publicIdWithExt = parts.slice(parts.indexOf('upload') + 2).join('/');
+      let publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf('.'));
+      if(!publicId) publicId = publicIdWithExt; // fallback if no extension
+      
+      const { getAiSettings } = await import('./gemini');
+      const settings = getAiSettings();
+      
+      await fetch('/api/cloudinary/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          publicId,
+          cloudName: settings.cloudinaryCloudName,
+          apiKey: settings.cloudinaryApiKey,
+          apiSecret: settings.cloudinaryApiSecret
+        })
+      });
+      console.log(`[Storage] Deleted Cloudinary image: ${url}`);
+    } catch (e) {
+      console.error("[Storage] Failed to delete from Cloudinary:", e);
+    }
+  }
+}
+

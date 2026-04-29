@@ -38,7 +38,7 @@ export type Post = {
   contentFormats?: ('Post' | 'Reel' | 'Story')[];
 
   // Approval fields
-  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  approvalStatus?: 'draft' | 'awaiting_approval' | 'approved' | 'needs_revision';
   approvalNote?: string;
   submittedAt?: string;
   reviewedAt?: string;

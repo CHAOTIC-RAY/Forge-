@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { generatePostContent, generateMockupImage, generatePostFromImage, generateAiImage, generateHashtagSuggestions, generatePostWithFramework, findProductsByCategory, HighStockProduct, generateSmartPost, generatePostVisuals, generateSmartBrief, getAiSettings } from '../../lib/gemini';
 import { createImageCollage, cn, getAnalyticsSettings } from '../../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../../lib/firebase';
+import { RichTextEditor } from '../RichTextEditor';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { format, parseISO, isValid } from 'date-fns';
@@ -733,14 +734,11 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   </div>
                 )}
               </div>
-              <textarea
-                name="caption"
-                rows={4}
-                disabled={readOnly}
+              <RichTextEditor
                 value={formData.caption || ''}
-                onChange={handleChange}
+                onChange={(html) => setFormData(prev => ({ ...prev, caption: html }))}
                 placeholder="Write your post caption here..."
-                className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none resize-none transition-colors disabled:opacity-70"
+                readOnly={readOnly}
               />
             </div>
 
@@ -780,22 +778,22 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Approval Status</h3>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {(['pending', 'approved', 'rejected'] as const).map((status) => (
+                    {(['draft', 'awaiting_approval', 'approved', 'needs_revision'] as const).map((status) => (
                       <button
                         key={status}
                         type="button"
-                        disabled={readOnly || (!isAdmin && status !== 'pending')}
+                        disabled={readOnly}
                         onClick={() => setFormData(prev => ({ ...prev, approvalStatus: status }))}
                         className={cn(
                           "px-3 py-1.5 rounded-[8px] text-xs font-medium border transition-all",
-                          formData.approvalStatus === status
+                          (formData.approvalStatus || 'draft') === status
                             ? status === 'approved' ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
-                              : status === 'rejected' ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
+                              : status === 'needs_revision' ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
                               : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
                             : "bg-white dark:bg-[#191919] text-[#757681] border-[#E9E9E7] dark:border-[#2E2E2E] hover:bg-[#F7F7F5]"
                         )}
                       >
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                        {status === 'awaiting_approval' ? 'Awaiting Approval' : status === 'needs_revision' ? 'Needs Revision' : status.charAt(0).toUpperCase() + status.slice(1)}
                       </button>
                     ))}
                   </div>
@@ -902,7 +900,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                 {formData.images?.map((img, idx) => (
                   <div key={idx} className="relative aspect-[4/5] rounded-[8px] overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] group cursor-pointer" onClick={() => setEnlargedImage(img)}>
-                    <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                    <img src={img} alt={`Preview ${idx}`} crossOrigin="anonymous" className="w-full h-full object-cover" />
                     {!readOnly && (
                       <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {googleTokens && img.startsWith('data:') && (
@@ -1066,7 +1064,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                           commentView === 'time' ? "border-white dark:border-[#1C1C1C]" : "border-transparent"
                         )}>
                           {comment.userPhoto ? (
-                            <img src={comment.userPhoto} alt={comment.userName} className="w-full h-full object-cover" />
+                            <img src={comment.userPhoto} alt={comment.userName} crossOrigin="anonymous" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[#757681]">
                               {comment.userName.charAt(0)}
@@ -1185,6 +1183,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
               <img 
                 src={enlargedImage} 
                 alt="Enlarged" 
+                crossOrigin="anonymous"
                 className="max-w-full max-h-full object-contain rounded-[12px]"
               />
               <button 

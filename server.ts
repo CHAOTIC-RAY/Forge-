@@ -85,12 +85,12 @@ export async function startServer(forcePort?: number) {
   // Expose config to client
   app.get("/api/config", (req, res) => {
     console.log("[Server] GET /api/config requested");
-    if (!process.env.GEMINI_API_KEY) {
-      console.warn("[Server] GEMINI_API_KEY is missing from environment");
+    if (!process.env.GOOGLE_GENAI_API_KEY) {
+      console.warn("[Server] GOOGLE_GENAI_API_KEY is missing from environment");
     }
     try {
       const config = {
-        geminiApiKey: process.env.GEMINI_API_KEY || null,
+        geminiApiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || null,
         groqApiKey: process.env.GROQ_API_KEY || null,
         cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
       };

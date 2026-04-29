@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { Business } from '../data';
 import { db } from '../lib/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
 interface AiStudioTabProps {
@@ -29,7 +29,6 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
   const [displayedCode, setDisplayedCode] = useState<string>('');
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [fullScreen, setFullScreen] = useState(false);
-  const [errorBanner, setErrorBanner] = useState<string | null>(null);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -39,28 +38,120 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const draftKey = `forge_ai_studio_draft_${activeBusiness?.id || 'default'}`;
-
+  // Handle messages from the Sandbox (iframe)
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(draftKey);
-      if (!saved) return;
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
-      if (typeof parsed.input === 'string') setInput(parsed.input);
-      if (typeof parsed.generatedCode === 'string') {
-        setGeneratedCode(parsed.generatedCode);
-        setDisplayedCode(parsed.generatedCode);
+    const handleMessage = async (event: MessageEvent) => {
+      // Only process messages that originate from our own application (or are well-formed)
+      if (!event.data || event.data.source !== 'forge_applet') return;
+
+      const { action, payload, requestId } = event.data;
+
+      const respond = (success: boolean, data?: any, error?: string) => {
+        const iframe = document.querySelector('iframe[title="AI Studio Sandbox"]') as HTMLIFrameElement;
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            source: 'forge_host',
+            requestId,
+            success,
+            data,
+            error
+          }, '*');
+        }
+      };
+
+      try {
+        switch (action) {
+          case 'savePost':
+            // E.g. Saving a new post to the active business
+            if (!activeBusiness?.id) throw new Error("No active business");
+            if (!payload || !payload.title) throw new Error("Invalid post data");
+            const newPost = {
+              id: uuidv4(),
+              status: 'draft',
+              approvalStatus: 'draft',
+              isAiGenerated: true,
+              createdAt: new Date().toISOString(),
+              ...payload
+            };
+            const postRef = doc(db, 'posts', newPost.id);
+            await setDoc(postRef, {
+               ...newPost,
+               outlet: activeBusiness.name
+            });
+            respond(true, newPost);
+            toast.success("Sandbox saved a post!");
+            break;
+
+          case 'getBusiness':
+            respond(true, activeBusiness);
+            break;
+
+          case 'notify':
+            if (payload?.message) {
+              toast(payload.message);
+            }
+            respond(true);
+            break;
+            
+          case 'saveData':
+            // General purpose data saving for Applets
+            if (!activeBusiness?.id) throw new Error("No active business");
+            if (!payload || !payload.key || !payload.data) throw new Error("Missing key or data");
+            const businessRef = doc(db, 'businesses', activeBusiness.id);
+            // We can save to appletData map
+            await updateDoc(businessRef, {
+              [`appletData.${payload.key}`]: payload.data
+            });
+            respond(true, { key: payload.key });
+            toast.success("Sandbox saved data!");
+            break;
+
+          default:
+            respond(false, null, "Unknown action");
+        }
+      } catch (err: any) {
+        console.error("Sandbox API error:", err);
+        respond(false, null, err.message || "Internal error");
       }
-    } catch {
-      // no-op
-    }
-  }, [draftKey]);
+    };
 
-  useEffect(() => {
-    const payload = { messages, input, generatedCode };
-    localStorage.setItem(draftKey, JSON.stringify(payload));
-  }, [messages, input, generatedCode, draftKey]);
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [activeBusiness]);
+
+  const INJECTED_SDK = `
+    window.ForgeAPI = {
+      invoke: function(action, payload) {
+        return new Promise((resolve, reject) => {
+          const requestId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+          
+          const listener = (event) => {
+            if (event.data && event.data.source === 'forge_host' && event.data.requestId === requestId) {
+              window.removeEventListener('message', listener);
+              if (event.data.success) {
+                resolve(event.data.data);
+              } else {
+                reject(new Error(event.data.error || 'Unknown error'));
+              }
+            }
+          };
+          window.addEventListener('message', listener);
+          
+          window.parent.postMessage({
+            source: 'forge_applet',
+            requestId,
+            action,
+            payload
+          }, '*');
+        });
+      },
+      savePost: function(postData) { return this.invoke('savePost', postData); },
+      getBusiness: function() { return this.invoke('getBusiness'); },
+      saveData: function(key, data) { return this.invoke('saveData', { key, data }); },
+      notify: function(message) { return this.invoke('notify', { message }); }
+    };
+    window.FORGE_CONTEXT = \${JSON.stringify(activeBusiness || {})};
+  `;
 
   // Strip markdown code blocks if present
   const stripMarkdown = (code: string) => {
@@ -106,7 +197,6 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
     setMessages(newMessages);
     setInput('');
     setIsGenerating(true);
-    setErrorBanner(null);
 
     try {
       const response = await generateAppletCode(newMessages, activeBusiness);
@@ -118,7 +208,6 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
       }
     } catch (error) {
       console.error("Studio error:", error);
-      setErrorBanner("Generation failed. Check provider settings and retry.");
       toast.error("Failed to generate code.");
     } finally {
       setIsGenerating(false);
@@ -148,11 +237,9 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
       await updateDoc(doc(db, 'businesses', activeBusiness.id), {
         applets: arrayUnion(newApplet)
       });
-      setErrorBanner(null);
       toast.success(`${name} deployed to your workspace!`);
     } catch (e) {
       console.error(e);
-      setErrorBanner("Deploy failed. Please retry after generation completes.");
       toast.error("Failed to deploy applet.");
     }
   };
@@ -163,16 +250,14 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
       setGeneratedCode('');
       setDisplayedCode('');
       setInput('');
-      setErrorBanner(null);
-      localStorage.removeItem(draftKey);
     }
   };
 
   const initialPrompts = [
-    { title: 'Lead Score Widget', prompt: 'Build a mini lead scoring widget with sliders and instant score output.' },
-    { title: 'Quote Builder', prompt: 'Create a compact pricing quote widget that uses FORGE_CONTEXT business fields when available.' },
-    { title: 'Content Idea Spinner', prompt: 'Build a vibe-style content idea generator widget with category and tone selectors.' },
-    { title: 'Launch Checklist', prompt: 'Create a polished interactive launch checklist widget with progress tracking.' }
+    { title: 'ROI Calculator', prompt: 'Build a premium ROI calculator for a marketing agency with charts.' },
+    { title: 'Product Showcase', prompt: 'Create an interactive 3D-feeling product showcase using the FORGE_CONTEXT data.' },
+    { title: 'Task Dashboard', prompt: 'Build a sleek task management dashboard for small businesses.' },
+    { title: 'SEO Analyzer', prompt: 'Create a tool that simulates an SEO on-page analyzer with a cool UI.' }
   ];
 
   return (
@@ -198,8 +283,8 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
                 <Sparkles className="w-4 h-4 text-indigo-500" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Vibe Widget Studio</h2>
-                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Mini HTML Tools</p>
+                <h2 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Studio</h2>
+                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Low-Code Sandbox</p>
               </div>
             </div>
           </div>
@@ -214,20 +299,15 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
 
         {/* Chat History */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide pb-24">
-          {errorBanner && (
-            <div className="p-3 rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 text-xs text-red-600 dark:text-red-400">
-              {errorBanner}
-            </div>
-          )}
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-6 opacity-60">
               <div className="p-4 bg-indigo-500/5 rounded-full ring-1 ring-indigo-500/20">
                 <Cpu className="w-10 h-10 text-indigo-400" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">Widget Builder</h3>
+                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Builder</h3>
                 <p className="text-xs text-[#757681] mt-2 max-w-[240px]">
-                  Describe a mini HTML widget and watch it build live.
+                  Describe an applet and watch it build itself in real-time.
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-2 w-full">
@@ -297,7 +377,7 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
                   handleSendMessage();
                 }
               }}
-              placeholder="Describe the widget you want..."
+              placeholder="Message AI Builder..."
               className="w-full bg-[#F7F7F5] dark:bg-[#141414] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-2xl px-4 py-3 pr-12 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none resize-none transition-all max-h-[200px] min-h-[52px] text-[#37352F] dark:text-[#EBE9ED] shadow-inner"
               rows={Math.min(input.split('\n').length || 1, 4)}
             />
@@ -355,7 +435,7 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
             )}
             <button 
               onClick={handleDeploy}
-              disabled={!generatedCode || isGenerating || isTyping || displayedCode !== generatedCode}
+              disabled={!generatedCode}
               className="px-4 py-2 flex items-center gap-2 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-50 transition-all border border-white/10 active:scale-95"
             >
               <Save className="w-3.5 h-3.5" />
@@ -387,9 +467,9 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
                     <div className="w-20 h-20 bg-indigo-500/5 rounded-[32px] flex items-center justify-center mb-6 ring-1 ring-indigo-500/10">
                       <Wand2 className="w-10 h-10 text-indigo-500 opacity-20" />
                     </div>
-                    <h3 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Ready for a Widget Idea</h3>
+                    <h3 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Awaiting Instructions</h3>
                     <p className="text-sm text-[#757681] max-w-sm mt-3 leading-relaxed">
-                      Send a prompt to generate a mini HTML tool. Preview updates live while code is created.
+                      Send a message to start building. The preview will update live as the AI writes the code.
                     </p>
                   </div>
                 ) : (
@@ -401,8 +481,8 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
                       sandbox="allow-scripts allow-forms allow-popups allow-modals"
                       srcDoc={displayedCode ? (
                         displayedCode.includes('<head>')
-                          ? displayedCode.replace('<head>', `<head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>window.FORGE_CONTEXT = ${JSON.stringify(activeBusiness || {})};</script>`)
-                          : `<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>window.FORGE_CONTEXT = ${JSON.stringify(activeBusiness || {})};</script></head><body>${displayedCode}</body></html>`
+                          ? displayedCode.replace('<head>', `<head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>{INJECTED_SDK}</script>`.replace("{INJECTED_SDK}", INJECTED_SDK))
+                          : `<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>{INJECTED_SDK}</script></head><body>{displayedCode}</body></html>`.replace("{INJECTED_SDK}", INJECTED_SDK).replace("{displayedCode}", displayedCode)
                       ) : ''}
                     />
                     {isTyping && (

@@ -258,7 +258,7 @@ const SECTIONS = [
     id: 'calendar',
     icon: CalendarIcon,
     title: 'Content Calendar',
-    description: 'Plan, drag, and publish in one timeline. Forge keeps campaign execution fast with AI-assisted scheduling and cleaner team handoffs.',
+    description: 'Master your schedule with a high-performance drag-and-drop calendar. Plan, coordinate, and execute your entire social media strategy in one place.',
     color: 'text-blue-500',
     bg: 'bg-blue-500/10'
   },
@@ -266,23 +266,23 @@ const SECTIONS = [
     id: 'ideas',
     icon: Lightbulb,
     title: 'Creative Hub',
-    description: 'Capture raw concepts, shape them into briefs, and convert them into production-ready content workflows without context switching.',
+    description: 'A centralized bank for your raw inspiration. Capture ideas, organize them by category, and seamlessly transition them into scheduled content.',
     color: 'text-yellow-500',
     bg: 'bg-yellow-500/10'
   },
   {
     id: 'ai',
     icon: Sparkles,
-    title: 'Vibe Widget Studio',
-    description: 'Prompt Forge to build mini HTML tools instantly: calculators, planners, generators, and dashboards tailored to your workspace context.',
+    title: 'AI Studio',
+    description: 'Harness the power of Gemini to generate high-engagement captions, brainstorm creative angles, and refine your brand voice with intelligent assistance.',
     color: 'text-amber-500',
     bg: 'bg-amber-500/10'
   },
   {
     id: 'studio',
     icon: Palette,
-    title: 'Brand + AI Knowledge',
-    description: 'Centralize brand voice, business rules, and AI instructions in one control center so both Local AI and cloud models stay aligned.',
+    title: 'Brand Kit',
+    description: 'Maintain absolute brand consistency. Store and manage your logos, color palettes, and visual assets for instant access during content creation.',
     color: 'text-pink-500',
     bg: 'bg-pink-500/10'
   },
@@ -290,15 +290,15 @@ const SECTIONS = [
     id: 'analytics',
     icon: BarChart3,
     title: 'Analytics & Insights',
-    description: 'Track outcomes, spot patterns, and iterate faster with insight summaries designed for action, not dashboard clutter.',
+    description: 'Turn data into growth. Monitor cross-platform performance with real-time analytics and gain actionable insights to optimize your content strategy.',
     color: 'text-green-500',
     bg: 'bg-green-500/10'
   },
   {
     id: 'localdb',
     icon: Database,
-    title: 'Local DB Context Engine',
-    description: 'Curate products and records, pin context favorites, and feed selected entries directly into Local AI for grounded generation.',
+    title: 'Inventory Database',
+    description: 'Manage your product catalog and digital assets with a structured local database. Keep everything you need for your content at your fingertips.',
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/10'
   }
@@ -515,7 +515,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
               </div>
               
               <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.9] flex flex-wrap items-baseline">
-                <TypewriterText text="Vibe code. Ship faster." delay={0} className="text-gray-900 dark:text-white" />
+                <TypewriterText text="Sparks into substance" delay={0} className="text-gray-900 dark:text-white" />
                 <motion.span
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -526,7 +526,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
                 </motion.span>
               </h1>
               <p className="text-lg md:text-2xl text-[#787774] dark:text-[#9B9A97] max-w-2xl leading-relaxed">
-                Forge turns prompts into production-ready mini widgets, content systems, and brand-consistent outputs powered by Local AI + cloud intelligence.
+                Capture endless ideas in your Creative Hub and transform them into a polished, high-performing social media strategy.
               </p>
               <div className="pt-4 flex flex-col gap-3">
                 {window !== window.top && (
@@ -616,9 +616,9 @@ export function LandingView({ onLogin }: LandingViewProps) {
               </div>
               
               <div className="space-y-6 max-w-2xl relative z-10">
-                <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to build your vibe stack?</h2>
+                <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to transform your workflow?</h2>
                 <p className="text-xl text-blue-100">
-                  Build mini tools, orchestrate AI workflows, and run content ops from one workspace.
+                  Join thousands of content creators who are already saving time and growing their audience with Forge.
                 </p>
               </div>
               <div className="shrink-0 relative z-10 w-full md:w-auto">
@@ -626,7 +626,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
                   onClick={onLogin}
                   className="w-full md:w-auto px-10 py-5 bg-white text-[#2383E2] hover:bg-blue-50 rounded-xl font-bold text-xl transition-all hover:scale-105 active:scale-95 shadow-xl"
                 >
-                  Start Building
+                  Sign Up Now
                 </button>
               </div>
             </motion.div>

@@ -45,22 +45,55 @@ import { getAi, isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct
 import { builtInAi } from './lib/builtinAi';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
-import { CalendarSharing } from './components/CalendarSharing';
-import { PostModal } from './components/modals/PostModal';
-import { ImageViewer } from './components/ImageViewer';
 import { LocalDb } from './components/LocalDb';
-import { DirectSearch } from './components/DirectSearch';
-import { ExportModal, ExportSettings } from './components/modals/ExportModal';
-import { ExcelImportModal } from './components/modals/ExcelImportModal';
-import { BusinessModal } from './components/modals/BusinessModal';
-import { CreativeStudioTab } from './components/CreativeStudioTab';
-import { AnalyticsTab } from './components/AnalyticsTab';
-import { SettingsView } from './components/SettingsView';
-import { BrandKitTab } from './components/BrandKitTab';
-import { NotebookTab } from './components/NotebookTab';
 import { FloatingChat } from './components/FloatingChat';
-import { WorkspaceManagementTab } from './components/WorkspaceManagementTab';
-import { AiStudioTab } from './components/AiStudioTab';
+import { CorsImage } from './components/CorsImage';
+import { NetworkStatus } from './components/NetworkStatus';
+import type { ExportSettings } from './components/modals/ExportModal';
+
+// React lazy imports for heavy components
+const PostModal = React.lazy(() => import('./components/modals/PostModal').then(m => ({ default: m.PostModal })));
+const ImageViewer = React.lazy(() => import('./components/ImageViewer').then(m => ({ default: m.ImageViewer })));
+const CalendarSharing = React.lazy(() => import('./components/CalendarSharing').then(m => ({ default: m.CalendarSharing })));
+const DirectSearch = React.lazy(() => import('./components/DirectSearch').then(m => ({ default: m.DirectSearch })));
+const ExportModal = React.lazy(() => import('./components/modals/ExportModal').then(m => ({ default: m.ExportModal })));
+const ExcelImportModal = React.lazy(() => import('./components/modals/ExcelImportModal').then(m => ({ default: m.ExcelImportModal })));
+const BusinessModal = React.lazy(() => import('./components/modals/BusinessModal').then(m => ({ default: m.BusinessModal })));
+const AutoFillModal = React.lazy(() => import('./components/modals/AutoFillModal').then(m => ({ default: m.AutoFillModal })));
+const CreativeStudioTab = React.lazy(() => import('./components/CreativeStudioTab').then(m => ({ default: m.CreativeStudioTab })));
+const AnalyticsTab = React.lazy(() => import('./components/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
+const SettingsView = React.lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
+const BrandKitTab = React.lazy(() => import('./components/BrandKitTab').then(m => ({ default: m.BrandKitTab })));
+const NotebookTab = React.lazy(() => import('./components/NotebookTab').then(m => ({ default: m.NotebookTab })));
+const WorkspaceManagementTab = React.lazy(() => import('./components/WorkspaceManagementTab').then(m => ({ default: m.WorkspaceManagementTab })));
+const AiStudioTab = React.lazy(() => import('./components/AiStudioTab').then(m => ({ default: m.AiStudioTab })));
+
+function LazyModal({ isOpen, children }: { isOpen: boolean, children: () => React.ReactNode }) {
+  const [hasRendered, setHasRendered] = React.useState(isOpen);
+  React.useEffect(() => {
+    if (isOpen) setHasRendered(true);
+  }, [isOpen]);
+  
+  if (!hasRendered) return null;
+  return <React.Suspense fallback={null}>{children()}</React.Suspense>;
+}
+
+function LazyTab({ active, children, className }: { active: boolean, children: () => React.ReactNode, className?: string }) {
+  const [hasRendered, setHasRendered] = React.useState(active);
+  React.useEffect(() => {
+    if (active) setHasRendered(true);
+  }, [active]);
+  
+  if (!hasRendered) return null;
+  return (
+    <div className={className || `flex-1 ${active ? 'block' : 'hidden'}`}>
+      <React.Suspense fallback={<div className="flex items-center justify-center p-8 h-full"><div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin"></div></div>}>
+        {children()}
+      </React.Suspense>
+    </div>
+  );
+}
+
 import {
   generatePostContent,
   generateMockupImage,
@@ -74,7 +107,11 @@ import {
   fetchServerConfig
 } from './lib/gemini';
 import { db, auth, storage, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
-import { uploadBase64Image } from './lib/storage';
+import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
+import { useAppStore } from './store';
+
+const initialAiSettings = getAiSettings();
+const initialAnalyticsSettings = getAnalyticsSettings();
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import {
@@ -201,13 +238,15 @@ export default function App() {
     return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
   }, []);
 
-  const [aiSettings, setAiSettingsState] = useState(getAiSettings());
+  const aiSettings = useAppStore(state => state.aiSettings) || initialAiSettings;
+  const setAiSettingsState = useAppStore(state => state.setAiSettings);
 
   useEffect(() => {
     fetchServerConfig().catch(console.error);
   }, []);
 
-  const [analyticsSettings, setAnalyticsSettingsState] = useState(getAnalyticsSettings());
+  const analyticsSettings = useAppStore(state => state.analyticsSettings) || initialAnalyticsSettings;
+  const setAnalyticsSettingsState = useAppStore(state => state.setAnalyticsSettings);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   const handleLogin = async () => {
@@ -232,10 +271,14 @@ export default function App() {
   };
 
   // Business multi-tenancy state
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
+  const businesses = useAppStore(state => state.businesses);
+  const setBusinesses = useAppStore(state => state.setBusinesses);
+  const activeBusiness = useAppStore(state => state.activeBusiness);
+  const setActiveBusiness = useAppStore(state => state.setActiveBusiness);
   const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [isBusinessModalOpen, setIsBusinessModalOpen] = useState(false);
+  const [isAutoFillModalOpen, setIsAutoFillModalOpen] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
 
   const isAdmin = useMemo(() => !!(user && activeBusiness && (
     activeBusiness.ownerId === user.uid ||
@@ -252,7 +295,8 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const industryConfig = useMemo(() => getIndustryConfig(activeBusiness?.industry), [activeBusiness?.industry]);
-  const [brandKit, setBrandKit] = useState<any>(null);
+  const brandKit = useAppStore(state => state.brandKit);
+  const setBrandKit = useAppStore(state => state.setBrandKit);
 
   useEffect(() => {
     if (!activeBusiness || isViewOnly) {
@@ -270,7 +314,8 @@ export default function App() {
     return () => unsubscribe();
   }, [activeBusiness, isViewOnly]);
 
-  const [products, setProducts] = useState<any[]>([]);
+  const products = useAppStore(state => state.products);
+  const setProducts = useAppStore(state => state.setProducts);
   useEffect(() => {
     const syncProducts = () => {
       if (!activeBusiness) {
@@ -313,7 +358,8 @@ export default function App() {
     setAnalyticsSettings(newSettings);
   };
 
-  const [posts, setPosts] = useState<Post[]>([]);
+  const posts = useAppStore(state => state.posts);
+  const setPosts = useAppStore(state => state.setPosts);
   
   // --- HYBRID INTELLIGENCE: Data Sync (Phase 4) ---
   useEffect(() => {
@@ -324,7 +370,8 @@ export default function App() {
     }
   }, [activeBusiness, products, posts, brandKit]);
 
-  const [isSyncing, setIsSyncing] = useState(false);
+  const isSyncing = useAppStore(state => state.isSyncing);
+  const setIsSyncing = useAppStore(state => state.setIsSyncing);
   const [settingsTab, setSettingsTab] = useState<'account' | 'workspaces' | 'ai' | 'analytics' | 'maintenance'>('account');
   const [googleTokens, setGoogleTokens] = useState<{ access_token: string, refresh_token?: string, expires_in: number } | null>(() => {
     const saved = localStorage.getItem('google_drive_tokens');
@@ -998,6 +1045,15 @@ export default function App() {
         images: imageUrls,
       };
 
+      // Find any old images that were removed and delete them
+      const existingPost = posts.find((p) => p.id === post.id);
+      if (existingPost?.images) {
+        const removedImages = existingPost.images.filter((img) => !imageUrls.includes(img) && !post.images?.includes(img));
+        for (const removedImg of removedImages) {
+          await deleteAppStorageFile(removedImg);
+        }
+      }
+
       await setDoc(doc(db, 'posts', post.id), postWithUser);
       addSyncLog(`Successfully saved post: ${post.title || 'Untitled'}`, 'success');
 
@@ -1254,7 +1310,7 @@ export default function App() {
   };
 
   const handleSubmitForApproval = async (post: Post) => {
-    const updated = { ...post, approvalStatus: 'pending' as const, submittedAt: new Date().toISOString() };
+    const updated = { ...post, approvalStatus: 'awaiting_approval' as const, submittedAt: new Date().toISOString() };
     await handleSavePost(updated);
   };
 
@@ -1264,7 +1320,7 @@ export default function App() {
   };
 
   const handleRejectPost = async (post: Post, note: string) => {
-    const updated = { ...post, approvalStatus: 'rejected' as const, approvalNote: note, reviewedAt: new Date().toISOString() };
+    const updated = { ...post, approvalStatus: 'needs_revision' as const, approvalNote: note, reviewedAt: new Date().toISOString() };
     await handleSavePost(updated);
   };
 
@@ -1931,6 +1987,84 @@ export default function App() {
     setSelectedPost(null);
     setSelectedDate(date || format(currentMonth, 'yyyy-MM-dd'));
     setIsPostModalOpen(true);
+  };
+
+  const handleAutoFillSubmit = async (prompt: string, count: number) => {
+    if (!activeBusiness) {
+      toast.error("Please select a workspace first.");
+      return;
+    }
+    
+    setIsAutoFilling(true);
+    const loadingToast = toast.loading(`AI is brainstorming ${count} posts for the month... This might take a minute or two.`);
+    
+    try {
+      // First generate the ideas
+      addSyncLog(`Requesting ${count} posts from AI for campaign: ${prompt}`, 'info');
+      // Re-use smart post generation logic or similar
+      const promptText = `Generate ${count} different social media posts based on this campaign prompt: "${prompt}". Make sure they are varied (promotional, educational, engaging). 
+      Return them as JSON array of objects with keys: title, brief, type (e.g. 🔴 Promotional, 🟢 Educational).`;
+      
+      const ai = getAi();
+      const res = await ai.models.generateContent({
+        model: aiSettings.model || "gemini-2.5-pro",
+        contents: promptText,
+        config: {
+          responseMimeType: "application/json",
+          systemInstruction: `You are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`
+        }
+      });
+      
+      const text = res.text;
+      let generatedPosts: any[] = [];
+      try {
+        generatedPosts = text ? JSON.parse(text) : [];
+      } catch (e) {
+        console.error("Failed to parse JSON", e);
+        generatedPosts = [];
+      }
+      
+      if (generatedPosts.length > 0) {
+        let currentDate = new Date(); // start today
+        
+        for (let i = 0; i < Math.min(generatedPosts.length, count); i++) {
+          const gp = generatedPosts[i];
+          const newPost: Post = {
+            id: uuidv4(),
+            date: format(currentDate, 'yyyy-MM-dd'),
+            title: gp.title || `Post ${i+1}`,
+            brief: gp.brief || "",
+            caption: "",
+            hashtags: "",
+            type: gp.type || "🔴 General",
+            outlet: activeBusiness.name,
+            status: 'draft',
+            approvalStatus: 'draft',
+            images: [],
+            isAiGenerated: true,
+            createdAt: new Date().toISOString()
+          };
+          
+          await setDoc(doc(db, 'posts', newPost.id), newPost);
+          
+          // Increment date for the next post
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        toast.dismiss(loadingToast);
+        toast.success(`Successfully auto-filled ${Math.min(generatedPosts.length, count)} posts!`);
+        setIsAutoFillModalOpen(false);
+      } else {
+        toast.dismiss(loadingToast);
+        toast.error("AI returned an empty list of posts.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.dismiss(loadingToast);
+      toast.error("Failed to auto-fill month.");
+    } finally {
+      setIsAutoFilling(false);
+    }
   };
 
   const handleGenerateWithAi = async (date?: string) => {
@@ -2895,6 +3029,7 @@ export default function App() {
       )}
       <AppWorkspaceProvider activeBusiness={activeBusiness}>
         <ConfigWorkspaceProvider activeBusiness={activeBusiness}>
+          <NetworkStatus />
           <DndContext
             sensors={sensors}
             collisionDetection={pointerWithin}
@@ -3205,20 +3340,6 @@ export default function App() {
                           </div>
                         </div>
                       )}
-                      {!builtInStatus.isLoaded && !builtInStatus.isLoading && ['builtin', 'auto'].includes(aiSettings.preferredProvider) && (
-                        <button
-                          onClick={() => setActiveTab('more')}
-                          title="Open Settings > AI & Smart Engine"
-                          className="w-full px-2 mb-2"
-                        >
-                          <div className="flex items-center justify-center px-2 py-1 rounded-full bg-amber-500/5 border border-amber-500/20 hover:bg-amber-500/10 transition-colors">
-                            <div className="flex items-center gap-1.5">
-                              <AlertCircle className="w-2.5 h-2.5 text-amber-500" />
-                              <span className="text-[9px] font-black text-amber-600 uppercase tracking-tighter">Local AI Not Initialized</span>
-                            </div>
-                          </div>
-                        </button>
-                      )}
 
                       <div className="relative group flex justify-center w-full cursor-help mb-2">
                         {isSyncing ? (
@@ -3237,9 +3358,10 @@ export default function App() {
                           className="relative group w-10 h-10 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand"
                           title="Settings"
                         >
-                          <img
+                          <CorsImage
                             src={user.photoURL || `https://ui-avatars.com/api/?name=${user.email}&background=random`}
                             alt="User"
+                            fallbackProxy
                             className="w-full h-full object-cover transition-opacity duration-200 group-hover:opacity-30"
                           />
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/20">
@@ -3341,7 +3463,7 @@ export default function App() {
                               onDeletePost={isAdmin ? handleDeletePost : undefined}
                               onCopyPost={isAdmin ? handleCopyPost : undefined}
                               onAddPost={isAdmin ? openNewPostModal : undefined}
-                              onGenerateWithAi={isAdmin ? handleGenerateWithAi : undefined}
+                              onGenerateWithAi={isAdmin ? () => setIsAutoFillModalOpen(true) : undefined}
                               onImageClick={handleImageClick}
                               onRegeneratePost={isAdmin ? handleRegeneratePost : undefined}
                               onGenerateMockup={isAdmin ? handleGenerateMockup : undefined}
@@ -3373,14 +3495,14 @@ export default function App() {
                         )}
 
                         {isAdmin && (
-                          <div className={cn("flex-1", activeTab === 'brandkit' ? 'block' : 'hidden')}>
-                            <BrandKitTab activeBusiness={activeBusiness} posts={posts} aiSettings={aiSettings} />
-                          </div>
+                          <LazyTab active={activeTab === 'brandkit'}>
+                            {() => <BrandKitTab activeBusiness={activeBusiness} posts={posts} aiSettings={aiSettings} />}
+                          </LazyTab>
                         )}
 
                         {isAdmin && (
-                          <div className={cn("flex-1", activeTab === 'creative' ? 'block' : 'hidden')}>
-                            {creativeView === 'modules' ? (
+                          <LazyTab active={activeTab === 'creative'}>
+                            {() => creativeView === 'modules' ? (
                               <CreativeStudioTab
                                 userId={user?.uid}
                                 activeBusiness={activeBusiness}
@@ -3393,38 +3515,41 @@ export default function App() {
                                 onBack={() => setCreativeView('modules')}
                               />
                             )}
-                          </div>
+                          </LazyTab>
                         )}
 
                         {isAdmin && (
-                          <div className={cn("flex-1", activeTab === 'analytics' ? 'block' : 'hidden')}>
-                            <AnalyticsTab setActiveTab={setActiveTab} />
-                          </div>
+                          <LazyTab active={activeTab === 'analytics'}>
+                            {() => <AnalyticsTab setActiveTab={setActiveTab} />}
+                          </LazyTab>
                         )}
 
 
                         {isAdmin && (
-                          <div className={cn("flex-1", activeTab === 'notebook' ? 'block' : 'hidden')}>
-                            <NotebookTab activeBusiness={activeBusiness} />
-                          </div>
+                          <LazyTab active={activeTab === 'notebook'}>
+                            {() => <NotebookTab activeBusiness={activeBusiness} />}
+                          </LazyTab>
                         )}
 
                         {isAdmin && (
-                          <div className={cn("flex-1", activeTab === 'workspace_management' ? 'block' : 'hidden')}>
-                            <WorkspaceManagementTab
-                              activeBusiness={activeBusiness}
-                              onUpdateBusiness={setActiveBusiness}
-                              setActiveTab={setActiveTab}
-                            />
-                          </div>
+                          <LazyTab active={activeTab === 'workspace_management'}>
+                            {() => (
+                              <WorkspaceManagementTab
+                                activeBusiness={activeBusiness}
+                                onUpdateBusiness={setActiveBusiness}
+                                setActiveTab={setActiveTab}
+                              />
+                            )}
+                          </LazyTab>
                         )}
 
                         {isAdmin && (
-                          <div className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' ? 'block' : 'hidden')}>
-                            <SettingsView
-                              user={user}
-                              settingsTab={settingsTab}
-                              setSettingsTab={setSettingsTab}
+                          <LazyTab active={activeTab === 'more'} className={cn("flex-1 pb-32 md:pb-12", activeTab === 'more' ? 'block' : 'hidden')}>
+                            {() => (
+                              <SettingsView
+                                user={user}
+                                settingsTab={settingsTab}
+                                setSettingsTab={setSettingsTab}
                               isDarkMode={isDarkMode}
                               toggleDarkMode={toggleDarkMode}
                               isInstallable={isInstallable}
@@ -3477,7 +3602,8 @@ export default function App() {
                               industryConfig={industryConfig}
                               setActiveTab={setActiveTab}
                             />
-                          </div>
+                            )}
+                          </LazyTab>
                         )}
                         {isAdmin && activeBusiness?.applets?.map(applet => (
                           <div key={applet.id} className={cn("flex-1 h-[calc(100vh-120px)]", activeTab === `applet_${applet.id}` ? 'block' : 'hidden')}>
@@ -3538,7 +3664,7 @@ export default function App() {
                         )}
                         {activeDragItem.type === 'image' && (
                           <div className="w-20 h-20 rounded-[6px] overflow-hidden border-2 border-brand">
-                            <img src={activeDragItem.imageUrl} alt="" className="w-full h-full object-cover" />
+                            <CorsImage src={activeDragItem.imageUrl} alt="" fallbackProxy className="w-full h-full object-cover" />
                           </div>
                         )}
                         {activeDragItem.type === 'idea' && (
@@ -3792,31 +3918,39 @@ export default function App() {
 
 
 
-              <PostModal
-                isOpen={isPostModalOpen}
-                onClose={() => {
-                  setIsPostModalOpen(false);
-                  setInitialProductsForModal([]);
-                }}
-                post={selectedPost}
-                selectedDate={selectedDate || undefined}
-                onSave={isAdmin ? handleSavePost : undefined}
-                onDelete={isAdmin ? handleDeletePost : undefined}
-                readOnly={!isAdmin}
-                user={user}
-                googleTokens={googleTokens}
-                initialProducts={initialProductsForModal}
-                activeBusiness={activeBusiness}
-                posts={posts}
-                dbMode={getDbMode(activeBusiness?.industry)}
-                droppedImages={droppedImagesForModal}
-                onImagesConsumed={() => setDroppedImagesForModal([])}
-              />
+              <LazyModal isOpen={isPostModalOpen}>
+                {() => (
+                  <PostModal
+                    isOpen={isPostModalOpen}
+                    onClose={() => {
+                      setIsPostModalOpen(false);
+                      setInitialProductsForModal([]);
+                    }}
+                    post={selectedPost}
+                    selectedDate={selectedDate || undefined}
+                    onSave={isAdmin ? handleSavePost : undefined}
+                    onDelete={isAdmin ? handleDeletePost : undefined}
+                    readOnly={!isAdmin}
+                    user={user}
+                    googleTokens={googleTokens}
+                    initialProducts={initialProductsForModal}
+                    activeBusiness={activeBusiness}
+                    posts={posts}
+                    dbMode={getDbMode(activeBusiness?.industry)}
+                    droppedImages={droppedImagesForModal}
+                    onImagesConsumed={() => setDroppedImagesForModal([])}
+                  />
+                )}
+              </LazyModal>
 
-              <DirectSearch
-                isOpen={isDirectSearchOpen}
-                onClose={() => setIsDirectSearchOpen(false)}
-              />
+              <LazyModal isOpen={isDirectSearchOpen}>
+                {() => (
+                  <DirectSearch
+                    isOpen={isDirectSearchOpen}
+                    onClose={() => setIsDirectSearchOpen(false)}
+                  />
+                )}
+              </LazyModal>
 
               <Toaster position="top-right" richColors />
               {/* Confirmation Modal */}
@@ -3883,41 +4017,68 @@ export default function App() {
                 </div>
               )}
 
-              <ImageViewer
-                isOpen={isImageViewerOpen}
-                images={currentImages}
-                initialIndex={currentImageIndex}
-                aiProvider={currentAiProvider}
-                onClose={() => setIsImageViewerOpen(false)}
-              />
+              <LazyModal isOpen={isImageViewerOpen}>
+                {() => (
+                  <ImageViewer
+                    isOpen={isImageViewerOpen}
+                    images={currentImages}
+                    initialIndex={currentImageIndex}
+                    aiProvider={currentAiProvider}
+                    onClose={() => setIsImageViewerOpen(false)}
+                  />
+                )}
+              </LazyModal>
 
-              <ExportModal
-                isOpen={isExportModalOpen}
-                onClose={() => setIsExportModalOpen(false)}
-                onExport={exportToExcel}
-              />
+              <LazyModal isOpen={isExportModalOpen}>
+                {() => (
+                  <ExportModal
+                    isOpen={isExportModalOpen}
+                    onClose={() => setIsExportModalOpen(false)}
+                    onExport={exportToExcel}
+                  />
+                )}
+              </LazyModal>
 
-              <ExcelImportModal
-                isOpen={isExcelImportModalOpen}
-                onClose={() => setIsExcelImportModalOpen(false)}
-                onImport={async (newPosts) => {
-                  for (const post of newPosts) {
-                    await handleSavePost(post);
-                  }
-                }}
-                userId={user?.uid}
-              />
+              <LazyModal isOpen={isAutoFillModalOpen}>
+                {() => (
+                  <AutoFillModal
+                    isOpen={isAutoFillModalOpen}
+                    onClose={() => setIsAutoFillModalOpen(false)}
+                    onGenerate={handleAutoFillSubmit}
+                    isLoading={isAutoFilling}
+                  />
+                )}
+              </LazyModal>
 
-              <BusinessModal
-                isOpen={isBusinessModalOpen}
-                onClose={() => setIsBusinessModalOpen(false)}
-                businesses={businesses}
-                activeBusiness={activeBusiness}
-                onSelect={setActiveBusiness}
-                onCreate={handleCreateBusiness}
-                onDelete={handleDeleteBusiness}
-                onAddNewWorkspace={() => setShowOnboarding(true)}
-              />
+              <LazyModal isOpen={isExcelImportModalOpen}>
+                {() => (
+                  <ExcelImportModal
+                    isOpen={isExcelImportModalOpen}
+                    onClose={() => setIsExcelImportModalOpen(false)}
+                    onImport={async (newPosts) => {
+                      for (const post of newPosts) {
+                        await handleSavePost(post);
+                      }
+                    }}
+                    userId={user?.uid}
+                  />
+                )}
+              </LazyModal>
+
+              <LazyModal isOpen={isBusinessModalOpen}>
+                {() => (
+                  <BusinessModal
+                    isOpen={isBusinessModalOpen}
+                    onClose={() => setIsBusinessModalOpen(false)}
+                    businesses={businesses}
+                    activeBusiness={activeBusiness}
+                    onSelect={setActiveBusiness}
+                    onCreate={handleCreateBusiness}
+                    onDelete={handleDeleteBusiness}
+                    onAddNewWorkspace={() => setShowOnboarding(true)}
+                  />
+                )}
+              </LazyModal>
             </div>
           </DndContext>
         </ConfigWorkspaceProvider>

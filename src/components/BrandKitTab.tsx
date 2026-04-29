@@ -452,6 +452,22 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
     if (!activeBusiness) return;
     setIsSaving(true);
     try {
+      const { getDoc } = await import('firebase/firestore');
+      const existingDoc = await getDoc(doc(db, 'brand_kits', activeBusiness.id));
+      if (existingDoc.exists()) {
+        const existingData = existingDoc.data();
+        const existingLogos = existingData.logos || [];
+        const existingDesigns = existingData.designs || [];
+        
+        const removedLogos = existingLogos.filter((img: string) => !brandKit.logos.includes(img));
+        const removedDesigns = existingDesigns.filter((img: string) => !brandKit.designs.includes(img));
+        
+        const { deleteAppStorageFile } = await import('../lib/storage');
+        for (const img of [...removedLogos, ...removedDesigns]) {
+           await deleteAppStorageFile(img);
+        }
+      }
+
       await setDoc(doc(db, 'brand_kits', activeBusiness.id), brandKit);
       toast.success('Brand Identity saved!');
     } catch (error) {
@@ -964,7 +980,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {brandKit.logos.map((logo, idx) => (
                     <div key={idx} className="relative group aspect-square rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center p-4 hover:border-brand transition-all">
-                      <img src={logo} alt={`Logo ${idx}`} className="max-w-full max-h-full object-contain" />
+                      <img src={logo} alt={`Logo ${idx}`} crossOrigin="anonymous" className="max-w-full max-h-full object-contain" />
                       <button
                         onClick={() => removeImage(idx, 'logos')}
                         className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all hover:scale-110 "
@@ -999,7 +1015,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {brandKit.designs.map((design, idx) => (
                     <div key={idx} className="relative group aspect-video rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden bg-[#F7F7F5] dark:bg-[#202020] hover:border-brand transition-all">
-                      <img src={design} alt={`Asset ${idx}`} className="w-full h-full object-cover" />
+                      <img src={design} alt={`Asset ${idx}`} crossOrigin="anonymous" className="w-full h-full object-cover" />
                       <button
                         onClick={() => removeImage(idx, 'designs')}
                         className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all hover:scale-110 "
@@ -1490,7 +1506,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
                   <div className="flex flex-wrap gap-3">
                     {uploadedPostImages.map((img, idx) => (
                       <div key={idx} className="relative group w-20 h-20 rounded-lg overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                        <img src={img} alt="Upload" className="w-full h-full object-cover" />
+                        <img src={img} alt="Upload" crossOrigin="anonymous" className="w-full h-full object-cover" />
                         <button 
                           onClick={() => removeUploadedImage(idx)}
                           className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"

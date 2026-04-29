@@ -142,7 +142,7 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     {biz.logoUrl ? (
-                      <img src={biz.logoUrl} alt={biz.name} className="w-12 h-12 rounded-[12px] object-contain bg-[#F7F7F5] dark:bg-[#202020] p-2 border border-[#E9E9E7] dark:border-[#2E2E2E]" />
+                      <img src={biz.logoUrl} alt={biz.name} crossOrigin="anonymous" className="w-12 h-12 rounded-[12px] object-contain bg-[#F7F7F5] dark:bg-[#202020] p-2 border border-[#E9E9E7] dark:border-[#2E2E2E]" />
                     ) : (
                       <div className="w-12 h-12 rounded-[12px] bg-brand/10 flex items-center justify-center text-brand font-bold text-xl">
                         {biz.name[0]}

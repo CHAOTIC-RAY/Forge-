@@ -716,7 +716,7 @@ export function SettingsView({
           title="Account & App"
           subtitle="Profile, Theme"
           icon={User}
-          customIcon={user?.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover rounded-[16px]" /> : null}
+          customIcon={user?.photoURL ? <img src={user.photoURL} alt="Profile" crossOrigin="anonymous" className="w-full h-full object-cover rounded-[16px]" /> : null}
           iconBg="bg-indigo-100 dark:bg-indigo-900/30"
           iconColor="text-indigo-600 dark:text-indigo-400"
           expandedId={expandedId}
@@ -1190,23 +1190,117 @@ export function SettingsView({
                       </span>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Select Local Model</label>
-                      <select 
-                        value={aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'}
-                        onChange={(e) => handleAiSettingChange('builtinModelId', e.target.value)}
-                        className="w-full p-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
-                      >
-                        {BUILTIN_MODELS.map(m => (
-                          <option key={m.id} value={m.id}>{m.name} ({m.size})</option>
-                        ))}
-                      </select>
-                      <div className="flex items-start gap-1 pb-1">
-                        <Info className="w-3 h-3 text-[#757681] mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-[#757681] leading-tight">
-                          {BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'))?.description}
-                        </p>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Select Local Model</label>
+                        <select 
+                          value={aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'}
+                          onChange={(e) => handleAiSettingChange('builtinModelId', e.target.value)}
+                          className="w-full p-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
+                        >
+                          {BUILTIN_MODELS.map(m => (
+                            <option key={m.id} value={m.id}>{m.name} ({m.size})</option>
+                          ))}
+                          <option value="custom">Custom / Local Upload</option>
+                        </select>
+                        <div className="flex items-start gap-1 pb-1">
+                          <Info className="w-3 h-3 text-[#757681] mt-0.5 shrink-0" />
+                          <p className="text-[10px] text-[#757681] leading-tight">
+                            {aiSettings.builtinModelId === 'custom' 
+                              ? 'Configure a custom model from a URL or local directory.' 
+                              : BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'))?.description}
+                          </p>
+                        </div>
                       </div>
+
+                      {aiSettings.builtinModelId === 'custom' && (
+                        <div className="space-y-3 p-3 bg-white dark:bg-[#1A1A1A] border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] animate-in zoom-in-95 duration-200">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase">Custom Model Config URL (WebLLM)</label>
+                            <input 
+                              type="text"
+                              value={aiSettings.customModelUrl || ''}
+                              onChange={(e) => handleAiSettingChange('customModelUrl', e.target.value)}
+                              placeholder="https://example.com/model/mlc-chat-config.json"
+                              className="w-full p-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[11px] outline-none focus:border-brand"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase">Local Server Proxy (Ollama / LM Studio)</label>
+                            <input 
+                              type="text"
+                              value={aiSettings.localProxyUrl || ''}
+                              onChange={(e) => handleAiSettingChange('localProxyUrl', e.target.value)}
+                              placeholder="http://localhost:11434/v1"
+                              className="w-full p-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[11px] outline-none focus:border-brand"
+                            />
+                            <p className="text-[9px] text-[#757681]">Enable "Local Server" in chat provider options to use this. Works on Cloudflare/Hosted sites if CORS is enabled on your local server.</p>
+                          </div>
+                          
+                          <div className="flex flex-col gap-2">
+                             <div className="flex items-center gap-2">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      // @ts-ignore
+                                      const dirHandle = await window.showDirectoryPicker();
+                                      toast.success(`Selected local model directory: ${dirHandle.name}`);
+                                      // In a real app we'd need a worker or service worker to serve these files
+                                      // For now we'll save the handle or just notify user it's for localhost dev
+                                      handleAiSettingChange('localModelDir', dirHandle.name);
+                                      toast.info("Local directory loading usually requires localhost or a custom Service Worker. Attempting to use path as base...");
+                                    } catch (e: any) {
+                                      if (e.name !== 'AbortError') {
+                                        toast.error("File System Access API not supported or failed.");
+                                      }
+                                    }
+                                  }}
+                                  className="flex-1 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-all flex items-center justify-center gap-2"
+                                >
+                                  <Database className="w-3 h-3" />
+                                  Select Local Folder
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = '.json,.gguf';
+                                    input.onchange = (e: any) => {
+                                      const file = e.target.files[0];
+                                      if (file) {
+                                        toast.success(`Selected model file: ${file.name}`);
+                                        if (file.name.endsWith('.json')) {
+                                          const reader = new FileReader();
+                                          reader.onload = (re) => {
+                                            try {
+                                              const config = JSON.parse(re.target?.result as string);
+                                              handleAiSettingChange('customModelConfig', config);
+                                              toast.success("Loaded custom WebLLM config!");
+                                            } catch (err) {
+                                              toast.error("Invalid JSON config file.");
+                                            }
+                                          };
+                                          reader.readAsText(file);
+                                        } else {
+                                          toast.info("GGUF support follows Windex/WASM standards. Forge expects MLC-compliant JSON for high-performance WebGPU.");
+                                        }
+                                      }
+                                    };
+                                    input.click();
+                                  }}
+                                  className="flex-1 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] text-[10px] font-bold hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-all flex items-center justify-center gap-2"
+                                >
+                                  <Upload className="w-3 h-3" />
+                                  Upload Config
+                                </button>
+                             </div>
+                             <p className="text-[9px] text-[#757681] dark:text-[#9B9A97] italic">
+                               WebLLM models are compiled specifically for WebGPU. Upload a "mlc-chat-config.json" or select a compiled folder.
+                             </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-4 p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px]">
@@ -1327,13 +1421,40 @@ export function SettingsView({
                     
                     {(() => {
                       const selectedModelId = aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-                      const isModelSelectedLoaded = builtInStatus.isLoaded && builtInStatus.modelId === selectedModelId;
+                      const isModelSelectedLoaded = builtInStatus.isLoaded && (builtInStatus.modelId === selectedModelId || (selectedModelId === 'custom' && !!builtInStatus.modelId));
+                      const getModelName = () => {
+                        if (selectedModelId === 'custom') return 'Custom Model';
+                        return BUILTIN_MODELS.find(m => m.id === selectedModelId)?.name || 'Selected Model';
+                      };
+
                       return !isModelSelectedLoaded && !builtInStatus.isLoading && (
                         <button 
-                          onClick={() => builtInAi.init(selectedModelId)}
+                          onClick={() => {
+                            if (selectedModelId === 'custom') {
+                              if (!aiSettings.customModelUrl && !aiSettings.customModelConfig) {
+                                toast.error("Please provide a Custom Model URL or Config first.");
+                                return;
+                              }
+                              // If they have a URL, we can attempt to use it as a custom AppConfig
+                              const customConfig = aiSettings.customModelConfig || {
+                                model_list: [
+                                  {
+                                    model: aiSettings.customModelUrl,
+                                    model_id: "custom-local-model",
+                                    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Phi3-mini-4k-instruct/Phi3-mini-4k-instruct-q4f16_1-ctx4k-webgpu.wasm",
+                                    vram_required_MB: 3000,
+                                    low_resource_required: true,
+                                  }
+                                ]
+                              };
+                              builtInAi.init(selectedModelId === 'custom' ? (customConfig.model_list?.[0]?.model_id || 'custom-model') : selectedModelId, customConfig);
+                            } else {
+                              builtInAi.init(selectedModelId);
+                            }
+                          }}
                           className="w-full py-2.5 bg-brand text-white text-xs font-bold rounded-[8px] hover:bg-brand-hover transition-colors shadow-sm"
                         >
-                          Initialize {BUILTIN_MODELS.find(m => m.id === selectedModelId)?.name} 
+                          Initialize {getModelName()} 
                         </button>
                       );
                     })()}
