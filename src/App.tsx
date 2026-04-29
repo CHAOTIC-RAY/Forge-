@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { Type } from "@google/genai";
 
+import { useParams, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster, toast } from 'sonner';
 import { Post, initialPosts, Business } from './data';
@@ -185,6 +186,60 @@ function DroppableZone({ id, label, icon, color }: { id: string, label: string, 
 
 export default function App() {
   // Clean redeploy after restoring Electron, PWA, and simplifying build scripts
+  const { shortCode } = useParams<{ shortCode: string }>();
+  const navigate = useNavigate();
+
+  // Handle Short Link Resolution
+  useEffect(() => {
+    if (shortCode) {
+      console.log("[App] Resolving short link code:", shortCode);
+      const resolveShortCode = async () => {
+        try {
+          const q = query(collection(db, 'short_links'), where('shortCode', '==', shortCode), limit(1));
+          const snapshot = await getDocs(q);
+          
+          if (!snapshot.empty) {
+            const data = snapshot.docs[0].data();
+            console.log("[App] Short link found. Original URL:", data.originalUrl);
+            
+            if (data.originalUrl) {
+              // Increment click count (fire and forget)
+              updateDoc(doc(db, 'short_links', snapshot.docs[0].id), {
+                clicks: (data.clicks || 0) + 1,
+                lastClickedAt: new Date().toISOString()
+              }).catch(err => console.error("Error updating click count", err));
+
+              // Resolve long URL
+              try {
+                const url = new URL(data.originalUrl);
+                // If it's a share URL, we can navigate internally or just use href
+                if (url.origin === window.location.origin) {
+                  const internalPath = url.pathname + url.search;
+                  console.log("[App] Redirecting to internal path:", internalPath);
+                  navigate(internalPath, { replace: true });
+                } else {
+                  console.log("[App] Redirecting to external URL:", data.originalUrl);
+                  window.location.href = data.originalUrl;
+                }
+              } catch (urlErr) {
+                console.error("Invalid original URL in short link", urlErr);
+                toast.error("Invalid short link destination");
+              }
+            }
+          } else {
+            console.warn("[App] Short link not found for code:", shortCode);
+            toast.error("Short link not found or expired");
+          }
+        } catch (e) {
+          console.error("[App] Error resolving short code", e);
+          toast.error("Failed to resolve short link");
+        }
+      };
+      
+      resolveShortCode();
+    }
+  }, [shortCode, navigate]);
+
   const [user, loading, authError] = useAuthState(auth);
   const [authTimeout, setAuthTimeout] = useState(false);
   const [showLogin, setShowLogin] = useState(false);

@@ -463,11 +463,14 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
         {...attributes}
         src={imageUrl} 
         alt="" 
+        referrerPolicy="no-referrer"
         crossOrigin="anonymous"
         className={cn("w-full h-full object-cover", isDragging && "opacity-50")} 
         onError={(e) => {
-          (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/f3f4f6/94a3b8?text=Image+Unavailable';
-          (e.target as HTMLImageElement).onerror = null; // Prevent infinite loop
+          const target = e.target as HTMLImageElement;
+          if (!target.src.includes('placehold.co')) {
+            target.src = 'https://placehold.co/600x600/f3f4f6/94a3b8?text=Image+Unavailable';
+          }
         }}
       />
       {auth.currentUser && post.aiProvider && imageUrl.startsWith('data:') && (
@@ -565,28 +568,35 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
       }}
       className={cn(
         "transition-all cursor-pointer flex flex-col relative group min-h-0 overflow-hidden rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50",
-        "aspect-square p-1.5 md:p-2.5 bg-white dark:bg-[#191919] gap-1 md:gap-1.5",
+        "aspect-square p-1.5 md:p-2.5 gap-1 md:gap-1.5",
+        "bg-white dark:bg-[#191919]",
         !isCurrentMonth && "flex bg-[#F7F7F5] dark:bg-[#202020] text-[#757681] opacity-40 print:opacity-100 print:bg-gray-50",
         (isOver || isNativeDragOver) && "bg-[#EFEFED] dark:bg-[#2E2E2E] ring-2 ring-inset ring-brand",
         viewMode === 'grid' && isSelected && "ring-2 ring-inset ring-brand bg-[#EFEFED]/50 dark:bg-[#2E2E2E]/50",
         "print:bg-white print:min-h-[120px] print:border-r print:border-b print:border-gray-300 print:p-1"
       )}
     >
-      {/* Blurred Background Image */}
+      {/* Background Image */}
       {backgroundImage && (
-        <>
-          <div 
-            className="absolute inset-0 z-0 pointer-events-none opacity-40 dark:opacity-30 mix-blend-luminosity"
-            style={{
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              filter: 'blur(12px)',
-              transform: 'scale(1.15)',
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <img 
+            src={backgroundImage}
+            alt=""
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
+            className="absolute inset-0 w-full h-full object-cover opacity-60 dark:opacity-40"
+            style={{ 
+              display: 'block',
+              width: '100%',
+              height: '100%',
+            }}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
             }}
           />
-          <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
-        </>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/5 to-black/30 dark:to-black/70" />
+        </div>
       )}
 
       <div className="flex justify-between items-center mb-1.5 md:mb-2 shrink-0 z-10 relative">
