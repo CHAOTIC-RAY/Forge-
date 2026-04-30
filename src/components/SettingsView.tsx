@@ -18,6 +18,7 @@ import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
 import { builtInAi, BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
 import { Cpu, Info } from 'lucide-react';
+import { testLocalServerConnection } from '../lib/gemini';
 
 const GEMINI_MODELS = [
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)' },
@@ -1094,19 +1095,19 @@ export function SettingsView({
             </div>
             <div className="space-y-3">
               <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Preferred AI Provider</label>
-              <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                {['builtin', 'gemini', 'groq', 'puter', 'auto'].map((provider) => (
+              <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-x-auto scrollbar-hide">
+                {['builtin', 'gemini', 'groq', 'puter', 'local_proxy', 'auto'].map((provider) => (
                   <button
                     key={provider}
                     onClick={() => handleAiSettingChange('preferredProvider', provider)}
                     className={cn(
-                      "flex-1 py-2 text-sm font-bold rounded-[8px] transition-all capitalize",
+                      "flex-1 min-w-[70px] py-2 text-sm font-bold rounded-[8px] transition-all capitalize whitespace-nowrap",
                       aiSettings.preferredProvider === provider 
                         ? "bg-white dark:bg-[#2E2E2E]  text-[#2383E2]" 
                         : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                     )}
                   >
-                    {provider}
+                    {provider === 'local_proxy' ? 'Ollama' : provider}
                   </button>
                 ))}
               </div>
@@ -1585,6 +1586,96 @@ export function SettingsView({
                     </select>
                   </div>
                 </div>
+              ) : aiSettings.preferredProvider === 'local_proxy' ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 rounded-[16px] space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-orange-100 dark:bg-orange-800 rounded-[12px] flex items-center justify-center text-orange-600 dark:text-orange-400">
+                        <Activity className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Ollama / Local Server</h4>
+                        <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Connect to your local AI engine.</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase">Local Proxy URL</label>
+                        <input 
+                          type="text"
+                          value={aiSettings.localProxyUrl || ''}
+                          onChange={(e) => handleAiSettingChange('localProxyUrl', e.target.value)}
+                          placeholder="http://localhost:11434/v1"
+                          className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                        />
+                        <p className="text-[10px] text-[#757681]">Default for Ollama is http://localhost:11434/v1</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase">Model Name</label>
+                        <input 
+                          type="text"
+                          value={aiSettings.localProxyModel || 'llama3'}
+                          onChange={(e) => handleAiSettingChange('localProxyModel', e.target.value)}
+                          placeholder="llama3, mistral, etc."
+                          className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase">Ollama API Key (Optional)</label>
+                        <input 
+                          type="password"
+                          value={aiSettings.localProxyApiKey || ''}
+                          onChange={(e) => handleAiSettingChange('localProxyApiKey', e.target.value)}
+                          placeholder="Your Ollama API Key"
+                          className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                        />
+                        <p className="text-[10px] text-[#757681]">Required for Ollama Cloud or password-protected remote servers.</p>
+                      </div>
+
+                      <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-[12px] space-y-2">
+                         <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                            <Info className="w-3.5 h-3.5 shrink-0" />
+                            <p className="text-[11px] font-bold">Important: Local Setup</p>
+                         </div>
+                         <p className="text-[10px] text-amber-600 dark:text-amber-500 leading-relaxed">
+                           1. <strong>Pull the model</strong>: Ensure you have run <code>ollama pull {aiSettings.localProxyModel || 'llama3'}</code>.<br/>
+                           2. <strong>CORS Setup</strong>: Set the <strong>OLLAMA_ORIGINS</strong> environment variable to allow requests from this domain.
+                         </p>
+                         <div className="space-y-1">
+                            <p className="text-[9px] font-bold text-amber-700 uppercase">Windows Command Prompt (CMD):</p>
+                            <code className="block p-2 bg-[#202020] text-gray-300 rounded text-[9px] font-mono whitespace-pre-wrap">
+                              set OLLAMA_ORIGINS={window.location.origin} && ollama serve
+                            </code>
+                         </div>
+                         <div className="space-y-1">
+                            <p className="text-[9px] font-bold text-amber-700 uppercase">PowerShell / Mac / Linux:</p>
+                            <code className="block p-2 bg-[#202020] text-gray-300 rounded text-[9px] font-mono whitespace-pre-wrap">
+                              OLLAMA_ORIGINS="{window.location.origin}" ollama serve
+                            </code>
+                         </div>
+                         
+                         <button
+                           onClick={async () => {
+                             const toastId = toast.loading("Testing connection to local server...");
+                             try {
+                               const result = await testLocalServerConnection();
+                               toast.success(`Connected to ${result.type}! Found models: ${result.data.models?.map((m: any) => m.name).join(', ') || 'None found'}`, { id: toastId });
+                             } catch (e: any) {
+                               toast.error(`Connection failed: ${e.message}`, { id: toastId });
+                             }
+                           }}
+                           className="w-full mt-2 py-2 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-sm flex items-center justify-center gap-2"
+                         >
+                           <Activity className="w-3 h-3" />
+                           Test Connection
+                         </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : aiSettings.preferredProvider === 'auto' ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 rounded-[16px] space-y-4">
@@ -1605,6 +1696,7 @@ export function SettingsView({
                       <div className="grid grid-cols-1 gap-2">
                         {[
                           { id: 'builtin', name: 'Built-in AI (Phi-3)', icon: Cpu },
+                          { id: 'local_proxy', name: 'Ollama (Local Server)', icon: Activity },
                           { id: 'puter', name: 'Puter.js (Cloud Proxy)', icon: Globe },
                           { id: 'groq', name: 'Groq (Llama 3.3)', icon: Activity },
                           { id: 'gemini', name: 'Gemini (Google AI)', icon: Sparkles }

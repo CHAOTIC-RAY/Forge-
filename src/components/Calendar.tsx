@@ -454,6 +454,14 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
     zIndex: isDragging ? 100 : 1,
   };
 
+  const getDisplayUrl = (url: string) => {
+    if (!url || url.startsWith('data:') || url.startsWith('blob:') || url.includes('localhost') || url.includes('127.0.0.1')) return url;
+    // Don't proxy trusted storage providers
+    if (url.includes('cloudinary.com') || url.includes('firebasestorage.googleapis.com')) return url;
+    if (url.startsWith('http')) return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+    return url;
+  };
+
   return (
     <div className="relative w-full h-full">
       <img 
@@ -461,7 +469,7 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
         style={style}
         {...listeners}
         {...attributes}
-        src={imageUrl} 
+        src={getDisplayUrl(imageUrl)} 
         alt="" 
         referrerPolicy="no-referrer"
         crossOrigin="anonymous"

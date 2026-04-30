@@ -1,6 +1,6 @@
 // Storage utility using Cloudinary via client-side direct upload
 
-import { getAiSettings } from './gemini';
+import { getAiSettings, getServerConfig, fetchServerConfig } from './gemini';
 
 // Simple IndexedDB helper for large files
 const DB_NAME = 'ForgeStorageDB';
@@ -64,12 +64,22 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
   }
 
   const settings = getAiSettings();
-  const cloudName = settings.cloudinaryCloudName;
+  let serverConfig = getServerConfig();
+  
+  if (!serverConfig) {
+    await fetchServerConfig();
+    serverConfig = getServerConfig();
+  }
+
+  const cloudName = settings.cloudinaryCloudName || serverConfig?.cloudinaryCloudName;
   const apiKey = settings.cloudinaryApiKey;
   const apiSecret = settings.cloudinaryApiSecret;
 
+  const hasLocalCreds = !!(settings.cloudinaryCloudName && settings.cloudinaryApiKey && settings.cloudinaryApiSecret);
+  const hasServerCreds = !!serverConfig?.cloudinaryCloudName;
+
   // Check if Cloudinary credentials are missing
-  if (!cloudName || !apiKey || !apiSecret) {
+  if (!hasLocalCreds && !hasServerCreds) {
     throw new Error('Cloudinary credentials missing. Please configure Cloudinary in API settings.');
   }
 
@@ -101,41 +111,65 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
       u8arr[n] = bstr.charCodeAt(n);
     }
     const blob = new Blob([u8arr], { type: mime });
-    
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const stringToSign = `timestamp=${timestamp}${apiSecret}`;
-    
-    // Generate SHA-1 signature
-    const msgBuffer = new TextEncoder().encode(stringToSign);
-    const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    const formData = new FormData();
-    formData.append('file', blob);
-    formData.append('api_key', apiKey);
-    formData.append('timestamp', timestamp);
-    formData.append('signature', signature);
+    let uploadResponse;
 
-    const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: 'POST',
-      body: formData,
-    });
+    if (hasLocalCreds && apiKey && apiSecret) {
+      console.log(`[Storage] Performing direct Cloudinary upload to: ${cloudName}`);
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const stringToSign = `timestamp=${timestamp}${apiSecret}`;
+      
+      // Generate SHA-1 signature
+      const msgBuffer = new TextEncoder().encode(stringToSign);
+      const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const formData = new FormData();
+      formData.append('file', blob);
+      formData.append('api_key', apiKey);
+      formData.append('timestamp', timestamp);
+      formData.append('signature', signature);
+
+      uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+    } else {
+      console.log("[Storage] Performing server-side Cloudinary upload proxy");
+      const formData = new FormData();
+      formData.append('image', blob, 'upload.jpg');
+      
+      // Pass any partial settings we might have (though usually it will just use server env)
+      if (settings.cloudinaryCloudName) formData.append('cloudName', settings.cloudinaryCloudName);
+      if (settings.cloudinaryApiKey) formData.append('apiKey', settings.cloudinaryApiKey);
+      if (settings.cloudinaryApiSecret) formData.append('apiSecret', settings.cloudinaryApiSecret);
+
+      uploadResponse = await fetch('/api/cloudinary/upload', {
+        method: 'POST',
+        body: formData,
+      });
+    }
 
     if (!uploadResponse.ok) {
       let errorMessage = 'Failed to upload to Cloudinary';
       try {
         const errorData = await uploadResponse.json();
-        errorMessage = errorData.error?.message || errorMessage;
+        errorMessage = errorData.error?.message || errorData.error || errorData.details || errorMessage;
       } catch (e) {}
       throw new Error(errorMessage);
     }
 
     const data = await uploadResponse.json();
     const duration = Date.now() - startTime;
-    console.log(`[Storage] Cloudinary upload completed in ${duration}ms: ${data.secure_url}`);
+    const finalUrl = data.secure_url || data.url;
     
-    return data.secure_url;
+    if (!finalUrl) {
+      throw new Error('Cloudinary response missing URL');
+    }
+
+    console.log(`[Storage] Cloudinary upload completed in ${duration}ms: ${finalUrl}`);
+    return finalUrl;
   } catch (e: any) {
     console.error('[Storage] Cloudinary upload failed:', e);
     throw e;

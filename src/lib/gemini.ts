@@ -7,7 +7,13 @@ import { getIndustryConfig } from './industryConfig';
 
 declare const puter: any;
 
-let serverConfig: { hasGeminiApiKey?: boolean; hasGroqApiKey?: boolean } | null = null;
+let serverConfig: { 
+  hasGeminiApiKey?: boolean; 
+  hasGroqApiKey?: boolean;
+  cloudinaryCloudName?: string | null;
+} | null = null;
+
+export const getServerConfig = () => serverConfig;
 
 let isFetchingConfig = false;
 
@@ -124,6 +130,7 @@ export const LOCAL_MODELS = [
   { id: 'builtin', name: 'Browser Built-in AI' },
   { id: 'local_proxy', name: 'Local Server (Ollama / LM Studio)' },
 ];
+
 
 export const safeParseJSON = (text: string) => {
   if (!text) return null;
@@ -310,6 +317,8 @@ export const getAiSettings = () => {
     brandKnowledge: '',
     localAiDebug: false,
     localProxyUrl: 'http://localhost:11434/v1',
+    localProxyModel: 'llama3',
+    localProxyApiKey: '',
     cloudinaryCloudName: '',
     cloudinaryApiKey: '',
     cloudinaryApiSecret: ''
@@ -540,12 +549,24 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       throw e;
     }
   } else if (settings.preferredProvider === 'auto') {
-    // In auto mode, try Groq first (fast/free), then Gemini, then Puter as absolute last resort
-    try {
-      return await fetchFromGroq(fullPrompt);
-    } catch (e) {
-      notifyFallback('Provider fallback', 'Groq failed in Auto mode, trying Gemini.');
-      console.warn('Auto mode: Groq failed, trying Gemini...');
+    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
+    
+    // 1. Try Groq first in auto mode if allowed
+    if (allowed.includes('groq')) {
+      try {
+        return await fetchFromGroq(fullPrompt);
+      } catch (e) {
+        console.warn('Auto mode: Groq failed, trying next...');
+      }
+    }
+
+    // 2. Try Local Proxy (Ollama) if allowed
+    if (allowed.includes('local_proxy')) {
+      try {
+        return await fetchFromLocalServer(fullPrompt);
+      } catch (e) {
+        console.warn('Auto mode: Local Proxy (Ollama) failed, trying next...');
+      }
     }
   }
 
@@ -600,42 +621,128 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
   }
 }
 
-async function fetchFromLocalServer(prompt: string, images?: { base64: string, mimeType: string }[]) {
+async function fetchFromLocalServer(prompt: string, history: ChatMessage[] = [], images?: { base64: string, mimeType: string }[]) {
   const settings = getAiSettings();
-  const url = settings.localProxyUrl || 'http://localhost:11434/v1';
+  let baseUrl = settings.localProxyUrl?.replace(/\/+$/, '') || 'http://localhost:11434/v1';
+
+  // Auto-correct if user provided root Ollama/LM Studio URL instead of OpenAI-compatible one
+  if ((baseUrl.includes('11434') || baseUrl.includes('1234')) && !baseUrl.endsWith('/v1') && !baseUrl.includes('api/')) {
+    console.log(`[AI] Auto-correcting local AI URL: ${baseUrl} -> ${baseUrl}/v1`);
+    baseUrl += '/v1';
+  }
   
-  const messages: any[] = [{ role: 'user', content: prompt }];
-  
+  const messages: any[] = [];
+
+  // Add history
+  if (history && history.length > 0) {
+    history.forEach(h => {
+      messages.push({
+        role: h.role === 'user' ? 'user' : 'assistant',
+        content: h.content
+      });
+    });
+  }
+
+  // Add current prompt
   if (images && images.length > 0) {
-    // Some local servers support OpenAI vision format
-    messages[0].content = [
-      { type: 'text', text: prompt },
-      ...images.map(img => ({
-        type: 'image_url',
-        image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
-      }))
-    ];
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        ...images.map(img => ({
+          type: 'image_url',
+          image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+        }))
+      ]
+    });
+  } else {
+    messages.push({ role: 'user', content: prompt });
   }
 
-  const response = await fetch(`${url}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: "default", // Most local proxies use a default or mapped model
-      messages,
-      temperature: 0.7,
-    }),
-  });
+  const model = settings.localProxyModel || "llama3";
+  const apiKey = settings.localProxyApiKey;
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Local Server Error: ${response.status} - ${err}`);
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
-  const data = await response.json();
-  return data.choices[0].message.content;
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error(`Local Server Error Details:`, {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        body: err
+      });
+      
+      if (response.status === 404) {
+        throw new Error(`Local Server Error: 404 - Model "${model}" not found or endpoint incorrect. Ensure you have run "ollama pull ${model}" and that your URL ends in "/v1" (current: ${baseUrl})`);
+      }
+      throw new Error(`Local Server Error: ${response.status} - ${err}`);
+    }
+
+    const data = await response.json();
+    if (settings.localAiDebug) {
+      console.log("[Local AI Debug] Response data:", data);
+    }
+    return data.choices[0].message.content;
+  } catch (err: any) {
+    console.error(`[AI] Local Server Fetch failed:`, err);
+    throw new Error(`Local Server Fetch failed: ${err.message}. This is likely a CORS or connection error. Ensure your Ollama server is running and OLLAMA_ORIGINS is set correctly.`);
+  }
+}
+
+export async function testLocalServerConnection() {
+  const settings = getAiSettings();
+  const baseUrl = settings.localProxyUrl?.replace(/\/+$/, '') || 'http://localhost:11434/v1';
+  
+  console.log(`[Test Connection] Probing ${baseUrl}...`);
+  
+  try {
+    // 1. Try to fetch models from Ollama's native API if it looks like Ollama
+    const rootUrl = baseUrl.replace(/\/v1$/, '');
+    const tagsUrl = `${rootUrl}/api/tags`;
+    
+    console.log(`[Test Connection] Checking models at ${tagsUrl}...`);
+    const tagsResp = await fetch(tagsUrl).catch(e => ({ ok: false, error: e }));
+    
+    if (tagsResp.ok) {
+      const data = await (tagsResp as Response).json();
+      console.log(`[Test Connection] Success! Found Ollama models:`, data);
+      return { success: true, type: 'ollama', data };
+    }
+
+    // 2. Try the OpenAI models endpoint
+    const modelsUrl = `${baseUrl}/models`;
+    console.log(`[Test Connection] Checking models at ${modelsUrl}...`);
+    const modelsResp = await fetch(modelsUrl).catch(e => ({ ok: false, error: e }));
+
+    if (modelsResp.ok) {
+      const data = await (modelsResp as Response).json();
+      console.log(`[Test Connection] Success! Found OpenAI-compatible models:`, data);
+      return { success: true, type: 'openai', data };
+    }
+
+    throw new Error("Could not reach local server on any expected endpoint (/api/tags or /v1/models). Ensure server is running and OLLAMA_ORIGINS is set.");
+  } catch (err: any) {
+    console.error(`[Test Connection] Failed:`, err);
+    throw err;
+  }
 }
 
 async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
@@ -797,8 +904,25 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     - caption: A SHORT, engaging Instagram/Facebook caption (max 2-3 sentences) with emojis, mentioning the featured products and their cohesive theme
     - hashtags: Space-separated hashtags`;
 
-  // Hierarchy 0: Puter.js (if preferred)
-  if (settings.preferredProvider === 'puter') {
+  // Hierarchy 0: Local Server (if preferred)
+  if (settings.preferredProvider === 'local_proxy') {
+    try {
+      const localResponse = await fetchFromLocalServer(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.");
+      const parsed = safeParseJSON(localResponse);
+      if (parsed && parsed.title) return parsed;
+      // Fallback for non-JSON responses from simple local models
+      if (localResponse && localResponse.length > 20) {
+        return {
+          title: "New Carousel Area",
+          brief: "Generated locally (non-JSON source)",
+          caption: localResponse.substring(0, 1000),
+          hashtags: "#local #ai"
+        };
+      }
+    } catch (error) {
+      console.warn("Local server failed. Cascading...");
+    }
+  } else if (settings.preferredProvider === 'puter') {
     try {
       const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.");
       const parsed = safeParseJSON(puterResponse || '{}');
@@ -1069,7 +1193,17 @@ export async function generateSmartBrief(title: string, recentPosts: Post[], bus
   const cached = getCachedResponse(cacheKey);
   if (cached) return cached.text;
 
-  if (settings.preferredProvider === 'puter') {
+  if (settings.preferredProvider === 'local_proxy') {
+    try {
+      const localResponse = await fetchFromLocalServer(prompt);
+      if (localResponse) {
+        setCachedResponse(cacheKey, { text: localResponse });
+        return localResponse;
+      }
+    } catch (error) {
+      console.warn("Local server failed for smart brief, falling back:", error);
+    }
+  } else if (settings.preferredProvider === 'puter') {
     try {
       const puterResponse = await fetchFromPuter(prompt);
       if (puterResponse) {
@@ -1146,7 +1280,15 @@ export async function generateSmartPost(title: string, category: string, outlet:
   
   Make it professional and high-converting.`;
 
-  if (settings.preferredProvider === 'puter') {
+  if (settings.preferredProvider === 'local_proxy') {
+    try {
+      const localResponse = await fetchFromLocalServer(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
+      const parsed = safeParseJSON(localResponse || '{}');
+      if (parsed && parsed.title) return parsed;
+    } catch (error) {
+      console.warn("Local server failed for smart post, falling back:", error);
+    }
+  } else if (settings.preferredProvider === 'puter') {
     try {
       const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
       const parsed = safeParseJSON(puterResponse || '{}');
@@ -1389,6 +1531,36 @@ export async function generateTaskIdeas(
 ) {
   const settings = getAiSettings();
   
+  if (settings.preferredProvider === 'local_proxy') {
+    try {
+      console.log("[GenerateTaskIdeas] Local Server Mode active.");
+      const fields = `{"title": "...", "brief": "...", "caption": "...", "hashtags": "...", "type": "...", "outlet": "...", "format": "...", "feasibility": 5, "impact": 5}`;
+      const localPrompt = `Generate 10 high-impact creative social media post ideas for a brand in the ${business?.industry || 'general'} industry.
+      Return the result as a RAW JSON ARRAY of 10 objects with these fields: ${fields}.
+      Industry: ${business?.industry || 'General'}
+      Brand: ${business?.name || 'Manual'}`;
+      
+      const localText = await fetchFromLocalServer(localPrompt);
+      const parsed = safeParseJSONArray(localText);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(item => ({
+          ...item,
+          title: item.title || item.name || "New Idea",
+          caption: item.caption || item.description || item.content || "Exciting new content...",
+          brief: item.brief || item.description || "Visual showing " + (item.title || "the idea"),
+          hashtags: item.hashtags || "#brand #update",
+          type: item.type || "General",
+          outlet: item.outlet || business?.name || "Main Channel",
+          format: item.format || item.type || "Post",
+          feasibility: item.feasibility || 5,
+          impact: item.impact || 5
+        }));
+      }
+    } catch (e) {
+      console.warn("[GenerateTaskIdeas] Local server failed, falling back to alternates:", e);
+    }
+  }
+
   if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateTaskIdeas] Strict Local AI Mode active.");
@@ -3509,6 +3681,7 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     const forceBuiltin = settings.preferredProvider === 'builtin';
     const forcePuter = settings.preferredProvider === 'puter';
     const forceGroq = settings.preferredProvider === 'groq';
+    const forceLocalProxy = settings.preferredProvider === 'local_proxy';
 
     let finalSystemInstruction = systemInstruction;
 
@@ -3647,6 +3820,36 @@ Rules:
     }
 
     // --- Provider-Specific Enforcement ---
+    if (fallbackToGemini && forceLocalProxy) {
+      try {
+        console.log("[AI] Routing to Local Proxy (Ollama/LM Studio)...");
+        
+        const localHistory = [...messages];
+        if (localHistory.length > 0 && localHistory[0].role === 'user') {
+          localHistory[0].content = `System Instruction:\n${finalSystemInstruction}\n\nUser Message: ${localHistory[0].content}`;
+        }
+        
+        const text = await fetchFromLocalServer(lastUserMessage, localHistory.slice(0, -1));
+        console.log("[AI] Local Server raw response:", text.substring(0, 500));
+        
+        parsed = safeParseJSON(text);
+        if (!parsed || !parsed.message) {
+          // If the model didn't output JSON, treat the whole response as the message
+          // This is common with smaller models or base Ollama prompts
+          parsed = { message: text || "I received an empty response from the local server." };
+        }
+        
+        if (parsed && parsed.message) {
+          fallbackToGemini = false;
+          parsed.provider = 'Local Server';
+        }
+      } catch (e: any) {
+        console.error("Local Proxy chat failed:", e);
+        const errorMsg = e.message || String(e);
+        notifyFallback('Local Server Error', `Failed to reach Ollama: ${errorMsg}. Ensure "ollama serve" is running with OLLAMA_ORIGINS.`);
+      }
+    }
+
     if (fallbackToGemini && forcePuter) {
       try {
         console.log("[AI] Forcing Puter provider...");
