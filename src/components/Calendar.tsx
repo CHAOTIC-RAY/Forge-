@@ -20,6 +20,18 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(max-width: 768px)');
+    const update = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return isMobile;
+}
+
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
@@ -107,17 +119,18 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
       transition={{ duration: 0.3 }}
       className="flex-1 flex flex-col"
     >
-      {contextMenu && (
-        <ContextMenu
-          isOpen={true}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-          items={[
-            { label: 'Add Post', icon: <Plus className="w-4 h-4" />, onClick: () => onAddPost(contextMenu.dateStr) },
-          ]}
-        />
-      )}
+      <ContextMenu
+        isOpen={!!contextMenu}
+        x={contextMenu?.x || 0}
+        y={contextMenu?.y || 0}
+        onClose={() => setContextMenu(null)}
+        items={[
+          { label: 'Add Post', icon: <Plus className="w-4 h-4" />, onClick: () => {
+            if (contextMenu) onAddPost(contextMenu.dateStr); 
+            setContextMenu(null);
+          }},
+        ]}
+      />
       {!isGuest && (
         <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
           <div className="flex items-center justify-between">
@@ -444,9 +457,11 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
 }
 
 function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?: React.Key }) {
+  const isMobile = useIsMobile();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `image:${post.id}-${imageUrl}`,
-    data: { type: 'image', imageUrl, sourcePost: post }
+    data: { type: 'image', imageUrl, sourcePost: post },
+    disabled: isMobile
   });
 
   const style = {
@@ -729,6 +744,8 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
     }
   };
 
+  const isMobile = useIsMobile();
+
   const {
     attributes,
     listeners,
@@ -736,7 +753,7 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: post.id, data: { type: 'post', post } });
+  } = useSortable({ id: post.id, data: { type: 'post', post }, disabled: isMobile });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -788,6 +805,9 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
     }] : []),
   ];
 
+  const isStory = post.contentFormats?.includes('Story');
+  const isReel = post.contentFormats?.includes('Reel');
+
   return (
     <ContextMenu items={contextMenuItems}>
       <div
@@ -803,20 +823,41 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           }
         }}
         className={cn(
-          "text-left bg-white/90 dark:bg-[#1E1E1E]/80 backdrop-blur-md border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing flex flex-col z-10 relative",
-          viewMode === 'grid' ? "p-3 md:p-1.5 gap-2 md:gap-1" : "p-4 gap-3",
+          "text-left bg-white/90 dark:bg-[#1E1E1E]/80 backdrop-blur-md border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing flex flex-col z-10 relative overflow-hidden",
+          viewMode === 'grid' ? "py-3 pr-3 pl-3 md:py-1.5 md:pr-1.5 md:pl-1.5 gap-2 md:gap-1" : "py-4 pr-4 pl-4 gap-3",
+          (isStory || isReel) && (viewMode === 'grid' ? "pl-[16px] md:pl-[10px]" : "pl-6"),
           isDragging && "border-brand scale-110 shadow-2xl z-50 ring-4 ring-brand/20 active:scale-110",
           !isDragging && "active:scale-95",
           "print:border-none print:shadow-none print:p-1 print:bg-transparent print:gap-1 print:break-inside-avoid"
         )}
       >
+        {(isStory || isReel) && (
+          <div className="absolute left-0 top-0 bottom-0 w-[4px] flex flex-col z-0">
+            {isStory && <div className="flex-1 bg-pink-500" />}
+            {isReel && <div className="flex-1 bg-amber-400" />}
+          </div>
+        )}
       <div className={cn("flex items-center gap-2 text-[#757681] print:text-sm print:text-black", viewMode === 'grid' ? "text-[11px] mb-1" : "text-xs mb-1")}>
         <span className={cn(viewMode === 'grid' ? "text-sm" : "text-sm")}>{emoji}</span>
         <span className="truncate font-bold text-[#37352F] dark:text-[#EBE9ED] print:whitespace-normal">{post.outlet}</span>
         {post.productCategory && <span className="hidden print:inline"> • {post.productCategory}</span>}
         
         {/* Status Indicators */}
-        <div className="ml-auto flex gap-0.5 items-center">
+        <div className="ml-auto flex gap-[2px] items-center">
+          {/* Content Format Badges */}
+          {post.contentFormats?.map(format => {
+            if (format !== 'Story' && format !== 'Reel') return null; // Only highlight special formats
+            return (
+              <span key={format} className={cn(
+                "rounded-[4px] font-bold uppercase tracking-wider border",
+                viewMode === 'grid' ? "text-[6px] px-0.5 py-[1px] leading-none" : "text-[8px] px-1.5 py-[2px] leading-none",
+                format === 'Story' ? "bg-pink-50 text-pink-600 border-pink-200 dark:bg-pink-950/40 dark:text-pink-400 dark:border-pink-900/50" :
+                "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50"
+              )}>
+                {viewMode === 'grid' ? format.charAt(0) : format}
+              </span>
+            );
+          })}
           {post.isHiddenForOthers && (
             <span className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 rounded-[4px] font-bold uppercase text-[7px] px-1 flex items-center gap-0.5" title="Hidden from other viewers">
               <CloseIcon className="w-2 h-2" />

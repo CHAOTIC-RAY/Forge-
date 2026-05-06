@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -149,13 +150,13 @@ export function ContextMenu({ items, children, className, x, y, isOpen: controll
   );
 
   if (isControlled) {
-    return menuContent;
+    return createPortal(menuContent, document.body);
   }
 
   return (
     <div onContextMenu={handleContextMenu} className={cn("relative", className)}>
       {children}
-      {menuContent}
+      {createPortal(menuContent, document.body)}
     </div>
   );
 }
