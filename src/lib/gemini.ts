@@ -2987,7 +2987,7 @@ export async function generateCaption(topic: string, business?: Business): Promi
   return response.text || '';
 }
 
-export async function generatePostWithFramework(topic: string, framework: 'AIDA' | 'PAS' | 'BAB', business?: Business): Promise<string> {
+export async function generatePostWithFramework(topic: string, framework: 'AIDA' | 'PAS' | 'BAB', business?: Business, lengthValue?: number): Promise<string> {
   const settings = getAiSettings();
   const frameworkPrompts = {
     AIDA: "Attention, Interest, Desire, Action",
@@ -2996,8 +2996,20 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
   };
 
   const businessName = business?.name || 'our business';
+  let lengthInstruction = "";
+  if (lengthValue !== undefined) {
+    if (lengthValue <= 33) {
+      lengthInstruction = "Make the caption VERY SHORT and punchy (1-2 short sentences maximum).";
+    } else if (lengthValue <= 66) {
+      lengthInstruction = "Make the caption MEDIUM length (3-4 sentences).";
+    } else {
+      lengthInstruction = "Make the caption DETAILED and long-form (multiple paragraphs with emojis).";
+    }
+  }
+
   const prompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". 
   Use the ${framework} marketing framework: ${frameworkPrompts[framework]}.
+  ${lengthInstruction}
   Include relevant emojis and a clear call to action. Do not include hashtags.`;
 
   if (settings.preferredProvider === 'builtin') {

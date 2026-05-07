@@ -109,8 +109,8 @@ export default {
         return newResponse;
       }
 
-      // POST /api/cloudinary/upload
-      if ((path === '/api/cloudinary/upload' || path === '/api/cloudinary/upload/') && request.method.toUpperCase() === 'POST') {
+      // POST /api/media/upload
+      if ((path === '/api/media/upload' || path === '/api/media/upload/') && request.method.toUpperCase() === 'POST') {
           const formData = await request.formData();
           const image = formData.get('image') as File;
           

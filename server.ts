@@ -646,8 +646,8 @@ app.post('/api/onedrive/upload', async (req, res) => {
 // CLOUDINARY API — IMAGE STORAGE
 // ============================================================
 
-app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res) => {
-  console.log("[Server] POST /api/cloudinary/upload requested");
+app.post("/api/media/upload", upload.single("image"), async (req: any, res) => {
+  console.log("[Server] POST /api/media/upload requested");
   
   const cloudName = req.body.cloudName || process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = req.body.apiKey || process.env.CLOUDINARY_API_KEY;
@@ -700,7 +700,7 @@ app.post("/api/cloudinary/upload", upload.single("image"), async (req: any, res)
   }
 });
 
-app.post("/api/cloudinary/delete", async (req, res) => {
+app.post("/api/media/delete", async (req, res) => {
   const { publicId, cloudName, apiKey, apiSecret } = req.body;
   
   const finalCloudName = cloudName || process.env.CLOUDINARY_CLOUD_NAME;

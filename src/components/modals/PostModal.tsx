@@ -67,6 +67,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     campaign: 'Campaign Type',
     type: 'Type'
   });
+  const [captionLength, setCaptionLength] = useState<number>(50);
 
   // Handle external image drops
   useEffect(() => {
@@ -697,44 +698,59 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
             )}
 
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
                 <label className="block text-sm font-medium text-[#757681]">Caption</label>
                 {!readOnly && (
-                  <div className="flex items-center gap-2">
-                    <select
-                      className="text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] px-2 py-1 outline-none text-[#37352F] dark:text-[#EBE9ED]"
-                      onChange={(e) => setFormData(prev => ({ ...prev, framework: e.target.value as any }))}
-                      value={formData.framework || 'AIDA'}
-                    >
-                      <option value="AIDA">AIDA</option>
-                      <option value="PAS">PAS</option>
-                      <option value="BAB">BAB</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!formData.title) { toast.warning("Please provide a title first."); return; }
-                        setIsGeneratingContent(true);
-                        try {
-                          const caption = await generatePostWithFramework(formData.title, formData.framework || 'AIDA');
-                          setFormData(prev => ({ ...prev, caption }));
-                          toast.success("Caption generated!");
-                        } catch (e) {
-                          toast.error("Failed to generate caption.");
-                        } finally {
-                          setIsGeneratingContent(false);
-                        }
-                      }}
-                      disabled={isGeneratingContent}
-                      className="flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover disabled:opacity-50 transition-colors"
-                    >
-                      <Wand2 className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
-                      Generate with Framework
-                    </button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-[#757681] whitespace-nowrap">Short</span>
+                      <input
+                        type="range"
+                        min="1"
+                        max="100"
+                        value={captionLength}
+                        onChange={(e) => setCaptionLength(parseInt(e.target.value))}
+                        className="w-16 sm:w-24 h-1 bg-[#E9E9E7] dark:bg-[#2E2E2E] rounded-lg appearance-none cursor-pointer accent-brand"
+                      />
+                      <span className="text-[10px] text-[#757681] whitespace-nowrap">Long</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="text-xs border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] px-2 py-1 outline-none text-[#37352F] dark:text-[#EBE9ED]"
+                        onChange={(e) => setFormData(prev => ({ ...prev, framework: e.target.value as any }))}
+                        value={formData.framework || 'AIDA'}
+                      >
+                        <option value="AIDA">AIDA</option>
+                        <option value="PAS">PAS</option>
+                        <option value="BAB">BAB</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!formData.title) { toast.warning("Please provide a title first."); return; }
+                          setIsGeneratingContent(true);
+                          try {
+                            const caption = await generatePostWithFramework(formData.title, formData.framework || 'AIDA', activeBusiness, captionLength);
+                            setFormData(prev => ({ ...prev, caption }));
+                            toast.success("Caption generated!");
+                          } catch (e) {
+                            toast.error("Failed to generate caption.");
+                          } finally {
+                            setIsGeneratingContent(false);
+                          }
+                        }}
+                        disabled={isGeneratingContent}
+                        className="flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover disabled:opacity-50 transition-colors whitespace-nowrap"
+                      >
+                        <Wand2 className={`w-3 h-3 ${isGeneratingContent ? 'animate-pulse' : ''}`} />
+                        Generate with Framework
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
               <RichTextEditor
+                key={formData.id || 'new'}
                 value={formData.caption || ''}
                 onChange={(html) => setFormData(prev => ({ ...prev, caption: html }))}
                 placeholder="Write your post caption here..."

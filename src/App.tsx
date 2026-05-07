@@ -113,7 +113,7 @@ import { useAppStore } from './store';
 
 const initialAiSettings = getAiSettings();
 const initialAnalyticsSettings = getAnalyticsSettings();
-import { signInWithPopup, signOut } from 'firebase/auth';
+import { signInWithRedirect, signOut } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import {
   collection,
@@ -308,12 +308,10 @@ export default function App() {
     if (isSigningIn) return;
     setIsSigningIn(true);
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithRedirect(auth, googleProvider);
     } catch (error: any) {
       console.error("Login error:", error);
-      if (error.code === 'auth/popup-closed-by-user') {
-        toast.error("Sign-in cancelled. Please keep the popup open to sign in.");
-      } else if (error.code === 'auth/network-request-failed') {
+      if (error.code === 'auth/network-request-failed') {
         toast.error("Network error. Please check your connection and try again.");
       } else if (error.message?.includes('INTERNAL ASSERTION FAILED')) {
         toast.error("A temporary authentication error occurred. Please try again.");

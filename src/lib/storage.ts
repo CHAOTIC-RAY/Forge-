@@ -145,7 +145,7 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
       if (settings.cloudinaryApiKey) formData.append('apiKey', settings.cloudinaryApiKey);
       if (settings.cloudinaryApiSecret) formData.append('apiSecret', settings.cloudinaryApiSecret);
 
-      uploadResponse = await fetch('/api/cloudinary/upload', {
+      uploadResponse = await fetch('/api/media/upload', {
         method: 'POST',
         body: formData,
       });
@@ -201,7 +201,7 @@ export async function deleteAppStorageFile(url: string): Promise<void> {
       const { getAiSettings } = await import('./gemini');
       const settings = getAiSettings();
       
-      await fetch('/api/cloudinary/delete', {
+      await fetch('/api/media/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
