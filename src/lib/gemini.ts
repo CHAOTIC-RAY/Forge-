@@ -373,7 +373,7 @@ function withBusinessKnowledge(prompt: string): string {
   }
 
   if (!knowledge.trim()) return prompt;
-  return `${prompt}\n\nBUSINESS KNOWLEDGE CONTEXT:\n${knowledge}`;
+  return `BUSINESS KNOWLEDGE CONTEXT:\n${knowledge}\n\nCRITICAL DIRECTIVE: You MUST strictly adhere to ALL of the Business Rules, Brand Voice, and AI Instructions provided above. Even if you are instructed to make the response extremely short, you MUST NOT omit any mandatory suffixes, templates, or formats requested in the Business Rules/AI Instructions.\n\n${prompt}`;
 }
 
 // Session-level flags to skip providers that are failing consistently (e.g. out of balance or invalid key)
@@ -868,7 +868,6 @@ export async function generatePostContent(outlet: string, productCategory?: stri
   const randomAngle = angles[Math.floor(Math.random() * angles.length)];
 
   const safeOutlet = outlet.length > 2000 ? outlet.substring(0, 2000) + "..." : outlet;
-  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
 
   let designContext = '';
   if (business?.id) {
@@ -878,12 +877,11 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     }
   }
 
-  const prompt = `Create a cohesive social media carousel post.
+  const basePrompt = `Create a cohesive social media carousel post.
     ${businessContext}
     ${designContext}
     Outlet: "${safeOutlet}"${categoryPrompt}. 
     ${productContext}
-    ${systemInstruction}
     
     CRITICAL: Focus ONLY on products that are currently IN STOCK.${avoidPrompt}
     
@@ -901,8 +899,10 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     The JSON object must have exactly these fields:
     - title: A short, catchy title for the carousel post indicating the theme
     - brief: Visual instructions for the graphic designer (e.g., "Slide 1: Intro, Slide 2: Product A, Slide 3: Product B... up to 8 slides"). It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
-    - caption: A SHORT, engaging Instagram/Facebook caption (max 2-3 sentences) with emojis, mentioning the featured products and their cohesive theme
+    - caption: An engaging Instagram/Facebook caption mentioning the featured products and their cohesive theme
     - hashtags: Space-separated hashtags`;
+
+  const prompt = withBusinessKnowledge(basePrompt);
 
   // Hierarchy 0: Local Server (if preferred)
   if (settings.preferredProvider === 'local_proxy') {
@@ -1246,20 +1246,17 @@ export async function generateSmartPost(title: string, category: string, outlet:
     }
   }
 
-  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
-
   let designGuide = '';
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
   }
 
-  const prompt = `Generate a social media post based on the following information:
+  const basePrompt = `Generate a social media post based on the following information:
   Title: ${title}
   Category: ${category}
   Outlet: ${outlet}
   Type: ${type}
   Link/Reference: ${link}
-  ${systemInstruction}
   
   ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ''}
   
@@ -1273,12 +1270,14 @@ export async function generateSmartPost(title: string, category: string, outlet:
   Return a JSON object with:
   - title: A catchy title
   - brief: A detailed graphic brief. It MUST include the specific texts to be written on the post, and it MUST refer to "design.md (recent post)" for design guidelines.
-  - caption: A SHORT, engaging caption (max 2-3 sentences)
+  - caption: An engaging caption
   - hashtags: Relevant hashtags
   - type: The most suitable post type (e.g. 🔴 Tiles & Flooring, 🔴 General, etc.)
   - outlet: The most suitable outlet
   
   Make it professional and high-converting.`;
+
+  const prompt = withBusinessKnowledge(basePrompt);
 
   if (settings.preferredProvider === 'local_proxy') {
     try {
@@ -2934,7 +2933,8 @@ export async function generateCampaignFromUrl(url: string, systemInstruction?: s
 export async function generateCaption(topic: string, business?: Business): Promise<string> {
   const settings = getAiSettings();
   const businessName = business?.name || 'our business';
-  const prompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". Include relevant emojis and a call to action. Do not include hashtags.`;
+  const basePrompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". Include relevant emojis and a call to action. Do not include hashtags.`;
+  const prompt = withBusinessKnowledge(basePrompt);
 
   if (settings.preferredProvider === 'builtin') {
     try {
@@ -2999,18 +2999,20 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
   let lengthInstruction = "";
   if (lengthValue !== undefined) {
     if (lengthValue <= 33) {
-      lengthInstruction = "Make the caption VERY SHORT and punchy (1-2 short sentences maximum).";
+      lengthInstruction = "Make the caption VERY SHORT and punchy (1-2 short sentences maximum but CRITICAL: you MUST strictly follow ALL Business Rules, Brand Voice, and AI Instructions, such as mandatory end templates even if it makes it slightly longer).";
     } else if (lengthValue <= 66) {
-      lengthInstruction = "Make the caption MEDIUM length (3-4 sentences).";
+      lengthInstruction = "Make the caption MEDIUM length (3-4 sentences; ensure ALL Business Rules and custom templates are included).";
     } else {
-      lengthInstruction = "Make the caption DETAILED and long-form (multiple paragraphs with emojis).";
+      lengthInstruction = "Make the caption DETAILED and long-form (multiple paragraphs with emojis; strictly enforce ALL Business Rules and AI instructions).";
     }
   }
 
-  const prompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". 
+  const basePrompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". 
   Use the ${framework} marketing framework: ${frameworkPrompts[framework]}.
   ${lengthInstruction}
   Include relevant emojis and a clear call to action. Do not include hashtags.`;
+
+  const prompt = withBusinessKnowledge(basePrompt);
 
   if (settings.preferredProvider === 'builtin') {
     try {

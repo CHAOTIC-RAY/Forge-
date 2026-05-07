@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, Wrench } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { auth, googleProvider } from '../lib/firebase';
-import { signInWithRedirect } from 'firebase/auth';
+import { signInWithPopup } from 'firebase/auth';
 import { MigrationTool } from './MigrationTool';
 
 export function Login() {
@@ -16,10 +16,12 @@ export function Login() {
     setIsSigningIn(true);
     setError(null);
     try {
-      await signInWithRedirect(auth, googleProvider);
+      await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
       console.error("Login error:", err);
-      if (err.code === 'auth/network-request-failed') {
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/popup-blocked') {
+        setError("Sign-in popup was blocked or closed. Please look for the 'Open in new tab' button in the AI Studio header to sign in properly.");
+      } else if (err.code === 'auth/network-request-failed') {
         setError("Network error. Please check your connection and try again.");
       } else if (err.message?.includes('INTERNAL ASSERTION FAILED')) {
         setError("A temporary authentication error occurred. Please try again.");
