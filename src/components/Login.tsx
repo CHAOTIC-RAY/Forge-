@@ -1,16 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Wrench } from 'lucide-react';
+import { Mail, Lock, Wrench } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { auth, googleProvider } from '../lib/firebase';
-import { signInWithPopup, signInWithRedirect } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+} from 'firebase/auth';
 import { MigrationTool } from './MigrationTool';
+
+type AuthMode = 'signIn' | 'signUp';
+
+function getAuthErrorMessage(error: unknown): string {
+  const err = error as { code?: string; message?: string };
+
+  switch (err?.code) {
+    case 'auth/email-already-in-use':
+      return 'An account already exists for this email. Sign in instead.';
+    case 'auth/invalid-email':
+      return 'Enter a valid email address.';
+    case 'auth/invalid-credential':
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+      return 'The email or password is incorrect.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your connection and try again.';
+    case 'auth/operation-not-allowed':
+      return 'Email/password sign-in is not enabled for this Firebase project.';
+    case 'auth/weak-password':
+      return 'Use a password with at least 6 characters.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment and try again.';
+    default:
+      if (err?.message?.includes('INTERNAL ASSERTION FAILED')) {
+        return 'A temporary authentication error occurred. Please try again.';
+      }
+      return err?.message || 'Failed to sign in. Please try again.';
+  }
+}
 
 export function Login() {
   const [error, setError] = useState<string | null>(null);
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
+  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
   const [authStrategy, setAuthStrategy] = useState<'popup' | 'redirect'>('popup');
+  const [authMode, setAuthMode] = useState<AuthMode>('signIn');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -35,10 +76,63 @@ export function Login() {
     })();
   }, []);
 
-  const handleLogin = async () => {
-    if (isSigningIn) return;
-    setIsSigningIn(true);
+  const handleEmailPasswordAuth = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isEmailSubmitting) return;
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setError('Enter your email and password.');
+      setNotice(null);
+      return;
+    }
+
+    setIsEmailSubmitting(true);
     setError(null);
+    setNotice(null);
+
+    try {
+      if (authMode === 'signUp') {
+        await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+      } else {
+        await signInWithEmailAndPassword(auth, trimmedEmail, password);
+      }
+    } catch (err) {
+      console.error("[Login] email/password error:", err);
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setIsEmailSubmitting(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Enter your email first, then request a reset link.');
+      setNotice(null);
+      return;
+    }
+
+    setIsEmailSubmitting(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await sendPasswordResetEmail(auth, trimmedEmail);
+      setNotice('Password reset email sent. Check your inbox.');
+    } catch (err) {
+      console.error("[Login] password reset error:", err);
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setIsEmailSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (isGoogleSigningIn) return;
+    setIsGoogleSigningIn(true);
+    setError(null);
+    setNotice(null);
     if (authStrategy === 'redirect') {
       try {
         await signInWithRedirect(auth, googleProvider);
@@ -47,7 +141,7 @@ export function Login() {
         setError(redirErr?.message || 'Redirect sign-in failed. Add this host in Firebase Console → Authentication → Settings → Authorized domains.');
         return;
       } finally {
-        setIsSigningIn(false);
+        setIsGoogleSigningIn(false);
       }
     }
     try {
@@ -64,7 +158,7 @@ export function Login() {
           return;
         } catch (redirErr: any) {
           setError(redirErr?.message || 'Redirect sign-in failed. Check Firebase authorized domains for this host.');
-          setIsSigningIn(false);
+          setIsGoogleSigningIn(false);
           return;
         }
       }
@@ -76,7 +170,7 @@ export function Login() {
         setError(err.message || "Failed to sign in. Please try again.");
       }
     } finally {
-      setIsSigningIn(false);
+      setIsGoogleSigningIn(false);
     }
   };
 
@@ -121,13 +215,102 @@ export function Login() {
           </motion.div>
         )}
 
+        {notice && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-[16px] text-emerald-300 text-sm font-medium"
+          >
+            {notice}
+          </motion.div>
+        )}
+
+        <form onSubmit={handleEmailPasswordAuth} className="space-y-4 text-left">
+          <div>
+            <label htmlFor="email" className="block text-xs font-black text-gray-500 mb-2 uppercase tracking-[0.2em]">
+              Email
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                required
+                placeholder="you@company.com"
+                className="w-full pl-12 pr-4 py-4 bg-black/30 border border-white/10 rounded-[16px] text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-xs font-black text-gray-500 mb-2 uppercase tracking-[0.2em]">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete={authMode === 'signUp' ? 'new-password' : 'current-password'}
+                required
+                minLength={6}
+                placeholder={authMode === 'signUp' ? 'Create a password' : 'Enter your password'}
+                className="w-full pl-12 pr-4 py-4 bg-black/30 border border-white/10 rounded-[16px] text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isEmailSubmitting}
+            className="w-full py-5 px-8 bg-white text-black rounded-[16px] font-bold flex items-center justify-center gap-3 hover:bg-gray-100 transition-all active:scale-[0.98] disabled:opacity-50 shadow-[0_20px_40px_-12px_rgba(255,255,255,0.2)]"
+          >
+            {isEmailSubmitting
+              ? (authMode === 'signUp' ? 'Creating account...' : 'Signing in...')
+              : (authMode === 'signUp' ? 'Create account' : 'Sign in with email')}
+          </button>
+        </form>
+
+        <div className="mt-5 flex items-center justify-between gap-4 text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode(authMode === 'signIn' ? 'signUp' : 'signIn');
+              setError(null);
+              setNotice(null);
+            }}
+            className="text-gray-500 hover:text-white transition-colors uppercase tracking-widest"
+          >
+            {authMode === 'signIn' ? 'Create account' : 'Have an account? Sign in'}
+          </button>
+          <button
+            type="button"
+            onClick={handlePasswordReset}
+            disabled={isEmailSubmitting}
+            className="text-gray-500 hover:text-white transition-colors uppercase tracking-widest disabled:opacity-50"
+          >
+            Forgot password?
+          </button>
+        </div>
+
+        <div className="my-8 flex items-center gap-4">
+          <div className="h-px flex-1 bg-white/10" />
+          <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em]">or</span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
         <button
-          onClick={handleLogin}
-          disabled={isSigningIn}
-          className="w-full py-5 px-8 bg-white text-black rounded-[16px] font-bold flex items-center justify-center gap-3 hover:bg-gray-100 transition-all active:scale-[0.98] disabled:opacity-50 shadow-[0_20px_40px_-12px_rgba(255,255,255,0.2)]"
+          onClick={handleGoogleLogin}
+          disabled={isGoogleSigningIn}
+          className="w-full py-4 px-8 bg-black/30 text-white rounded-[16px] font-bold flex items-center justify-center gap-3 hover:bg-white/10 transition-all active:scale-[0.98] disabled:opacity-50 border border-white/10"
         >
           <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-          {isSigningIn ? 'Signing in...' : 'Continue with Google'}
+          {isGoogleSigningIn ? 'Signing in...' : 'Continue with Google'}
         </button>
         
         <div className="mt-10 flex flex-col gap-4">
