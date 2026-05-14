@@ -477,7 +477,7 @@ export function FloatingChat({
     <div className={cn(
       "fixed z-50 flex flex-col items-end gap-4 transition-all duration-300",
       isFullPage 
-        ? "inset-0 bottom-[64px] md:bottom-0 bg-white dark:bg-[#191919] p-0 pointer-events-auto" 
+        ? "inset-x-0 top-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:inset-0 bg-white dark:bg-[#191919] p-0 pointer-events-auto" 
         : "bottom-6 right-6 pointer-events-none"
     )}>
       <AnimatePresence>
@@ -925,7 +925,7 @@ export function FloatingChat({
             <div className={cn(
               "z-30 transition-all duration-300",
               isFullPage 
-                ? "fixed bottom-4 left-0 right-0 p-4 pb-8 md:p-6 pointer-events-none lg:pl-[260px]" 
+                ? "fixed bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-4 left-0 right-0 p-4 pb-4 md:p-6 pointer-events-none lg:pl-[260px]" 
                 : "p-4 border-t bg-white/90 dark:bg-[#1A1A1A]/90 backdrop-blur-xl border-[#E9E9E7] dark:border-[#2E2E2E] rounded-b-[24px]"
             )}>
               <div className="max-w-3xl mx-auto w-full pointer-events-auto flex flex-col gap-3">
