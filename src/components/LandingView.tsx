@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Sparkles, Palette, BarChart3, ListTodo, LogIn, ChevronDown, CheckCircle2, MessageSquare, Lightbulb, Pause, Square, Database, Image as ImageIcon, Users } from 'lucide-react';
-import { ForgeLogo, GlowingScribbleLogo, ScribbleFlame } from './ForgeLogo';
+import { Calendar as CalendarIcon, Sparkles, Palette, BarChart3, LogIn, ChevronDown, CheckCircle2, MessageSquare, Lightbulb, Pause, Square, Database, Image as ImageIcon, Users } from 'lucide-react';
+import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
+import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
 import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
-import Spline from '@splinetool/react-spline';
+
+const landingTerms = INDUSTRY_CONFIGS.default.terminology;
 
 const TypewriterText = ({ text, delay = 0, onComplete, className }: { text: string, delay?: number, onComplete?: () => void, className?: string }) => {
   const [displayedText, setDisplayedText] = useState("");
@@ -32,7 +34,7 @@ const TypewriterText = ({ text, delay = 0, onComplete, className }: { text: stri
     };
   }, [text, delay]);
 
-  return <span className={className}>{displayedText}</span>;
+  return <span className={cn(className, 'inline')}>{displayedText}</span>;
 };
 
 function FeaturePreview({ id }: { id: string }) {
@@ -257,16 +259,16 @@ const SECTIONS = [
   {
     id: 'calendar',
     icon: CalendarIcon,
-    title: 'Content Calendar',
-    description: 'Master your schedule with a high-performance drag-and-drop calendar. Plan, coordinate, and execute your entire social media strategy in one place.',
+    title: landingTerms.calendar,
+    description: 'Drag-and-drop content calendar: plan posts by day, attach media, share a read-only link with clients, and keep your whole team aligned in one schedule.',
     color: 'text-blue-500',
     bg: 'bg-blue-500/10'
   },
   {
     id: 'ideas',
     icon: Lightbulb,
-    title: 'Creative Hub',
-    description: 'A centralized bank for your raw inspiration. Capture ideas, organize them by category, and seamlessly transition them into scheduled content.',
+    title: landingTerms.ideas,
+    description: 'Capture sparks before they fade. Sort inspiration by category, then promote the best lines into real posts on your calendar without losing context.',
     color: 'text-yellow-500',
     bg: 'bg-yellow-500/10'
   },
@@ -274,31 +276,31 @@ const SECTIONS = [
     id: 'ai',
     icon: Sparkles,
     title: 'AI Studio',
-    description: 'Harness the power of Gemini to generate high-engagement captions, brainstorm creative angles, and refine your brand voice with intelligent assistance.',
+    description: 'Draft captions, angles, and variants with Gemini, tuned to your workspace. Iterate fast, keep your voice, and paste results straight into posts.',
     color: 'text-amber-500',
     bg: 'bg-amber-500/10'
   },
   {
     id: 'studio',
     icon: Palette,
-    title: 'Brand Kit',
-    description: 'Maintain absolute brand consistency. Store and manage your logos, color palettes, and visual assets for instant access during content creation.',
+    title: landingTerms.assets,
+    description: 'Logos, palettes, and references live next to your workflow so every asset and export stays on-brand—no more hunting through folders mid-campaign.',
     color: 'text-pink-500',
     bg: 'bg-pink-500/10'
   },
   {
     id: 'analytics',
     icon: BarChart3,
-    title: 'Analytics & Insights',
-    description: 'Turn data into growth. Monitor cross-platform performance with real-time analytics and gain actionable insights to optimize your content strategy.',
+    title: 'Insights & Analytics',
+    description: 'See what resonates across channels. Track performance, compare formats, and double down on the content that actually moves your numbers.',
     color: 'text-green-500',
     bg: 'bg-green-500/10'
   },
   {
     id: 'localdb',
     icon: Database,
-    title: 'Inventory Database',
-    description: 'Manage your product catalog and digital assets with a structured local database. Keep everything you need for your content at your fingertips.',
+    title: landingTerms.products,
+    description: 'Workspace inventory for products and references: tag, search, and drop items into posts or AI prompts so your catalog is always one click away.',
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/10'
   }
@@ -447,17 +449,19 @@ export function LandingView({ onLogin }: LandingViewProps) {
           {/* Mobile Nav Items - Same as Registered User */}
           <div className="md:hidden flex flex-1 flex-row justify-between w-full h-full items-center">
             {[
-              { id: 'calendar', icon: CalendarIcon, title: 'Calendar' },
-              { id: 'todos', icon: ListTodo, title: 'Tasks' },
-              { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
-              { id: 'login', icon: LogIn, title: 'Log In', action: onLogin }
+              ...navSections.slice(0, 3).map((s) => ({
+                id: s.id,
+                icon: s.icon!,
+                title: s.title,
+              })),
+              { id: 'login', icon: LogIn, title: 'Log In', action: onLogin },
             ].map((tab) => {
               const Icon = tab.icon;
-              const isActive = activeSection === tab.id;
+              const isActive = 'action' in tab ? false : activeSection === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => tab.action ? tab.action() : scrollToSection(tab.id)}
+                  onClick={() => 'action' in tab && tab.action ? tab.action() : scrollToSection(tab.id)}
                   className={cn(
                     "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
                     isActive ? "text-[#2383E2]" : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
@@ -514,19 +518,22 @@ export function LandingView({ onLogin }: LandingViewProps) {
                 <span className="font-bold text-3xl tracking-tight text-white">Forge</span>
               </div>
               
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.9] flex flex-wrap items-baseline">
-                <TypewriterText text="Sparks into substance" delay={0} className="text-gray-900 dark:text-white" />
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-                  className="inline-block text-[#2383E2] ml-1"
-                >
-                  |
-                </motion.span>
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] min-w-0">
+                <span className="inline-flex flex-nowrap items-baseline gap-0.5 max-w-full">
+                  <TypewriterText text="Sparks into substance" delay={0} className="text-gray-900 dark:text-white shrink min-w-0" />
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [1, 1, 0, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.1, ease: 'linear', times: [0, 0.45, 0.55, 1] }}
+                    className="inline-block text-[#2383E2] shrink-0 translate-y-px font-light w-[0.55ch] text-center select-none"
+                    aria-hidden
+                  >
+                    |
+                  </motion.span>
+                </span>
               </h1>
               <p className="text-lg md:text-2xl text-[#787774] dark:text-[#9B9A97] max-w-2xl leading-relaxed">
-                Capture endless ideas in your Creative Hub and transform them into a polished, high-performing social media strategy.
+                One workspace for your calendar, {landingTerms.ideas.toLowerCase()}, AI copy, {landingTerms.assets}, and performance—so you can ship consistent social content without tab chaos.
               </p>
               <div className="pt-4 flex flex-col gap-3">
                 {window !== window.top && (
@@ -616,9 +623,9 @@ export function LandingView({ onLogin }: LandingViewProps) {
               </div>
               
               <div className="space-y-6 max-w-2xl relative z-10">
-                <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to transform your workflow?</h2>
+                <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to ship your next month of content?</h2>
                 <p className="text-xl text-blue-100">
-                  Join thousands of content creators who are already saving time and growing their audience with Forge.
+                  Sign in to connect your workspace: plan on the {landingTerms.calendar.toLowerCase()}, draft in AI Studio, and share a live view with your team or clients when you are ready.
                 </p>
               </div>
               <div className="shrink-0 relative z-10 w-full md:w-auto">
