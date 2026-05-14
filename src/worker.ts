@@ -16,6 +16,27 @@ export interface Env {
   ASSETS: { fetch: typeof fetch };
 }
 
+/**
+ * Static asset `_headers` is not always applied to HTML on Workers + ASSETS.
+ * Any COEP `require-corp` / `credentialless` (or cached old deploy) blocks cross-origin
+ * images (Cloudinary), Puter (`js.puter.com`), and placeholders — Chrome reports
+ * NotSameOriginAfterDefaultedToSameOriginByCoep. Force permissive document headers on HTML.
+ */
+function htmlResponseWithoutCoepIsolation(assetResponse: Response): Response {
+  const ct = assetResponse.headers.get('Content-Type') || '';
+  if (!ct.includes('text/html')) {
+    return assetResponse;
+  }
+  const headers = new Headers(assetResponse.headers);
+  headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  headers.set('Cross-Origin-Opener-Policy', 'unsafe-none');
+  return new Response(assetResponse.body, {
+    status: assetResponse.status,
+    statusText: assetResponse.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -643,8 +664,8 @@ export default {
           return new Response(JSON.stringify({ error: "Route not found" }), { status: 404 });
         }
 
-        // Pass everything else to Assets
-        return env.ASSETS.fetch(request);
+        // Pass everything else to Assets (override HTML COEP/COOP — see htmlResponseWithoutCoepIsolation)
+        return htmlResponseWithoutCoepIsolation(await env.ASSETS.fetch(request));
 
       } catch (err: any) {
         return new Response(JSON.stringify({ error: "Internal Server Error", details: err.message }), { 
