@@ -183,10 +183,12 @@ export default {
           if (!imgRes.ok) return new Response("Failed to fetch image", { status: imgRes.status });
 
           return new Response(imgRes.body, {
-            headers: { 
+            headers: {
               'Content-Type': imgRes.headers.get('Content-Type') || 'image/png',
-              'Access-Control-Allow-Origin': '*' 
-            }
+              'Access-Control-Allow-Origin': '*',
+              'Cross-Origin-Resource-Policy': 'cross-origin',
+              'Cache-Control': 'public, max-age=3600',
+            },
           });
         }
 

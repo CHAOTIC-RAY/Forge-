@@ -200,6 +200,7 @@ export async function startServer(forcePort?: number) {
       const contentType = response.headers["content-type"] || "image/png";
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.send(response.data);
     } catch (error: any) {
       console.error("Proxy image failed:", error.message);
