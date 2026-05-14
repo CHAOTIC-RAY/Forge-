@@ -1,20 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Calendar as CalendarIcon, Wrench } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { auth, googleProvider } from '../lib/firebase';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { MigrationTool } from './MigrationTool';
 
 export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const [authStrategy, setAuthStrategy] = useState<'popup' | 'redirect'>('popup');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${window.location.origin}/`, {
+          method: 'GET',
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        const coep = r.headers.get('Cross-Origin-Embedder-Policy') || '';
+        const isolated =
+          typeof (globalThis as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated === 'boolean'
+            ? (globalThis as unknown as { crossOriginIsolated: boolean }).crossOriginIsolated
+            : undefined;
+        const badCoep = coep.includes('require-corp') || coep.includes('credentialless');
+        if (isolated === true || badCoep) {
+          setAuthStrategy('redirect');
+        }
+      } catch {
+        /* probe optional */
+      }
+    })();
+  }, []);
 
   const handleLogin = async () => {
     if (isSigningIn) return;
     setIsSigningIn(true);
     setError(null);
+    if (authStrategy === 'redirect') {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      } catch (redirErr: any) {
+        setError(redirErr?.message || 'Redirect sign-in failed. Add this host in Firebase Console → Authentication → Settings → Authorized domains.');
+        return;
+      } finally {
+        setIsSigningIn(false);
+      }
+    }
     try {
       console.log("[Login] Starting signInWithPopup...");
       const result = await signInWithPopup(auth, googleProvider);
@@ -22,9 +57,18 @@ export function Login() {
       // We don't need to do anything here as App.tsx will see the state change
     } catch (err: any) {
       console.error("[Login] error:", err);
-      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/popup-blocked') {
-        setError("Sign-in popup was blocked or closed. If you are in AI Studio, please click the 'Open in new tab' button in the top right header to sign in properly.");
-      } else if (err.code === 'auth/network-request-failed') {
+      const tryRedirectCodes = ['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
+      if (tryRedirectCodes.includes(err?.code)) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirErr: any) {
+          setError(redirErr?.message || 'Redirect sign-in failed. Check Firebase authorized domains for this host.');
+          setIsSigningIn(false);
+          return;
+        }
+      }
+      if (err.code === 'auth/network-request-failed') {
         setError("Network error. Please check your connection and try again.");
       } else if (err.message?.includes('INTERNAL ASSERTION FAILED')) {
         setError("A temporary authentication error occurred. Please try again.");

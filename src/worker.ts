@@ -28,8 +28,13 @@ function htmlResponseWithoutCoepIsolation(assetResponse: Response): Response {
     return assetResponse;
   }
   const headers = new Headers(assetResponse.headers);
+  // Remove any inherited CORP/COEP/COOP from upstream asset metadata, then set known-safe values.
+  headers.delete('Cross-Origin-Embedder-Policy');
+  headers.delete('Cross-Origin-Opener-Policy');
   headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none');
   headers.set('Cross-Origin-Opener-Policy', 'unsafe-none');
+  // Avoid long-lived HTML caches carrying an old COEP shell after deploys.
+  headers.set('Cache-Control', 'private, no-cache, must-revalidate');
   return new Response(assetResponse.body, {
     status: assetResponse.status,
     statusText: assetResponse.statusText,

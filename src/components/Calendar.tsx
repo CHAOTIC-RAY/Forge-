@@ -6,7 +6,7 @@ import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sort
 import { CSS } from '@dnd-kit/utilities';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
 import { Post, PRODUCT_CATEGORIES } from '../data';
-import { cn, getTrustedCdnImageElementProps } from '../lib/utils';
+import { cn, getTrustedCdnImageElementProps, getCalendarImageDisplayUrl } from '../lib/utils';
 import { DraggableProduct } from './DraggableProduct';
 import { HighStockProduct } from '../lib/gemini';
 import { CalendarSharing } from './CalendarSharing';
@@ -469,13 +469,7 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
     zIndex: isDragging ? 100 : 1,
   };
 
-  const getDisplayUrl = (url: string) => {
-    if (!url || url.startsWith('data:') || url.startsWith('blob:') || url.includes('localhost') || url.includes('127.0.0.1')) return url;
-    // Don't proxy trusted storage providers
-    if (url.includes('cloudinary.com') || url.includes('firebasestorage.googleapis.com')) return url;
-    if (url.startsWith('http')) return `/api/proxy-image?url=${encodeURIComponent(url)}`;
-    return url;
-  };
+  const getDisplayUrl = (url: string) => getCalendarImageDisplayUrl(url);
 
   return (
     <div className="relative w-full h-full">
@@ -610,7 +604,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
       {backgroundImage && (
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img 
-            src={backgroundImage}
+            src={getCalendarImageDisplayUrl(backgroundImage)}
             alt=""
             {...getTrustedCdnImageElementProps(backgroundImage)}
             className="absolute inset-0 w-full h-full object-cover opacity-60 dark:opacity-40"
