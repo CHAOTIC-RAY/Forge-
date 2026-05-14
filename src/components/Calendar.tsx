@@ -6,7 +6,7 @@ import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sort
 import { CSS } from '@dnd-kit/utilities';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
 import { Post, PRODUCT_CATEGORIES } from '../data';
-import { cn } from '../lib/utils';
+import { cn, getTrustedCdnImageElementProps } from '../lib/utils';
 import { DraggableProduct } from './DraggableProduct';
 import { HighStockProduct } from '../lib/gemini';
 import { CalendarSharing } from './CalendarSharing';
@@ -486,12 +486,19 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
         {...attributes}
         src={getDisplayUrl(imageUrl)} 
         alt="" 
-        referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
+        {...getTrustedCdnImageElementProps(imageUrl)}
         className={cn("w-full h-full object-cover", isDragging && "opacity-50")} 
         onError={(e) => {
           const target = e.target as HTMLImageElement;
           if (!target.src.includes('placehold.co')) {
+            if (target.crossOrigin && !target.dataset.forgeImgRetry) {
+              target.dataset.forgeImgRetry = '1';
+              target.removeAttribute('crossorigin');
+              const prev = target.src;
+              target.src = '';
+              target.src = prev;
+              return;
+            }
             target.src = 'https://placehold.co/600x600/f3f4f6/94a3b8?text=Image+Unavailable';
           }
         }}
@@ -605,8 +612,7 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
           <img 
             src={backgroundImage}
             alt=""
-            referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
+            {...getTrustedCdnImageElementProps(backgroundImage)}
             className="absolute inset-0 w-full h-full object-cover opacity-60 dark:opacity-40"
             style={{ 
               display: 'block',

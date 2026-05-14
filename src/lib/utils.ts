@@ -5,6 +5,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * <img> props for hosted media. Public CDNs (Cloudinary, Firebase) are loaded without
+ * crossOrigin so the browser does not require CORS on GET (which can break thumbnails
+ * and guest/shared calendar views). Referrer is preserved for Cloudinary delivery restrictions.
+ */
+export function getTrustedCdnImageElementProps(url: string): {
+  crossOrigin?: 'anonymous';
+  referrerPolicy?: 'no-referrer' | 'strict-origin-when-cross-origin';
+} {
+  if (url.includes('cloudinary.com') || url.includes('firebasestorage.googleapis.com')) {
+    return { referrerPolicy: 'strict-origin-when-cross-origin' };
+  }
+  return { crossOrigin: 'anonymous', referrerPolicy: 'no-referrer' };
+}
+
 export interface AnalyticsSettings {
   instagramUrl: string;
   facebookUrl: string;
