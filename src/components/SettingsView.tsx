@@ -669,13 +669,13 @@ export function SettingsView({
         </button>
 
         <button 
-          onClick={() => setActiveTab?.('ideas')}
+          onClick={() => setActiveTab?.('notebook')}
           className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
           <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-[12px] flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1.5">
             <Lightbulb className="w-4 h-4" />
           </div>
-          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Ideas</span>
+          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Idea Lab</span>
         </button>
 
         <button 

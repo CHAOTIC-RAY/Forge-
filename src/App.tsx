@@ -3459,7 +3459,7 @@ export default function App() {
                   {/* Main Content Area */}
                   <div className={cn("flex-1 flex flex-col min-w-0 relative print:h-auto print:overflow-visible", activeTab === 'chat' && "md:flex")}>
                     <main className={cn(
-                      "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-32 md:pb-28 print:p-0 print:overflow-visible",
+                      "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-28 print:p-0 print:overflow-visible",
                       (activeTab === 'chat' || activeTab === 'home' || activeTab === 'notebook') && "p-0 sm:p-0 md:p-0 pb-0",
                       activeTab !== 'search' && "no-scrollbar"
                     )}>
@@ -3820,10 +3820,10 @@ export default function App() {
 
               {/* Mobile Bottom Navigation */}
               <div className={cn(
-                "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white dark:bg-[#191919] border-t border-[#E9E9E7] dark:border-[#2E2E2E] h-[64px] flex items-center px-2"
+                "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white/95 dark:bg-[#191919]/95 backdrop-blur-xl border-t border-[#E9E9E7] dark:border-[#2E2E2E] min-h-[72px] pb-[env(safe-area-inset-bottom)] flex items-center px-2"
               )}>
                 {isAdmin ? (
-                  <nav className="flex-1 flex flex-row justify-between w-full h-full items-center">
+                  <nav className="flex-1 flex flex-row justify-between w-full h-[72px] items-stretch" aria-label="Primary mobile navigation">
                     {[
                       { id: 'home', icon: LayoutGrid, title: 'Home' },
                       { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
@@ -3838,13 +3838,16 @@ export default function App() {
                         <button
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id as any)}
+                          aria-current={isActive ? 'page' : undefined}
                           className={cn(
-                            "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
-                            isActive ? "text-brand" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                            "flex flex-col items-center justify-center gap-1 transition-all duration-200 relative flex-1 h-full rounded-[14px]",
+                            isActive ? "text-brand" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]",
+                            isActive && "bg-brand-bg"
                           )}
                           title={tab.title}
                         >
-                          <Icon className="w-6 h-6" />
+                          <Icon className="w-5 h-5" />
+                          <span className="text-[10px] font-bold leading-none tracking-tight">{tab.title}</span>
                           {isActive && (
                             <motion.div
                               layoutId="mobileActiveTabIndicator"
@@ -3858,15 +3861,17 @@ export default function App() {
                     })}
                   </nav>
                 ) : (
-                  <div className="flex-1 flex flex-row justify-between w-full h-full items-center px-4">
+                  <div className="flex-1 flex flex-row justify-between w-full h-[72px] items-center px-4">
                     <button
                       onClick={() => setActiveTab('schedule')}
+                      aria-current={activeTab === 'schedule' ? 'page' : undefined}
                       className={cn(
-                        "flex flex-col items-center justify-center transition-all duration-200 relative h-full px-4",
-                        activeTab === 'schedule' ? "text-brand" : "text-[#757681] dark:text-[#9B9A97]"
+                        "flex flex-col items-center justify-center gap-1 transition-all duration-200 relative h-full px-4 rounded-[14px]",
+                        activeTab === 'schedule' ? "text-brand bg-brand-bg" : "text-[#757681] dark:text-[#9B9A97]"
                       )}
                     >
-                      <CalendarIcon className="w-6 h-6" />
+                      <CalendarIcon className="w-5 h-5" />
+                      <span className="text-[10px] font-bold leading-none">Calendar</span>
                       {activeTab === 'schedule' && (
                         <motion.div
                           layoutId="mobileActiveTabIndicatorGuest"

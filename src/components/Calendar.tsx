@@ -111,6 +111,10 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
 
   // For timeline view, only show days with posts
   const daysWithPosts = days.filter(day => isSameMonth(day, monthStart) && posts.some(p => p.date === format(day, dateFormat)));
+  const selectedDateStr = format(selectedDate, dateFormat);
+  const selectedPosts = posts.filter(p => p.date === selectedDateStr);
+  const selectedTodos = todos.filter(t => t.dueDate === selectedDateStr);
+  const selectedItemCount = selectedPosts.length + selectedTodos.length;
 
   return (
     <motion.div 
@@ -177,10 +181,10 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           </div>
         </div>
       )}
-      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] print:border-none print:h-auto print:block">
+      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[12px] md:rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:border-none print:h-auto print:block">
         <div className="flex-1 flex flex-col min-w-0">
         {/* Header & View Switcher */}
-        <div className="flex items-center justify-between p-1 md:p-1.5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] shrink-0 print:border-none print:p-0 print:mb-4">
+        <div className="flex items-center justify-between gap-2 p-2 md:p-1.5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] shrink-0 print:border-none print:p-0 print:mb-4">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:bg-transparent print:border-none">
             <button 
@@ -191,7 +195,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <h2 className="px-1.5 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] min-w-[100px] md:min-w-[140px] text-center print:text-2xl print:text-black print:p-0 print:text-left uppercase tracking-tight">
+            <h2 className="px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] min-w-[108px] md:min-w-[140px] text-center print:text-2xl print:text-black print:p-0 print:text-left uppercase tracking-tight">
               {format(currentDate, 'MMM yyyy')}
             </h2>
             <button 
@@ -242,18 +246,20 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           <button 
             onClick={() => setViewMode('grid')} 
             aria-label="Grid View"
-            className={cn("p-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center", viewMode === 'grid' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
+            className={cn("px-2 md:px-1.5 py-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center gap-1.5", viewMode === 'grid' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
             title="Grid View"
           >
             <Grid className="w-4 h-4" />
+            <span className="hidden min-[390px]:inline md:hidden text-[11px] font-bold">Month</span>
           </button>
           <button 
             onClick={() => setViewMode('timeline')} 
             aria-label="Timeline View"
-            className={cn("p-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center", viewMode === 'timeline' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
+            className={cn("px-2 md:px-1.5 py-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center gap-1.5", viewMode === 'timeline' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
             title="Timeline View"
           >
             <ListIcon className="w-4 h-4" />
+            <span className="hidden min-[390px]:inline md:hidden text-[11px] font-bold">List</span>
           </button>
           </div>
         </div>
@@ -368,25 +374,30 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
 
       {/* Selected Date Posts (Mobile Grid View Only) */}
       {viewMode === 'grid' && (
-        <div className="md:hidden border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#121212] p-4 pb-32 print:hidden">
-          <div className="flex items-center justify-between mb-6 px-2">
+        <div className="md:hidden border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#121212] p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] print:hidden">
+          <div className="flex items-center justify-between gap-3 mb-5">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Selected Date</span>
-              <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-xl">
+              <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-lg leading-tight">
                 {format(selectedDate, 'EEEE, MMM d')}
               </h3>
+              <span className="mt-1 text-xs font-medium text-[#757681] dark:text-[#9B9A97]">
+                {selectedItemCount === 0 ? 'No items yet' : `${selectedItemCount} scheduled item${selectedItemCount === 1 ? '' : 's'}`}
+              </span>
             </div>
             {isAdmin && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 shrink-0">
                 <button 
                   onClick={() => onGenerateWithAi?.(format(selectedDate, dateFormat))}
-                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-brand rounded-[16px]  border border-brand-border flex items-center justify-center active:scale-90 transition-transform"
+                  aria-label="Generate post with AI for selected date"
+                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-brand rounded-[14px] border border-brand-border flex items-center justify-center active:scale-90 transition-transform"
                 >
                   <Wand2 className="w-6 h-6" />
                 </button>
                 <button 
                   onClick={() => onAddPost(format(selectedDate, dateFormat))}
-                  className="w-12 h-12 bg-blue-500 text-white rounded-[16px]   flex items-center justify-center active:scale-90 transition-transform"
+                  aria-label="Add post for selected date"
+                  className="w-12 h-12 bg-brand text-white rounded-[14px] flex items-center justify-center active:scale-90 transition-transform"
                 >
                   <Plus className="w-6 h-6" />
                 </button>
@@ -395,11 +406,11 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           </div>
           
           <div className="flex flex-col gap-4">
-            {posts.filter(p => p.date === format(selectedDate, dateFormat)).length === 0 && todos.filter(t => t.dueDate === format(selectedDate, dateFormat)).length === 0 ? (
+            {selectedPosts.length === 0 && selectedTodos.length === 0 ? (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="py-12 text-center bg-white dark:bg-[#1E1E1E] rounded-[24px] border border-[#E9E9E7] dark:border-[#2E2E2E] "
+                className="py-10 px-5 text-center bg-white dark:bg-[#1E1E1E] rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E]"
               >
                 <div className="w-12 h-12 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-full flex items-center justify-center mx-auto mb-3">
                   <CalendarIcon className="w-6 h-6 text-[#9B9A97]" />
@@ -411,7 +422,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               </motion.div>
             ) : (
               <div className="space-y-4">
-                {posts.filter(p => p.date === format(selectedDate, dateFormat)).map((post, idx) => (
+                {selectedPosts.map((post, idx) => (
                   <motion.div
                     key={post.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -428,7 +439,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                     />
                   </motion.div>
                 ))}
-                {todos.filter(t => t.dueDate === format(selectedDate, dateFormat)).map((todo, idx) => (
+                {selectedTodos.map((todo, idx) => (
                   <motion.div
                     key={todo.id}
                     initial={{ opacity: 0, x: -10 }}
