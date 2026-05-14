@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { ForgeLoader } from './ForgeLoader';
-import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings, Cpu, Terminal } from 'lucide-react';
+import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings, Cpu, Terminal, Banana } from 'lucide-react';
 import { ImageResizerTab } from './ImageResizerTab';
 import { LinkShortener } from './LinkShortener';
+import { NanoBananaUpscaler } from './NanoBananaUpscaler';
 import { getAi } from '../lib/gemini';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
@@ -638,10 +639,45 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
       description: 'Create trackable, branded short links for your marketing campaigns.',
       icon: <Link2 className="w-6 h-6 text-indigo-500" />,
       color: 'bg-indigo-500/10'
+    },
+    {
+      id: 'nano-upscaler',
+      title: 'Nano Banana Upscaler',
+      description: 'Advanced AI image upscaling using the Nano Banana model architecture.',
+      icon: <Banana className="w-6 h-6 text-yellow-500" />,
+      color: 'bg-yellow-500/10'
     }
   ];
 
   const renderWidgetUI = (widgetId: string) => {
+    if (widgetId === 'nano-upscaler') {
+      return (
+        <div key={widgetId} className="flex flex-col gap-6">
+          <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">
+            <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-yellow-500/10 rounded-[8px] flex items-center justify-center">
+                  <Banana className="w-4 h-4 text-yellow-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">Nano Banana Upscaler</h3>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">AI Image Enhancement</p>
+                </div>
+              </div>
+              {activeWidget === null && (
+                <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
+                </button>
+              )}
+            </div>
+            <div className="p-6">
+              <NanoBananaUpscaler />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (widgetId === 'copywriting') {
       return (
         <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">

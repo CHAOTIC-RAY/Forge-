@@ -113,7 +113,7 @@ import { useAppStore } from './store';
 
 const initialAiSettings = getAiSettings();
 const initialAnalyticsSettings = getAnalyticsSettings();
-import { signInWithPopup, signOut } from 'firebase/auth';
+import { signInWithPopup, getRedirectResult, signOut } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import {
   collection,
@@ -244,6 +244,31 @@ export default function App() {
   const [authTimeout, setAuthTimeout] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
+  useEffect(() => {
+    // Explicitly log auth state changes for debugging
+    console.log("[Auth] Current state:", { user: !!user, loading, authError });
+    
+    // Check for redirect results on mount to clear any pending redirect states
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        console.log("[Auth] Redirect result found user:", result.user.email);
+      }
+    }).catch(err => {
+      console.error("[Auth] Redirect result error:", err);
+    });
+
+    const unsubscribe = auth.onAuthStateChanged((u) => {
+      if (u) {
+        console.log("[Auth] onAuthStateChanged: Logged in as", u.email);
+        setShowLogin(false);
+      } else {
+        console.log("[Auth] onAuthStateChanged: Not logged in");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, loading, authError]);
+
   const isCtrlPressed = useRef(false);
 
   useEffect(() => {
@@ -275,7 +300,7 @@ export default function App() {
     if (loading) {
       const timer = setTimeout(() => {
         setAuthTimeout(true);
-      }, 10000);
+      }, 30000); // Increase timeout to 30s
       return () => clearTimeout(timer);
     } else {
       setAuthTimeout(false);

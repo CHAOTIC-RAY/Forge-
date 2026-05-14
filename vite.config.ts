@@ -15,7 +15,7 @@ export default defineConfig(({mode}) => {
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
-        navigateFallbackDenylist: [/^\/api/, /firestore\.googleapis\.com/]
+        navigateFallbackDenylist: [/^\/api/, /firestore\.googleapis\.com/, /\/__\/auth\//]
       },
       manifest: {
         name: 'Forge App',
@@ -56,10 +56,6 @@ export default defineConfig(({mode}) => {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: false,
-      headers: {
-        'Cross-Origin-Opener-Policy': 'same-origin',
-        'Cross-Origin-Embedder-Policy': 'require-corp',
-      },
     },
   };
 });

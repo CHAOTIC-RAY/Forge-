@@ -16,11 +16,14 @@ export function Login() {
     setIsSigningIn(true);
     setError(null);
     try {
-      await signInWithPopup(auth, googleProvider);
+      console.log("[Login] Starting signInWithPopup...");
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log("[Login] Success! User:", result.user.email);
+      // We don't need to do anything here as App.tsx will see the state change
     } catch (err: any) {
-      console.error("Login error:", err);
+      console.error("[Login] error:", err);
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/popup-blocked') {
-        setError("Sign-in popup was blocked or closed. Please look for the 'Open in new tab' button in the AI Studio header to sign in properly.");
+        setError("Sign-in popup was blocked or closed. If you are in AI Studio, please click the 'Open in new tab' button in the top right header to sign in properly.");
       } else if (err.code === 'auth/network-request-failed') {
         setError("Network error. Please check your connection and try again.");
       } else if (err.message?.includes('INTERNAL ASSERTION FAILED')) {

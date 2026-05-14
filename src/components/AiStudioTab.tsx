@@ -4,8 +4,10 @@ import { ForgeLoader } from './ForgeLoader';
 import { 
   Terminal, Sparkles, Send, Play, Code, Layout, Save, 
   Trash2, Copy, Check, ChevronRight, MessageSquare,
-  Wand2, Maximize2, Minimize2, Globe, Cpu, ArrowLeft
+  Wand2, Maximize2, Minimize2, Globe, Cpu, ArrowLeft,
+  Banana
 } from 'lucide-react';
+import { NanoBananaUpscaler } from './NanoBananaUpscaler';
 import { generateAppletCode, ChatMessage } from '../lib/gemini';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,6 +31,7 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
   const [displayedCode, setDisplayedCode] = useState<string>('');
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [fullScreen, setFullScreen] = useState(false);
+  const [showUpscaler, setShowUpscaler] = useState(false);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -295,6 +298,55 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
           >
             <Trash2 className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* AI Utilities Section */}
+        <div className="p-4 bg-yellow-500/5 border-b border-[#E9E9E7] dark:border-[#222222]">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[10px] font-black text-yellow-600 dark:text-yellow-500 uppercase tracking-widest flex items-center gap-1.5">
+              <Banana className="w-3 h-3" />
+              AI Utilities
+            </h3>
+            <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded text-[8px] font-bold">NANO B1</span>
+          </div>
+          <button 
+            onClick={() => setShowUpscaler(!showUpscaler)}
+            className={cn(
+              "w-full p-3 rounded-xl border transition-all flex items-center justify-between group",
+              showUpscaler 
+                ? "bg-yellow-500 border-yellow-400 text-black shadow-lg shadow-yellow-500/20" 
+                : "bg-white dark:bg-[#1A1A1A] border-[#E9E9E7] dark:border-[#222222] text-[#37352F] dark:text-[#EBE9ED] hover:border-yellow-500/50"
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-2 rounded-lg transition-colors",
+                showUpscaler ? "bg-black/10" : "bg-yellow-500/10 text-yellow-500"
+              )}>
+                <Maximize2 className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold leading-none">Banana Upscaler</p>
+                <p className={cn("text-[10px] mt-0.5 font-medium", showUpscaler ? "text-black/60" : "text-[#757681]")}>
+                  AI Image Enhancement
+                </p>
+              </div>
+            </div>
+            <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", showUpscaler && "rotate-90")} />
+          </button>
+
+          <AnimatePresence>
+            {showUpscaler && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
+                exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                className="overflow-hidden"
+              >
+                <NanoBananaUpscaler />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Chat History */}
