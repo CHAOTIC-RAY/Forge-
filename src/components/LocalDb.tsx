@@ -5,8 +5,7 @@ import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircl
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
-import { HighStockProduct, getCategoryProductCounts, CategoryCount, findProductsByCategory, scrapeScreenshot, getAi, extractProductsFromMarkdown, extractInfoFromMarkdown, getAiSettings } from '../lib/gemini';
-import { Type } from "@google/genai";
+import { HighStockProduct, getCategoryProductCounts, CategoryCount, findProductsByCategory, scrapeScreenshot, extractProductsFromMarkdown, extractInfoFromMarkdown, getAiSettings, generateGenericText, generateAppJson } from '../lib/gemini';
 import { DraggableProduct } from './DraggableProduct';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, setDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -852,7 +851,6 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         .map(p => `- ${p.title}: ${p.stockInfo}`)
         .join('\n');
 
-      const ai = getAi();
       const prompt = `Based on the following extracted insights from a business website, generate a cohesive, professional "Brand Identity Overview". 
       Focus on what the site is about, their core mission, important information for customers, and key details that define their value proposition.
       
@@ -861,12 +859,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       
       Write a clear, structured summary (max 3-4 paragraphs) that would serve as the ultimate reference for this brand.`;
 
-      const result = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt
-      });
-      
-      const overview = result.text;
+      const overview = await generateGenericText(prompt);
       if (overview) {
         setBrandOverview(overview);
         // Save to Firestore
@@ -911,45 +904,23 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       } catch (e) {
         // If direct parse fails, try to extract JSON from messy text using AI
         addLog(`⚠️ Direct JSON parse failed. Attempting AI extraction from messy text...`);
-        const ai = getAi();
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: dbMode === 'product' ? `Extract a JSON array of products from the following messy console output or text. 
+        const extracted = await generateAppJson(
+          dbMode === 'product'
+            ? `Extract a JSON array of products from the following messy console output or text.
           Each product should have 'name', 'price', 'link', and 'image' fields if available.
-          
+
           Text:
-          ${consolePaste}
-          
-          Return ONLY the JSON array.` : `Extract a JSON array of information items from the following messy console output or text. 
+          ${consolePaste}`
+            : `Extract a JSON array of information items from the following messy console output or text.
           Each item should have 'title', 'content', and 'link' fields if available.
-          
+
           Text:
-          ${consolePaste}
-          
-          Return ONLY the JSON array.`,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: dbMode === 'product' ? {
-                  name: { type: Type.STRING },
-                  price: { type: Type.STRING },
-                  link: { type: Type.STRING },
-                  image: { type: Type.STRING }
-                } : {
-                  title: { type: Type.STRING },
-                  content: { type: Type.STRING },
-                  link: { type: Type.STRING }
-                }
-              }
-            }
-          }
-        });
-        
-        if (response.text) {
-          data = JSON.parse(response.text);
+          ${consolePaste}`,
+          { expectArray: true }
+        );
+
+        if (extracted && Array.isArray(extracted) && extracted.length > 0) {
+          data = extracted;
         } else {
           throw new Error(dbMode === 'product' ? "AI could not extract any product data from the text." : "AI could not extract any information from the text.");
         }
@@ -963,31 +934,21 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
       // Auto-categorize
       addLog(`🧠 AI: Categorizing ${dataArray.length} ${dbMode === 'product' ? 'products' : 'items'}...`);
-      const ai = getAi();
-      const categorizationResponse = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: dbMode === 'product' 
+      const categoriesMap = (await generateAppJson(
+        dbMode === 'product'
           ? `Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
-          
+
           Products:
           ${dataArray.map((p: any) => p.name || p.title).join(', ')}
-          
+
           Return a JSON object where keys are product names and values are the categories.`
           : `Categorize the following information pieces into one of these categories: Technical, Strategy, Research, Case Study, News, Tutorial.
-          
+
           Items:
           ${dataArray.map((p: any) => p.name || p.title).join(', ')}
-          
-          Return a JSON object where keys are item names and values are the categories.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            additionalProperties: { type: Type.STRING }
-          }
-        }
-      });
-      const categoriesMap = JSON.parse(categorizationResponse.text || "{}");
+
+          Return a JSON object where keys are item names and values are the categories.`
+      )) || {};
 
       const newProducts: HighStockProduct[] = dataArray.map((item: any) => {
         const name = item.name || item.title || 'Unknown Product';
@@ -1034,7 +995,6 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     addLog(`🧠 AI: Auto-categorizing ${uncategorized.length} products using Brand Kit categories...`);
     
     try {
-      const ai = getAi();
       // Process in batches of 20 to avoid prompt limits
       const batchSize = 20;
       const updatedProducts = [...products];
@@ -1044,31 +1004,21 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
       for (let i = 0; i < uncategorized.length; i += batchSize) {
         const batch = uncategorized.slice(i, i + batchSize);
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: dbMode === 'product'
-          ? `Categorize the following products into one of these categories: ${categoryList}.
-          
+        const categoriesMap = (await generateAppJson(
+          dbMode === 'product'
+            ? `Categorize the following products into one of these categories: ${categoryList}.
+
           Products:
           ${batch.map(p => p.title).join(', ')}
-          
-          Return a JSON object where keys are product names and values are the categories.`
-          : `Categorize the following information pieces into one of these categories: ${categoryList}.
-          
-          Items:
-          ${batch.map(p => p.title).join(', ')}
-          
-          Return a JSON object where keys are item names and values are the categories.`,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              additionalProperties: { type: Type.STRING }
-            }
-          }
-        });
 
-        const categoriesMap = JSON.parse(response.text || "{}");
+          Return a JSON object where keys are product names and values are the categories.`
+            : `Categorize the following information pieces into one of these categories: ${categoryList}.
+
+          Items:
+          ${batch.map(p => p.title).join(', ')}.
+
+          Return a JSON object where keys are item names and values are the categories.`
+        )) || {};
         
         batch.forEach(p => {
           const index = updatedProducts.findIndex(up => up.title === p.title);

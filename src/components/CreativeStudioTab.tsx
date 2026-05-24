@@ -5,7 +5,6 @@ import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, W
 import { ImageResizerTab } from './ImageResizerTab';
 import { LinkShortener } from './LinkShortener';
 import { NanoBananaUpscaler } from './NanoBananaUpscaler';
-import { getAi } from '../lib/gemini';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 

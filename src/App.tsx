@@ -42,7 +42,7 @@ import { Post, initialPosts, Business } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
-import { getAi, isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
+import { isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
 import { builtInAi } from './lib/builtinAi';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
@@ -105,7 +105,11 @@ import {
   setAiSettings,
   getExcelMappingWithAi,
   generateBulkPosts,
-  fetchServerConfig
+  fetchServerConfig,
+  generateAppJson,
+  generateGenericText,
+  ensureLocalTextEngineReady,
+  getEffectiveTextProvider,
 } from './lib/gemini';
 import { db, auth, storage, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
 import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
@@ -666,18 +670,22 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // Auto-initialize Built-in AI if selected
+  // Preload WebLLM when Built-in / WebGPU local mode is active (or Auto with builtin enabled)
   useEffect(() => {
-    const status = builtInAi.getStatus();
-    if (aiSettings.preferredProvider === 'builtin' && 
-        aiSettings.builtinModelId && 
-        !status.isLoaded && 
-        !status.isLoading && 
-        !status.error) {
-      console.log("[App] Auto-initializing Built-in AI...");
-      builtInAi.init(aiSettings.builtinModelId);
-    }
-  }, [aiSettings.preferredProvider, aiSettings.builtinModelId]);
+    const effective = getEffectiveTextProvider(aiSettings);
+    const autoAllowsBuiltin =
+      effective === 'auto' &&
+      (aiSettings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini']).includes('builtin');
+    if (effective !== 'builtin' && !autoAllowsBuiltin) return;
+    ensureLocalTextEngineReady().catch((err) => {
+      console.warn('[App] Local model preload failed:', err);
+    });
+  }, [
+    aiSettings.preferredProvider,
+    aiSettings.builtinModelId,
+    aiSettings.geminiModel,
+    aiSettings.allowedAutoProviders,
+  ]);
 
   // Migration logic for 2003ray.dark@gmail.com
   // Migration completed. Legacy code removed.
@@ -982,34 +990,17 @@ export default function App() {
         return;
       }
 
-      if (!isGeminiKeyAvailable()) {
-        await fetchServerConfig();
-      }
-
-      const ai = getAi();
       const updatedProducts = [...products];
       const batchSize = 15;
 
       for (let i = 0; i < uncategorized.length; i += batchSize) {
         const batch = uncategorized.slice(i, i + batchSize);
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: `Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
+        const categoriesMap = await generateAppJson(`Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
           
           Products:
           ${batch.map(p => p.title).join(', ')}
           
-          Return a JSON object where keys are product names and values are the categories.`,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              additionalProperties: { type: Type.STRING }
-            }
-          }
-        });
-
-        const categoriesMap = JSON.parse(response.text || "{}");
+          Return a JSON object where keys are product names and values are the categories.`);
 
         batch.forEach(p => {
           const index = updatedProducts.findIndex(up => up.title === p.title);
@@ -2085,24 +2076,15 @@ export default function App() {
       const promptText = `Generate ${count} different social media posts based on this campaign prompt: "${prompt}". Make sure they are varied (promotional, educational, engaging). 
       Return them as JSON array of objects with keys: title, brief, type (e.g. 🔴 Promotional, 🟢 Educational).`;
       
-      const ai = getAi();
-      const res = await ai.models.generateContent({
-        model: aiSettings.model || "gemini-2.5-pro",
-        contents: promptText,
-        config: {
-          responseMimeType: "application/json",
-          systemInstruction: `You are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`
-        }
-      });
-      
-      const text = res.text;
-      let generatedPosts: any[] = [];
-      try {
-        generatedPosts = text ? JSON.parse(text) : [];
-      } catch (e) {
-        console.error("Failed to parse JSON", e);
-        generatedPosts = [];
-      }
+      const generatedPostsRaw = await generateAppJson(
+        `${promptText}\n\nYou are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`,
+        { expectArray: true }
+      );
+      const generatedPosts: any[] = Array.isArray(generatedPostsRaw)
+        ? generatedPostsRaw
+        : generatedPostsRaw?.posts && Array.isArray(generatedPostsRaw.posts)
+          ? generatedPostsRaw.posts
+          : [];
       
       if (generatedPosts.length > 0) {
         let currentDate = new Date(); // start today

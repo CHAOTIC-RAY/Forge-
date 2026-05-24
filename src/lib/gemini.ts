@@ -285,7 +285,7 @@ export const getAiSettings = () => {
       if (!parsed.imageProvider) parsed.imageProvider = 'gemini';
       if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
       if (!parsed.builtinModelId) parsed.builtinModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
-      if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'puter', 'groq', 'gemini'];
+      if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
       if (!parsed.brandVoice) parsed.brandVoice = '';
       if (!parsed.businessRules) parsed.businessRules = '';
       if (!parsed.brandKnowledge) parsed.brandKnowledge = '';
@@ -306,7 +306,7 @@ export const getAiSettings = () => {
     builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
     customModelUrl: '',
     customModelConfig: null,
-    allowedAutoProviders: ['builtin', 'puter', 'groq', 'gemini'],
+    allowedAutoProviders: ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'],
     targetUrl: '',
     geminiApiKey: '',
     groqApiKey: '',
@@ -489,8 +489,35 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
 
 import { builtInAi } from './builtinAi';
 
-export async function generateTextWithCascade(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
+export type ForgeTextProvider = 'auto' | 'builtin' | 'local_proxy' | 'gemini' | 'groq' | 'puter' | 'firebase';
+
+/** Resolves UI aliases (e.g. chat selecting WebLLM) to the provider that should run. */
+export function getEffectiveTextProvider(settings = getAiSettings()): ForgeTextProvider {
+  if (settings.geminiModel === 'webllm-local') return 'builtin';
+  return (settings.preferredProvider || 'auto') as ForgeTextProvider;
+}
+
+export function isLocalTextProvider(settings = getAiSettings()): boolean {
+  const provider = getEffectiveTextProvider(settings);
+  return provider === 'builtin' || provider === 'local_proxy';
+}
+
+/** Preload WebLLM when Built-in / WebGPU local mode is selected. */
+export async function ensureLocalTextEngineReady(): Promise<void> {
   const settings = getAiSettings();
+  if (getEffectiveTextProvider(settings) !== 'builtin') return;
+  const status = builtInAi.getStatus();
+  if (!status.isLoaded && !status.isLoading) {
+    await builtInAi.init(settings.builtinModelId || 'Phi-3-mini-4k-instruct-q4f16_1-MLC');
+  }
+}
+
+/**
+ * App-wide text generation: Built-in WebLLM, Ollama/LM Studio, Groq, Puter, Gemini, and Auto cascade.
+ */
+export async function generateAppText(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
+  const settings = getAiSettings();
+  const effectiveProvider = getEffectiveTextProvider(settings);
 
   let designContext = '';
   if (businessId) {
@@ -504,14 +531,15 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
   const fullPrompt = expectJson ? `${contextualPrompt}\n\nYou MUST return ONLY a valid JSON object or array.` : contextualPrompt;
 
   // Try Built-in AI if selected or if auto mode is on and we want maximum free access
-  if (settings.preferredProvider === 'builtin' || (settings.preferredProvider === 'auto' && !isGeminiKeyAvailable())) {
+  if (effectiveProvider === 'builtin' || (effectiveProvider === 'auto' && !isGeminiKeyAvailable())) {
     try {
+      await ensureLocalTextEngineReady();
       const resp = await builtInAi.generate(fullPrompt);
       if (resp) return resp;
     } catch (e) {
       console.error('Built-in AI failed:', e);
       notifyFallback('Local AI fallback', 'Built-in model failed, trying cloud providers.');
-      if (settings.preferredProvider === 'builtin') throw e;
+      if (effectiveProvider === 'builtin') throw e;
       console.warn('Built-in AI failed, cascading...');
     }
   }
@@ -519,27 +547,27 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
   // Decision logic for providers
   const isPuterSignedIn = typeof window !== 'undefined' && (window as any).puter && await (window as any).puter.auth.isSignedIn();
 
-  if (settings.preferredProvider === 'puter') {
+  if (effectiveProvider === 'puter') {
     try {
       const resp = await fetchFromPuter(fullPrompt);
       if (resp) return resp;
     } catch (e) {
       console.error('Puter failed:', e);
       notifyFallback('Provider fallback', 'Puter unavailable, trying next provider.');
-      if (settings.preferredProvider === 'puter') throw e;
+      if (effectiveProvider === 'puter') throw e;
       console.warn('Puter failed, cascading...');
     }
-  } else if (settings.preferredProvider === 'groq') {
+  } else if (effectiveProvider === 'groq') {
     try {
       const resp = await fetchFromGroq(fullPrompt);
       if (resp) return resp;
     } catch (e) {
       console.error('Groq failed:', e);
       notifyFallback('Provider fallback', 'Groq unavailable, trying next provider.');
-      if (settings.preferredProvider === 'groq') throw e;
+      if (effectiveProvider === 'groq') throw e;
       console.warn('Groq failed, cascading...');
     }
-  } else if (settings.preferredProvider === 'local_proxy') {
+  } else if (effectiveProvider === 'local_proxy') {
     try {
       const resp = await fetchFromLocalServer(fullPrompt);
       if (resp) return resp;
@@ -548,24 +576,32 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       notifyFallback('Provider fallback', 'Local Server unavailable. Ensure Ollama/LM Studio is running.');
       throw e;
     }
-  } else if (settings.preferredProvider === 'auto') {
+  } else if (effectiveProvider === 'auto') {
     const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
-    
-    // 1. Try Groq first in auto mode if allowed
-    if (allowed.includes('groq')) {
-      try {
-        return await fetchFromGroq(fullPrompt);
-      } catch (e) {
-        console.warn('Auto mode: Groq failed, trying next...');
-      }
-    }
 
-    // 2. Try Local Proxy (Ollama) if allowed
     if (allowed.includes('local_proxy')) {
       try {
         return await fetchFromLocalServer(fullPrompt);
       } catch (e) {
         console.warn('Auto mode: Local Proxy (Ollama) failed, trying next...');
+      }
+    }
+
+    if (allowed.includes('builtin')) {
+      try {
+        await ensureLocalTextEngineReady();
+        const localResp = await builtInAi.generate(fullPrompt);
+        if (localResp) return localResp;
+      } catch (e) {
+        console.warn('Auto mode: Built-in WebLLM failed, trying next...');
+      }
+    }
+
+    if (allowed.includes('groq')) {
+      try {
+        return await fetchFromGroq(fullPrompt);
+      } catch (e) {
+        console.warn('Auto mode: Groq failed, trying next...');
       }
     }
   }
@@ -597,7 +633,6 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
     console.warn("Gemini failed, cascading...");
     notifyFallback('Provider fallback', 'Gemini failed, trying alternates.');
     
-    // Fallback 1: Puter (if auto/preferred)
     if (settings.preferredProvider === 'auto' && isPuterSignedIn) {
       try {
         console.log("Cascading to last resort Puter...");
@@ -605,20 +640,46 @@ export async function generateTextWithCascade(prompt: string, expectJson: boolea
       } catch (e) { }
     }
 
-    // Fallback 2: Local AI (absolute last resort in auto mode)
-    if (settings.preferredProvider === 'auto') {
-      try {
-        console.warn("Cloud AI exhausted. Falling back to WebLLM Local AI Engine...");
-        notifyFallback('Auto routing', 'Cloud quota exhausted, switching to Local AI (WebGPU).');
-        const localResp = await builtInAi.generate(fullPrompt);
-        if (localResp) return localResp;
-      } catch (e) {
-        console.error("Local AI also failed:", e);
+    if (effectiveProvider === 'auto') {
+      const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
+      if (allowed.includes('builtin')) {
+        try {
+          console.warn("Cloud AI exhausted. Falling back to WebLLM Local AI Engine...");
+          notifyFallback('Auto routing', 'Cloud quota exhausted, switching to Local AI (WebGPU).');
+          await ensureLocalTextEngineReady();
+          const localResp = await builtInAi.generate(fullPrompt);
+          if (localResp) return localResp;
+        } catch (e) {
+          console.error("Local AI also failed:", e);
+        }
+      }
+      if (allowed.includes('local_proxy')) {
+        try {
+          return await fetchFromLocalServer(fullPrompt);
+        } catch (e) {
+          console.error("Local proxy fallback failed:", e);
+        }
       }
     }
 
     throw new Error("All AI providers (Gemini, Groq, Puter, Local) failed or are unavailable.");
   }
+}
+
+/** JSON helper used across the app (posts, ideas, mappings, analytics). */
+export async function generateAppJson(
+  prompt: string,
+  options?: { businessId?: string; expectArray?: boolean }
+): Promise<any> {
+  const jsonHint = options?.expectArray
+    ? '\n\nYou MUST return ONLY a valid JSON array.'
+    : '\n\nYou MUST return ONLY a valid JSON object or array.';
+  const text = await generateAppText(prompt + jsonHint, true, options?.businessId);
+  return options?.expectArray ? safeParseJSONArray(text) : safeParseJSON(text);
+}
+
+export async function generateTextWithCascade(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
+  return generateAppText(prompt, expectJson, businessId);
 }
 
 async function fetchFromLocalServer(prompt: string, history: ChatMessage[] = [], images?: { base64: string, mimeType: string }[]) {
@@ -940,6 +1001,18 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     }
   }
 
+  if (settings.preferredProvider === 'auto') {
+    try {
+      const parsed = await generateAppJson(
+        `${prompt}\n\nReturn a JSON object with fields: title, brief, caption, hashtags.`,
+        { businessId: business?.id }
+      );
+      if (parsed?.title) return parsed;
+    } catch (e) {
+      console.warn('[GeneratePostContent] Auto provider cascade failed, trying Gemini.', e);
+    }
+  }
+
   if (!isGeminiKeyAvailable()) {
     await fetchServerConfig();
   }
@@ -1234,12 +1307,14 @@ export async function generateSmartPost(title: string, category: string, outlet:
   const dbContext = localDB.slice(0, 5).map(p => `- ${p.title}: ${p.type} (${mode === 'product' ? (p.price || 'N/A') : (p.stockInfo || 'N/A')})`).join('\n');
   const settings = getAiSettings();
   
-  if (settings.preferredProvider === 'builtin') {
+  if (getEffectiveTextProvider(settings) === 'builtin') {
     try {
       console.log("[GenerateSmartPost] Strict Local AI Mode active.");
-      const localPrompt = `Generate a JSON post for title: "${title}", category: "${category}". Business: ${business?.name || 'Manual'}. Mode: ${mode}.`;
-      const localText = await builtInAi.generate(localPrompt + " You MUST return ONLY a valid JSON object.");
-      return safeParseJSON(localText || '{}');
+      const parsed = await generateAppJson(
+        `Generate a social media post JSON for title: "${title}", category: "${category}". Business: ${business?.name || 'Manual'}. Mode: ${mode}.
+        Return fields: title, brief, caption, hashtags, type, outlet.`
+      );
+      if (parsed && parsed.title) return parsed;
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
@@ -1279,10 +1354,9 @@ export async function generateSmartPost(title: string, category: string, outlet:
 
   const prompt = withBusinessKnowledge(basePrompt);
 
-  if (settings.preferredProvider === 'local_proxy') {
+  if (getEffectiveTextProvider(settings) === 'local_proxy') {
     try {
-      const localResponse = await fetchFromLocalServer(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
-      const parsed = safeParseJSON(localResponse || '{}');
+      const parsed = await generateAppJson(prompt);
       if (parsed && parsed.title) return parsed;
     } catch (error) {
       console.warn("Local server failed for smart post, falling back:", error);
@@ -2581,180 +2655,50 @@ export async function generateGenericText(prompt: string, systemInstruction?: st
   const basePrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
   const fullPrompt = withBusinessKnowledge(basePrompt);
 
-  if (settings.preferredProvider === 'builtin') {
-    console.log("[GenerateGenericText] Strict Local AI mode active.");
-    return await builtInAi.generate(fullPrompt);
-  }
-
-  if (settings.preferredProvider === 'puter') {
-    try {
-      const puterResponse = await fetchFromPuter(fullPrompt);
-      return puterResponse || '';
-    } catch (error) {
-      console.error("Puter failed:", error);
-      notifyFallback('Provider fallback', 'Puter failed while generating text.');
-      if (settings.preferredProvider === 'puter') throw error;
+  if (image && (settings.preferredProvider === 'firebase' || settings.preferredProvider === 'gemini')) {
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
     }
-  }
-
-  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
     try {
-      const groqResponse = await fetchFromGroq(fullPrompt);
-      return groqResponse || '';
-    } catch (error) {
-      console.error("Groq failed:", error);
-      notifyFallback('Provider fallback', 'Groq failed while generating text.');
-      if (settings.preferredProvider === 'groq') throw error;
-    }
-  }
-
-  if (settings.preferredProvider === 'firebase') {
-    const model = getVertexModel(settings.geminiModel);
-
-    let content: any = fullPrompt;
-    if (image) {
+      const ai = getAi();
       const base64Data = image.split(',')[1];
       const mimeType = image.split(';')[0].split(':')[1];
-      content = [
-        fullPrompt,
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType
-          }
-        }
-      ];
+      const response = await ai.models.generateContent({
+        model: settings.geminiModel,
+        contents: [
+          fullPrompt,
+          { inlineData: { data: base64Data, mimeType } },
+        ],
+      });
+      const text = response.text || '';
+      if (text) return text;
+    } catch (error) {
+      console.warn('generateGenericText: vision request failed, falling back to text-only routing.', error);
     }
-
-    const result = await model.generateContent(content);
-    const response = await result.response;
-    return response.text() || '';
   }
 
-  if (!isGeminiKeyAvailable()) {
-    await fetchServerConfig();
+  if (image && isLocalTextProvider(settings)) {
+    console.warn('[GenerateGenericText] Image input skipped for local providers (use Gemini for vision).');
   }
 
-  try {
-    const ai = getAi();
-
-    let contents: any = fullPrompt;
-    if (image) {
-      const base64Data = image.split(',')[1];
-      const mimeType = image.split(';')[0].split(':')[1];
-      contents = [
-        fullPrompt,
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType
-          }
-        }
-      ];
-    }
-
-    const response = await ai.models.generateContent({
-      model: settings.geminiModel,
-      contents,
-    });
-  const text = response.text || '';
-  
-  if (!text && settings.preferredProvider === 'auto') {
-    console.warn("Gemini result empty, trying Local AI...");
-    return await builtInAi.generate(fullPrompt);
-  }
-
-  return text;
-} catch (error) {
-  console.warn("generateGenericText: Gemini failed, trying fallback...");
-  notifyFallback('Provider fallback', 'Gemini failed while generating text.');
-  if (settings.preferredProvider === 'auto') {
-    try {
-      return await builtInAi.generate(fullPrompt);
-    } catch (e) {}
-  }
-  return '';
-}
+  return generateAppText(fullPrompt, false);
 }
 
 export async function generateGenericJson(prompt: string, systemInstruction?: string): Promise<any> {
-  const settings = getAiSettings();
   const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
-
-  if (settings.preferredProvider === 'builtin') {
-    try {
-      console.log("[GenerateGenericJson] Strict Local AI Mode active.");
-      const localText = await builtInAi.generate(fullPrompt + " You MUST return ONLY a valid JSON object.");
-      return safeParseJSON(localText || '{}');
-    } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
-    }
-  }
-
-  if (settings.preferredProvider === 'puter') {
-    try {
-      const puterResponse = await fetchFromPuter(fullPrompt + " You MUST return ONLY a valid JSON object.");
-      return safeParseJSON(puterResponse || '{}');
-    } catch (error) {
-      console.error("Puter failed:", error);
-      if (settings.preferredProvider === 'puter') throw error;
-    }
-  }
-
-  if (settings.preferredProvider === 'groq' || (settings.preferredProvider === 'auto')) {
-    try {
-      const groqResponse = await fetchFromGroq(fullPrompt + " You MUST return ONLY a valid JSON object.");
-      return JSON.parse(groqResponse || '{}');
-    } catch (error) {
-      console.error("Groq failed:", error);
-      if (settings.preferredProvider === 'groq') throw error;
-    }
-  }
-
-  if (settings.preferredProvider === 'firebase') {
-    const model = getVertexModel(settings.geminiModel);
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    return JSON.parse(response.text() || '{}');
-  }
-
-  if (!isGeminiKeyAvailable()) {
-    await fetchServerConfig();
-  }
-
-  try {
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: settings.geminiModel,
-      contents: fullPrompt,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
-    return JSON.parse(response.text || '{}');
-  } catch (error) {
-    if (settings.preferredProvider === 'auto' || settings.preferredProvider === 'builtin') {
-      try {
-        const localText = await builtInAi.generate(fullPrompt + " You MUST return ONLY a valid JSON object.");
-        return safeParseJSON(localText || '{}');
-      } catch (e) {}
-    }
-    throw error;
-  }
+  return generateAppJson(withBusinessKnowledge(fullPrompt));
 }
 
 export async function generateAnalyticsReport(prompt: string): Promise<any> {
   const settings = getAiSettings();
 
-  if (settings.preferredProvider === 'builtin') {
+  if (isLocalTextProvider(settings) || settings.preferredProvider === 'auto') {
     try {
-      console.log("[GenerateAnalyticsReport] Strict Local AI Mode active.");
-      const localText = await builtInAi.generate("Analyze this data and return a JSON analytics report: " + prompt);
-      return safeParseJSON(localText || '{}');
+      const parsed = await generateAppJson(`Analyze this data and return a JSON analytics report.\n\n${prompt}`);
+      if (parsed && typeof parsed === 'object') return parsed;
     } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
+      console.warn('[GenerateAnalyticsReport] Local/auto JSON route failed, trying Gemini schema.', e);
+      if (isLocalTextProvider(settings) && settings.preferredProvider !== 'auto') throw e;
     }
   }
 
@@ -2931,64 +2875,14 @@ export async function generateCampaignFromUrl(url: string, systemInstruction?: s
 }
 
 export async function generateCaption(topic: string, business?: Business): Promise<string> {
-  const settings = getAiSettings();
   const businessName = business?.name || 'our business';
   const basePrompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". Include relevant emojis and a call to action. Do not include hashtags.`;
   const prompt = withBusinessKnowledge(basePrompt);
-
-  if (settings.preferredProvider === 'builtin') {
-    try {
-      console.log("[GenerateCaption] Strict Local AI Mode active.");
-      return await builtInAi.generate(prompt + " You MUST return ONLY the caption text.");
-    } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
-    }
-  }
-
-  if (settings.preferredProvider === 'puter') {
-    try {
-      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
-      return puterResponse || '';
-    } catch (error) {
-      console.warn("Puter failed, falling back to AI:", error);
-    }
-  }
-
-  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
-    try {
-      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
-        try {
-          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
-          if (puterResponse) return puterResponse;
-        } catch (pe) {
-          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
-        }
-      }
-      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY the caption text.");
-      return groqResponse || '';
-    } catch (error) {
-      console.warn("Groq failed, falling back to AI:", error);
-    }
-  }
-
-  if (settings.preferredProvider === 'firebase') {
-    const model = getVertexModel(settings.geminiModel);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text() || '';
-  }
-
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: settings.geminiModel,
-    contents: prompt,
-  });
-  return response.text || '';
+  const text = await generateAppText(`${prompt}\n\nReturn ONLY the caption text.`, false, business?.id);
+  return text.trim();
 }
 
 export async function generatePostWithFramework(topic: string, framework: 'AIDA' | 'PAS' | 'BAB', business?: Business, lengthValue?: number): Promise<string> {
-  const settings = getAiSettings();
   const frameworkPrompts = {
     AIDA: "Attention, Interest, Desire, Action",
     PAS: "Problem, Agitate, Solution",
@@ -3013,60 +2907,8 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
   Include relevant emojis and a clear call to action. Do not include hashtags.`;
 
   const prompt = withBusinessKnowledge(basePrompt);
-
-  if (settings.preferredProvider === 'builtin') {
-    try {
-      console.log("[GeneratePostWithFramework] Strict Local AI Mode active.");
-      return await builtInAi.generate(prompt + " You MUST return ONLY the caption text.");
-    } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
-    }
-  }
-
-  if (settings.preferredProvider === 'puter') {
-    try {
-      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
-      return puterResponse || '';
-    } catch (error) {
-      console.warn("Puter failed, falling back to AI:", error);
-    }
-  }
-
-  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
-    try {
-      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
-        try {
-          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
-          if (puterResponse) return puterResponse;
-        } catch (pe) {
-          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
-        }
-      }
-      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY the caption text.");
-      return groqResponse || '';
-    } catch (error) {
-      console.warn("Groq failed, falling back to AI:", error);
-    }
-  }
-
-  if (settings.preferredProvider === 'firebase') {
-    const model = getVertexModel(settings.geminiModel);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text() || '';
-  }
-
-  if (!isGeminiKeyAvailable()) {
-    await fetchServerConfig();
-  }
-
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: settings.geminiModel,
-    contents: prompt,
-  });
-  return response.text || '';
+  const text = await generateAppText(`${prompt}\n\nReturn ONLY the caption text.`, false, business?.id);
+  return text.trim();
 }
 
 export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<string, string>> {
@@ -3101,58 +2943,8 @@ export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<str
   `;
 
   try {
-    if (settings.preferredProvider === 'builtin') {
-      try {
-        console.log("[GetExcelMappingWithAi] Strict Local AI Mode active.");
-        const localText = await builtInAi.generate(prompt + " You MUST return ONLY a valid JSON object.");
-        const result = safeParseJSON(localText || '{}');
-        return result.mapping || result.posts || result.data || result;
-      } catch (e) {
-        console.error("Local AI failed:", e);
-        throw e;
-      }
-    }
-
-    let result: any;
-    if (settings.preferredProvider === 'puter') {
-      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
-      result = safeParseJSON(puterResponse || '{}');
-    } else if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
-      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
-        try {
-          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
-          if (puterResponse) {
-            result = safeParseJSON(puterResponse);
-          }
-        } catch (pe) {
-          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
-        }
-      }
-      if (!result) {
-        const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object.");
-        result = JSON.parse(groqResponse || '{}');
-      }
-    } else if (settings.preferredProvider === 'firebase') {
-      const model = getVertexModel(settings.geminiModel);
-      const res = await model.generateContent(prompt);
-      const response = await res.response;
-      result = JSON.parse(response.text() || '{}');
-    } else {
-      if (!isGeminiKeyAvailable()) {
-        await fetchServerConfig();
-      }
-      const ai = getAi();
-      const response = await ai.models.generateContent({
-        model: settings.geminiModel,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-        }
-      });
-      result = JSON.parse(response.text || '{}');
-    }
-
-    return result.mapping || result.posts || result.data || result;
+    const result = await generateAppJson(prompt);
+    return result?.mapping || result?.posts || result?.data || result || {};
   } catch (error) {
     console.error("AI Mapping failed:", error);
     return {};
@@ -3187,73 +2979,13 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
     - outlet: (e.g., 'Buildware', 'Living Mall', 'Office system')`;
 
   try {
-    if (settings.preferredProvider === 'builtin') {
-      try {
-        console.log("[GenerateBulkPosts] Strict Local AI Mode active.");
-        const localText = await builtInAi.generate(promptText + " You MUST return ONLY a valid JSON array of objects.");
-        return safeParseJSON(localText || '[]');
-      } catch (e) {
-        console.error("Local AI failed:", e);
-        throw e;
-      }
-    }
-
-    if (settings.preferredProvider === 'puter') {
-      const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array.");
-      const parsed = safeParseJSON(puterResponse || '{}');
-      return parsed.posts || parsed || [];
-    }
-
-    if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
-      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
-        try {
-          const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array.");
-          const parsed = safeParseJSON(puterResponse || '{}');
-          if (parsed.posts || Array.isArray(parsed)) return parsed.posts || parsed;
-        } catch (pe) {
-          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
-        }
-      }
-      const groqResponse = await fetchFromGroq(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array.");
-      const parsed = JSON.parse(groqResponse || '{}');
-      return parsed.posts || parsed || [];
-    }
-
-    if (settings.preferredProvider === 'firebase') {
-      const model = getVertexModel(settings.geminiModel);
-      const result = await model.generateContent(promptText);
-      const response = await result.response;
-      return JSON.parse(response.text() || '[]');
-    }
-
-    if (!isGeminiKeyAvailable()) {
-      await fetchServerConfig();
-    }
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: settings.geminiModel,
-      contents: promptText,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              brief: { type: Type.STRING },
-              caption: { type: Type.STRING },
-              hashtags: { type: Type.STRING },
-              type: { type: Type.STRING },
-              outlet: { type: Type.STRING }
-            },
-            required: ["title", "brief", "caption", "hashtags", "type", "outlet"]
-          }
-        }
-      }
-    });
-    return JSON.parse(response.text || '[]');
+    const parsed = await generateAppJson(
+      `${withBusinessKnowledge(promptText)}\n\nReturn a JSON array of ${count} post objects.`,
+      { businessId: business?.id, expectArray: true }
+    );
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed?.posts && Array.isArray(parsed.posts)) return parsed.posts;
+    return [];
   } catch (error) {
     console.error("Bulk generation failed:", error);
     return [];
@@ -3440,63 +3172,16 @@ Return ONLY the final prompt text. No quotes, no intro.`;
 }
 
 export async function generateHashtagSuggestions(content: string, business?: Business): Promise<string[]> {
-  const settings = getAiSettings();
   const industry = business?.industry || 'general';
   const prompt = `Generate 15 relevant and trending hashtags for a social media post with this content: "${content}". 
-  Focus on the "${industry}" industry context. 
-  Return ONLY a JSON array of strings.`;
-
-  if (settings.preferredProvider === 'builtin') {
-    try {
-      console.log("[GenerateHashtagSuggestions] Strict Local AI Mode active.");
-      const resp = await builtInAi.generate(prompt + " You MUST return ONLY a JSON array of strings.");
-      const parsed = safeParseJSON(resp || '[]');
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
-    }
-  }
+  Focus on the "${industry}" industry context.`;
 
   try {
-    if (settings.preferredProvider === 'puter') {
-      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a JSON array of strings.");
-      const parsed = safeParseJSON(puterResponse || '[]');
-      return Array.isArray(parsed) ? parsed : [];
-    }
-
-    if (settings.preferredProvider === 'firebase') {
-      const model = getVertexModel(settings.geminiModel);
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      let text = response.text() || '[]';
-      const start = text.indexOf('[');
-      const end = text.lastIndexOf(']');
-      if (start !== -1 && end !== -1) {
-        text = text.substring(start, end + 1);
-      }
-      return JSON.parse(text);
-    }
-
-    if (!isGeminiKeyAvailable()) {
-      await fetchServerConfig();
-    }
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: settings.geminiModel,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING }
-        }
-      }
-    });
-
-    const text = response.text || '[]';
-    return JSON.parse(text);
+    const parsed = await generateAppJson(
+      `${withBusinessKnowledge(prompt)}\n\nReturn ONLY a JSON array of hashtag strings.`,
+      { businessId: business?.id, expectArray: true }
+    );
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.error("Hashtag generation failed:", e);
     return [];
@@ -3504,42 +3189,14 @@ export async function generateHashtagSuggestions(content: string, business?: Bus
 }
 
 export async function generateGreeting(userName: string, timeOfDay: string): Promise<string> {
-  const settings = getAiSettings();
   const prompt = `Generate a highly creative, unique, and energetic greeting for a user named "${userName}". 
   The current time of day is "${timeOfDay}". 
   CRITICAL: DO NOT use standard phrases like "Good morning", "Good afternoon", "Good evening", or "Hello". 
   Be imaginative, inspiring, or slightly playful. Keep it under 12 words. Do not include quotes.`;
 
-  if (settings.preferredProvider === 'builtin') {
-    try {
-      console.log("[GenerateGreeting] Strict Local AI Mode active.");
-      const resp = await builtInAi.generate(prompt);
-      return resp.replace(/["']/g, '').trim() || `Ready to conquer the ${timeOfDay}, ${userName}?`;
-    } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
-    }
-  }
-
   try {
-    if (settings.preferredProvider === 'puter') {
-      const puterResponse = await fetchFromPuter(prompt);
-      if (puterResponse) return puterResponse.replace(/["']/g, '').trim();
-    }
-
-    if (!isGeminiKeyAvailable()) {
-      await fetchServerConfig();
-    }
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        temperature: 0.9,
-      }
-    });
-    return response.text?.replace(/["']/g, '').trim() || `Ready to conquer the ${timeOfDay}, ${userName}?`;
+    const text = await generateAppText(`${prompt}\n\nReturn ONLY the greeting text.`);
+    return text.replace(/["']/g, '').trim() || `Ready to conquer the ${timeOfDay}, ${userName}?`;
   } catch (error) {
     console.error("Failed to generate greeting:", error);
     return `Ready to conquer the ${timeOfDay}, ${userName}?`;
@@ -3547,8 +3204,6 @@ export async function generateGreeting(userName: string, timeOfDay: string): Pro
 }
 
 export async function generateDailyGreetings(userName: string): Promise<{ morning: string, evening: string, night: string, midnight: string }> {
-  const settings = getAiSettings();
-  
   const prompt = `Generate 4 unique, creative, and energetic greetings for a user named "${userName}".
   One for each time of day: morning, evening, night, and midnight.
   
@@ -3557,42 +3212,9 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
   
   Return ONLY a valid JSON object with keys: morning, evening, night, midnight.`;
 
-  if (settings.preferredProvider === 'builtin') {
-    try {
-      console.log("[GenerateDailyGreetings] Strict Local AI Mode active.");
-      const text = await builtInAi.generate(prompt + " You MUST return ONLY a valid JSON object.");
-      const parsed = safeParseJSON(text);
-      if (parsed && parsed.morning) return parsed;
-      throw new Error("Invalid local greeting format");
-    } catch (e) {
-      console.warn("[GenerateDailyGreetings] Local AI failed, falling back to Gemini:", e);
-      // Continue to Gemini fallback
-    }
-  }
-
   try {
-    let text = '';
-    if (settings.preferredProvider === 'puter') {
-      text = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
-    } else {
-      if (!isGeminiKeyAvailable()) {
-        await fetchServerConfig();
-      }
-      const ai = getAi();
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.9,
-        }
-      });
-      text = response.text || '{}';
-    }
-
-    const parsed = safeParseJSON(text);
+    const parsed = await generateAppJson(prompt);
     if (parsed && parsed.morning) return parsed;
-
     throw new Error("Invalid greeting format");
   } catch (error) {
     console.error("Failed to generate daily greetings:", error);
@@ -3690,12 +3312,13 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     const lastUserMessage = messages[messages.length - 1]?.content || "";
     const isSmallTask = lastUserMessage.length < 200 && !lastUserMessage.toLowerCase().includes('search') && !lastUserMessage.toLowerCase().includes('research') && !lastUserMessage.toLowerCase().includes('read') && !lastUserMessage.toLowerCase().includes('analyze');
     
-    const allowed = settings.allowedAutoProviders || ['builtin', 'puter', 'groq', 'gemini'];
-    const isAuto = settings.preferredProvider === 'auto';
-    const forceBuiltin = settings.preferredProvider === 'builtin';
-    const forcePuter = settings.preferredProvider === 'puter';
-    const forceGroq = settings.preferredProvider === 'groq';
-    const forceLocalProxy = settings.preferredProvider === 'local_proxy';
+    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
+    const effectiveProvider = getEffectiveTextProvider(settings);
+    const isAuto = effectiveProvider === 'auto';
+    const forceBuiltin = effectiveProvider === 'builtin';
+    const forcePuter = effectiveProvider === 'puter';
+    const forceGroq = effectiveProvider === 'groq';
+    const forceLocalProxy = effectiveProvider === 'local_proxy';
 
     let finalSystemInstruction = systemInstruction;
 
@@ -3887,6 +3510,27 @@ Rules:
         console.error("Forced Groq chat failed:", e);
       }
     }
+
+    if (fallbackToGemini && isAuto && allowed.includes('local_proxy')) {
+      try {
+        console.log("[AI] Auto mode: trying Local Proxy (Ollama/LM Studio)...");
+        const localHistory = [...messages];
+        if (localHistory.length > 0 && localHistory[0].role === 'user') {
+          localHistory[0].content = `System Instruction:\n${finalSystemInstruction}\n\nUser Message: ${localHistory[0].content}`;
+        }
+        const text = await fetchFromLocalServer(lastUserMessage, localHistory.slice(0, -1));
+        parsed = safeParseJSON(text);
+        if (!parsed || !parsed.message) {
+          parsed = { message: text || "I received an empty response from the local server." };
+        }
+        if (parsed && parsed.message) {
+          fallbackToGemini = false;
+          parsed.provider = 'Local Server';
+        }
+      } catch (e) {
+        console.warn("Auto mode: Local Proxy failed, trying next...");
+      }
+    }
     // -------------------------------------
 
     if (fallbackToGemini && isAuto && allowed.includes('puter')) {
@@ -3963,9 +3607,22 @@ Rules:
       }
     }
 
-    // Final SAFETY Fallback: If EVERYTHING cloud failed, use Local AI as last resort if not tried yet and allowed
+    // Final SAFETY Fallback: If cloud failed, try local providers if not tried yet
+    if (fallbackToGemini && isAuto && allowed.includes('local_proxy')) {
+      try {
+        const text = await fetchFromLocalServer(flatPrompt + "\n\nYou MUST return ONLY a valid JSON object with a \"message\" field.");
+        const parsedLocal = safeParseJSON(text);
+        if (parsedLocal && parsedLocal.message) {
+          parsed = parsedLocal;
+          parsed.provider = 'Local Server (Quota Fallback)';
+          fallbackToGemini = false;
+        }
+      } catch (e) {}
+    }
+
     if (fallbackToGemini && isAuto && allowed.includes('builtin')) {
       try {
+        await ensureLocalTextEngineReady();
         const localResponse = await builtInAi.generate(flatPrompt);
         const parsedLocal = safeParseJSON(localResponse);
         if (parsedLocal && parsedLocal.message) {
