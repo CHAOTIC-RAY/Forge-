@@ -276,11 +276,11 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
                   {isAdmin ? 'Use in AI Studio' : 'Request Access to Use'}
                 </button>
                 <button 
-                  onClick={() => isAdmin ? setActiveTab('notebook') : onHandleRequestAccess?.()}
+                  onClick={() => isAdmin ? setActiveTab('ideas') : onHandleRequestAccess?.()}
                   className="px-6 py-3 bg-white dark:bg-[#252525] border border-[#E9E9E7] dark:border-[#333333] text-[#37352F] dark:text-[#EBE9ED] rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center gap-2 active:scale-95"
                 >
-                  <Database className="w-4 h-4" />
-                  {isAdmin ? 'Save to Strategy Lab' : 'Request Access to Save'}
+                  <Lightbulb className="w-4 h-4" />
+                  {isAdmin ? 'Save to Ideas' : 'Request Access to Save'}
                 </button>
               </div>
             </div>

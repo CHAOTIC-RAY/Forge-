@@ -2073,7 +2073,7 @@ export function SettingsView({
         <BentoCard
           id="extension"
           title="Forge Web Clipper"
-          subtitle="Clip websites and add notes to your notebook"
+          subtitle="Clip websites and add notes to your Ideas inbox"
           icon={Smartphone}
           iconBg="bg-blue-100 dark:bg-blue-900/30"
           iconColor="text-blue-600 dark:text-blue-400"
