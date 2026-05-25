@@ -16,7 +16,7 @@ import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
-import { builtInAi, BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
+import { BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
 import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
 import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection } from '../lib/gemini';
@@ -193,11 +193,32 @@ export function SettingsView({
   const [newName, setNewName] = useState(user?.displayName || '');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
-  const [builtInStatus, setBuiltInStatus] = useState<any>(builtInAi.getStatus());
+  const [builtInStatus, setBuiltInStatus] = useState<BuiltInAiStatus>({
+    isLoaded: false,
+    isLoading: false,
+    isProcessing: false,
+    progress: 0,
+    message: '',
+    error: null,
+    modelId: null,
+  });
+  type BuiltInAiApi = typeof import('../lib/builtinAi')['builtInAi'];
+  const builtInAiRef = React.useRef<BuiltInAiApi | null>(null);
+
+  const getBuiltInAi = React.useCallback(async (): Promise<BuiltInAiApi> => {
+    if (!builtInAiRef.current) {
+      builtInAiRef.current = (await import('../lib/builtinAi')).builtInAi;
+    }
+    return builtInAiRef.current;
+  }, []);
 
   useEffect(() => {
-    const unsubBuiltin = builtInAi.onStatusChange(setBuiltInStatus);
-    
+    let unsubBuiltin: (() => void) | undefined;
+    void getBuiltInAi().then((ai) => {
+      setBuiltInStatus(ai.getStatus());
+      unsubBuiltin = ai.onStatusChange(setBuiltInStatus);
+    });
+
     const checkPuter = async () => {
       if (typeof window !== 'undefined' && (window as any).puter) {
         try {
@@ -212,10 +233,10 @@ export function SettingsView({
     const interval = setInterval(checkPuter, 5000);
     
     return () => {
-      unsubBuiltin();
+      unsubBuiltin?.();
       clearInterval(interval);
     };
-  }, []);
+  }, [getBuiltInAi]);
 
   const handlePuterSignIn = async () => {
     if (typeof window !== 'undefined' && (window as any).puter) {
@@ -1460,27 +1481,29 @@ export function SettingsView({
                       return !isModelSelectedLoaded && !builtInStatus.isLoading && (
                         <button 
                           onClick={() => {
-                            if (selectedModelId === 'custom') {
-                              if (!aiSettings.customModelUrl && !aiSettings.customModelConfig) {
-                                toast.error("Please provide a Custom Model URL or Config first.");
-                                return;
+                            void (async () => {
+                              const ai = await getBuiltInAi();
+                              if (selectedModelId === 'custom') {
+                                if (!aiSettings.customModelUrl && !aiSettings.customModelConfig) {
+                                  toast.error("Please provide a Custom Model URL or Config first.");
+                                  return;
+                                }
+                                const customConfig = aiSettings.customModelConfig || {
+                                  model_list: [
+                                    {
+                                      model: aiSettings.customModelUrl,
+                                      model_id: "custom-local-model",
+                                      model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Phi3-mini-4k-instruct/Phi3-mini-4k-instruct-q4f16_1-ctx4k-webgpu.wasm",
+                                      vram_required_MB: 3000,
+                                      low_resource_required: true,
+                                    }
+                                  ]
+                                };
+                                await ai.init(selectedModelId === 'custom' ? (customConfig.model_list?.[0]?.model_id || 'custom-model') : selectedModelId, customConfig);
+                              } else {
+                                await ai.init(selectedModelId);
                               }
-                              // If they have a URL, we can attempt to use it as a custom AppConfig
-                              const customConfig = aiSettings.customModelConfig || {
-                                model_list: [
-                                  {
-                                    model: aiSettings.customModelUrl,
-                                    model_id: "custom-local-model",
-                                    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Phi3-mini-4k-instruct/Phi3-mini-4k-instruct-q4f16_1-ctx4k-webgpu.wasm",
-                                    vram_required_MB: 3000,
-                                    low_resource_required: true,
-                                  }
-                                ]
-                              };
-                              builtInAi.init(selectedModelId === 'custom' ? (customConfig.model_list?.[0]?.model_id || 'custom-model') : selectedModelId, customConfig);
-                            } else {
-                              builtInAi.init(selectedModelId);
-                            }
+                            })();
                           }}
                           className="w-full py-2.5 bg-brand text-white text-xs font-bold rounded-[8px] hover:bg-brand-hover transition-colors shadow-sm"
                         >
@@ -1502,13 +1525,13 @@ export function SettingsView({
                         </div>
                         <p className="text-[9px] text-center text-[#9B9A97]">This may take a few minutes. Weights are saved to browser cache.</p>
                         <button 
-                          onClick={() => builtInAi.reset()}
+                          onClick={() => void getBuiltInAi().then((ai) => ai.reset())}
                           className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-brand/10 hover:text-brand transition-colors"
                         >
                           Restart Initialization
                         </button>
                         <button 
-                          onClick={() => builtInAi.clearCache()}
+                          onClick={() => void getBuiltInAi().then((ai) => ai.clearCache())}
                           className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                         >
                           Clear Local AI Cache
@@ -1534,13 +1557,13 @@ export function SettingsView({
 
                         <div className="flex gap-2">
                            <button 
-                            onClick={() => builtInAi.clearCache()}
+                            onClick={() => void getBuiltInAi().then((ai) => ai.clearCache())}
                             className="flex-1 py-1.5 bg-white dark:bg-gray-900 border border-red-200 dark:border-red-900/40 text-red-600 text-[10px] font-bold rounded-[6px] hover:bg-red-50 transition-all"
                           >
                             Wipe Cache
                           </button>
                           <button 
-                            onClick={() => builtInAi.reset()}
+                            onClick={() => void getBuiltInAi().then((ai) => ai.reset())}
                             className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 text-[10px] font-bold rounded-[6px] hover:bg-gray-200 transition-all"
                           >
                             Retry

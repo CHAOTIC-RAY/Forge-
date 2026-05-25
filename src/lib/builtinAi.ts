@@ -1,5 +1,4 @@
 import { toast } from 'sonner';
-import type { MLCEngineInterface } from '@mlc-ai/web-llm';
 import {
   buildProxiedWebLlmAppConfig,
   normalizeBuiltinModelId,
@@ -62,7 +61,8 @@ If an instructions file context is provided, prioritize it above all else.`;
 type WebLlmModule = typeof import('@mlc-ai/web-llm');
 
 class BuiltInAiService {
-  private engine: MLCEngineInterface | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private engine: any = null;
   private webllmModule: WebLlmModule | null = null;
 
   private async loadWebLlm(): Promise<WebLlmModule> {
@@ -197,7 +197,7 @@ class BuiltInAiService {
         };
         console.log('[BuiltInAI] Using custom appConfig (HF URLs proxied).');
       } else {
-        engineConfig.appConfig = buildProxiedWebLlmAppConfig(origin);
+        engineConfig.appConfig = await buildProxiedWebLlmAppConfig(origin);
         console.log('[BuiltInAI] Using proxied WebLLM appConfig for HuggingFace weights.');
       }
 

@@ -1,7 +1,5 @@
-import { prebuiltAppConfig, type AppConfig, type ModelRecord } from '@mlc-ai/web-llm';
 import { BUILTIN_MODEL_IDS } from './builtinModels';
 
-const HF_ORIGIN = 'https://huggingface.co';
 const ALLOWED_REPO_PREFIX = 'mlc-ai/';
 
 /** Rewrite Hugging Face model URLs to same-origin proxy (fixes CORS on deployed Forge). */
@@ -27,7 +25,7 @@ export function rewriteHuggingFaceModelUrl(modelUrl: string, origin: string): st
   }
 }
 
-function cloneModelRecord(record: ModelRecord, origin: string): ModelRecord {
+function cloneModelRecord(record: { model: string; model_lib: string; model_id: string }, origin: string) {
   return {
     ...record,
     model: rewriteHuggingFaceModelUrl(record.model, origin),
@@ -35,19 +33,18 @@ function cloneModelRecord(record: ModelRecord, origin: string): ModelRecord {
   };
 }
 
-const SUPPORTED_IDS = BUILTIN_MODEL_IDS;
-
 /**
  * AppConfig for WebLLM with HF weights fetched via /api/hf-proxy (Workers + Express).
  * WASM libs still load from GitHub raw (CORS-friendly).
  */
-export function buildProxiedWebLlmAppConfig(origin?: string): AppConfig {
+export async function buildProxiedWebLlmAppConfig(origin?: string) {
+  const { prebuiltAppConfig } = await import('@mlc-ai/web-llm');
   const baseOrigin =
     origin ||
     (typeof window !== 'undefined' ? window.location.origin : '');
 
   const model_list = prebuiltAppConfig.model_list
-    .filter((r) => SUPPORTED_IDS.has(r.model_id))
+    .filter((r) => BUILTIN_MODEL_IDS.has(r.model_id))
     .map((r) => cloneModelRecord(r, baseOrigin));
 
   return {

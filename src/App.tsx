@@ -592,14 +592,7 @@ export default function App() {
     error: null,
     modelId: null,
   });
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    void import('./lib/builtinAi').then(({ builtInAi }) => {
-      setBuiltInStatus(builtInAi.getStatus());
-      unsubscribe = builtInAi.onStatusChange(setBuiltInStatus);
-    });
-    return () => unsubscribe?.();
-  }, []);
+  // Do not import builtInAi/WebLLM on mount — that chunk caused startup TDZ crashes.
 
   // Modal states
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
