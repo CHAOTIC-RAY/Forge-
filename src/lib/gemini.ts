@@ -178,17 +178,23 @@ export const safeParseJSON = (text: string) => {
         const replyMatch = cleaned.match(/"reply"\s*:\s*"([^"]*)"/);
         const messageMatch = cleaned.match(/"message"\s*:\s*"([^"]*)"/);
         const titleMatch = cleaned.match(/"title"\s*:\s*"([^"]*)"/);
+        const briefMatch = cleaned.match(/"brief"\s*:\s*"([^"]*)"/);
         const captionMatch = cleaned.match(/"caption"\s*:\s*"([^"]*)"/) || cleaned.match(/"text"\s*:\s*"([^"]*)"/);
+        const hashtagsMatch = cleaned.match(/"hashtags"\s*:\s*"([^"]*)"/);
 
-        if (replyMatch || messageMatch) {
+        if (replyMatch || messageMatch || titleMatch || captionMatch || briefMatch) {
           return {
             reply: replyMatch ? replyMatch[1] : undefined,
             message: messageMatch ? messageMatch[1] : undefined,
             title: titleMatch ? titleMatch[1] : undefined,
+            brief: briefMatch ? briefMatch[1] : undefined,
+            caption: captionMatch ? captionMatch[1] : undefined,
+            hashtags: hashtagsMatch ? hashtagsMatch[1] : undefined,
             suggestedPost: captionMatch ? {
               title: titleMatch ? titleMatch[1] : undefined,
-              caption: captionMatch[1]
-            } : undefined
+              caption: captionMatch[1],
+              brief: briefMatch ? briefMatch[1] : undefined,
+            } : undefined,
           };
         }
         throw finalError;
@@ -1554,19 +1560,89 @@ function withImageAnalysisTimeout<T>(promise: Promise<T>, label: string): Promis
   ]);
 }
 
+type PostFromImageNormalizeOptions = {
+  outlet?: string;
+  businessName?: string;
+};
+
 function normalizePostFromImageResult(
   parsed: Record<string, unknown> | null,
-  outlet?: string
+  options?: PostFromImageNormalizeOptions
 ): Record<string, string> {
-  const o = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, string>;
+  const o = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>;
+  const rawMessage = typeof o.message === 'string' ? o.message.trim() : '';
+  let caption = String(o.caption ?? o.text ?? '').trim();
+  let brief = String(o.brief ?? '').trim();
+  let title = String(o.title ?? '').trim();
+  const hashtags = String(o.hashtags ?? '').trim();
+  const type = String(o.type ?? '🔴 General').trim() || '🔴 General';
+  const defaultOutlet = options?.outlet?.trim() || options?.businessName?.trim() || '';
+
+  if (!caption && rawMessage) {
+    caption = rawMessage;
+  }
+  if (!brief && rawMessage && !caption) {
+    brief = rawMessage;
+  }
+  if (!title && caption) {
+    title = caption.split(/[.!?\n]/)[0]?.trim().slice(0, 72) || '';
+  }
+  const genericTitles = /^(new post from image|analyzing images?|new image post|image post)$/i;
+  if (!title || genericTitles.test(title)) {
+    title = caption ? caption.split(/[.!?\n]/)[0]?.trim().slice(0, 72) || 'Image post draft' : 'Image post draft';
+  }
+
   return {
-    title: o.title || 'New post from image',
-    brief: o.brief || '',
-    caption: o.caption || '',
-    hashtags: o.hashtags || '',
-    type: o.type || '🔴 General',
-    outlet: o.outlet || outlet || 'Forge Enterprises',
+    title,
+    brief,
+    caption,
+    hashtags,
+    type,
+    outlet: String(o.outlet ?? '').trim() || defaultOutlet,
   };
+}
+
+async function hasVisionProviderAvailable(settings = getAiSettings()): Promise<boolean> {
+  if (isGeminiKeyAvailable()) return true;
+  if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) return true;
+  try {
+    if (await isPuterSignedIn()) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function buildPostFromImagePrompt(
+  businessName: string,
+  businessIndustry: string,
+  outletContext: string,
+  designContext: string,
+  isVideo: boolean,
+  forLocal: boolean,
+  preferredOutlet?: string
+): string {
+  const mediaIntro = isVideo
+    ? 'Analyze this 2x2 collage of video frames. Describe what happens across the sequence, then draft the post.'
+    : 'Analyze the attached image in detail. Describe products, text, mood, and setting you see, then draft the post from that content.';
+
+  const core = `${mediaIntro}
+
+Brand: ${businessName} (${businessIndustry})${outletContext}
+${designContext}
+${preferredOutlet ? `Preferred outlet: "${preferredOutlet}"` : 'Choose the best outlet name for this brand.'}
+
+Return JSON with exactly these fields:
+- title (specific to the image; never use "New post from image")
+- brief (designer instructions referencing visible elements)
+- caption (full social caption; follow ALL business rules, brand voice, and mandatory suffixes from knowledge context)
+- hashtags (space-separated)
+- type (post category, e.g. "🔴 General" or industry-specific)
+- outlet (brand outlet name)
+
+You MUST return ONLY a valid JSON object.`;
+
+  return withBusinessKnowledge(core, { forLocal });
 }
 
 function usesLocalTextForImages(settings = getAiSettings()): boolean {
@@ -1583,31 +1659,34 @@ async function generatePostFromImageTextFallback(
   businessName: string,
   businessIndustry: string,
   outletContext: string,
-  systemInstruction: string,
   designContext: string,
   isVideo: boolean,
-  business?: Business
+  business?: Business,
+  preferredOutlet?: string
 ): Promise<Record<string, string>> {
-  const mediaNote = isVideo
-    ? 'The user added a video (shown as a frame collage). Local AI cannot see pixels — infer a strong post from brand context.'
-    : 'The user added image(s) to the calendar. Local AI cannot see pixels — infer a strong post from brand context.';
-
-  const prompt = `${mediaNote}
-Generate a social media post for ${businessName} (${businessIndustry})${outletContext}.
-${systemInstruction}
-${designContext}
-Return JSON with exactly these fields: title, brief, caption, hashtags, type, outlet.
-You MUST return ONLY a valid JSON object.`;
-
   const settings = getAiSettings();
-  if (usesLocalTextForImages(settings)) {
-    await ensureLocalTextEngineReady();
-    const resp = await (await getBuiltInAi()).generate(prompt);
-    return normalizePostFromImageResult(safeParseJSON(resp || '{}') as Record<string, unknown> | null);
-  }
+  const forLocal = usesLocalTextForImages(settings);
+  const blindNote = forLocal
+    ? '\n\nNote: Local AI cannot see image pixels. Use brand knowledge and any filename/context hints; still return complete title, brief, and caption JSON—not placeholders.'
+    : '';
 
-  const text = await generateAppText(prompt, true, business?.id);
-  return normalizePostFromImageResult(safeParseJSON(text || '{}') as Record<string, unknown> | null);
+  const prompt =
+    buildPostFromImagePrompt(
+      businessName,
+      businessIndustry,
+      outletContext,
+      designContext,
+      isVideo,
+      forLocal,
+      preferredOutlet
+    ) + blindNote;
+
+  const text = await generateAppText(prompt, true, business?.id, forLocal ? { forceLocal: true } : undefined);
+  const parsed = safeParseJSON(text || '{}') as Record<string, unknown> | null;
+  return normalizePostFromImageResult(parsed, {
+    outlet: preferredOutlet,
+    businessName,
+  });
 }
 
 async function generatePostFromImageWithVision(
@@ -1615,29 +1694,33 @@ async function generatePostFromImageWithVision(
   settings: ReturnType<typeof getAiSettings>,
   promptText: string,
   base64Data: string,
-  mimeType: string
+  mimeType: string,
+  normalizeOptions?: PostFromImageNormalizeOptions
 ): Promise<Record<string, string>> {
   const jsonHint = ' You MUST return ONLY a valid JSON object.';
   const imagePart = [{ base64: base64Data, mimeType }];
 
+  const normalize = (raw: string) =>
+    normalizePostFromImageResult(safeParseJSON(raw || '{}') as Record<string, unknown> | null, normalizeOptions);
+
   if (provider === 'puter') {
     const puterResponse = await fetchFromPuter(promptText + jsonHint, imagePart);
-    return normalizePostFromImageResult(safeParseJSON(puterResponse || '{}') as Record<string, unknown> | null);
+    return normalize(puterResponse || '{}');
   }
 
   if (provider === 'groq') {
     const groqResponse = await fetchFromGroq(promptText + jsonHint, imagePart);
-    return normalizePostFromImageResult(safeParseJSON(groqResponse || '{}') as Record<string, unknown> | null);
+    return normalize(groqResponse || '{}');
   }
 
   if (provider === 'firebase') {
     const model = getVertexModel(settings.geminiModel);
     const result = await model.generateContent([
       { inlineData: { data: base64Data, mimeType } },
-      { text: promptText },
+      { text: promptText + jsonHint },
     ]);
     const response = await result.response;
-    return normalizePostFromImageResult(JSON.parse(response.text() || '{}'));
+    return normalize(response.text() || '{}');
   }
 
   if (!isGeminiKeyAvailable()) {
@@ -1647,7 +1730,7 @@ async function generatePostFromImageWithVision(
   const response = await ai.models.generateContent({
     model: settings.geminiModel,
     contents: {
-      parts: [{ inlineData: { data: base64Data, mimeType } }, { text: promptText }],
+      parts: [{ inlineData: { data: base64Data, mimeType } }, { text: promptText + jsonHint }],
     },
     config: {
       responseMimeType: 'application/json',
@@ -1665,7 +1748,7 @@ async function generatePostFromImageWithVision(
       },
     },
   });
-  return normalizePostFromImageResult(JSON.parse(response.text || '{}'));
+  return normalize(response.text || '{}');
 }
 
 export async function generatePostFromImage(
@@ -1676,51 +1759,34 @@ export async function generatePostFromImage(
   business?: Business
 ) {
   const settings = getAiSettings();
-  const outletContext = outlet ? ` for the outlet "${outlet}"` : '';
-  const businessName = business?.name || 'Forge Enterprises';
+  const preferredOutlet = outlet?.trim() || business?.name?.trim();
+  const outletContext = preferredOutlet ? ` for the outlet "${preferredOutlet}"` : '';
+  const businessName = business?.name?.trim() || 'your brand';
   const businessIndustry = business?.industry || 'professional business';
-  const systemInstruction = settings.systemInstructions
-    ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}`
-    : '';
+  const forLocal = usesLocalTextForImages(settings);
+  const normalizeOptions: PostFromImageNormalizeOptions = {
+    outlet: preferredOutlet,
+    businessName,
+  };
 
   let designContext = '';
-  if (business?.id && !usesLocalTextForImages(settings)) {
+  if (business?.id) {
     const guide = await fetchBrandKitDesignGuide(business.id);
     if (guide) {
-      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE (Follow this style closely):\n${guide}\n`;
-    }
-  } else if (business?.id) {
-    const guide = await fetchBrandKitDesignGuide(business.id);
-    if (guide) {
-      designContext = `\n\nBRAND STYLE (text summary only):\n${guide.slice(0, 600)}\n`;
+      const trimmed = forLocal && guide.length > 800 ? `${guide.slice(0, 800)}\n[Truncated for local AI]` : guide;
+      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE:\n${trimmed}\n`;
     }
   }
 
-  const promptText = isVideo
-    ? `Analyze this 2x2 collage of frames extracted from a video and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
-       Treat this as a video analysis by looking at the sequence of frames.
-       ${systemInstruction}
-       ${designContext}
-       Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`
-    : `Analyze this image and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
-       ${systemInstruction}
-       ${designContext}
-       Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`;
-
-  if (usesLocalTextForImages(settings)) {
-    return withImageAnalysisTimeout(
-      generatePostFromImageTextFallback(
-        businessName,
-        businessIndustry,
-        outletContext,
-        systemInstruction,
-        designContext,
-        !!isVideo,
-        business
-      ),
-      'Local AI post draft'
-    );
-  }
+  const promptText = buildPostFromImagePrompt(
+    businessName,
+    businessIndustry,
+    outletContext,
+    designContext,
+    !!isVideo,
+    forLocal,
+    preferredOutlet
+  );
 
   const visionOrder: Array<'puter' | 'groq' | 'firebase' | 'gemini'> = [];
   const pref = settings.preferredProvider;
@@ -1741,18 +1807,42 @@ export async function generatePostFromImage(
 
   const tried = new Set<string>();
   let lastError: unknown;
-  for (const provider of visionOrder) {
-    if (tried.has(provider)) continue;
-    tried.add(provider);
-    try {
-      return await withImageAnalysisTimeout(
-        generatePostFromImageWithVision(provider, settings, promptText, base64Data, mimeType),
-        `${provider} vision`
-      );
-    } catch (error) {
-      lastError = error;
-      console.warn(`[generatePostFromImage] ${provider} failed:`, error);
+  let visionAttempted = false;
+
+  if (visionOrder.length > 0) {
+    for (const provider of visionOrder) {
+      if (tried.has(provider)) continue;
+      tried.add(provider);
+      visionAttempted = true;
+      try {
+        const result = await withImageAnalysisTimeout(
+          generatePostFromImageWithVision(
+            provider,
+            settings,
+            promptText,
+            base64Data,
+            mimeType,
+            normalizeOptions
+          ),
+          `${provider} vision`
+        );
+        if (result.caption?.trim() || (result.title && !/^(image post draft|new post from image)$/i.test(result.title))) {
+          return result;
+        }
+        lastError = new Error(`${provider} returned empty caption`);
+      } catch (error) {
+        lastError = error;
+        console.warn(`[generatePostFromImage] ${provider} failed:`, error);
+      }
     }
+  }
+
+  const visionAvailable = await hasVisionProviderAvailable(settings);
+  if (!visionAttempted && !visionAvailable && forLocal) {
+    notifyFallback(
+      'Local AI image draft',
+      'No vision API configured—drafting from Knowledge Center only. Add Gemini or Groq in Settings for true image analysis.'
+    );
   }
 
   try {
@@ -1761,18 +1851,23 @@ export async function generatePostFromImage(
         businessName,
         businessIndustry,
         outletContext,
-        systemInstruction,
         designContext,
         !!isVideo,
-        business
+        business,
+        preferredOutlet
       ),
-      'Text fallback'
+      forLocal ? 'Local AI post draft' : 'Text fallback'
     );
+    const needsVisionNote = forLocal && !visionAvailable;
     return {
       ...fallback,
       brief:
         fallback.brief ||
-        'Caption drafted without vision (local AI cannot see images). Add details or switch to Gemini/Groq for image analysis.',
+        (needsVisionNote
+          ? 'Drafted from Knowledge Center without seeing the image. Add Gemini/Groq for vision, or edit fields manually.'
+          : visionAttempted
+            ? 'Caption drafted without vision after cloud providers failed. Review and edit before publishing.'
+            : ''),
     };
   } catch (error) {
     console.warn('[generatePostFromImage] All providers failed:', error);
@@ -1781,7 +1876,7 @@ export async function generatePostFromImage(
         ? lastError.message
         : 'Could not analyze image. Edit this post manually or add a Gemini/Groq API key in Settings.';
     return {
-      ...normalizePostFromImageResult(null, outlet),
+      ...normalizePostFromImageResult(null, normalizeOptions),
       brief: msg,
     };
   }

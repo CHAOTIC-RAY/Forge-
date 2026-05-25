@@ -68,6 +68,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     type: 'Type'
   });
   const [captionLength, setCaptionLength] = useState<number>(50);
+  const imageAiRetryRef = useRef<string | null>(null);
 
   // Handle external image drops
   useEffect(() => {
@@ -153,6 +154,58 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
       }
     }
   }, [isOpen, post, selectedDate, initialProducts]);
+
+  useEffect(() => {
+    if (!isOpen || !post || readOnly) return;
+    const images = post.images?.filter((img) => img.startsWith('data:')) ?? [];
+    if (images.length === 0) return;
+    if (post.caption?.trim()) return;
+    const title = post.title?.trim() || '';
+    const needsAiFill = /^(analyzing|new post from image|new image post|image post)/i.test(title);
+    if (!needsAiFill) return;
+    if (imageAiRetryRef.current === post.id) return;
+    imageAiRetryRef.current = post.id;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const collage = await createImageCollage(images.slice(0, 6));
+        const match = collage.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        if (!match || cancelled) return;
+        const generated = await generatePostFromImage(
+          match[2],
+          match[1],
+          post.outlet || activeBusiness?.name,
+          false,
+          activeBusiness || undefined
+        );
+        if (cancelled) return;
+        setFormData((prev) => ({
+          ...prev,
+          title: generated.title || prev.title,
+          brief: generated.brief || prev.brief,
+          caption: generated.caption || prev.caption,
+          hashtags: generated.hashtags || prev.hashtags,
+          type: generated.type || prev.type,
+          outlet: generated.outlet || prev.outlet,
+        }));
+        if (generated.caption?.trim()) {
+          toast.success('Caption and details filled from image analysis.');
+        } else {
+          toast.warning('AI returned limited content. Use Smart AI Generate or check Settings → Knowledge Center.');
+        }
+      } catch (err) {
+        console.error('[PostModal] image AI retry failed:', err);
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : 'Could not analyze image for this post.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, post?.id, readOnly, activeBusiness?.id, activeBusiness?.name]);
 
   // Remove early return so AnimatePresence can handle unmounting
   // if (!isOpen) return null;

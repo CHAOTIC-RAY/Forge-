@@ -38,7 +38,7 @@ import { Type } from "@google/genai";
 import { useParams, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster, toast } from 'sonner';
-import { Post, initialPosts, Business } from './data';
+import { Post, initialPosts, Business, OUTLETS } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
@@ -1889,6 +1889,9 @@ export default function App() {
 
   const [droppedImagesForModal, setDroppedImagesForModal] = useState<string[]>([]);
 
+  const getDefaultPostOutlet = () =>
+    activeBusiness?.name?.trim() || OUTLETS[0] || 'Main Store';
+
   const processDroppedFiles = async (dateStr: string, files: File[], mode: 'single' | 'separate') => {
     setDropActionPrompt(null);
 
@@ -1920,17 +1923,19 @@ export default function App() {
       }
 
       const newPostId = uuidv4();
+      const defaultOutlet = getDefaultPostOutlet();
       const placeholderPost: Post = {
         id: newPostId,
         date: dateStr,
-        outlet: 'Forge Enterprises',
+        outlet: defaultOutlet,
         type: '✨ Generating...',
         title: 'Analyzing images...',
         brief: 'Please wait while AI generates content...',
         caption: '',
         hashtags: '',
         images: base64Images,
-        userId: user.uid
+        userId: user.uid,
+        businessId: activeBusiness?.id,
       };
 
       await handleSavePost(placeholderPost);
@@ -1946,7 +1951,7 @@ export default function App() {
         const generatedData = await generatePostFromImage(
           base64Data,
           mimeType,
-          undefined,
+          defaultOutlet,
           false,
           activeBusiness || undefined
         );
@@ -1958,7 +1963,7 @@ export default function App() {
           caption: generatedData.caption || '',
           hashtags: generatedData.hashtags || '',
           type: generatedData.type || '🔴 General',
-          outlet: generatedData.outlet || 'Forge Enterprises',
+          outlet: generatedData.outlet || defaultOutlet,
         });
       } catch (error) {
         console.error('Failed to generate post from image:', error);
@@ -1977,17 +1982,19 @@ export default function App() {
         if (!dataUrl) continue;
 
         const newPostId = uuidv4();
+        const defaultOutlet = getDefaultPostOutlet();
         const placeholderPost: Post = {
           id: newPostId,
           date: dateStr,
-          outlet: 'Forge Enterprises',
+          outlet: defaultOutlet,
           type: '✨ Generating...',
           title: isVideo ? 'Analyzing video...' : 'Analyzing image...',
           brief: 'Please wait while AI generates content...',
           caption: '',
           hashtags: '',
           images: [dataUrl],
-          userId: user.uid
+          userId: user.uid,
+          businessId: activeBusiness?.id,
         };
 
         await handleSavePost(placeholderPost);
@@ -2002,7 +2009,7 @@ export default function App() {
           const generatedData = await generatePostFromImage(
             base64Data,
             mimeType,
-            undefined,
+            defaultOutlet,
             isVideo,
             activeBusiness || undefined
           );
@@ -2014,7 +2021,7 @@ export default function App() {
             caption: generatedData.caption || '',
             hashtags: generatedData.hashtags || '',
             type: generatedData.type || '🔴 General',
-            outlet: generatedData.outlet || 'Forge Enterprises',
+            outlet: generatedData.outlet || defaultOutlet,
           });
         } catch (error) {
           console.error('Failed to generate post from image:', error);
