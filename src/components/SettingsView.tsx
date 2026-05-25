@@ -88,7 +88,7 @@ const BentoCard = ({
         className={cn("p-5 sm:p-6 flex items-center justify-between group", !isDesktop && "cursor-pointer select-none")}
       >
         <div className="flex items-center gap-4">
-          <div className={cn("w-12 h-12 sm:w-14 sm:h-14 rounded-[12px] flex items-center justify-center shrink-0 transition-transform group-hover:scale-105", iconBg, iconColor)}>
+          <div className={cn("w-12 h-12 sm:w-14 sm:h-14 rounded-[12px] flex items-center justify-center shrink-0 transition-colors group-hover:opacity-90", iconBg, iconColor)}>
             {customIcon ? customIcon : <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
           </div>
           <div>
@@ -487,32 +487,6 @@ export function SettingsView({
   const [tunePreset, setTunePreset] = useState<'fast' | 'balanced' | 'quality'>('balanced');
   const [showAdvancedTune, setShowAdvancedTune] = useState(false);
   const [showCloudAiOptions, setShowCloudAiOptions] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<string>('account');
-  const [isSettingsDesktop, setIsSettingsDesktop] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth >= 1024
-  );
-
-  useEffect(() => {
-    const onResize = () => setIsSettingsDesktop(window.innerWidth >= 1024);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  const SETTINGS_TABS = [
-    { id: 'account', label: 'Account' },
-    { id: 'appearance', label: 'Theme' },
-    { id: 'workspaces', label: 'Workspaces' },
-    { id: 'integrations', label: 'Integrations' },
-    { id: 'ai', label: 'Local AI' },
-    { id: 'crawl', label: 'Crawl' },
-    { id: 'analytics', label: 'Analytics' },
-    { id: 'maintenance', label: 'Data' },
-    { id: 'extension', label: 'Extension' },
-    { id: 'logs', label: 'Logs' },
-  ] as const;
-
-  const showSettingsCard = (id: string) =>
-    !isSettingsDesktop || settingsSection === id;
 
   useEffect(() => {
     setInstructionText(aiSettings.systemInstructions || '');
@@ -754,34 +728,15 @@ export function SettingsView({
         ))}
       </div>
 
-      <div className="mb-6 space-y-4">
-        <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest px-1">Global Configuration</h2>
-        <div className="hidden lg:flex flex-wrap gap-2 p-1 glass-panel rounded-[12px]">
-          {SETTINGS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setSettingsSection(tab.id);
-                setExpandedId(tab.id);
-              }}
-              className={cn(
-                'interactive focus-ring px-3 py-2 rounded-[8px] text-xs font-bold transition-colors',
-                settingsSection === tab.id
-                  ? 'nav-pill-active'
-                  : 'text-secondary-safe hover:text-[#37352F] dark:hover:text-[#EBE9ED]'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <motion.div layout className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start pb-24">
-        
-        {/* Account & App Card */}
-        {showSettingsCard('account') && (
+      <div className="max-w-[1600px] mx-auto w-full px-4 md:px-6 lg:px-8 space-y-10 pb-24">
+        {/* Profile & workspace */}
+        <section className="space-y-4">
+          <div className="px-1">
+            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Profile & workspace</h2>
+            <p className="text-sm text-secondary-safe mt-1">Account, theme, and active business</p>
+          </div>
+          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-stretch">
+        <div className="min-h-0 h-full">
         <BentoCard
           id="account"
           title="Account & App"
@@ -890,10 +845,9 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        )}
+        </div>
 
-        {/* Appearance & Theme Card */}
-        {showSettingsCard('appearance') && (
+        <div className="min-h-0 h-full">
         <BentoCard
           id="appearance"
           title="Appearance & Theme"
@@ -969,10 +923,9 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        )}
+        </div>
 
-        {/* Workspaces Card */}
-        {showSettingsCard('workspaces') && (
+        <div className="md:col-span-2 xl:col-span-1 min-h-0 h-full">
         <BentoCard
           id="workspaces"
           title="Workspaces"
@@ -996,10 +949,18 @@ export function SettingsView({
             />
           </div>
         </BentoCard>
-        )}
+        </div>
+          </motion.div>
+        </section>
 
-        {/* Integrations Card */}
-        {showSettingsCard('integrations') && (
+        {/* Integrations */}
+        <section className="space-y-4">
+          <div className="px-1">
+            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Integrations</h2>
+            <p className="text-sm text-secondary-safe mt-1">Cloud storage, media, and connected services</p>
+          </div>
+          <motion.div layout className="grid grid-cols-1 gap-4 sm:gap-6 items-stretch">
+        <div className="min-h-0 h-full">
         <BentoCard
           id="integrations"
           title="Integrations"
@@ -1147,10 +1108,18 @@ export function SettingsView({
             />
           </div>
         </BentoCard>
-        )}
+        </div>
+          </motion.div>
+        </section>
 
-        {/* AI Engine Card */}
-        {showSettingsCard('ai') && (
+        {/* Local AI */}
+        <section className="space-y-4">
+          <div className="px-1">
+            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Local AI</h2>
+            <p className="text-sm text-secondary-safe mt-1">On-device models for widgets and creative tools</p>
+          </div>
+          <motion.div layout className="grid grid-cols-1 gap-4 sm:gap-6 items-stretch">
+        <div className="min-h-0 h-full">
         <BentoCard
           id="ai"
           title="Local AI"
@@ -2021,10 +1990,18 @@ export function SettingsView({
             </button>
           </div>
         </BentoCard>
-        )}
+        </div>
+          </motion.div>
+        </section>
 
-        {/* Crawl Options Card */}
-        {showSettingsCard('crawl') && (
+        {/* Automation & data */}
+        <section className="space-y-4">
+          <div className="px-1">
+            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Automation & data</h2>
+            <p className="text-sm text-secondary-safe mt-1">Crawl, analytics, backups, and exports</p>
+          </div>
+          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-stretch">
+        <div className="min-h-0 h-full">
         <BentoCard
           id="crawl"
           title="Crawl Options"
@@ -2062,9 +2039,9 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        )}
+        </div>
 
-        {showSettingsCard('analytics') && (
+        <div className="min-h-0 h-full">
         <BentoCard
           id="analytics"
           title="Analytics"
@@ -2131,10 +2108,9 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        )}
+        </div>
 
-        {/* Data & Maintenance Card */}
-        {showSettingsCard('maintenance') && (
+        <div className="md:col-span-2 xl:col-span-1 min-h-0 h-full">
         <BentoCard
           id="maintenance"
           title="Data & Maintenance"
@@ -2231,10 +2207,9 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        )}
+        </div>
 
-        {/* Chrome Extension Card */}
-        {showSettingsCard('extension') && (
+        <div className="min-h-0 h-full">
         <BentoCard
           id="extension"
           title="Forge Web Clipper"
@@ -2278,10 +2253,18 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        )}
+        </div>
+          </motion.div>
+        </section>
 
-        {/* System Logs Card */}
-        {showSettingsCard('logs') && (
+        {/* System */}
+        <section className="space-y-4">
+          <div className="px-1">
+            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">System</h2>
+            <p className="text-sm text-secondary-safe mt-1">Sync activity and diagnostics</p>
+          </div>
+          <motion.div layout className="grid grid-cols-1 gap-4 sm:gap-6 items-stretch">
+        <div className="min-h-0 h-full">
         <BentoCard
           id="logs"
           title="System Logs"
@@ -2317,9 +2300,10 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        )}
-
-      </motion.div>
+        </div>
+          </motion.div>
+        </section>
+      </div>
       <AnimatePresence>
         {dataAction.type && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
