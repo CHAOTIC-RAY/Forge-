@@ -1525,7 +1525,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
                         </button>
                         <button
                           type="button"
-                          onClick={() => initializeDefaultCategories(false)}
+                          onClick={() => populateDefaultCategories(false)}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-bg text-brand border border-brand/20"
                         >
                           Add defaults
