@@ -287,17 +287,73 @@ export async function fetchBrandKitDesignGuide(businessId: string): Promise<stri
   return '';
 }
 
+export type AiRouteOptions = { forceLocal?: boolean };
+
+export function getDefaultAiSettings() {
+  return {
+    preferredProvider: 'builtin',
+    imageProvider: 'builtin',
+    geminiModel: 'gemini-2.5-flash',
+    groqModel: 'llama-3.3-70b-versatile',
+    groqVisionModel: 'llama-3.2-11b-vision-preview',
+    pollinationModel: 'flux',
+    pollinationApiKey: '',
+    puterTextModel: 'gpt-4o-mini',
+    puterImageModel: 'dall-e-3',
+    builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
+    customModelUrl: '',
+    customModelConfig: null,
+    allowedAutoProviders: ['builtin', 'local_proxy', 'groq', 'gemini'],
+    targetUrl: '',
+    geminiApiKey: '',
+    groqApiKey: '',
+    firecrawlApiKey: '',
+    systemInstructions: '',
+    brandVoice: '',
+    businessRules: '',
+    brandKnowledge: '',
+    localAiDebug: false,
+    localFirstDefaults: true,
+    localProxyUrl: 'http://localhost:11434/v1',
+    localProxyModel: 'llama3',
+    localProxyApiKey: '',
+    cloudinaryCloudName: '',
+    cloudinaryApiKey: '',
+    cloudinaryApiSecret: '',
+  };
+}
+
+function migrateToLocalFirstDefaults(parsed: Record<string, unknown>) {
+  if (parsed.localFirstDefaults) return parsed;
+  const legacyText =
+    !parsed.preferredProvider || parsed.preferredProvider === 'auto';
+  const legacyImage =
+    !parsed.imageProvider ||
+    parsed.imageProvider === 'gemini' ||
+    parsed.imageProvider === 'auto' ||
+    parsed.imageProvider === 'puter';
+  if (legacyText) parsed.preferredProvider = 'builtin';
+  if (legacyImage) parsed.imageProvider = 'builtin';
+  parsed.localFirstDefaults = true;
+  try {
+    localStorage.setItem('forge_ai_settings', JSON.stringify(parsed));
+  } catch {
+    /* ignore quota errors */
+  }
+  return parsed;
+}
+
 export const getAiSettings = () => {
   const saved = localStorage.getItem('forge_ai_settings');
   if (saved) {
     try {
-      const parsed = JSON.parse(saved);
+      const parsed = migrateToLocalFirstDefaults(JSON.parse(saved));
       // Ensure targetUrl exists in saved settings
       if (!parsed.targetUrl) parsed.targetUrl = '';
-      if (!parsed.imageProvider) parsed.imageProvider = 'gemini';
+      if (!parsed.imageProvider) parsed.imageProvider = 'builtin';
       if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
       if (!parsed.builtinModelId) parsed.builtinModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
-      if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
+      if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'local_proxy', 'groq', 'gemini'];
       if (!parsed.brandVoice) parsed.brandVoice = '';
       if (!parsed.businessRules) parsed.businessRules = '';
       if (!parsed.brandKnowledge) parsed.brandKnowledge = '';
@@ -306,8 +362,8 @@ export const getAiSettings = () => {
     } catch (e) {}
   }
   return {
-    preferredProvider: 'auto', // Default to auto
-    imageProvider: 'gemini',
+    preferredProvider: 'builtin',
+    imageProvider: 'builtin',
     geminiModel: 'gemini-2.5-flash',
     groqModel: 'llama-3.3-70b-versatile',
     groqVisionModel: 'llama-3.2-11b-vision-preview',
@@ -328,12 +384,13 @@ export const getAiSettings = () => {
     businessRules: '',
     brandKnowledge: '',
     localAiDebug: false,
+    localFirstDefaults: true,
     localProxyUrl: 'http://localhost:11434/v1',
     localProxyModel: 'llama3',
     localProxyApiKey: '',
     cloudinaryCloudName: '',
     cloudinaryApiKey: '',
-    cloudinaryApiSecret: ''
+    cloudinaryApiSecret: '',
   };
 };
 
@@ -526,10 +583,15 @@ export async function ensureLocalTextEngineReady(): Promise<void> {
 /**
  * App-wide text generation: Built-in WebLLM, Ollama/LM Studio, Groq, Puter, Gemini, and Auto cascade.
  */
-export async function generateAppText(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
+export async function generateAppText(
+  prompt: string,
+  expectJson: boolean = false,
+  businessId?: string,
+  options?: AiRouteOptions
+): Promise<string> {
   const settings = getAiSettings();
-  const effectiveProvider = getEffectiveTextProvider(settings);
-  const forLocal = isLocalTextProvider(settings);
+  const effectiveProvider = options?.forceLocal ? 'builtin' : getEffectiveTextProvider(settings);
+  const forLocal = options?.forceLocal || isLocalTextProvider(settings);
 
   let designContext = '';
   if (businessId) {
@@ -544,6 +606,14 @@ export async function generateAppText(prompt: string, expectJson: boolean = fals
 
   const contextualPrompt = withBusinessKnowledge(prompt + designContext, { forLocal });
   const fullPrompt = expectJson ? `${contextualPrompt}\n\nYou MUST return ONLY a valid JSON object or array.` : contextualPrompt;
+
+  // Widgets and explicit built-in mode: local only
+  if (options?.forceLocal) {
+    await ensureLocalTextEngineReady();
+    const resp = await (await getBuiltInAi()).generate(fullPrompt);
+    if (resp) return resp;
+    throw new Error('Local AI failed to generate text. Initialize the model in Settings.');
+  }
 
   // Try Built-in AI if selected or if auto mode is on and we want maximum free access
   if (effectiveProvider === 'builtin' || (effectiveProvider === 'auto' && !isGeminiKeyAvailable())) {
@@ -592,15 +662,7 @@ export async function generateAppText(prompt: string, expectJson: boolean = fals
       throw e;
     }
   } else if (effectiveProvider === 'auto') {
-    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
-
-    if (allowed.includes('local_proxy')) {
-      try {
-        return await fetchFromLocalServer(fullPrompt);
-      } catch (e) {
-        console.warn('Auto mode: Local Proxy (Ollama) failed, trying next...');
-      }
-    }
+    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'groq', 'gemini'];
 
     if (allowed.includes('builtin')) {
       try {
@@ -609,6 +671,14 @@ export async function generateAppText(prompt: string, expectJson: boolean = fals
         if (localResp) return localResp;
       } catch (e) {
         console.warn('Auto mode: Built-in WebLLM failed, trying next...');
+      }
+    }
+
+    if (allowed.includes('local_proxy')) {
+      try {
+        return await fetchFromLocalServer(fullPrompt);
+      } catch (e) {
+        console.warn('Auto mode: Local Proxy (Ollama) failed, trying next...');
       }
     }
 
@@ -684,12 +754,14 @@ export async function generateAppText(prompt: string, expectJson: boolean = fals
 /** JSON helper used across the app (posts, ideas, mappings, analytics). */
 export async function generateAppJson(
   prompt: string,
-  options?: { businessId?: string; expectArray?: boolean }
+  options?: { businessId?: string; expectArray?: boolean; forceLocal?: boolean }
 ): Promise<any> {
   const jsonHint = options?.expectArray
     ? '\n\nYou MUST return ONLY a valid JSON array.'
     : '\n\nYou MUST return ONLY a valid JSON object or array.';
-  const text = await generateAppText(prompt + jsonHint, true, options?.businessId);
+  const text = await generateAppText(prompt + jsonHint, true, options?.businessId, {
+    forceLocal: options?.forceLocal,
+  });
   return options?.expectArray ? safeParseJSONArray(text) : safeParseJSON(text);
 }
 
@@ -2665,10 +2737,69 @@ export async function searchImages(query: string): Promise<any[]> {
   }
 }
 
-export async function generateGenericText(prompt: string, systemInstruction?: string, image?: string): Promise<string> {
+/** Widgets tab: always routes through on-device WebLLM (Settings can still use cloud). */
+export async function generateWidgetText(
+  prompt: string,
+  systemInstruction?: string,
+  image?: string
+): Promise<string> {
+  return generateGenericText(prompt, systemInstruction, image, { forceLocal: true });
+}
+
+export async function generateWidgetImage(
+  prompt: string,
+  style: string = 'photorealistic',
+  business?: Business,
+  image?: string
+): Promise<{ url: string; provider: string }> {
+  return generateAiImage(prompt, style, business, image, { forceLocal: true });
+}
+
+export async function generateWidgetJson(
+  prompt: string,
+  options?: { businessId?: string; expectArray?: boolean }
+): Promise<any> {
+  const jsonHint = options?.expectArray
+    ? '\n\nYou MUST return ONLY a valid JSON array.'
+    : '\n\nYou MUST return ONLY a valid JSON object or array.';
+  const text = await generateAppText(
+    withBusinessKnowledge(prompt) + jsonHint,
+    true,
+    options?.businessId,
+    { forceLocal: true }
+  );
+  return options?.expectArray ? safeParseJSONArray(text) : safeParseJSON(text);
+}
+
+export async function generateWidgetBulkPosts(
+  category: string,
+  count: number = 5,
+  business?: Business,
+  systemInstruction?: string
+): Promise<Partial<Post>[]> {
+  return generateBulkPosts(category, count, business, systemInstruction, { forceLocal: true });
+}
+
+export async function generateWidgetCampaignFromUrl(
+  url: string,
+  systemInstruction?: string
+): Promise<any> {
+  return generateCampaignFromUrl(url, systemInstruction, { forceLocal: true });
+}
+
+export async function generateGenericText(
+  prompt: string,
+  systemInstruction?: string,
+  image?: string,
+  options?: AiRouteOptions
+): Promise<string> {
   const settings = getAiSettings();
   const basePrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
-  const fullPrompt = withBusinessKnowledge(basePrompt);
+  const fullPrompt = withBusinessKnowledge(basePrompt, { forLocal: options?.forceLocal || isLocalTextProvider(settings) });
+
+  if (options?.forceLocal) {
+    return generateAppText(fullPrompt, false, undefined, { forceLocal: true });
+  }
 
   if (image && (settings.preferredProvider === 'firebase' || settings.preferredProvider === 'gemini')) {
     if (!isGeminiKeyAvailable()) {
@@ -2816,17 +2947,24 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
   return JSON.parse(response.text || '{}');
 }
 
-export async function generateCampaignFromUrl(url: string, systemInstruction?: string): Promise<any> {
+export async function generateCampaignFromUrl(
+  url: string,
+  systemInstruction?: string,
+  options?: AiRouteOptions
+): Promise<any> {
   const settings = getAiSettings();
 
-  if (settings.preferredProvider === 'builtin') {
+  if (options?.forceLocal || settings.preferredProvider === 'builtin') {
     try {
-      console.log("[GenerateCampaignFromUrl] Strict Local AI Mode active.");
-      const localText = await (await getBuiltInAi()).generate(`Generate a JSON social media campaign for this URL: ${url}. ${systemInstruction || ''}`);
+      console.log('[GenerateCampaignFromUrl] Local AI mode active.');
+      await ensureLocalTextEngineReady();
+      const localText = await (await getBuiltInAi()).generate(
+        `Generate a JSON social media campaign for this URL: ${url}. ${systemInstruction || ''}\n\nReturn ONLY valid JSON.`
+      );
       return safeParseJSON(localText || '{}');
     } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
+      console.error('Local AI failed:', e);
+      if (options?.forceLocal) throw e;
     }
   }
 
@@ -2966,7 +3104,13 @@ export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<str
   }
 }
 
-export async function generateBulkPosts(category: string, count: number = 5, business?: Business, systemInstruction?: string): Promise<Partial<Post>[]> {
+export async function generateBulkPosts(
+  category: string,
+  count: number = 5,
+  business?: Business,
+  systemInstruction?: string,
+  options?: AiRouteOptions
+): Promise<Partial<Post>[]> {
   const settings = getAiSettings();
   const industryConfig = getIndustryConfig(business?.industry);
   const businessContext = business ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || 'General'}.` : 'Business: Forge Enterprises (Professional Services)';
@@ -2995,8 +3139,8 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
 
   try {
     const parsed = await generateAppJson(
-      `${withBusinessKnowledge(promptText)}\n\nReturn a JSON array of ${count} post objects.`,
-      { businessId: business?.id, expectArray: true }
+      `${withBusinessKnowledge(promptText, { forLocal: options?.forceLocal })}\n\nReturn a JSON array of ${count} post objects.`,
+      { businessId: business?.id, expectArray: true, forceLocal: options?.forceLocal }
     );
     if (Array.isArray(parsed)) return parsed;
     if (parsed?.posts && Array.isArray(parsed.posts)) return parsed.posts;
@@ -3007,7 +3151,51 @@ export async function generateBulkPosts(category: string, count: number = 5, bus
   }
 }
 
-export async function generateAiImage(prompt: string, style: string = 'photorealistic', business?: Business, image?: string): Promise<{ url: string, provider: string }> {
+async function generateBuiltinOrchestratedImage(
+  prompt: string,
+  fullPrompt: string,
+  businessName: string,
+  style: string
+): Promise<{ url: string; provider: string }> {
+  await ensureLocalTextEngineReady();
+  console.log('[BuiltInAI] Orchestrating image prompt locally...');
+  const orchestrationPrompt = `You are a professional Creative Director. 
+Enhance the following image request into a high-quality, descriptive photorealistic stable diffusion prompt.
+Request: "${prompt}"
+Context: Business ${businessName}, Style: ${style}.
+Return ONLY the final prompt text. No quotes, no intro.`;
+
+  const localPrompt = await (await getBuiltInAi()).generate(orchestrationPrompt);
+  const finalPrompt = localPrompt || fullPrompt;
+  const settings = getAiSettings();
+  const model = settings.pollinationModel || 'flux';
+  const encodedPrompt = encodeURIComponent(finalPrompt);
+  const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=${model}`;
+
+  const headers: Record<string, string> = {};
+  if (settings.pollinationApiKey) {
+    headers['Authorization'] = `Bearer ${settings.pollinationApiKey}`;
+  }
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) throw new Error('Local AI image generation failed');
+  const blob = await response.blob();
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+  return { url: base64, provider: 'Local AI' };
+}
+
+export async function generateAiImage(
+  prompt: string,
+  style: string = 'photorealistic',
+  business?: Business,
+  image?: string,
+  options?: AiRouteOptions
+): Promise<{ url: string; provider: string }> {
   const businessName = business?.name || 'Forge';
   let designGuide = '';
   if (business?.id) {
@@ -3020,56 +3208,28 @@ export async function generateAiImage(prompt: string, style: string = 'photoreal
   High quality, professional social media content for ${businessName}.`;
 
   const settings = getAiSettings();
+  let imageProvider = options?.forceLocal ? 'builtin' : settings.imageProvider;
 
-  if (settings.imageProvider === 'auto') {
-    const puterInstance = (window as any).puter;
-    let puterSignedIn = false;
+  if (imageProvider === 'auto') {
     try {
-      if (puterInstance) {
-        puterSignedIn = await puterInstance.auth.isSignedIn();
-      }
-    } catch(e) {}
-    
-    if (puterSignedIn && !(window as any).isPuterDisabledForSession) {
-      settings.imageProvider = 'puter';
-    } else {
-      settings.imageProvider = 'gemini';
-    }
-  }
-
-  if (settings.imageProvider === 'builtin') {
-    try {
-      console.log("[BuiltInAI] Orchestrating image prompt locally...");
-      const orchestrationPrompt = `You are a professional Creative Director. 
-Enhance the following image request into a high-quality, descriptive photorealistic stable diffusion prompt.
-Request: "${prompt}"
-Context: Business ${businessName}, Style: ${style}.
-Return ONLY the final prompt text. No quotes, no intro.`;
-      
-      const localPrompt = await (await getBuiltInAi()).generate(orchestrationPrompt);
-      const finalPrompt = localPrompt || fullPrompt;
-      
-      // Use pollination as the backend renderer for Local AI orchestration
-      const encodedPrompt = encodeURIComponent(finalPrompt);
-      const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=flux`;
-      
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Local AI Orchestration fetch failed");
-      const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      return { url: base64, provider: 'Local AI (Orchestrated)' };
+      return await generateBuiltinOrchestratedImage(prompt, fullPrompt, businessName, style);
     } catch (e) {
-      console.error("Local AI image orchestration failed, falling back to Gemini", e);
-      settings.imageProvider = 'gemini';
+      console.warn('[GenerateAiImage] Auto: local orchestration failed, trying Pollination.', e);
+      imageProvider = 'pollination';
     }
   }
 
-  if (settings.imageProvider === 'pollination') {
+  if (imageProvider === 'builtin') {
+    try {
+      return await generateBuiltinOrchestratedImage(prompt, fullPrompt, businessName, style);
+    } catch (e) {
+      console.error('Local AI image orchestration failed', e);
+      if (options?.forceLocal) throw e;
+      imageProvider = 'pollination';
+    }
+  }
+
+  if (imageProvider === 'pollination') {
     const encodedPrompt = encodeURIComponent(fullPrompt);
     const model = settings.pollinationModel || 'flux';
     const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&model=${model}`;
@@ -3092,7 +3252,7 @@ Return ONLY the final prompt text. No quotes, no intro.`;
     return { url: base64, provider: 'Pollination.ai' };
   }
 
-  if (settings.imageProvider === 'puter') {
+  if (imageProvider === 'puter') {
     const puterInstance = (window as any).puter;
     if (!puterInstance) {
       throw new Error("Puter.js is not loaded yet. Please refresh the page.");

@@ -20,7 +20,14 @@ import { Post, Business } from '../data';
 import { writeBatch, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useWorkspaceConfig } from '../lib/workspaceConfig';
-import { generateBulkPosts, generateGenericText, generateCampaignFromUrl, chatToBuildWidget, ChatMessage, generateAiImage } from '../lib/gemini';
+import {
+  generateWidgetBulkPosts,
+  generateWidgetText,
+  generateWidgetCampaignFromUrl,
+  chatToBuildWidget,
+  ChatMessage,
+  generateWidgetImage,
+} from '../lib/gemini';
 import { CheckCircle2, Search } from 'lucide-react';
 import { AutoSuggest } from './AutoSuggest';
 import { onSnapshot } from 'firebase/firestore';
@@ -174,11 +181,11 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
         : `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`;
 
       if (newWidgetOutputType === 'image') {
-        const imageResult = await generateAiImage(finalPrompt, 'photorealistic', activeBusiness || undefined, playgroundTestImage || undefined);
+        const imageResult = await generateWidgetImage(finalPrompt, 'photorealistic', activeBusiness || undefined, playgroundTestImage || undefined);
         setPlaygroundTestResult(`![Generated Image](${imageResult.url})`);
       } else if (newWidgetOutputType === 'html') {
         const htmlPrompt = `${finalPrompt}\n\nYou MUST return ONLY valid HTML code. Do not wrap it in markdown code blocks (\`\`\`html). Just return the raw HTML string. Include CSS in <style> tags and JS in <script> tags if needed.`;
-        const responseText = await generateGenericText(
+        const responseText = await generateWidgetText(
           htmlPrompt,
           sysInstruction,
           playgroundTestImage || undefined
@@ -190,7 +197,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
         if (cleanHtml.endsWith('```')) cleanHtml = cleanHtml.substring(0, cleanHtml.length - 3);
         setPlaygroundTestResult(cleanHtml.trim());
       } else {
-        const responseText = await generateGenericText(
+        const responseText = await generateWidgetText(
           finalPrompt,
           sysInstruction,
           playgroundTestImage || undefined
@@ -214,7 +221,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     setIsRefiningPrompt(true);
     try {
       const prompt = `Refine the following AI widget prompt template to be more effective, professional, and robust. Keep any existing {{variables}} and you can add new ones if helpful. Prompt: "${newWidgetPrompt}"`;
-      const refined = await generateGenericText(
+      const refined = await generateWidgetText(
         prompt,
         `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`
       );
@@ -401,7 +408,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     }
     setIsGeneratingCampaign(true);
     try {
-      const result = await generateCampaignFromUrl(
+      const result = await generateWidgetCampaignFromUrl(
         campaignUrl,
         `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`
       );
@@ -422,7 +429,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     }
     setIsGeneratingBulk(true);
     try {
-      const posts = await generateBulkPosts(
+      const posts = await generateWidgetBulkPosts(
         bulkCategory, 
         bulkCount, 
         activeBusiness || undefined,
@@ -498,7 +505,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     setIsGeneratingCopy(true);
     try {
       const prompt = `You are Travis, an expert AI Copywriter. Write engaging social media copy, a blog post snippet, or ad copy for the following topic/product: ${copyPrompt}. Provide a catchy title, the main body copy, and 3-5 relevant hashtags.`;
-      const responseText = await generateGenericText(
+      const responseText = await generateWidgetText(
         prompt,
         `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`
       );
@@ -528,7 +535,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
         prompt = `Write marketing copy using the BAB framework (Before, After, Bridge) for: ${frameworkProduct}. Clearly label each section.`;
       }
 
-      const responseText = await generateGenericText(
+      const responseText = await generateWidgetText(
         prompt,
         `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`
       );
@@ -575,11 +582,11 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
         : `${config.aiContext.systemInstruction} ${config.aiContext.promptPrefix}`;
 
       if (widget.outputType === 'image') {
-        const imageResult = await generateAiImage(finalPrompt, 'photorealistic', activeBusiness || undefined, inputImage || undefined);
+        const imageResult = await generateWidgetImage(finalPrompt, 'photorealistic', activeBusiness || undefined, inputImage || undefined);
         setCustomResults(prev => ({ ...prev, [widget.id]: `![Generated Image](${imageResult.url})` }));
       } else if (widget.outputType === 'html') {
         const htmlPrompt = `${finalPrompt}\n\nYou MUST return ONLY valid HTML code. Do not wrap it in markdown code blocks (\`\`\`html). Just return the raw HTML string. Include CSS in <style> tags and JS in <script> tags if needed.`;
-        const responseText = await generateGenericText(
+        const responseText = await generateWidgetText(
           htmlPrompt,
           sysInstruction,
           inputImage || undefined
@@ -590,7 +597,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
         if (cleanHtml.endsWith('```')) cleanHtml = cleanHtml.substring(0, cleanHtml.length - 3);
         setCustomResults(prev => ({ ...prev, [widget.id]: cleanHtml.trim() }));
       } else {
-        const responseText = await generateGenericText(
+        const responseText = await generateWidgetText(
           finalPrompt,
           sysInstruction,
           inputImage || undefined

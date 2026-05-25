@@ -19,7 +19,7 @@ import { OneDriveSetup } from './OneDriveSetup';
 import { BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
 import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
 import { Cpu, Info } from 'lucide-react';
-import { testLocalServerConnection } from '../lib/gemini';
+import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
 
 const GEMINI_MODELS = [
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)' },
@@ -486,6 +486,7 @@ export function SettingsView({
   const [localAiDebug, setLocalAiDebug] = useState(!!aiSettings.localAiDebug);
   const [tunePreset, setTunePreset] = useState<'fast' | 'balanced' | 'quality'>('balanced');
   const [showAdvancedTune, setShowAdvancedTune] = useState(false);
+  const [showCloudAiOptions, setShowCloudAiOptions] = useState(false);
 
   useEffect(() => {
     setInstructionText(aiSettings.systemInstructions || '');
@@ -1097,8 +1098,8 @@ export function SettingsView({
         {/* AI Engine Card */}
         <BentoCard
           id="ai"
-          title="AI & Smart Engine"
-          subtitle={`Provider: ${aiSettings.preferredProvider}`}
+          title="Local AI"
+          subtitle="Widgets and creative tools run on-device by default"
           icon={Sparkles}
           iconBg="bg-purple-100 dark:bg-purple-900/30"
           iconColor="text-purple-600 dark:text-purple-400"
@@ -1115,28 +1116,49 @@ export function SettingsView({
                 Knowledge Center
               </button>
             </div>
-            <div className="space-y-3">
-              <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Preferred AI Provider</label>
-              <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-x-auto scrollbar-hide">
-                {['builtin', 'gemini', 'groq', 'puter', 'local_proxy', 'auto'].map((provider) => (
-                  <button
-                    key={provider}
-                    onClick={() => handleAiSettingChange('preferredProvider', provider)}
-                    className={cn(
-                      "flex-1 min-w-[70px] py-2 text-sm font-bold rounded-[8px] transition-all capitalize whitespace-nowrap",
-                      aiSettings.preferredProvider === provider 
-                        ? "bg-white dark:bg-[#2E2E2E]  text-[#2383E2]" 
-                        : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                    )}
-                  >
-                    {provider === 'local_proxy' ? 'Ollama' : provider}
-                  </button>
-                ))}
-              </div>
+            <div className="p-4 rounded-[16px] bg-indigo-50/80 dark:bg-indigo-900/15 border border-indigo-100 dark:border-indigo-900/30 space-y-2">
+              <p className="text-xs text-[#37352F] dark:text-[#EBE9ED] leading-relaxed">
+                Text runs in your browser via WebLLM. Images use your local model to refine prompts, then render through a free Flux endpoint—no Puter or Gemini sign-in required for widgets.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!showCloudAiOptions) {
+                    handleAiSettingChange('preferredProvider', 'builtin');
+                    handleAiSettingChange('imageProvider', 'builtin');
+                  }
+                  setShowCloudAiOptions(!showCloudAiOptions);
+                }}
+                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                {showCloudAiOptions ? 'Hide cloud providers' : 'Optional: use Gemini, Groq, Puter, or Ollama'}
+              </button>
             </div>
 
+            {showCloudAiOptions && (
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Cloud & hybrid providers</label>
+                <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-x-auto scrollbar-hide">
+                  {['builtin', 'gemini', 'groq', 'puter', 'local_proxy', 'auto'].map((provider) => (
+                    <button
+                      key={provider}
+                      onClick={() => handleAiSettingChange('preferredProvider', provider)}
+                      className={cn(
+                        "flex-1 min-w-[70px] py-2 text-sm font-bold rounded-[8px] transition-all capitalize whitespace-nowrap",
+                        aiSettings.preferredProvider === provider 
+                          ? "bg-white dark:bg-[#2E2E2E]  text-[#2383E2]" 
+                          : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                      )}
+                    >
+                      {provider === 'local_proxy' ? 'Ollama' : provider}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="p-4 sm:p-5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[16px]">
-              {aiSettings.preferredProvider === 'gemini' ? (
+              {showCloudAiOptions && aiSettings.preferredProvider === 'gemini' ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Gemini API Key</label>
@@ -1159,7 +1181,7 @@ export function SettingsView({
                     </select>
                   </div>
                 </div>
-              ) : aiSettings.preferredProvider === 'groq' ? (
+              ) : showCloudAiOptions && aiSettings.preferredProvider === 'groq' ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Groq API Key</label>
@@ -1184,7 +1206,7 @@ export function SettingsView({
                     </select>
                   </div>
                 </div>
-              ) : aiSettings.preferredProvider === 'builtin' ? (
+              ) : (!showCloudAiOptions || aiSettings.preferredProvider === 'builtin') ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 rounded-[16px] space-y-4">
                     {(() => {
@@ -1354,6 +1376,7 @@ export function SettingsView({
                       )}
                     </div>
 
+                    {showAdvancedTune && (
                     <div className="flex flex-col gap-4 p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -1469,6 +1492,15 @@ export function SettingsView({
                         </div>
                       )}
                     </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedTune((v) => !v)}
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline w-fit"
+                    >
+                      {showAdvancedTune ? 'Hide fine-tuning' : 'Advanced: model fine-tuning'}
+                    </button>
                     
                     {(() => {
                       const selectedModelId = aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
@@ -1573,7 +1605,7 @@ export function SettingsView({
                     )}
                   </div>
                 </div>
-              ) : aiSettings.preferredProvider === 'puter' ? (
+              ) : showCloudAiOptions && aiSettings.preferredProvider === 'puter' ? (
                 <div className="space-y-4">
                   <div className={cn(
                     "p-4 rounded-[16px] border transition-all",
@@ -1638,7 +1670,7 @@ export function SettingsView({
                     </select>
                   </div>
                 </div>
-              ) : aiSettings.preferredProvider === 'local_proxy' ? (
+              ) : showCloudAiOptions && aiSettings.preferredProvider === 'local_proxy' ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 rounded-[16px] space-y-4">
                     <div className="flex items-center gap-3">
@@ -1728,7 +1760,7 @@ export function SettingsView({
                     </div>
                   </div>
                 </div>
-              ) : aiSettings.preferredProvider === 'auto' ? (
+              ) : showCloudAiOptions && aiSettings.preferredProvider === 'auto' ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 rounded-[16px] space-y-4">
                     <div className="flex items-center gap-2">
@@ -1816,9 +1848,30 @@ export function SettingsView({
             </div>
 
             <div className="space-y-3 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-              <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Image Generation API</label>
+              <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Local image generation</label>
+              {!showCloudAiOptions ? (
+                <div className="space-y-3 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px]">
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+                    Your on-device model improves each prompt; images render with Flux (Pollinations). No cloud image API required for widgets.
+                  </p>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Image model (Flux backend)</label>
+                    <select 
+                      value={aiSettings.pollinationModel || 'flux'}
+                      onChange={(e) => {
+                        handleAiSettingChange('pollinationModel', e.target.value);
+                        handleAiSettingChange('imageProvider', 'builtin');
+                      }}
+                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                    >
+                      {POLLINATION_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                {['auto', 'gemini', 'pollination', 'puter', 'builtin'].map((provider) => (
+                {['builtin', 'pollination', 'auto', 'gemini', 'puter'].map((provider) => (
                   <button
                     key={provider}
                     onClick={() => handleAiSettingChange('imageProvider', provider)}
@@ -1835,17 +1888,19 @@ export function SettingsView({
               </div>
               <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-2 leading-relaxed">
                 {aiSettings.imageProvider === 'pollination' 
-                  ? 'Using Pollination.ai for fast, free image generation.' 
+                  ? 'Pollination.ai renders images from your prompt (no local orchestration).' 
                   : aiSettings.imageProvider === 'puter' 
                     ? 'Using Puter.js for image generation.' 
                     : aiSettings.imageProvider === 'builtin'
-                      ? 'Local AI will act as a creative director to orchestrate free image APIs.'
+                      ? 'Local AI refines prompts, then Flux generates the image.'
                       : aiSettings.imageProvider === 'auto'
-                        ? 'Auto mode will try Puter.js if signed in, otherwise use Gemini Flash.'
+                        ? 'Tries local orchestration first, then Pollination, then cloud.'
                         : 'Using Gemini Flash Image for high-quality, prompt-aligned images.'}
               </p>
+                </>
+              )}
 
-              {aiSettings.imageProvider === 'pollination' && (
+              {showCloudAiOptions && aiSettings.imageProvider === 'pollination' && (
                 <div className="mt-4 space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Pollination.ai API Key (Optional)</label>
@@ -1870,7 +1925,7 @@ export function SettingsView({
                 </div>
               )}
 
-              {aiSettings.imageProvider === 'puter' && (
+              {showCloudAiOptions && aiSettings.imageProvider === 'puter' && (
                 <div className="mt-4 space-y-4">
                   {!isPuterSignedIn && (
                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-[12px]">
@@ -1899,16 +1954,11 @@ export function SettingsView({
 
             <button
               onClick={() => {
-                const defaults = { 
-                  geminiModel: 'gemini-2.5-flash', 
-                  groqModel: 'llama-3.1-8b-instant', 
-                  groqVisionModel: 'llama-3.2-11b-vision-preview',
-                  firecrawlApiKey: '',
-                  targetUrl: ''
-                };
+                const defaults = getDefaultAiSettings();
                 setAiSettingsState(defaults);
                 setAiSettings(defaults);
-                toast.success('AI settings reset to defaults');
+                setShowCloudAiOptions(false);
+                toast.success('Reset to local-first AI defaults');
               }}
               className="w-full py-3 px-4 border border-[#6074b9] text-[#6074b9] hover:bg-[#6074b9]/10 rounded-[12px] text-sm font-bold transition-colors"
             >
