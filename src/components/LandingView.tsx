@@ -300,7 +300,7 @@ const SECTIONS = [
     id: 'localdb',
     icon: Database,
     title: landingTerms.products,
-    description: 'Workspace inventory for products and references: tag, search, and drop items into posts or AI prompts so your catalog is always one click away.',
+    description: 'A searchable catalogue and knowledge base: organize products or reference material, then drop entries into posts and AI tools in one click.',
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/10'
   }

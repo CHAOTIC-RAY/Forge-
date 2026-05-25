@@ -63,6 +63,20 @@ export function CalendarGridSkeleton() {
   );
 }
 
+export function CatalogueGridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3" aria-busy="true" aria-label="Loading catalogue">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div key={i} className="glass-card p-3 space-y-2">
+          <Skeleton className="h-3 w-16 rounded-md" />
+          <Skeleton className="h-4 w-full rounded-md" />
+          <Skeleton className="h-20 w-full rounded-lg" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function IdeasBoardSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 md:p-6" aria-busy="true" aria-label="Loading ideas">

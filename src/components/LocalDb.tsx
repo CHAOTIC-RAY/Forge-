@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ForgeLoader } from './ForgeLoader';
-import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Save, Moon, Camera, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen } from 'lucide-react';
+import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Moon, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen, LayoutGrid, List, ChevronDown, Plus, FileJson } from 'lucide-react';
+import { CatalogueGridSkeleton } from './ui/Skeleton';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -68,6 +69,28 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const [brandOverview, setBrandOverview] = useState<string | null>(null);
   const [isGeneratingOverview, setIsGeneratingOverview] = useState(false);
   const crawlIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const [catalogueView, setCatalogueView] = useState<'grid' | 'list'>('grid');
+  const [showImportPanel, setShowImportPanel] = useState(false);
+  const [detailItem, setDetailItem] = useState<HighStockProduct | null>(null);
+  const [isCatalogueLoading, setIsCatalogueLoading] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newEntry, setNewEntry] = useState({ title: '', type: '', price: '', stockInfo: '', link: '' });
+
+  const catalogueLabels = useMemo(() => ({
+    title: dbMode === 'product' ? 'Catalogue' : 'Knowledge base',
+    subtitle: dbMode === 'product'
+      ? 'Browse, search, and use your product library in posts and AI tools.'
+      : 'Browse, search, and use reference insights across your workspace.',
+    itemSingular: dbMode === 'product' ? 'item' : 'entry',
+    itemPlural: dbMode === 'product' ? 'items' : 'entries',
+    searchPlaceholder: dbMode === 'product' ? 'Search catalogue…' : 'Search knowledge base…',
+    emptyTitle: dbMode === 'product' ? 'Your catalogue is empty' : 'No entries yet',
+    emptyBody: dbMode === 'product'
+      ? 'Add products manually or import from a website to build your library.'
+      : 'Add insights manually or import from pages to build your knowledge base.',
+    secondaryField: dbMode === 'product' ? 'Price / stock' : 'Summary',
+  }), [dbMode]);
 
   // Scroll to top listener
   useEffect(() => {
@@ -207,20 +230,23 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
   // Sync products with Firestore
   useEffect(() => {
-    if (!userId || !businessId) return;
+    if (!userId || !businessId) {
+      setIsCatalogueLoading(false);
+      return;
+    }
 
+    setIsCatalogueLoading(true);
     const q = query(collection(db, 'inventory_products'), where('businessId', '==', businessId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const cloudProducts: HighStockProduct[] = [];
-      snapshot.forEach((doc) => {
-        cloudProducts.push(doc.data() as HighStockProduct);
+      snapshot.forEach((docSnap) => {
+        cloudProducts.push(docSnap.data() as HighStockProduct);
       });
-      
-      if (cloudProducts.length > 0) {
-        setProducts(cloudProducts);
-        setHasSearched(true);
-      }
+      setProducts(cloudProducts);
+      setHasSearched(true);
+      setIsCatalogueLoading(false);
     }, (error) => {
+      setIsCatalogueLoading(false);
       handleFirestoreError(error, OperationType.GET, 'rainbow_products');
     });
 
@@ -1041,141 +1067,300 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     }
   };
 
+  const handleDeleteItem = async (product: HighStockProduct) => {
+    setProducts(prev => prev.filter(p => p.title !== product.title));
+    setSelectedProducts(prev => prev.filter(p => p.title !== product.title));
+    if (detailItem?.title === product.title) setDetailItem(null);
+    if (userId && businessId) {
+      const docId = (product.title || 'Untitled').replace(/[^a-zA-Z0-9]/g, '_');
+      try {
+        await deleteDoc(doc(db, 'inventory_products', `${businessId}_${docId}`));
+      } catch (e) {
+        console.error('Delete failed', e);
+        toast.error('Could not remove item from cloud sync.');
+      }
+    }
+    toast.success('Removed from catalogue');
+  };
+
+  const handleAddEntry = async () => {
+    const title = newEntry.title.trim();
+    if (!title) {
+      toast.error('Title is required.');
+      return;
+    }
+    const item: HighStockProduct = {
+      title,
+      type: newEntry.type.trim() || 'Uncategorized',
+      link: newEntry.link.trim() || manualUrl || undefined,
+      outlet: 'Forge Enterprises',
+      ...(dbMode === 'product'
+        ? { price: newEntry.price.trim() || undefined, stockInfo: newEntry.price.trim() || undefined }
+        : { stockInfo: newEntry.stockInfo.trim() || newEntry.price.trim() || undefined }),
+    };
+    if (products.some(p => p.title === title)) {
+      toast.error('An entry with this title already exists.');
+      return;
+    }
+    setProducts(prev => [...prev, item]);
+    setHasSearched(true);
+    await syncProductsToFirestore([item]);
+    setShowAddModal(false);
+    setNewEntry({ title: '', type: '', price: '', stockInfo: '', link: '' });
+    setDetailItem(item);
+    toast.success('Added to catalogue');
+  };
+
+  const handleExportCatalogue = () => {
+    if (filteredProducts.length === 0) {
+      toast.info('Nothing to export.');
+      return;
+    }
+    const rows = filteredProducts.map(p => ({
+      Title: p.title,
+      Category: p.type,
+      ...(dbMode === 'product' ? { Price: p.price || p.stockInfo } : { Summary: p.stockInfo }),
+      Link: p.link || '',
+      SKU: p.sku || '',
+      Outlet: p.outlet || '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, dbMode === 'product' ? 'Catalogue' : 'Knowledge');
+    XLSX.writeFile(wb, `${dbMode === 'product' ? 'catalogue' : 'knowledge-base'}-${businessId || 'export'}.xlsx`);
+    toast.success('Exported catalogue');
+  };
+
+  const uncategorizedCount = products.filter(p => p.type === 'Uncategorized' || !p.type).length;
+  const categoryCount = new Set(products.map(p => p.type).filter(Boolean)).size;
+
   return (
     <div className="flex flex-col bg-transparent relative">
-      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
-        <div className="flex items-center justify-between">
+      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
               <Database className="w-6 h-6 text-brand" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
-                {dbMode === 'product' ? 'Product DB' : 'Info DB'}
-              </h2>
-              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
-                {dbMode === 'product' 
-                  ? 'Manage and analyze your inventory data.' 
-                  : 'Manage and analyze your knowledge base and insights.'}
-              </p>
+              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED]">{catalogueLabels.title}</h2>
+              <p className="text-sm text-secondary-safe mt-1">{catalogueLabels.subtitle}</p>
             </div>
           </div>
-          
-          {/* Mode Toggle */}
           <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
             <button
               onClick={() => setDbMode('product')}
               className={cn(
-                "px-4 py-1.5 rounded-[8px] text-xs font-medium transition-all",
-                dbMode === 'product' 
-                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] " 
-                  : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                'px-4 py-1.5 rounded-[8px] text-xs font-medium transition-colors',
+                dbMode === 'product'
+                  ? 'bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
+                  : 'text-secondary-safe hover:text-[#37352F] dark:hover:text-[#EBE9ED]'
               )}
             >
-              Product Mode
+              Catalogue
             </button>
             <button
               onClick={() => setDbMode('info')}
               className={cn(
-                "px-4 py-1.5 rounded-[8px] text-xs font-medium transition-all",
-                dbMode === 'info' 
-                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] " 
-                  : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                'px-4 py-1.5 rounded-[8px] text-xs font-medium transition-colors',
+                dbMode === 'info'
+                  ? 'bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
+                  : 'text-secondary-safe hover:text-[#37352F] dark:hover:text-[#EBE9ED]'
               )}
             >
-              Info Mode
+              Knowledge base
             </button>
           </div>
         </div>
       </div>
 
-      {/* Scroll to Top Button */}
       {showScrollTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 z-50 p-3 bg-[#2383E2] text-white rounded-full  hover:bg-blue-600 transition-all animate-in fade-in slide-in-from-bottom-4"
-          title="Scroll to Top"
+          className="fixed bottom-8 right-8 z-50 p-3 bg-brand text-white rounded-full hover:bg-brand-hover transition-colors animate-in fade-in slide-in-from-bottom-4 min-h-[44px] min-w-[44px]"
+          title="Scroll to top"
         >
           <ChevronUp className="w-6 h-6" />
         </button>
       )}
 
-      {/* Body */}
-      <div className="flex flex-col pb-6 px-4 md:px-0">
-        <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
-          <div className="flex-1 w-full max-w-md">
-            <div className="relative">
-              <input
-                type="url"
-                placeholder={`Target URL (defaults to ${aiSettings.targetUrl || 'https://example.com'})`}
-                value={manualUrlInput}
-                onChange={(e) => setManualUrlInput(e.target.value)}
-                onBlur={() => setManualUrl(manualUrlInput || aiSettings.targetUrl || '')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setManualUrl(manualUrlInput || aiSettings.targetUrl || '');
-                  }
-                }}
-                className="w-full pl-4 pr-10 py-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-[#2383E2] outline-none transition-all "
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <Globe className="w-4 h-4 text-[#9B9A97]" />
-              </div>
-            </div>
+      <div className="flex flex-col pb-6 px-4 md:px-0 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Total {catalogueLabels.itemPlural}</p>
+            <p className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] mt-1">{products.length}</p>
           </div>
-          <div className="flex flex-wrap gap-3 w-full md:w-auto justify-end">
-            <button
-              onClick={handleAutoCategorize}
-              disabled={isAutoCategorizing}
-              className="flex-1 md:flex-none px-4 py-2.5 bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30 rounded-[12px] text-sm font-bold hover:bg-purple-100 dark:hover:bg-purple-900/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 "
-            >
-              {isAutoCategorizing ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
-              Auto-Categorize
-            </button>
-            <button
-              onClick={() => setIsManualMode(!isManualMode)}
-              className={`flex-1 md:flex-none px-4 py-2.5 rounded-[12px] text-sm font-bold transition-all  ${
-                isManualMode
-                  ? 'bg-[#2383E2] text-white'
-                  : 'bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
-              }`}
-            >
-              {isManualMode ? 'Back to Auto-Scrape' : 'Manual Scrape Mode'}
-            </button>
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Categories</p>
+            <p className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] mt-1">{categoryCount}</p>
+          </div>
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Showing</p>
+            <p className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] mt-1">{filteredProducts.length}</p>
+          </div>
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Needs category</p>
+            <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{uncategorizedCount}</p>
           </div>
         </div>
 
-        {/* Multi-select bar */}
-        {selectedProducts.length > 0 && (
-          <div className="sticky top-0 z-10 bg-white dark:bg-[#191919] p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px]  mb-6 flex items-center justify-between">
-            <span className="text-sm font-medium text-[#37352F] dark:text-[#EBE9ED]">
-              {selectedProducts.length} products selected
-            </span>
-            <div className="flex gap-2">
-              <button 
-                onClick={handleSelectAll}
-                className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[6px]"
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9A97]" />
+              <input
+                type="text"
+                placeholder={catalogueLabels.searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-brand/30 outline-none"
+              />
+            </div>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="px-3 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm min-h-[44px]"
+            >
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {dbMode === 'product' && (
+              <select
+                value={filterOutlet}
+                onChange={(e) => setFilterOutlet(e.target.value)}
+                className="px-3 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm min-h-[44px]"
               >
-                {selectedProducts.length === filteredProducts.length ? 'Deselect All' : 'Select All Filtered'}
+                {outlets.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            )}
+            <div className="flex gap-2 flex-wrap">
+              <div className="flex rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setCatalogueView('grid')}
+                  className={cn('p-3 min-h-[44px]', catalogueView === 'grid' ? 'bg-brand text-white' : 'bg-white dark:bg-[#191919] text-secondary-safe')}
+                  aria-label="Grid view"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCatalogueView('list')}
+                  className={cn('p-3 min-h-[44px]', catalogueView === 'list' ? 'bg-brand text-white' : 'bg-white dark:bg-[#191919] text-secondary-safe')}
+                  aria-label="List view"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-3 bg-brand text-white rounded-[12px] text-sm font-bold hover:bg-brand-hover flex items-center gap-2 min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                Add {catalogueLabels.itemSingular}
               </button>
-              <button 
-                onClick={() => setSelectedProducts([])}
-                className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] rounded-[6px]"
+              <button
+                type="button"
+                onClick={() => setShowImportPanel(!showImportPanel)}
+                className={cn(
+                  'px-4 py-3 rounded-[12px] text-sm font-bold border min-h-[44px] flex items-center gap-2',
+                  showImportPanel
+                    ? 'bg-brand-bg border-brand text-brand'
+                    : 'bg-white dark:bg-[#191919] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
+                )}
               >
-                Clear Selection
+                <FileJson className="w-4 h-4" />
+                Import & sync
+                <ChevronDown className={cn('w-4 h-4 transition-transform', showImportPanel && 'rotate-180')} />
               </button>
-              <button 
-                onClick={() => onAddPost(selectedProducts)}
-                className="px-3 py-1.5 text-xs bg-[#2383E2] text-white rounded-[6px]"
+              {products.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleAutoCategorize}
+                    disabled={isAutoCategorizing}
+                    className="px-4 py-3 rounded-[12px] text-sm font-bold border border-purple-200 dark:border-purple-900/40 text-purple-600 dark:text-purple-400 disabled:opacity-50 min-h-[44px] flex items-center gap-2"
+                  >
+                    {isAutoCategorizing ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
+                    Categorize
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportCatalogue}
+                    className="px-4 py-3 rounded-[12px] text-sm font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] min-h-[44px] flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {showImportPanel && (
+          <div className="glass-card p-4 md:p-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1 relative">
+                <input
+                  type="url"
+                  placeholder={`Source URL (${aiSettings.targetUrl || 'https://example.com'})`}
+                  value={manualUrlInput}
+                  onChange={(e) => setManualUrlInput(e.target.value)}
+                  onBlur={() => setManualUrl(manualUrlInput || aiSettings.targetUrl || '')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setManualUrl(manualUrlInput || aiSettings.targetUrl || '');
+                  }}
+                  className="w-full pl-4 pr-10 py-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-brand/30 outline-none"
+                />
+                <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9A97]" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsManualMode(!isManualMode)}
+                className={cn(
+                  'px-4 py-2.5 rounded-[12px] text-sm font-bold min-h-[44px]',
+                  isManualMode ? 'bg-brand text-white' : 'bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
+                )}
               >
-                Create Post with Selected
+                {isManualMode ? 'Hide paste import' : 'Paste / JSON import'}
               </button>
             </div>
           </div>
         )}
 
-        {/* Category Counts Section */}
-        {!isManualMode && (
+        {selectedProducts.length > 0 && (
+          <div className="sticky top-0 z-20 glass-card p-4 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-medium text-[#37352F] dark:text-[#EBE9ED]">
+              {selectedProducts.length} {catalogueLabels.itemPlural} selected
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] min-h-[36px]"
+              >
+                {selectedProducts.length === filteredProducts.length ? 'Deselect all' : 'Select all filtered'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedProducts([])}
+                className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-secondary-safe rounded-[8px] min-h-[36px]"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => onAddPost(selectedProducts)}
+                className="px-3 py-1.5 text-xs bg-brand text-white rounded-[8px] font-bold min-h-[36px]"
+              >
+                Create post
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showImportPanel && !isManualMode && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-white dark:bg-[#191919] p-6 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] ">
               <div className="flex items-center justify-between mb-4">
@@ -1216,7 +1401,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                   }
                 }}
                 disabled={isCheckingCounts}
-                className="text-[10px] font-bold text-[#2383E2] hover:underline disabled:opacity-50"
+                className="text-[10px] font-bold text-brand hover:underline disabled:opacity-50"
               >
               </button>
                     <button 
@@ -1264,12 +1449,13 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">{cat.count} items</span>
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => handleFetchCategory(cat.category)}
                           disabled={fetchingCategory === cat.category}
-                          className="px-3 py-1 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-[10px] font-bold rounded-[6px] transition-colors disabled:opacity-50"
+                          className="px-3 py-1 bg-brand hover:bg-brand-hover text-white text-[10px] font-bold rounded-[6px] transition-colors disabled:opacity-50"
                         >
-                          {fetchingCategory === cat.category ? 'Fetching...' : 'Get Info'}
+                          {fetchingCategory === cat.category ? 'Fetching…' : 'Import'}
                         </button>
                       </div>
                     </div>
@@ -1285,11 +1471,12 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                       ? 'Check inventory counts to see what\'s available.' 
                       : 'Check knowledge counts to see what\'s available.'}
                   </p>
-                  <button 
+                  <button
+                    type="button"
                     onClick={() => handleCheckCounts()}
-                    className="px-4 py-2 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-sm font-bold rounded-[12px] transition-all  "
+                    className="px-4 py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold rounded-[12px] transition-colors min-h-[44px]"
                   >
-                    Check Now
+                    Map site structure
                   </button>
                 </div>
               )}
@@ -1340,12 +1527,11 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
           </div>
         )}
 
-        {/* Manual Scrape Mode */}
-        {isManualMode && (
+        {showImportPanel && isManualMode && (
           <div className="flex flex-col gap-6 mb-8">
             <div className="bg-white dark:bg-[#191919] p-6 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] ">
               <div className="flex items-center gap-2 mb-6">
-                <ClipboardPaste className="w-4 h-4 text-[#2383E2]" />
+                <ClipboardPaste className="w-4 h-4 text-brand" />
                 <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">Manual Scraper (Console Method)</h3>
               </div>
 
@@ -1353,7 +1539,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-6">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <ClipboardPaste className="w-4 h-4 text-[#2383E2]" />
+                    <ClipboardPaste className="w-4 h-4 text-brand" />
                     <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Scraping via Console (Manual Method)</h4>
                   </div>
                   <p className="text-xs text-[#757681] dark:text-[#9B9A97] mb-4">
@@ -1409,7 +1595,7 @@ JSON.stringify(items);`}
                   <button
                     onClick={handleConsolePaste}
                     disabled={isProcessingPaste || !consolePaste.trim()}
-                    className="w-full sm:w-auto px-6 py-4 sm:py-2 bg-[#2383E2] hover:bg-blue-600 text-white text-sm font-bold rounded-[12px] transition-all disabled:opacity-50 flex flex-row sm:flex-col items-center justify-center gap-2 min-w-[120px]  "
+                    className="w-full sm:w-auto px-6 py-4 sm:py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold rounded-[12px] transition-all disabled:opacity-50 flex flex-row sm:flex-col items-center justify-center gap-2 min-w-[120px]  "
                   >
                     {isProcessingPaste ? (
                       <ForgeLoader size={20} />
@@ -1428,7 +1614,7 @@ JSON.stringify(items);`}
               <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-4 mt-6">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Upload className="w-4 h-4 text-[#2383E2]" />
+                    <Upload className="w-4 h-4 text-brand" />
                     <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Upload Firecrawl JSON</h4>
                   </div>
                   <p className="text-xs text-[#757681] dark:text-[#9B9A97] mb-4">
@@ -1445,7 +1631,7 @@ JSON.stringify(items);`}
                     />
                     <label
                       htmlFor="firecrawl-json-upload"
-                      className="cursor-pointer w-full sm:w-auto px-6 py-4 sm:py-2 bg-[#2383E2] hover:bg-blue-600 text-white text-sm font-bold rounded-[12px] transition-all flex items-center justify-center gap-2  "
+                      className="cursor-pointer w-full sm:w-auto px-6 py-4 sm:py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold rounded-[12px] transition-all flex items-center justify-center gap-2  "
                     >
                       <Upload className="w-5 h-5" />
                       Select JSON Files
@@ -1503,89 +1689,221 @@ JSON.stringify(items);`}
           </div>
         )}
         
-        {/* Products List Section */}
-        {hasSearched && (
-          <div className="mt-6">
-            <div className="flex flex-col gap-4 mb-6">
-              <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <div className="flex-1 relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="w-4 h-4 text-[#9B9A97]" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder={dbMode === 'product' ? "Search products..." : "Search insights..."}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] sm:rounded-[8px] text-sm"
-                  />
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 min-w-0">
+            {isCatalogueLoading ? (
+              <CatalogueGridSkeleton />
+            ) : filteredProducts.length === 0 ? (
+              <div className="glass-card p-10 text-center">
+                <div className="w-16 h-16 mx-auto bg-brand-bg rounded-2xl flex items-center justify-center mb-4">
+                  <BookOpen className="w-8 h-8 text-brand opacity-80" />
                 </div>
-                <div className="flex gap-2 sm:gap-3">
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="flex-1 sm:flex-none px-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] sm:rounded-[8px] text-sm"
+                <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{catalogueLabels.emptyTitle}</h3>
+                <p className="text-sm text-secondary-safe mt-2 max-w-md mx-auto">{catalogueLabels.emptyBody}</p>
+                <div className="flex flex-wrap justify-center gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(true)}
+                    className="px-5 py-2.5 bg-brand text-white rounded-[12px] text-sm font-bold hover:bg-brand-hover min-h-[44px]"
                   >
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <select
-                    value={filterOutlet}
-                    onChange={(e) => setFilterOutlet(e.target.value)}
-                    className="flex-1 sm:flex-none px-3 py-3 sm:py-2 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] sm:rounded-[8px] text-sm"
+                    Add {catalogueLabels.itemSingular}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowImportPanel(true); setIsManualMode(true); }}
+                    className="px-5 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm font-bold min-h-[44px]"
                   >
-                    {outlets.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                    Import data
+                  </button>
                 </div>
               </div>
-            </div>
-            
-            <div 
-              ref={listRef}
-              style={{
-                height: `${virtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative',
-              }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const startIndex = virtualRow.index * columns;
-                const rowProducts = filteredProducts.slice(startIndex, startIndex + columns);
-                
-                return (
-                  <div
-                    key={virtualRow.index}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: `${virtualRow.size}px`,
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-3"
-                  >
-                    {rowProducts.map((product, idx) => {
-                      const isSelected = selectedProducts.find(p => p.title === product.title);
-                      return (
-                        <div key={idx} className="relative group h-full">
-                          <DraggableProduct 
-                            product={product} 
-                            onClick={() => toggleProductSelection(product)} 
-                            isSelected={!!isSelected}
-                            viewMode="grid"
-                            dbMode={dbMode}
-                          />
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 z-20 bg-[#2383E2] text-white rounded-full p-1  scale-75 sm:scale-100">
-                              <Check className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </div>
-                          )}
+            ) : catalogueView === 'list' ? (
+              <div className="space-y-2">
+                {filteredProducts.map((product) => {
+                  const isSelected = !!selectedProducts.find(p => p.title === product.title);
+                  const isActive = detailItem?.title === product.title;
+                  return (
+                    <div key={product.title} className="relative">
+                      <DraggableProduct
+                        product={product}
+                        onClick={() => setDetailItem(product)}
+                        isSelected={isSelected || isActive}
+                        viewMode="list"
+                        dbMode={dbMode}
+                        onDelete={handleDeleteItem}
+                      />
+                      {isSelected && (
+                        <div className="absolute top-3 right-3 z-20 bg-brand text-white rounded-full p-1">
+                          <Check className="w-3 h-3" />
                         </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div
+                ref={listRef}
+                style={{
+                  height: `${virtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const startIndex = virtualRow.index * columns;
+                  const rowProducts = filteredProducts.slice(startIndex, startIndex + columns);
+                  return (
+                    <div
+                      key={virtualRow.index}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-3"
+                    >
+                      {rowProducts.map((product) => {
+                        const isSelected = !!selectedProducts.find(p => p.title === product.title);
+                        const isActive = detailItem?.title === product.title;
+                        return (
+                          <div key={product.title} className="relative h-full">
+                            <DraggableProduct
+                              product={product}
+                              onClick={() => setDetailItem(product)}
+                              isSelected={isSelected || isActive}
+                              viewMode="grid"
+                              dbMode={dbMode}
+                              onDelete={handleDeleteItem}
+                            />
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 z-20 bg-brand text-white rounded-full p-1 pointer-events-none">
+                                <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {detailItem && (
+            <aside className="w-full lg:w-80 shrink-0 glass-card p-5 h-fit lg:sticky lg:top-4">
+              <div className="flex items-start justify-between gap-2 mb-4">
+                <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] leading-snug">{detailItem.title}</h3>
+                <button type="button" onClick={() => setDetailItem(null)} className="p-1 rounded-lg hover:bg-[#F7F7F5] dark:hover:bg-[#202020]">
+                  <X className="w-4 h-4 text-secondary-safe" />
+                </button>
+              </div>
+              <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-brand bg-brand-bg px-2 py-0.5 rounded mb-3">
+                {detailItem.type || 'Uncategorized'}
+              </span>
+              {(detailItem.price || detailItem.stockInfo) && (
+                <p className="text-sm text-secondary-safe mb-3">
+                  <span className="font-bold text-[#37352F] dark:text-[#EBE9ED]">{catalogueLabels.secondaryField}: </span>
+                  {dbMode === 'product' ? (detailItem.price || detailItem.stockInfo) : detailItem.stockInfo}
+                </p>
+              )}
+              {detailItem.sku && (
+                <p className="text-xs text-secondary-safe mb-2">SKU: {detailItem.sku}</p>
+              )}
+              {detailItem.outlet && (
+                <p className="text-xs text-secondary-safe mb-4">Source: {detailItem.outlet}</p>
+              )}
+              <div className="flex flex-col gap-2">
+                {detailItem.link && (
+                  <a
+                    href={detailItem.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-brand hover:underline"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Open source
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => toggleProductSelection(detailItem)}
+                  className="w-full py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-sm font-bold"
+                >
+                  {selectedProducts.find(p => p.title === detailItem.title) ? 'Remove from selection' : 'Add to selection'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAddPost([detailItem])}
+                  className="w-full py-2.5 bg-brand text-white rounded-[10px] text-sm font-bold hover:bg-brand-hover"
+                >
+                  Use in post
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteItem(detailItem)}
+                  className="w-full py-2.5 border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 rounded-[10px] text-sm font-bold"
+                >
+                  Remove from catalogue
+                </button>
+              </div>
+            </aside>
+          )}
+        </div>
+
+        {showAddModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-[#191919] w-full max-w-md rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E] p-6 shadow-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">
+                  Add {catalogueLabels.itemSingular}
+                </h2>
+                <button type="button" onClick={() => setShowAddModal(false)} className="p-2 rounded-full hover:bg-[#F7F7F5] dark:hover:bg-[#202020]">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <input
+                  placeholder="Title *"
+                  value={newEntry.title}
+                  onChange={(e) => setNewEntry(s => ({ ...s, title: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-sm bg-white dark:bg-[#191919]"
+                />
+                <input
+                  placeholder="Category"
+                  value={newEntry.type}
+                  onChange={(e) => setNewEntry(s => ({ ...s, type: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-sm bg-white dark:bg-[#191919]"
+                />
+                <input
+                  placeholder={catalogueLabels.secondaryField}
+                  value={dbMode === 'product' ? newEntry.price : newEntry.stockInfo}
+                  onChange={(e) => setNewEntry(s => (
+                    dbMode === 'product'
+                      ? { ...s, price: e.target.value }
+                      : { ...s, stockInfo: e.target.value }
+                  ))}
+                  className="w-full px-3 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-sm bg-white dark:bg-[#191919]"
+                />
+                <input
+                  placeholder="Link (optional)"
+                  value={newEntry.link}
+                  onChange={(e) => setNewEntry(s => ({ ...s, link: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-sm bg-white dark:bg-[#191919]"
+                />
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-sm font-bold">
+                  Cancel
+                </button>
+                <button type="button" onClick={handleAddEntry} className="flex-1 py-2.5 rounded-[10px] bg-brand text-white text-sm font-bold hover:bg-brand-hover">
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         )}

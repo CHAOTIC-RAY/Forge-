@@ -709,7 +709,7 @@ export function SettingsView({
             <Database className="w-5 h-5" />
           </div>
           <div className="flex flex-col items-start">
-            <span className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Workspace Inventory</span>
+            <span className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Catalogue</span>
             <span className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Manage your product database</span>
           </div>
         </button>
