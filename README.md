@@ -112,7 +112,7 @@ It's built to compete with tools like Ocoya, Buffer, and Hootsuite, with **Googl
 - Expandable to full-page mode
 
 ### 🔐 Auth & Multi-Workspace
-- Google Sign-In via Firebase Auth
+- Email/password and Google Sign-In via Firebase Auth
 - Create and switch between unlimited workspaces
 - Each workspace: isolated data, its own brand kit, outlets, team, and settings
 - Role-based access: Admin, Content Creator, Viewer/Approver
@@ -142,7 +142,7 @@ Each workspace selects an industry. Forge automatically adjusts the AI tone, ter
 | Frontend | React 19, TypeScript 5.8, Vite 6 |
 | Styling | Tailwind CSS 4, Motion/React (Framer Motion v12) |
 | Database | Firebase Firestore |
-| Auth | Firebase Auth (Google Sign-In) |
+| Auth | Firebase Auth (Email/Password + Google Sign-In) |
 | Storage | Firebase Storage |
 | AI (Primary) | Google Gemini 2.5 Flash / 3.1 Pro via `@google/genai` |
 | AI (Fallback) | Groq — Llama 3.3 70B |
@@ -224,7 +224,7 @@ CLOUDINARY_API_SECRET=
 ### 4. Set up Firebase
 
 1. Go to [Firebase Console](https://console.firebase.google.com) → your project
-2. Enable **Authentication** → Google sign-in provider
+2. Enable **Authentication** → Sign-in method → **Email/Password** and **Google** providers
 3. Enable **Firestore Database** and deploy the security rules:
 
 ```bash

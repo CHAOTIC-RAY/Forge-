@@ -42,7 +42,7 @@ import { Post, initialPosts, Business } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
-import { getAi, isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
+import { isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
 import { builtInAi } from './lib/builtinAi';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
@@ -65,7 +65,7 @@ const CreativeStudioTab = React.lazy(() => import('./components/CreativeStudioTa
 const AnalyticsTab = React.lazy(() => import('./components/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
 const SettingsView = React.lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
 const BrandKitTab = React.lazy(() => import('./components/BrandKitTab').then(m => ({ default: m.BrandKitTab })));
-const NotebookTab = React.lazy(() => import('./components/NotebookTab').then(m => ({ default: m.NotebookTab })));
+const IdeasTab = React.lazy(() => import('./components/IdeasTab').then(m => ({ default: m.IdeasTab })));
 const WorkspaceManagementTab = React.lazy(() => import('./components/WorkspaceManagementTab').then(m => ({ default: m.WorkspaceManagementTab })));
 const AiStudioTab = React.lazy(() => import('./components/AiStudioTab').then(m => ({ default: m.AiStudioTab })));
 
@@ -105,7 +105,11 @@ import {
   setAiSettings,
   getExcelMappingWithAi,
   generateBulkPosts,
-  fetchServerConfig
+  fetchServerConfig,
+  generateAppJson,
+  generateGenericText,
+  ensureLocalTextEngineReady,
+  getEffectiveTextProvider,
 } from './lib/gemini';
 import { db, auth, storage, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
 import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
@@ -543,7 +547,7 @@ export default function App() {
             updatedAt: serverTimestamp()
           });
 
-          toast.success(event.data.type === 'FORGE_ADD_NOTE' ? "Note clipped to notebook!" : "Quick note added!");
+          toast.success(event.data.type === 'FORGE_ADD_NOTE' ? "Note clipped to Ideas!" : "Quick idea added!");
         } catch (error) {
           console.error("Failed to add note from extension:", error);
           toast.error("Failed to add note from extension.");
@@ -573,6 +577,7 @@ export default function App() {
 
 
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
+  const isIdeasTabActive = activeTab === 'ideas' || activeTab === 'notebook';
   const [creativeView, setCreativeView] = useState<'modules' | 'sandbox'>('modules');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
@@ -666,18 +671,22 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // Auto-initialize Built-in AI if selected
+  // Preload WebLLM when Built-in / WebGPU local mode is active (or Auto with builtin enabled)
   useEffect(() => {
-    const status = builtInAi.getStatus();
-    if (aiSettings.preferredProvider === 'builtin' && 
-        aiSettings.builtinModelId && 
-        !status.isLoaded && 
-        !status.isLoading && 
-        !status.error) {
-      console.log("[App] Auto-initializing Built-in AI...");
-      builtInAi.init(aiSettings.builtinModelId);
-    }
-  }, [aiSettings.preferredProvider, aiSettings.builtinModelId]);
+    const effective = getEffectiveTextProvider(aiSettings);
+    const autoAllowsBuiltin =
+      effective === 'auto' &&
+      (aiSettings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini']).includes('builtin');
+    if (effective !== 'builtin' && !autoAllowsBuiltin) return;
+    ensureLocalTextEngineReady().catch((err) => {
+      console.warn('[App] Local model preload failed:', err);
+    });
+  }, [
+    aiSettings.preferredProvider,
+    aiSettings.builtinModelId,
+    aiSettings.geminiModel,
+    aiSettings.allowedAutoProviders,
+  ]);
 
   // Migration logic for 2003ray.dark@gmail.com
   // Migration completed. Legacy code removed.
@@ -982,34 +991,17 @@ export default function App() {
         return;
       }
 
-      if (!isGeminiKeyAvailable()) {
-        await fetchServerConfig();
-      }
-
-      const ai = getAi();
       const updatedProducts = [...products];
       const batchSize = 15;
 
       for (let i = 0; i < uncategorized.length; i += batchSize) {
         const batch = uncategorized.slice(i, i + batchSize);
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: `Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
+        const categoriesMap = await generateAppJson(`Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
           
           Products:
           ${batch.map(p => p.title).join(', ')}
           
-          Return a JSON object where keys are product names and values are the categories.`,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              additionalProperties: { type: Type.STRING }
-            }
-          }
-        });
-
-        const categoriesMap = JSON.parse(response.text || "{}");
+          Return a JSON object where keys are product names and values are the categories.`);
 
         batch.forEach(p => {
           const index = updatedProducts.findIndex(up => up.title === p.title);
@@ -2085,24 +2077,15 @@ export default function App() {
       const promptText = `Generate ${count} different social media posts based on this campaign prompt: "${prompt}". Make sure they are varied (promotional, educational, engaging). 
       Return them as JSON array of objects with keys: title, brief, type (e.g. 🔴 Promotional, 🟢 Educational).`;
       
-      const ai = getAi();
-      const res = await ai.models.generateContent({
-        model: aiSettings.model || "gemini-2.5-pro",
-        contents: promptText,
-        config: {
-          responseMimeType: "application/json",
-          systemInstruction: `You are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`
-        }
-      });
-      
-      const text = res.text;
-      let generatedPosts: any[] = [];
-      try {
-        generatedPosts = text ? JSON.parse(text) : [];
-      } catch (e) {
-        console.error("Failed to parse JSON", e);
-        generatedPosts = [];
-      }
+      const generatedPostsRaw = await generateAppJson(
+        `${promptText}\n\nYou are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`,
+        { expectArray: true }
+      );
+      const generatedPosts: any[] = Array.isArray(generatedPostsRaw)
+        ? generatedPostsRaw
+        : generatedPostsRaw?.posts && Array.isArray(generatedPostsRaw.posts)
+          ? generatedPostsRaw.posts
+          : [];
       
       if (generatedPosts.length > 0) {
         let currentDate = new Date(); // start today
@@ -3144,14 +3127,14 @@ export default function App() {
                 {
                   label: 'New Post',
                   icon: <Plus className="w-3.5 h-3.5" />,
-                  disabled: activeTab === 'notebook' || activeTab === 'brandkit' || activeTab === 'analytics',
+                  disabled: isIdeasTabActive || activeTab === 'brandkit' || activeTab === 'analytics',
                   onClick: () => openNewPostModal()
                 },
                 { label: 'Refresh Data', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => window.location.reload() },
                 {
                   label: 'Export to Excel',
                   icon: <FileSpreadsheet className="w-3.5 h-3.5" />,
-                  disabled: activeTab === 'notebook' || activeTab === 'brandkit',
+                  disabled: isIdeasTabActive || activeTab === 'brandkit',
                   onClick: () => setIsExportModalOpen(true)
                 },
                 { label: 'Manage Workspaces', icon: <Settings className="w-3.5 h-3.5" />, onClick: () => setIsBusinessModalOpen(true) },
@@ -3273,14 +3256,14 @@ export default function App() {
                               <Database className="w-5 h-5 shrink-0" />
                             </button>
                             <button
-                              onClick={() => setActiveTab('notebook')}
-                              title="Notebook"
+                              onClick={() => setActiveTab('ideas')}
+                              title="Ideas"
                               className={cn(
                                 "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                                activeTab === 'notebook' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                isIdeasTabActive ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
-                              <Notebook className="w-5 h-5 shrink-0" />
+                              <Lightbulb className="w-5 h-5 shrink-0" />
                             </button>
                             <button
                               onClick={() => setActiveTab('brandkit')}
@@ -3347,10 +3330,10 @@ export default function App() {
                             </button>
                             <button
                               onClick={handleRequestAccess}
-                              title="Request Access to Notebook"
+                              title="Request Access to Ideas"
                               className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
                             >
-                              <Notebook className="w-5 h-5 shrink-0" />
+                              <Lightbulb className="w-5 h-5 shrink-0" />
                               <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
                             </button>
                             <button
@@ -3460,7 +3443,7 @@ export default function App() {
                   <div className={cn("flex-1 flex flex-col min-w-0 relative print:h-auto print:overflow-visible", activeTab === 'chat' && "md:flex")}>
                     <main className={cn(
                       "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-28 print:p-0 print:overflow-visible",
-                      (activeTab === 'chat' || activeTab === 'home' || activeTab === 'notebook') && "p-0 sm:p-0 md:p-0 pb-0",
+                      (activeTab === 'chat' || activeTab === 'home' || isIdeasTabActive) && "p-0 sm:p-0 md:p-0 pb-0",
                       activeTab !== 'search' && "no-scrollbar"
                     )}>
                       <div className={cn("w-full flex-1 flex flex-col print:max-w-none print:h-auto print:block", (activeTab === 'chat' || activeTab === 'home') && "max-w-none h-full")}>
@@ -3483,7 +3466,7 @@ export default function App() {
                                 {activeTab === 'brandkit' && industryConfig.terminology.assets}
                                 {activeTab === 'creative' && 'AI Studio'}
                                 {activeTab === 'analytics' && 'Insights & Analytics'}
-                                {activeTab === 'notebook' && 'Notebook'}
+                                {isIdeasTabActive && 'Ideas'}
                                 {activeTab === 'more' && 'Settings'}
                               </h1>
                               {/* Mobile Sync Indicator */}
@@ -3606,8 +3589,8 @@ export default function App() {
 
 
                         {isAdmin && (
-                          <LazyTab active={activeTab === 'notebook'}>
-                            {() => <NotebookTab activeBusiness={activeBusiness} />}
+                          <LazyTab active={isIdeasTabActive}>
+                            {() => <IdeasTab activeBusiness={activeBusiness} />}
                           </LazyTab>
                         )}
 
@@ -3828,7 +3811,7 @@ export default function App() {
                       { id: 'home', icon: LayoutGrid, title: 'Home' },
                       { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
                       { id: 'chat', icon: MessageSquare, title: 'Chat' },
-                      { id: 'notebook', icon: Notebook, title: 'Notebook' },
+                      { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
                       { id: 'more', icon: Menu, title: 'More' }
                     ].map(tab => {
                       const Icon = tab.icon;
