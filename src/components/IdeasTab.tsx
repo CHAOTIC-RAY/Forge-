@@ -36,6 +36,7 @@ import {
 import { generateTextWithCascade, safeParseJSON, safeParseJSONArray, isGeminiKeyAvailable, fetchServerConfig, generateTaskIdeas } from '../lib/gemini';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
+import { IdeasBoardSkeleton } from './ui/Skeleton';
 
 /**
  * Shorthand for generating unique IDs
@@ -217,8 +218,8 @@ function DraggableBlock({ block, children, isSelected, onClick }: { block: Block
         isSelected
           ? "border-brand/30 bg-white dark:bg-[#1A1A1A] shadow-sm"
           : "border-transparent bg-[#F7F7F5]/80 dark:bg-[#202020]/80 hover:border-[#E9E9E7] dark:hover:border-[#2E2E2E]",
-        isDragging && "scale-[1.02] shadow-xl z-50 ring-2 ring-brand/20",
-        !isDragging && "active:scale-[0.99]"
+        isDragging && "shadow-xl z-50 ring-2 ring-brand/20 opacity-90",
+        !isDragging && "hover:shadow-sm"
       )}
     >
       {children}
@@ -1052,8 +1053,8 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
 
       <div className="flex-1 flex overflow-hidden relative pb-20 md:pb-0 min-h-0">
         {!isReady && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm">
-            <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+          <div className="absolute inset-0 z-40 bg-white/80 dark:bg-black/60 backdrop-blur-sm overflow-y-auto">
+            <IdeasBoardSkeleton />
           </div>
         )}
 
@@ -1093,12 +1094,12 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
                 ).map((col) => (
                   <div
                     key={col.title}
-                    className="flex flex-col rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] min-h-[240px] max-h-[calc(100vh-280px)]"
+                    className="flex flex-col rounded-2xl glass-card min-h-[240px] max-h-[calc(100vh-280px)] overflow-hidden"
                   >
-                    <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0">
+                    <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0 sticky top-0 z-10 bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-sm">
                       <div>
-                        <h3 className="text-sm font-black">{col.title}</h3>
-                        <p className="text-[10px] text-[#757681]">{col.subtitle}</p>
+                        <h3 className="text-sm font-black text-[#37352F] dark:text-[#EBE9ED]">{col.title}</h3>
+                        <p className="text-[10px] text-secondary-safe">{col.subtitle}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-[#757681] tabular-nums">{col.items.length}</span>

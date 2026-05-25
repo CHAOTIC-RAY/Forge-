@@ -3542,6 +3542,7 @@ export default function App() {
                               isViewer={isViewer}
                               onHandleRequestAccess={handleRequestAccess}
                               user={user}
+                              isSyncing={isSyncing}
                             />
                           )}
                           <div className={cn("flex-1 flex flex-col", activeTab === 'home' && "hidden", activeTab === 'chat' && "hidden md:flex")}>
@@ -3568,6 +3569,7 @@ export default function App() {
                               toggleDarkMode={toggleDarkMode}
                               calendarMode={calendarMode}
                               onCalendarModeChange={setCalendarMode}
+                              isSyncing={isSyncing}
                             />
                           </div>
                         </div>

@@ -11,6 +11,7 @@ import { DraggableProduct } from './DraggableProduct';
 import { HighStockProduct } from '../lib/gemini';
 import { CalendarSharing } from './CalendarSharing';
 import { ForgeLoader } from './ForgeLoader';
+import { CalendarGridSkeleton } from './ui/Skeleton';
 import { 
   Image as ImageIcon, RefreshCw, Wand2, LayoutList, Grid, 
   List as ListIcon, ChevronLeft, ChevronRight, Search, 
@@ -70,9 +71,10 @@ interface CalendarProps {
   toggleDarkMode?: () => void;
   calendarMode?: 'work' | 'personal';
   onCalendarModeChange?: (mode: 'work' | 'personal') => void;
+  isSyncing?: boolean;
 }
 
-export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange }: CalendarProps) {
+export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange, isSyncing }: CalendarProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedDate, setSelectedDate] = useState<Date>(currentDate);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; dateStr: string } | null>(null);
@@ -277,7 +279,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           {viewMode !== 'timeline' && (
             <div className={cn(
               "border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] shrink-0 print:bg-white print:border-gray-300",
-              "grid grid-cols-7"
+              "grid grid-cols-7 sticky top-0 z-20"
             )}>
               {weekDays.map((day) => (
                 <div key={day} className="py-1.5 md:py-3 text-center text-[9px] md:text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider print:text-black">
@@ -329,6 +331,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                 })
               )}
             </div>
+          ) : isSyncing && posts.length === 0 ? (
+            <CalendarGridSkeleton />
           ) : (
             <div className="flex-1 overflow-y-auto bg-[#E9E9E7] dark:bg-[#2E2E2E]">
               <div 
@@ -837,8 +841,8 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           "text-left bg-white/90 dark:bg-[#1E1E1E]/80 backdrop-blur-md border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing flex flex-col z-10 relative overflow-hidden",
           viewMode === 'grid' ? "py-3 pr-3 pl-3 md:py-1.5 md:pr-1.5 md:pl-1.5 gap-2 md:gap-1" : "py-4 pr-4 pl-4 gap-3",
           (isStory || isReel) && (viewMode === 'grid' ? "pl-[16px] md:pl-[10px]" : "pl-6"),
-          isDragging && "border-brand scale-110 shadow-2xl z-50 ring-4 ring-brand/20 active:scale-110",
-          !isDragging && "active:scale-95",
+          isDragging && "border-brand shadow-2xl z-50 ring-4 ring-brand/20 opacity-90",
+          !isDragging && "hover:border-brand/60",
           "print:border-none print:shadow-none print:p-1 print:bg-transparent print:gap-1 print:break-inside-avoid"
         )}
       >

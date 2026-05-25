@@ -22,6 +22,7 @@ import {
 import { format, isToday, parseISO, isAfter, startOfDay } from 'date-fns';
 import { Post, Business } from '../data';
 import { cn } from '../lib/utils';
+import { HomeDashboardSkeleton } from './ui/Skeleton';
 import { generateDailyGreetings, HighStockProduct, generateTaskIdeas } from '../lib/gemini';
 import { User } from 'firebase/auth';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -36,9 +37,10 @@ interface HomeTabProps {
   isViewer?: boolean;
   onHandleRequestAccess?: () => void;
   user?: User | null;
+  isSyncing?: boolean;
 }
 
-export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmin, isViewer, onHandleRequestAccess, user }: HomeTabProps) {
+export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmin, isViewer, onHandleRequestAccess, user, isSyncing }: HomeTabProps) {
   const [greeting, setGreeting] = useState<string>('');
   const [products, setProducts] = useState<HighStockProduct[]>([]);
   const [recommendedIdea, setRecommendedIdea] = useState<any>(null);
@@ -195,6 +197,10 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
     }
   ];
 
+  if (isSyncing && posts.length === 0) {
+    return <HomeDashboardSkeleton />;
+  }
+
   return (
     <div className="flex-1 flex flex-col gap-5 md:gap-8 p-4 sm:p-6 md:p-8 lg:p-12 w-full overflow-y-auto no-scrollbar pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-8">
       {/* Welcome Header */}
@@ -207,7 +213,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
           <h2 className="text-2xl sm:text-3xl font-black text-[#37352F] dark:text-[#EBE9ED] tracking-tight leading-tight">
             {greeting || `Welcome back, ${user?.displayName || 'User'}`}
           </h2>
-          <p className="text-sm sm:text-base text-[#757681] dark:text-[#9B9A97]">
+          <p className="text-sm sm:text-base text-secondary-safe">
             {activeBusiness ? `Managing workspace: ${activeBusiness.name}` : "Here's what's happening with your brand today."}
           </p>
         </motion.div>
@@ -443,7 +449,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
                 onClick={() => isAdmin ? setActiveTab('widgets') : onHandleRequestAccess?.()}
                 className="glass-card interactive p-5 flex items-center gap-4 group text-left min-h-[44px]"
               >
-                <div className="w-12 h-12 rounded-[8px] bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <div className="w-12 h-12 rounded-[8px] bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors shrink-0">
                   <Boxes className="w-6 h-6 text-purple-500" />
                 </div>
                 <div>
@@ -456,7 +462,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
                 onClick={() => isAdmin ? setActiveTab('notebook') : onHandleRequestAccess?.()}
                 className="glass-card interactive p-5 flex items-center gap-4 group text-left min-h-[44px]"
               >
-                <div className="w-12 h-12 rounded-[8px] bg-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <div className="w-12 h-12 rounded-[8px] bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors shrink-0">
                   <Lightbulb className="w-6 h-6 text-amber-500" />
                 </div>
                 <div>

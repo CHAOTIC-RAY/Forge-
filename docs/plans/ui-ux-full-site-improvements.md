@@ -23,17 +23,17 @@ Generated with **UI UX Pro Max** (`uipro init --ai cursor`). Design system: `des
 
 | Page | Improvements |
 |------|----------------|
-| Calendar / Schedule | Sticky week header, clearer post card density, empty states |
-| Ideas | Board column headers, card hover without scale shift |
-| Widgets | Consistent `WidgetShell`, output actions bar |
-| Settings | Section nav tabs, reduce visual noise in AI panel |
+| Calendar / Schedule | Sticky week header, clearer post card density, empty states — **done** |
+| Ideas | Board column headers, card hover without scale shift — **done** |
+| Widgets | Consistent `WidgetShell`, output actions bar — **partial** (copywriting on `WidgetShell`; more widgets pending) |
+| Settings | Section nav tabs, reduce visual noise in AI panel — **done** |
 | Post modal | Form labels, primary CTA hierarchy |
 
 ## Phase 3 — Polish
 
-- Landing (`LandingView.tsx`) — hero, social proof, single CTA column
-- Dark mode contrast audit (4.5:1 body text)
-- Loading skeletons on Home + Calendar
+- Landing (`LandingView.tsx`) — hero CTA, social proof stats, brand tokens — **done**
+- Dark mode contrast audit (4.5:1 body text) — **done** (`--text-secondary` / `text-secondary-safe`)
+- Loading skeletons on Home + Calendar + Ideas — **done** (`src/components/ui/Skeleton.tsx`)
 - Toast placement + error states
 
 ## Phase 4 — Performance UX

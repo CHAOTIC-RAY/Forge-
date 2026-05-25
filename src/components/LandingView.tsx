@@ -275,8 +275,8 @@ const SECTIONS = [
   {
     id: 'ai',
     icon: Sparkles,
-    title: 'AI Studio',
-    description: 'Draft captions, angles, and variants with Gemini, tuned to your workspace. Iterate fast, keep your voice, and paste results straight into posts.',
+    title: 'Widgets',
+    description: 'Draft captions, images, and campaigns with local AI in your browser. Iterate fast, keep your voice, and paste results straight into posts.',
     color: 'text-amber-500',
     bg: 'bg-amber-500/10'
   },
@@ -525,21 +525,53 @@ export function LandingView({ onLogin }: LandingViewProps) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: [1, 1, 0, 0] }}
                     transition={{ repeat: Infinity, duration: 1.1, ease: 'linear', times: [0, 0.45, 0.55, 1] }}
-                    className="inline-block text-[#2383E2] shrink-0 translate-y-px font-light w-[0.55ch] text-center select-none"
+                    className="inline-block text-brand shrink-0 translate-y-px font-light w-[0.55ch] text-center select-none"
                     aria-hidden
                   >
                     |
                   </motion.span>
                 </span>
               </h1>
-              <p className="text-lg md:text-2xl text-[#787774] dark:text-[#9B9A97] max-w-2xl leading-relaxed">
-                One workspace for your calendar, {landingTerms.ideas.toLowerCase()}, AI copy, {landingTerms.assets}, and performance—so you can ship consistent social content without tab chaos.
+              <p className="text-lg md:text-2xl text-secondary-safe max-w-2xl leading-relaxed">
+                One workspace for your calendar, {landingTerms.ideas.toLowerCase()}, local AI widgets, {landingTerms.assets}, and performance—so you can ship consistent social content without tab chaos.
               </p>
-              <div className="pt-4 flex flex-col gap-3">
+              <div className="pt-2 flex flex-col sm:flex-row flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={onLogin}
+                  className="interactive focus-ring px-8 py-4 bg-brand hover:bg-brand-hover text-white rounded-xl font-bold text-lg shadow-lg shadow-brand/25 min-h-[48px]"
+                >
+                  Get started free
+                </button>
+                <button
+                  type="button"
+                  onClick={startAutoScroll}
+                  className="interactive focus-ring px-8 py-4 bg-white/90 dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] text-[#37352F] dark:text-[#EBE9ED] rounded-xl font-bold text-lg min-h-[48px]"
+                >
+                  See how it works
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-6 pt-6 text-sm text-secondary-safe">
+                <span className="font-semibold text-[#37352F] dark:text-[#EBE9ED]">Trusted by teams who plan in public</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                {[
+                  { stat: '10k+', label: 'Posts scheduled' },
+                  { stat: 'Local AI', label: 'Runs in your browser' },
+                  { stat: '4.5:1', label: 'Contrast-safe UI' },
+                ].map((item) => (
+                  <div key={item.label} className="glass-card p-4 text-center">
+                    <p className="text-2xl font-black text-brand">{item.stat}</p>
+                    <p className="text-xs text-secondary-safe mt-1">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 flex flex-col gap-3">
                 {window !== window.top && (
                   <button 
+                    type="button"
                     onClick={() => window.open(window.location.href, '_blank')}
-                    className="text-sm text-[#787774] hover:text-[#2383E2] underline text-left w-fit transition-colors"
+                    className="text-sm text-secondary-safe hover:text-brand underline text-left w-fit transition-colors"
                   >
                     Having trouble logging in? Open app in a new tab
                   </button>
@@ -609,7 +641,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
                 scale: calloutScale,
                 borderRadius: calloutRadius
               }}
-              className="bg-[#2383E2] p-8 md:p-16 text-white text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 relative overflow-hidden min-h-[60vh] md:min-h-[80vh]"
+              className="bg-brand p-8 md:p-16 text-white text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 relative overflow-hidden min-h-[60vh] md:min-h-[80vh]"
             >
               <div className="absolute inset-0 opacity-10 pointer-events-none">
                 <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -625,13 +657,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
               <div className="space-y-6 max-w-2xl relative z-10">
                 <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to ship your next month of content?</h2>
                 <p className="text-xl text-blue-100">
-                  Sign in to connect your workspace: plan on the {landingTerms.calendar.toLowerCase()}, draft in AI Studio, and share a live view with your team or clients when you are ready.
+                  Sign in to connect your workspace: plan on the {landingTerms.calendar.toLowerCase()}, draft in Widgets with local AI, and share a live view with your team or clients when you are ready.
                 </p>
               </div>
               <div className="shrink-0 relative z-10 w-full md:w-auto">
                 <button
                   onClick={onLogin}
-                  className="w-full md:w-auto px-10 py-5 bg-white text-[#2383E2] hover:bg-blue-50 rounded-xl font-bold text-xl transition-all hover:scale-105 active:scale-95 shadow-xl"
+                  className="interactive focus-ring w-full md:w-auto px-10 py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-xl transition-all shadow-xl min-h-[48px]"
                 >
                   Sign Up Now
                 </button>

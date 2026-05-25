@@ -487,6 +487,32 @@ export function SettingsView({
   const [tunePreset, setTunePreset] = useState<'fast' | 'balanced' | 'quality'>('balanced');
   const [showAdvancedTune, setShowAdvancedTune] = useState(false);
   const [showCloudAiOptions, setShowCloudAiOptions] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<string>('account');
+  const [isSettingsDesktop, setIsSettingsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1024
+  );
+
+  useEffect(() => {
+    const onResize = () => setIsSettingsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const SETTINGS_TABS = [
+    { id: 'account', label: 'Account' },
+    { id: 'appearance', label: 'Theme' },
+    { id: 'workspaces', label: 'Workspaces' },
+    { id: 'integrations', label: 'Integrations' },
+    { id: 'ai', label: 'Local AI' },
+    { id: 'crawl', label: 'Crawl' },
+    { id: 'analytics', label: 'Analytics' },
+    { id: 'maintenance', label: 'Data' },
+    { id: 'extension', label: 'Extension' },
+    { id: 'logs', label: 'Logs' },
+  ] as const;
+
+  const showSettingsCard = (id: string) =>
+    !isSettingsDesktop || settingsSection === id;
 
   useEffect(() => {
     setInstructionText(aiSettings.systemInstructions || '');
@@ -728,13 +754,34 @@ export function SettingsView({
         ))}
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 space-y-4">
         <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest px-1">Global Configuration</h2>
+        <div className="hidden lg:flex flex-wrap gap-2 p-1 glass-panel rounded-[12px]">
+          {SETTINGS_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setSettingsSection(tab.id);
+                setExpandedId(tab.id);
+              }}
+              className={cn(
+                'interactive focus-ring px-3 py-2 rounded-[8px] text-xs font-bold transition-colors',
+                settingsSection === tab.id
+                  ? 'nav-pill-active'
+                  : 'text-secondary-safe hover:text-[#37352F] dark:hover:text-[#EBE9ED]'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <motion.div layout className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start pb-24">
         
         {/* Account & App Card */}
+        {showSettingsCard('account') && (
         <BentoCard
           id="account"
           title="Account & App"
@@ -843,8 +890,10 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
+        )}
 
         {/* Appearance & Theme Card */}
+        {showSettingsCard('appearance') && (
         <BentoCard
           id="appearance"
           title="Appearance & Theme"
@@ -920,8 +969,10 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
+        )}
 
         {/* Workspaces Card */}
+        {showSettingsCard('workspaces') && (
         <BentoCard
           id="workspaces"
           title="Workspaces"
@@ -945,8 +996,10 @@ export function SettingsView({
             />
           </div>
         </BentoCard>
+        )}
 
         {/* Integrations Card */}
+        {showSettingsCard('integrations') && (
         <BentoCard
           id="integrations"
           title="Integrations"
@@ -1094,8 +1147,10 @@ export function SettingsView({
             />
           </div>
         </BentoCard>
+        )}
 
         {/* AI Engine Card */}
+        {showSettingsCard('ai') && (
         <BentoCard
           id="ai"
           title="Local AI"
@@ -1966,8 +2021,10 @@ export function SettingsView({
             </button>
           </div>
         </BentoCard>
+        )}
 
         {/* Crawl Options Card */}
+        {showSettingsCard('crawl') && (
         <BentoCard
           id="crawl"
           title="Crawl Options"
@@ -2005,7 +2062,9 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
+        )}
 
+        {showSettingsCard('analytics') && (
         <BentoCard
           id="analytics"
           title="Analytics"
@@ -2072,8 +2131,10 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
+        )}
 
         {/* Data & Maintenance Card */}
+        {showSettingsCard('maintenance') && (
         <BentoCard
           id="maintenance"
           title="Data & Maintenance"
@@ -2170,8 +2231,10 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
+        )}
 
         {/* Chrome Extension Card */}
+        {showSettingsCard('extension') && (
         <BentoCard
           id="extension"
           title="Forge Web Clipper"
@@ -2215,8 +2278,10 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
+        )}
 
         {/* System Logs Card */}
+        {showSettingsCard('logs') && (
         <BentoCard
           id="logs"
           title="System Logs"
@@ -2252,6 +2317,7 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
+        )}
 
       </motion.div>
       <AnimatePresence>

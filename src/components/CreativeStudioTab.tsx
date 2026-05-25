@@ -9,6 +9,7 @@ import {
   type WidgetCategory,
 } from '../lib/widgetRegistry';
 import { WidgetOutputActions } from './WidgetOutputActions';
+import { WidgetShell } from './WidgetShell';
 import { saveTextToIdeasInbox } from '../lib/ideasInbox';
 import { ImageResizerTab } from './ImageResizerTab';
 import { LinkShortener } from './LinkShortener';
@@ -637,6 +638,28 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     }
   };
 
+  const renderWidgetShell = (
+    widgetId: string,
+    title: string,
+    subtitle: string,
+    icon: React.ReactNode,
+    iconClassName: string,
+    children: React.ReactNode
+  ) => (
+    <WidgetShell
+      key={widgetId}
+      title={title}
+      subtitle={subtitle}
+      icon={icon}
+      iconClassName={iconClassName}
+      showPin={activeWidget === null}
+      pinned={pinnedWidgetIds.includes(widgetId)}
+      onTogglePin={(e) => togglePinWidget(widgetId, e)}
+    >
+      {children}
+    </WidgetShell>
+  );
+
   const renderWidgetUI = (widgetId: string) => {
     if (widgetId === 'nano-upscaler') {
       return (
@@ -667,25 +690,13 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     }
 
     if (widgetId === 'copywriting') {
-      return (
-        <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">
-          <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-brand-bg rounded-[8px] flex items-center justify-center">
-                <PenTool className="w-4 h-4 text-brand" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Copywriting</h3>
-                <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Powered by Travis</p>
-              </div>
-            </div>
-            {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
-              </button>
-            )}
-          </div>
-          <div className="p-6 space-y-6">
+      return renderWidgetShell(
+        widgetId,
+        'AI Copywriting',
+        'Local AI · brand-aware copy',
+        <PenTool className="w-4 h-4 text-brand" />,
+        'bg-brand-bg',
+        <div className="space-y-6">
             <textarea
               value={copyPrompt}
               onChange={(e) => setCopyPrompt(e.target.value)}
@@ -715,7 +726,6 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                 />
               </div>
             )}
-          </div>
         </div>
       );
     }
