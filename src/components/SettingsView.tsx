@@ -1142,6 +1142,31 @@ export function SettingsView({
                 Brand & AI Guide
               </button>
             </div>
+            <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+              <div>
+                <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Fallback to cloud AI services</p>
+                <p className="text-[10px] text-secondary-safe mt-0.5">
+                  When local WebLLM fails, try Gemini, Groq, and other cloud providers (off by default)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleAiSettingChange('fallbackToCloudAi', !aiSettings.fallbackToCloudAi)}
+                className={cn(
+                  'w-10 h-6 rounded-full relative transition-colors shrink-0',
+                  aiSettings.fallbackToCloudAi === true ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'
+                )}
+                aria-pressed={aiSettings.fallbackToCloudAi === true}
+              >
+                <span
+                  className={cn(
+                    'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
+                    aiSettings.fallbackToCloudAi === true ? 'left-5' : 'left-1'
+                  )}
+                />
+              </button>
+            </div>
+
             <div className="p-4 rounded-[16px] bg-indigo-50/80 dark:bg-indigo-900/15 border border-indigo-100 dark:border-indigo-900/30 space-y-2">
               <p className="text-xs text-[#37352F] dark:text-[#EBE9ED] leading-relaxed">
                 Text runs in your browser via WebLLM. Images use your local model to refine prompts, then render through a free Flux endpoint—no Puter or Gemini sign-in required for widgets.

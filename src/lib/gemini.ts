@@ -326,7 +326,24 @@ export function getDefaultAiSettings() {
     catalogueImportLocalOnly: true,
     catalogueImportCloudFallback: true,
     catalogueCrawlLimit: 100,
+    fallbackToCloudAi: false,
   };
+}
+
+export function isCloudAiFallbackEnabled(settings = getAiSettings()): boolean {
+  return settings.fallbackToCloudAi === true;
+}
+
+/** Cloud APIs only when explicitly selected, or when user enables fallback. */
+export function canUseCloudAiProviders(
+  settings = getAiSettings(),
+  effectiveProvider?: ForgeTextProvider
+): boolean {
+  const provider = effectiveProvider ?? getEffectiveTextProvider(settings);
+  if (provider === 'gemini' || provider === 'groq' || provider === 'puter') return true;
+  if (provider === 'local_proxy') return true;
+  if (provider === 'firebase') return true;
+  return isCloudAiFallbackEnabled(settings);
 }
 
 function migrateToLocalFirstDefaults(parsed: Record<string, unknown>) {
@@ -368,6 +385,7 @@ export const getAiSettings = () => {
       if (parsed.catalogueImportLocalOnly === undefined) parsed.catalogueImportLocalOnly = true;
       if (parsed.catalogueImportCloudFallback === undefined) parsed.catalogueImportCloudFallback = true;
       if (!parsed.catalogueCrawlLimit) parsed.catalogueCrawlLimit = 100;
+      if (parsed.fallbackToCloudAi === undefined) parsed.fallbackToCloudAi = false;
       return parsed;
     } catch (e) {}
   }
@@ -405,6 +423,7 @@ export const getAiSettings = () => {
     catalogueImportLocalOnly: true,
     catalogueImportCloudFallback: true,
     catalogueCrawlLimit: 100,
+    fallbackToCloudAi: false,
   };
 };
 
@@ -725,6 +744,7 @@ export async function generateAppText(
 ): Promise<string> {
   const settings = getAiSettings();
   const effectiveProvider = options?.forceLocal ? 'builtin' : getEffectiveTextProvider(settings);
+  const cloudAllowed = options?.forceLocal ? false : canUseCloudAiProviders(settings, effectiveProvider);
   const forLocal = options?.forceLocal || isLocalTextProvider(settings);
 
   let designContext = '';
@@ -749,14 +769,19 @@ export async function generateAppText(
     throw new Error('Local AI failed to generate text. Initialize the model in Settings.');
   }
 
-  // Try Built-in AI if selected or if auto mode is on and we want maximum free access
-  if (effectiveProvider === 'builtin' || (effectiveProvider === 'auto' && !isGeminiKeyAvailable())) {
+  // Try Built-in AI first for built-in mode and auto (when cloud fallback is off, auto stays local-only)
+  if (effectiveProvider === 'builtin' || effectiveProvider === 'auto') {
     try {
       await ensureLocalTextEngineReady();
       const resp = await (await getBuiltInAi()).generate(fullPrompt);
       if (resp) return resp;
     } catch (e) {
       console.error('Built-in AI failed:', e);
+      if (!cloudAllowed) {
+        throw new Error(
+          'Local AI failed. Enable "Fallback to cloud AI services" in Settings to use Gemini, Groq, or other cloud providers.'
+        );
+      }
       notifyFallback('Local AI fallback', 'Built-in model failed, trying cloud providers.');
       if (effectiveProvider === 'builtin') throw e;
       console.warn('Built-in AI failed, cascading...');
