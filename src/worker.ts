@@ -290,20 +290,20 @@ export default {
         // POST /api/firecrawl-scrape
         if (path === '/api/firecrawl-scrape' && request.method === 'POST') {
           const body: any = await request.json();
-          const { url: targetUrl, apiKey } = body;
+          const { url: targetUrl, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
           
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
           if (!firecrawlKey) {
             return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
           }
 
-          const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${firecrawlKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ url: targetUrl, formats: ["markdown"] })
+            body: JSON.stringify({ url: targetUrl, formats: ["markdown"], onlyMainContent, waitFor })
           });
           
           const data = await response.json();
@@ -312,23 +312,68 @@ export default {
           });
         }
 
+        // POST /api/firecrawl-scrape-batch
+        if (path === '/api/firecrawl-scrape-batch' && request.method === 'POST') {
+          const body: any = await request.json();
+          const { urls, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
+          const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
+          if (!firecrawlKey) {
+            return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
+          }
+          const results: any[] = [];
+          for (const targetUrl of (urls || []).slice(0, 40)) {
+            try {
+              const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${firecrawlKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: targetUrl, formats: ["markdown"], onlyMainContent, waitFor })
+              });
+              const data = await response.json();
+              results.push({
+                url: targetUrl,
+                markdown: data?.data?.markdown,
+                metadata: data?.data?.metadata,
+              });
+            } catch (e: any) {
+              results.push({ url: targetUrl, error: e?.message || 'Scrape failed' });
+            }
+            await new Promise((r) => setTimeout(r, 400));
+          }
+          return new Response(JSON.stringify({ success: true, results }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+          });
+        }
+
         // POST /api/crawl
         if (path === '/api/crawl' && request.method === 'POST') {
           const body: any = await request.json();
-          const { url: targetUrl, limit, apiKey } = body;
+          const { url: targetUrl, limit, apiKey, includePaths, excludePaths } = body;
           
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
           if (!firecrawlKey) {
             return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
           }
 
-          const response = await fetch('https://api.firecrawl.dev/v1/crawl', {
+          const crawlBody: Record<string, unknown> = {
+            url: targetUrl,
+            sitemap: 'include',
+            crawlEntireDomain: false,
+            limit: limit || 100,
+            scrapeOptions: { formats: ['markdown'], onlyMainContent: true, waitFor: 5000 },
+          };
+          if (Array.isArray(includePaths) && includePaths.length) crawlBody.includePaths = includePaths;
+          if (Array.isArray(excludePaths) && excludePaths.length) crawlBody.excludePaths = excludePaths;
+
+          const response = await fetch('https://api.firecrawl.dev/v2/crawl', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${firecrawlKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ url: targetUrl, limit: limit || 100, scrapeOptions: { formats: ["markdown"] } })
+            body: JSON.stringify(crawlBody)
           });
           
           const data = await response.json();
@@ -347,7 +392,7 @@ export default {
             return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
           }
 
-          const response = await fetch(`https://api.firecrawl.dev/v1/crawl/${id}`, {
+          const response = await fetch(`https://api.firecrawl.dev/v2/crawl/${id}`, {
             headers: {
               'Authorization': `Bearer ${firecrawlKey}`
             }

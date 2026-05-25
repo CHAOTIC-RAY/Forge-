@@ -6,7 +6,14 @@ import { CatalogueGridSkeleton } from './ui/Skeleton';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
-import { HighStockProduct, getCategoryProductCounts, CategoryCount, findProductsByCategory, scrapeScreenshot, extractProductsFromMarkdown, extractInfoFromMarkdown, getAiSettings, generateGenericText, generateAppJson } from '../lib/gemini';
+import { HighStockProduct, CategoryCount, findProductsByCategory, scrapeScreenshot, getAiSettings, generateGenericText, generateAppJson } from '../lib/gemini';
+import {
+  extractCatalogueFromMarkdown,
+  mergeUniqueCatalogue,
+  classifySiteMapLinks,
+  buildCategoryCountsFromClassified,
+} from '../lib/catalogueExtract';
+import { LocalDbImportPanel } from './LocalDbImportPanel';
 import { DraggableProduct } from './DraggableProduct';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, setDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -429,23 +436,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       }
 
       if (mapData.success && mapData.links) {
-        const categoryMap: Record<string, number> = {};
-        mapData.links.forEach((link: any) => {
-          try {
-            const urlObj = new URL(link.url);
-            const pathSegments = urlObj.pathname.split('/').filter(Boolean);
-            const category = pathSegments.length > 0 ? pathSegments[0] : 'Home';
-            categoryMap[category] = (categoryMap[category] || 0) + 1;
-          } catch (e) {
-            // Ignore invalid URLs
-          }
-        });
-
-        const newCounts: CategoryCount[] = Object.entries(categoryMap).map(([category, count]) => ({
-          category: category.charAt(0).toUpperCase() + category.slice(1),
-          count: count as number,
-          url: urlToMap
-        })).sort((a, b) => b.count - a.count).slice(0, 50);
+        const classified = classifySiteMapLinks(mapData.links);
+        const newCounts: CategoryCount[] = buildCategoryCountsFromClassified(classified, urlToMap);
 
         setCategoryCounts(newCounts);
         setSiteMap(mapData.links);
@@ -580,49 +572,48 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
     let allExtractedProducts: HighStockProduct[] = [];
     setCrawlProgress({ current: 0, total: pages.length });
+    const outlet = activeBusiness?.name || 'Forge Enterprises';
 
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
       setCrawlProgress({ current: i + 1, total: pages.length });
-      addLog(`🤖 Extracting products from: ${page.metadata?.title || page.url}...`);
+      addLog(`Extracting: ${page.metadata?.title || page.url}…`);
       
       if (page.markdown) {
-        addLog(`📄 Markdown length: ${page.markdown.length} characters.`);
         try {
-          const extracted = dbMode === 'product' 
-            ? await extractProductsFromMarkdown(page.markdown)
-            : await extractInfoFromMarkdown(page.markdown);
-            
-          if (extracted.length > 0) {
-            const productsWithOutlet = extracted.map(p => ({
-              ...p,
-              outlet: "Forge Enterprises",
-              link: p.link || page.url
-            }));
-            allExtractedProducts.push(...productsWithOutlet);
-            addLog(`✨ Found ${extracted.length} products on this page.`);
-          } else {
-            addLog(`🔍 No products found on this page.`);
+          const { items } = await extractCatalogueFromMarkdown({
+            markdown: page.markdown,
+            pageUrl: page.url || page.metadata?.sourceURL,
+            pageTitle: page.metadata?.title,
+            mode: dbMode,
+            brandCategories: brandKitCategories,
+            outlet,
+            businessId: businessId || undefined,
+          });
+          if (items.length > 0) {
+            allExtractedProducts.push(
+              ...items.map((p) => ({
+                ...p,
+                outlet: p.outlet || outlet,
+                link: p.link || page.url,
+              }))
+            );
+            addLog(`Found ${items.length} items on this page.`);
           }
         } catch (error) {
-          console.error("Extraction error:", error);
-          addLog(`🚨 Error extracting from this page: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          addLog(`Extract error: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
-      } else {
-        addLog(`⚠️ No markdown content available for this page.`);
       }
     }
 
     if (allExtractedProducts.length > 0) {
-      const existingIds = new Set(products.map(p => p.title));
-      const uniqueNew = allExtractedProducts.filter(p => p.title && !existingIds.has(p.title));
+      const { added, duplicatesSkipped } = mergeUniqueCatalogue(products, allExtractedProducts);
 
-      if (uniqueNew.length > 0) {
-        setProducts(prev => [...prev, ...uniqueNew]);
+      if (added.length > 0) {
+        setProducts(prev => [...prev, ...added]);
         setHasSearched(true);
-        // Save to Firestore using the existing sync function
-        await syncProductsToFirestore(uniqueNew);
-        toast.success(`Successfully processed and saved ${uniqueNew.length} new products!`);
+        await syncProductsToFirestore(added);
+        toast.success(`Saved ${added.length} new items (${duplicatesSkipped} duplicates skipped).`);
       } else {
         toast.info(`Processed ${allExtractedProducts.length} products, but they are already in the inventory.`);
       }
@@ -1299,34 +1290,28 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         </div>
 
         {showImportPanel && (
-          <div className="glass-card p-4 md:p-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="flex-1 relative">
-                <input
-                  type="url"
-                  placeholder={`Source URL (${aiSettings.targetUrl || 'https://example.com'})`}
-                  value={manualUrlInput}
-                  onChange={(e) => setManualUrlInput(e.target.value)}
-                  onBlur={() => setManualUrl(manualUrlInput || aiSettings.targetUrl || '')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') setManualUrl(manualUrlInput || aiSettings.targetUrl || '');
-                  }}
-                  className="w-full pl-4 pr-10 py-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-brand/30 outline-none"
-                />
-                <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9A97]" />
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsManualMode(!isManualMode)}
-                className={cn(
-                  'px-4 py-2.5 rounded-[12px] text-sm font-bold min-h-[44px]',
-                  isManualMode ? 'bg-brand text-white' : 'bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
-                )}
-              >
-                {isManualMode ? 'Hide paste import' : 'Paste / JSON import'}
-              </button>
-            </div>
-          </div>
+          <LocalDbImportPanel
+            dbMode={dbMode}
+            activeBusiness={activeBusiness}
+            businessId={businessId}
+            userId={userId}
+            brandKitCategories={brandKitCategories}
+            products={products}
+            setProducts={setProducts}
+            setHasSearched={setHasSearched}
+            syncProductsToFirestore={syncProductsToFirestore}
+            manualUrl={manualUrl}
+            setManualUrl={setManualUrl}
+            manualUrlInput={manualUrlInput}
+            setManualUrlInput={setManualUrlInput}
+            siteMap={siteMap}
+            setSiteMap={setSiteMap}
+            categoryCounts={categoryCounts}
+            setCategoryCounts={setCategoryCounts}
+            setHasCheckedCounts={setHasCheckedCounts}
+            onViewSiteMap={() => setIsSiteMapOpen(true)}
+            onJsonFileUpload={handleFileUpload}
+          />
         )}
 
         {selectedProducts.length > 0 && (
@@ -1356,289 +1341,6 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               >
                 Create post
               </button>
-            </div>
-          </div>
-        )}
-
-        {showImportPanel && !isManualMode && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white dark:bg-[#191919] p-6 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] ">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">
-                  {dbMode === 'product' ? 'Inventory Overview' : 'Knowledge Overview'}
-                </h3>
-                <div className="flex items-center gap-2">
-                  {isCrawling ? (
-                    <button 
-                      onClick={handleStopCrawl}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-[8px] text-[10px] font-bold hover:bg-red-100 dark:hover:bg-red-900/20 transition-all"
-                    >
-                      <Square className="w-3 h-3 fill-current" />
-                      Stop Crawl
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={handleStartCrawl}
-                      disabled={isCrawling}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 rounded-[8px] text-[10px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all disabled:opacity-50"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      Crawl Website
-                    </button>
-                  )}
-                  <button 
-                    onClick={async () => {
-                      setIsCheckingCounts(true);
-                      try {
-                        for (const cat of categoryCounts) {
-                          await handleFetchCategory(cat.category);
-                        }
-                        toast.success("All categories refreshed!");
-                      } catch (e) {
-                        toast.error("Failed to refresh all categories.");
-                      } finally {
-                        setIsCheckingCounts(false);
-                  }
-                }}
-                disabled={isCheckingCounts}
-                className="text-[10px] font-bold text-brand hover:underline disabled:opacity-50"
-              >
-              </button>
-                    <button 
-                      onClick={() => handleCheckCounts(true)}
-                      disabled={isCheckingCounts}
-                      title="Force Re-Map Site"
-                      className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                    {siteMap.length > 0 && (
-                      <button 
-                        onClick={() => setIsSiteMapOpen(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-[8px] text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-all"
-                      >
-                        <Globe className="w-3 h-3" />
-                        View Map
-                      </button>
-                    )}
-                  </div>
-                </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-[12px] border border-blue-100 dark:border-blue-900/30">
-                  <div className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
-                    {dbMode === 'product' ? 'Total Items' : 'Total Insights'}
-                  </div>
-                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{products.length}</div>
-                </div>
-                <div className="p-4 bg-orange-50 dark:bg-orange-900/10 rounded-[12px] border border-orange-100 dark:border-orange-900/30">
-                  <div className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-1">Uncategorized</div>
-                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                    {products.filter(p => p.type === 'Uncategorized' || !p.type).length}
-                  </div>
-                </div>
-              </div>
-
-              {hasCheckedCounts ? (
-                <div className="space-y-3">
-                  {categoryCounts.map((cat, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        <span className="text-sm font-medium text-[#37352F] dark:text-[#EBE9ED]">{cat.category}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">{cat.count} items</span>
-                        <button
-                          type="button"
-                          onClick={() => handleFetchCategory(cat.category)}
-                          disabled={fetchingCategory === cat.category}
-                          className="px-3 py-1 bg-brand hover:bg-brand-hover text-white text-[10px] font-bold rounded-[6px] transition-colors disabled:opacity-50"
-                        >
-                          {fetchingCategory === cat.category ? 'Fetching…' : 'Import'}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-12 h-12 rounded-full bg-[#F7F7F5] dark:bg-[#202020] flex items-center justify-center mb-4">
-                    <Filter className="w-6 h-6 text-[#757681] dark:text-[#9B9A97]" />
-                  </div>
-                  <p className="text-sm text-[#757681] dark:text-[#9B9A97] mb-4">
-                    {dbMode === 'product' 
-                      ? 'Check inventory counts to see what\'s available.' 
-                      : 'Check knowledge counts to see what\'s available.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleCheckCounts()}
-                    className="px-4 py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold rounded-[12px] transition-colors min-h-[44px]"
-                  >
-                    Map site structure
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white dark:bg-[#191919] p-6 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E]  flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">Activity Logs</h3>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                    <Moon className="w-3 h-3 text-[#757681]" />
-                    <span className="text-[10px] font-bold text-[#757681]">Overnight</span>
-                    <button 
-                      onClick={() => setIsOvernightMode(!isOvernightMode)}
-                      className={cn(
-                        "w-6 h-3.5 rounded-full relative transition-colors",
-                        isOvernightMode ? "bg-green-500" : "bg-gray-300 dark:bg-gray-700"
-                      )}
-                    >
-                      <div className={cn(
-                        "absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all",
-                        isOvernightMode ? "left-3" : "left-0.5"
-                      )} />
-                    </button>
-                  </div>
-                  <button 
-                    onClick={() => setLogs([])}
-                    className="p-1 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded text-[#757681] dark:text-[#9B9A97]"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] p-3 font-mono text-[10px] overflow-y-auto max-h-[300px] no-scrollbar">
-                {logs.length === 0 ? (
-                  <p className="text-[#9B9A97] italic">No activity yet...</p>
-                ) : (
-                  <div className="space-y-1">
-                    {logs.map((log, i) => (
-                      <div key={i} className="text-[#37352F] dark:text-[#EBE9ED] border-b border-[#E9E9E7]/50 dark:border-[#2E2E2E]/50 pb-1 last:border-0">
-                        {log}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showImportPanel && isManualMode && (
-          <div className="flex flex-col gap-6 mb-8">
-            <div className="bg-white dark:bg-[#191919] p-6 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] ">
-              <div className="flex items-center gap-2 mb-6">
-                <ClipboardPaste className="w-4 h-4 text-brand" />
-                <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">Manual Scraper (Console Method)</h3>
-              </div>
-
-              {/* Console Paste Section */}
-              <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <ClipboardPaste className="w-4 h-4 text-brand" />
-                    <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Scraping via Console (Manual Method)</h4>
-                  </div>
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] mb-4">
-                    If the automatic scraper is blocked by the target site, you can manually extract data using the browser console. Copy the snippet below, run it on the shop page, and paste the resulting JSON array here.
-                  </p>
-                  <div className="relative bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] p-4 ">
-                    <div className="overflow-x-auto no-scrollbar">
-                      <code className="text-[10px] sm:text-xs font-mono text-[#37352F] dark:text-[#EBE9ED] whitespace-pre">
-                        {dbMode === 'product' ? `const products = [...document.querySelectorAll('.product')].map(item => ({
-  name: item.querySelector('.woocommerce-loop-product__title')?.innerText,
-  price: item.querySelector('.price')?.innerText,
-  link: item.querySelector('a')?.href,
-  image: item.querySelector('img')?.src
-}));
-JSON.stringify(products);` : `const items = [...document.querySelectorAll('article, .post, .item, .card')].map(item => ({
-  title: item.querySelector('h1, h2, h3')?.innerText,
-  content: item.innerText,
-  link: item.querySelector('a')?.href
-}));
-JSON.stringify(items);`}
-                      </code>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        const snippet = dbMode === 'product' 
-                          ? "const products = [...document.querySelectorAll('.product')].map(item => ({ name: item.querySelector('.woocommerce-loop-product__title')?.innerText, price: item.querySelector('.price')?.innerText, link: item.querySelector('a')?.href, image: item.querySelector('img')?.src })); JSON.stringify(products);"
-                          : "const items = [...document.querySelectorAll('article, .post, .item, .card')].map(item => ({ title: item.querySelector('h1, h2, h3')?.innerText, content: item.innerText, link: item.querySelector('a')?.href })); JSON.stringify(items);";
-                        navigator.clipboard.writeText(snippet);
-                        toast.success("Snippet copied to clipboard!");
-                      }}
-                      className="absolute top-3 right-3 p-2 bg-[#F7F7F5] dark:bg-[#2E2E2E] hover:bg-[#E3E2E0] dark:hover:bg-[#3F3F3F] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
-                      title="Copy Snippet"
-                    >
-                      <ClipboardPaste className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Paste Console Output</h4>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">AI will auto-detect categories for these {dbMode === 'product' ? 'products' : 'items'}.</p>
-                    </div>
-                  </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <textarea
-                    value={consolePaste}
-                    onChange={(e) => setConsolePaste(e.target.value)}
-                    placeholder={dbMode === 'product' ? 'Paste the JSON array here (e.g., [{"name": "Product Name", ...}])' : 'Paste the JSON array here (e.g., [{"title": "Item Title", ...}])'}
-                    className="flex-1 h-24 px-4 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none "
-                  />
-                  <button
-                    onClick={handleConsolePaste}
-                    disabled={isProcessingPaste || !consolePaste.trim()}
-                    className="w-full sm:w-auto px-6 py-4 sm:py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold rounded-[12px] transition-all disabled:opacity-50 flex flex-row sm:flex-col items-center justify-center gap-2 min-w-[120px]  "
-                  >
-                    {isProcessingPaste ? (
-                      <ForgeLoader size={20} />
-                    ) : (
-                      <>
-                        <Upload className="w-5 h-5" />
-                        <span>Import Data</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                </div>
-              </div>
-
-              {/* Firecrawl JSON Upload Section */}
-              <div className="bg-[#F7F7F5] dark:bg-[#202020] p-6 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-4 mt-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Upload className="w-4 h-4 text-brand" />
-                    <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Upload Firecrawl JSON</h4>
-                  </div>
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] mb-4">
-                    If you downloaded a JSON output directly from the Firecrawl dashboard, you can upload it here. You can select multiple files at once.
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="file"
-                      accept=".json"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      id="firecrawl-json-upload"
-                    />
-                    <label
-                      htmlFor="firecrawl-json-upload"
-                      className="cursor-pointer w-full sm:w-auto px-6 py-4 sm:py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold rounded-[12px] transition-all flex items-center justify-center gap-2  "
-                    >
-                      <Upload className="w-5 h-5" />
-                      Select JSON Files
-                    </label>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -1710,7 +1412,7 @@ JSON.stringify(items);`}
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowImportPanel(true); setIsManualMode(true); }}
+                    onClick={() => setShowImportPanel(true)}
                     className="px-5 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm font-bold min-h-[44px]"
                   >
                     Import data

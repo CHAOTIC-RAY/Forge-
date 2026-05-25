@@ -2023,7 +2023,62 @@ export function SettingsView({
                   placeholder="Leave empty to use server default"
                   className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                 />
-                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Used for extracting products and content from websites.</p>
+                <p className="text-[10px] text-secondary-safe">
+                  Fetches page markdown from websites (map, crawl, scrape). Catalogue conversion uses your local AI model separately.
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div>
+                  <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Catalogue import: local AI only</p>
+                  <p className="text-[10px] text-secondary-safe mt-0.5">Markdown → catalogue uses browser AI first</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAiSettingChange('catalogueImportLocalOnly', !(aiSettings.catalogueImportLocalOnly !== false))}
+                  className={cn(
+                    'w-10 h-6 rounded-full relative transition-colors shrink-0',
+                    aiSettings.catalogueImportLocalOnly !== false ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
+                      aiSettings.catalogueImportLocalOnly !== false ? 'left-5' : 'left-1'
+                    )}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div>
+                  <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Allow cloud fallback</p>
+                  <p className="text-[10px] text-secondary-safe mt-0.5">If local extraction fails, try cloud providers</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAiSettingChange('catalogueImportCloudFallback', aiSettings.catalogueImportCloudFallback === false)}
+                  className={cn(
+                    'w-10 h-6 rounded-full relative transition-colors shrink-0',
+                    aiSettings.catalogueImportCloudFallback !== false ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
+                      aiSettings.catalogueImportCloudFallback !== false ? 'left-5' : 'left-1'
+                    )}
+                  />
+                </button>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Crawl page limit</label>
+                <input
+                  type="number"
+                  min={10}
+                  max={200}
+                  value={aiSettings.catalogueCrawlLimit || 100}
+                  onChange={(e) => handleAiSettingChange('catalogueCrawlLimit', Number(e.target.value) || 100)}
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Global Target URL</label>

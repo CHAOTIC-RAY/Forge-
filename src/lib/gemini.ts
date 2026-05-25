@@ -320,6 +320,9 @@ export function getDefaultAiSettings() {
     cloudinaryCloudName: '',
     cloudinaryApiKey: '',
     cloudinaryApiSecret: '',
+    catalogueImportLocalOnly: true,
+    catalogueImportCloudFallback: true,
+    catalogueCrawlLimit: 100,
   };
 }
 
@@ -358,6 +361,9 @@ export const getAiSettings = () => {
       if (!parsed.businessRules) parsed.businessRules = '';
       if (!parsed.brandKnowledge) parsed.brandKnowledge = '';
       if (!parsed.localAiDebug) parsed.localAiDebug = false;
+      if (parsed.catalogueImportLocalOnly === undefined) parsed.catalogueImportLocalOnly = true;
+      if (parsed.catalogueImportCloudFallback === undefined) parsed.catalogueImportCloudFallback = true;
+      if (!parsed.catalogueCrawlLimit) parsed.catalogueCrawlLimit = 100;
       return parsed;
     } catch (e) {}
   }
@@ -391,6 +397,9 @@ export const getAiSettings = () => {
     cloudinaryCloudName: '',
     cloudinaryApiKey: '',
     cloudinaryApiSecret: '',
+    catalogueImportLocalOnly: true,
+    catalogueImportCloudFallback: true,
+    catalogueCrawlLimit: 100,
   };
 };
 
@@ -2029,244 +2038,46 @@ export async function getCategoryProductCounts(targetUrlParam?: string): Promise
   return JSON.parse(text);
 }
 
-export async function extractInfoFromMarkdown(markdown: string): Promise<HighStockProduct[]> {
-  const settings = getAiSettings();
+export type CatalogueExtractMeta = {
+  pageUrl?: string;
+  pageTitle?: string;
+  brandCategories?: string[];
+  outlet?: string;
+  businessId?: string;
+};
 
-  if (settings.preferredProvider === 'builtin') {
-    try {
-      console.log("[ExtractInfoFromMarkdown] Strict Local AI Mode active.");
-      const localText = await (await getBuiltInAi()).generate(`Extract key info as JSON from this text: ${markdown.substring(0, 1000)}`);
-      return safeParseJSON(localText || '[]');
-    } catch (e) {
-      console.error("Local AI failed:", e);
-      throw e;
-    }
-  }
-
-  const safeMarkdown = typeof markdown === 'string' ? markdown : JSON.stringify(markdown);
-  const prompt = `You are an information extraction expert. Your task is to extract key knowledge, facts, or insights from the following markdown content of a website.
-    The website is likely a documentation page, a blog post, or a research article.
-    
-    For each key piece of information, identify:
-    - title: A short, descriptive title for this insight or fact.
-    - type: The topic or category it belongs to (e.g., Technical, Strategy, Research, Case Study).
-    - stockInfo: A concise 1-2 sentence summary of the key takeaway or fact.
-    - link: The direct URL to the source (if available in the markdown).
-
-    Rules:
-    1. Return ONLY a valid JSON array of objects.
-    2. If no significant information is found, return an empty array [].
-    3. Do not include any explanations or markdown formatting in your response.
-    4. Be thorough and capture the most valuable insights.
-    
-    Markdown content:
-    ${safeMarkdown.substring(0, 25000)}`;
-
-  if (settings.preferredProvider === 'puter') {
-    try {
-      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
-      let parsed = safeParseJSON(puterResponse || '[]');
-      if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
-      if (!Array.isArray(parsed) && parsed.items) parsed = parsed.items;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.warn("Puter failed, falling back to AI:", error);
-    }
-  }
-
-  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
-    try {
-      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
-        try {
-          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
-          const parsed = safeParseJSON(puterResponse || '[]');
-          if (Array.isArray(parsed)) return parsed;
-        } catch (pe) {
-          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
-        }
-      }
-      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
-      let parsed = JSON.parse(groqResponse || '[]');
-      if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
-      if (!Array.isArray(parsed) && parsed.items) parsed = parsed.items;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.warn("Groq failed, falling back to AI:", error);
-    }
-  }
-
-  if (settings.preferredProvider === 'firebase') {
-    const model = getVertexModel(settings.geminiModel);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text() || '[]';
-    const start = text.indexOf('[');
-    const end = text.lastIndexOf(']');
-    if (start !== -1 && end !== -1) {
-      text = text.substring(start, end + 1);
-    }
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      return [];
-    }
-  }
-
-  if (!isGeminiKeyAvailable()) {
-    await fetchServerConfig();
-  }
-
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: settings.geminiModel,
-    contents: prompt,
-    config: {
-      temperature: 0.1,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            type: { type: Type.STRING },
-            stockInfo: { type: Type.STRING },
-            link: { type: Type.STRING }
-          },
-          required: ["title", "type", "stockInfo"]
-        }
-      }
-    }
+export async function extractInfoFromMarkdown(
+  markdown: string,
+  meta?: CatalogueExtractMeta
+): Promise<HighStockProduct[]> {
+  const { extractCatalogueFromMarkdown } = await import('./catalogueExtract');
+  const { items } = await extractCatalogueFromMarkdown({
+    markdown,
+    mode: 'info',
+    pageUrl: meta?.pageUrl,
+    pageTitle: meta?.pageTitle,
+    brandCategories: meta?.brandCategories,
+    outlet: meta?.outlet,
+    businessId: meta?.businessId,
   });
-
-  let text = response.text || '[]';
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
-  if (start !== -1 && end !== -1) {
-    text = text.substring(start, end + 1);
-  }
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    return [];
-  }
+  return items;
 }
 
-export async function extractProductsFromMarkdown(markdown: string): Promise<HighStockProduct[]> {
-  const settings = getAiSettings();
-  const safeMarkdown = typeof markdown === 'string' ? markdown : JSON.stringify(markdown);
-  const prompt = `You are a product extraction expert. Your task is to extract all products listed in the following markdown content of a website.
-    The website is likely an e-commerce shop. Products are often listed in grids, lists, or tables.
-    
-    For each product, identify:
-    - title: The full name of the product.
-    - type: The category it belongs to (e.g., Furniture, Sofa, Bed Frame, Appliances). If not explicitly stated, infer it from the context or the page title.
-    - price: The price including currency (e.g., MVR 5,000).
-    - stockInfo: Any mention of availability (e.g., "In Stock", "Out of Stock", "High Stock", "Only 2 left").
-    - link: The direct URL to the product page (if available in the markdown).
-
-    Rules:
-    1. Return ONLY a valid JSON array of objects.
-    2. If no products are found, return an empty array [].
-    3. Do not include any explanations or markdown formatting in your response.
-    4. Be thorough and capture every product mentioned in the main list.
-    
-    Markdown content:
-    ${safeMarkdown.substring(0, 25000)}`; // Increased limit to 25k chars
-
-  if (settings.preferredProvider === 'puter') {
-    try {
-      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"price\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
-      let parsed = safeParseJSON(puterResponse || '[]');
-      if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
-      if (!Array.isArray(parsed) && parsed.items) parsed = parsed.items;
-      if (!Array.isArray(parsed) && parsed.products) parsed = parsed.products;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.warn("Puter failed, falling back to AI:", error);
-    }
-  }
-
-  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
-    try {
-      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
-        try {
-          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"price\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
-          const parsed = safeParseJSON(puterResponse || '[]');
-          if (Array.isArray(parsed)) return parsed;
-        } catch (pe) {
-          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
-        }
-      }
-      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"price\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
-      let parsed = JSON.parse(groqResponse || '[]');
-      if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
-      if (!Array.isArray(parsed) && parsed.items) parsed = parsed.items;
-      if (!Array.isArray(parsed) && parsed.products) parsed = parsed.products;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.warn("Groq failed, falling back to AI:", error);
-    }
-  }
-
-  if (settings.preferredProvider === 'firebase') {
-    const model = getVertexModel(settings.geminiModel);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text() || '[]';
-    const start = text.indexOf('[');
-    const end = text.lastIndexOf(']');
-    if (start !== -1 && end !== -1) {
-      text = text.substring(start, end + 1);
-    }
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      console.error("Failed to parse AI product extraction:", e);
-      return [];
-    }
-  }
-
-  if (!isGeminiKeyAvailable()) {
-    await fetchServerConfig();
-  }
-
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: settings.geminiModel,
-    contents: prompt,
-    config: {
-      temperature: 0.1,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            type: { type: Type.STRING },
-            price: { type: Type.STRING },
-            stockInfo: { type: Type.STRING },
-            link: { type: Type.STRING }
-          },
-          required: ["title", "type"]
-        }
-      }
-    }
+export async function extractProductsFromMarkdown(
+  markdown: string,
+  meta?: CatalogueExtractMeta
+): Promise<HighStockProduct[]> {
+  const { extractCatalogueFromMarkdown } = await import('./catalogueExtract');
+  const { items } = await extractCatalogueFromMarkdown({
+    markdown,
+    mode: 'product',
+    pageUrl: meta?.pageUrl,
+    pageTitle: meta?.pageTitle,
+    brandCategories: meta?.brandCategories,
+    outlet: meta?.outlet,
+    businessId: meta?.businessId,
   });
-
-  let text = response.text || '[]';
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
-  if (start !== -1 && end !== -1) {
-    text = text.substring(start, end + 1);
-  }
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    console.error("Failed to parse AI product extraction:", e);
-    return [];
-  }
+  return items;
 }
 
 export async function generateBrandProfile(url: string, business?: Business): Promise<string> {
@@ -2351,7 +2162,12 @@ export async function scrapeWooCommerce(
 
     if (firecrawlRes.ok && firecrawlData.success && firecrawlData.data?.markdown) {
       logs.push(`✅ Firecrawl Scrape successful. Extracting products with AI...`);
-      const extracted = await extractProductsFromMarkdown(firecrawlData.data.markdown);
+      const extracted = await extractProductsFromMarkdown(firecrawlData.data.markdown, {
+        pageUrl: targetUrl,
+        pageTitle: firecrawlData.data?.metadata?.title,
+        outlet: business?.name || 'Store',
+        businessId: business?.id,
+      });
 
       if (extracted.length > 0) {
         logs.push(`✅ AI found ${extracted.length} products`);

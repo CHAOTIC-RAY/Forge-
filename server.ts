@@ -295,7 +295,7 @@ export async function startServer(forcePort?: number) {
   });
 
   app.post("/api/crawl", async (req, res) => {
-    const { url, limit = 10, apiKey } = req.body;
+    const { url, limit = 10, apiKey, includePaths, excludePaths, scrapeOptions: clientScrapeOptions } = req.body;
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
@@ -307,21 +307,29 @@ export async function startServer(forcePort?: number) {
     }
 
     try {
+      const crawlBody: Record<string, unknown> = {
+        url: url,
+        sitemap: "include",
+        crawlEntireDomain: false,
+        limit: limit,
+        scrapeOptions: {
+          onlyMainContent: clientScrapeOptions?.onlyMainContent ?? true,
+          maxAge: 172800000,
+          waitFor: clientScrapeOptions?.waitFor ?? 5000,
+          parsers: ["pdf"],
+          formats: ["markdown"],
+        },
+      };
+      if (Array.isArray(includePaths) && includePaths.length > 0) {
+        crawlBody.includePaths = includePaths;
+      }
+      if (Array.isArray(excludePaths) && excludePaths.length > 0) {
+        crawlBody.excludePaths = excludePaths;
+      }
+
       const response = await axios.post(
         "https://api.firecrawl.dev/v2/crawl",
-        {
-          url: url,
-          sitemap: "include",
-          crawlEntireDomain: false,
-          limit: limit,
-          scrapeOptions: {
-            onlyMainContent: true,
-            maxAge: 172800000,
-            waitFor: 5000, // Wait for dynamic content
-            parsers: ["pdf"],
-            formats: ["markdown"]
-          }
-        },
+        crawlBody,
         {
           headers: {
             Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
@@ -366,7 +374,7 @@ export async function startServer(forcePort?: number) {
   });
 
   app.post("/api/firecrawl-scrape", async (req, res) => {
-    const { url, apiKey } = req.body;
+    const { url, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
@@ -383,7 +391,8 @@ export async function startServer(forcePort?: number) {
         {
           url: url,
           formats: ["markdown"],
-          waitFor: 5000
+          onlyMainContent,
+          waitFor,
         },
         {
           headers: {
@@ -401,6 +410,50 @@ export async function startServer(forcePort?: number) {
         success: false
       });
     }
+  });
+
+  app.post("/api/firecrawl-scrape-batch", async (req, res) => {
+    const { urls, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
+    if (!Array.isArray(urls) || urls.length === 0) {
+      return res.status(400).json({ error: "urls array is required" });
+    }
+
+    const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
+    const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
+    if (!FIRECRAWL_API_KEY) {
+      return res.status(500).json({ error: "Firecrawl API key is not configured" });
+    }
+
+    const results: Array<{ url: string; markdown?: string; metadata?: unknown; error?: string }> = [];
+    const batch = urls.slice(0, 40);
+
+    for (const url of batch) {
+      try {
+        const response = await axios.post(
+          "https://api.firecrawl.dev/v2/scrape",
+          { url, formats: ["markdown"], onlyMainContent, waitFor },
+          {
+            headers: {
+              Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        results.push({
+          url,
+          markdown: response.data?.data?.markdown,
+          metadata: response.data?.data?.metadata,
+        });
+      } catch (error: any) {
+        results.push({
+          url,
+          error: error.response?.data?.error || error.message,
+        });
+      }
+      await new Promise((r) => setTimeout(r, 400));
+    }
+
+    res.json({ success: true, results });
   });
 
 

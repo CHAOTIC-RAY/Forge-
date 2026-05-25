@@ -3,6 +3,9 @@
 /** Max chars for brand knowledge bundle when using local providers (plan: ≤2k). */
 export const LOCAL_KNOWLEDGE_MAX_CHARS = 2000;
 
+/** Target markdown slice per catalogue extraction chunk (see catalogueExtract.ts). */
+export const CATALOGUE_EXTRACT_CHUNK_CHARS = 7000;
+
 export const LOCAL_DESIGN_GUIDE_MAX_CHARS = 800;
 
 export interface LocalAiContextBudget {
