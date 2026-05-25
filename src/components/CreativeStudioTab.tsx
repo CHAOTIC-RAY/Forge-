@@ -249,7 +249,8 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     try {
       const response = await chatToBuildWidget(
         [...builderChatMessages, userMessage],
-        { title: newWidgetTitle, description: newWidgetDescription, promptTemplate: newWidgetPrompt }
+        { title: newWidgetTitle, description: newWidgetDescription, promptTemplate: newWidgetPrompt },
+        true
       );
 
       setBuilderChatMessages(prev => [...prev, { role: 'assistant', content: response.reply }]);
