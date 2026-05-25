@@ -39,7 +39,7 @@ import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
 import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent } from 'motion/react';
 import { HeroHandwritingTitle } from './HeroHandwritingTitle';
-import { animateScrollTo, waitMs } from '../lib/guidedScroll';
+import { animateScrollTo, easeOutExpo, easeInOutQuint, waitMs } from '../lib/guidedScroll';
 
 const landingTerms = INDUSTRY_CONFIGS.default.terminology;
 
@@ -871,8 +871,8 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const calloutScale = useTransform(scrollYProgress, [0, 0.4, 0.72], [0.92, 0.98, 1]);
   const calloutRadius = useTransform(scrollYProgress, [0, 0.55, 0.8], ['28px', '16px', '0px']);
   const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.58, 0.82], [1, 1, 0]);
-  const fullBleedOpacity = useTransform(scrollYProgress, [0.55, 0.78, 1], [0, 0.6, 1]);
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.5, 0.72], [1, 1, 0]);
+  const fullBleedOpacity = useTransform(scrollYProgress, [0.48, 0.68, 0.88], [0, 0.55, 1]);
   const headlineSize = useTransform(scrollYProgress, [0, 0.75, 1], ['1.875rem', '2.25rem', '3rem']);
   const contentY = useTransform(scrollYProgress, [0.7, 1], [12, 0]);
   const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
@@ -882,7 +882,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const [tourFocusId, setTourFocusId] = useState<string | null>(null);
 
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    const immersive = v >= 0.78;
+    const immersive = v >= 0.72;
     setCtaImmersive(immersive);
     if (immersive) setActiveSection('footer-cta');
   });
@@ -924,15 +924,23 @@ export function LandingView({ onLogin }: LandingViewProps) {
       setTourFocusId(stop.id);
       if (stop.id !== 'footer-cta') setActiveSection(stop.id);
 
-      const targetTop = Math.max(0, el.offsetTop - (stop.id === 'footer-cta' ? 0 : 32));
+      const targetTop =
+        stop.id === 'footer-cta'
+          ? Math.max(
+              0,
+              el.offsetTop + el.offsetHeight - container.clientHeight * 0.12
+            )
+          : Math.max(0, el.offsetTop - 32);
       const isLast = stop.id === 'footer-cta';
+      const scrollDelta = Math.abs(targetTop - container.scrollTop);
       await animateScrollTo(
         container,
         targetTop,
-        undefined,
-        tourAbortRef.current
+        isLast ? Math.min(3200, 1400 + scrollDelta * 0.55) : undefined,
+        tourAbortRef.current,
+        isLast ? easeInOutQuint : easeOutExpo
       );
-      await waitMs(isLast ? stop.dwellMs + 400 : stop.dwellMs, tourAbortRef.current);
+      await waitMs(isLast ? stop.dwellMs + 600 : stop.dwellMs, tourAbortRef.current);
     }
 
     setTourFocusId(null);
@@ -1099,7 +1107,8 @@ export function LandingView({ onLogin }: LandingViewProps) {
       <main
         ref={containerRef}
         className={cn(
-          'flex-1 overflow-y-auto scroll-smooth snap-y snap-proximity pb-24 md:pb-0 min-w-0',
+          'flex-1 overflow-y-auto pb-24 md:pb-0 min-w-0',
+          !isAutoScrolling && 'scroll-smooth snap-y snap-proximity',
           ctaImmersive && 'md:w-full'
         )}
       >
