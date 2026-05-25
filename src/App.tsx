@@ -43,7 +43,7 @@ import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceC
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
 import { isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
-import { builtInAi } from './lib/builtinAi';
+import type { BuiltInAiStatus } from './lib/builtinAi';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
 import { LocalDb } from './components/LocalDb';
@@ -583,9 +583,22 @@ export default function App() {
     setSyncLogs(prev => [{ id: uuidv4(), time: new Date(), message, type }, ...prev].slice(0, 100));
   };
 
-  const [builtInStatus, setBuiltInStatus] = useState(builtInAi.getStatus());
+  const [builtInStatus, setBuiltInStatus] = useState<BuiltInAiStatus>({
+    isLoaded: false,
+    isLoading: false,
+    isProcessing: false,
+    progress: 0,
+    message: '',
+    error: null,
+    modelId: null,
+  });
   useEffect(() => {
-    return builtInAi.onStatusChange(setBuiltInStatus);
+    let unsubscribe: (() => void) | undefined;
+    void import('./lib/builtinAi').then(({ builtInAi }) => {
+      setBuiltInStatus(builtInAi.getStatus());
+      unsubscribe = builtInAi.onStatusChange(setBuiltInStatus);
+    });
+    return () => unsubscribe?.();
   }, []);
 
   // Modal states

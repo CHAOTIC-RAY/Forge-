@@ -5,9 +5,19 @@ import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
 import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
-import { builtInAi } from './builtinAi';
 
 declare const puter: any;
+
+/** Lazy-load to keep @mlc-ai/web-llm out of the main bundle init path (avoids TDZ crashes). */
+type BuiltInAiInstance = typeof import('./builtinAi').builtInAi;
+let builtInAiCache: BuiltInAiInstance | null = null;
+
+async function getBuiltInAi(): Promise<BuiltInAiInstance> {
+  if (!builtInAiCache) {
+    builtInAiCache = (await import('./builtinAi')).builtInAi;
+  }
+  return builtInAiCache;
+}
 
 let serverConfig: { 
   hasGeminiApiKey?: boolean; 
@@ -506,6 +516,7 @@ export function isLocalTextProvider(settings = getAiSettings()): boolean {
 export async function ensureLocalTextEngineReady(): Promise<void> {
   const settings = getAiSettings();
   if (getEffectiveTextProvider(settings) !== 'builtin') return;
+  const builtInAi = await getBuiltInAi();
   const status = builtInAi.getStatus();
   if (!status.isLoaded && !status.isLoading) {
     await builtInAi.init(settings.builtinModelId || 'Phi-3-mini-4k-instruct-q4f16_1-MLC');
@@ -538,7 +549,7 @@ export async function generateAppText(prompt: string, expectJson: boolean = fals
   if (effectiveProvider === 'builtin' || (effectiveProvider === 'auto' && !isGeminiKeyAvailable())) {
     try {
       await ensureLocalTextEngineReady();
-      const resp = await builtInAi.generate(fullPrompt);
+      const resp = await (await getBuiltInAi()).generate(fullPrompt);
       if (resp) return resp;
     } catch (e) {
       console.error('Built-in AI failed:', e);
@@ -594,7 +605,7 @@ export async function generateAppText(prompt: string, expectJson: boolean = fals
     if (allowed.includes('builtin')) {
       try {
         await ensureLocalTextEngineReady();
-        const localResp = await builtInAi.generate(fullPrompt);
+        const localResp = await (await getBuiltInAi()).generate(fullPrompt);
         if (localResp) return localResp;
       } catch (e) {
         console.warn('Auto mode: Built-in WebLLM failed, trying next...');
@@ -651,7 +662,7 @@ export async function generateAppText(prompt: string, expectJson: boolean = fals
           console.warn("Cloud AI exhausted. Falling back to WebLLM Local AI Engine...");
           notifyFallback('Auto routing', 'Cloud quota exhausted, switching to Local AI (WebGPU).');
           await ensureLocalTextEngineReady();
-          const localResp = await builtInAi.generate(fullPrompt);
+          const localResp = await (await getBuiltInAi()).generate(fullPrompt);
           if (localResp) return localResp;
         } catch (e) {
           console.error("Local AI also failed:", e);
@@ -901,7 +912,7 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     try {
       console.log("[GeneratePostContent] Strict Local AI Mode active.");
       const localPrompt = `Generate a high-engagement social media post for ${business?.name || 'our brand'} about ${category}. ${categoryPrompt} ${avoidPrompt}`;
-      const localText = await builtInAi.generate(localPrompt + " You MUST return ONLY a valid JSON object.");
+      const localText = await (await getBuiltInAi()).generate(localPrompt + " You MUST return ONLY a valid JSON object.");
       return safeParseJSON(localText || '{}');
     } catch (e) {
       console.error("Local AI failed:", e);
@@ -1235,7 +1246,7 @@ export async function generateSmartBrief(title: string, recentPosts: Post[], bus
     try {
       console.log("[GenerateSmartBrief] Strict Local AI Mode active.");
       const localPrompt = `Generate a design brief for post: "${title}". Context: ${recentContext}`;
-      return await builtInAi.generate(localPrompt);
+      return await (await getBuiltInAi()).generate(localPrompt);
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
@@ -1650,7 +1661,7 @@ Schema: [${fields}, ...]<|end_of_turn|><|start_of_turn|>user
 Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|start_of_turn|>assistant
 [`;
       
-      const localText = await builtInAi.generate(localPrompt);
+      const localText = await (await getBuiltInAi()).generate(localPrompt);
       
       // Scavenge JSON array from potential conversation
       const scavenged = localText.trim();
@@ -1884,7 +1895,7 @@ export async function getCategoryProductCounts(targetUrlParam?: string): Promise
   if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GetCategoryProductCounts] Strict Local AI Mode active.");
-      const localText = await builtInAi.generate(`Estimate categories/counts for URL: ${targetUrlParam || settings.targetUrl}. Return ONLY valid JSON array.`);
+      const localText = await (await getBuiltInAi()).generate(`Estimate categories/counts for URL: ${targetUrlParam || settings.targetUrl}. Return ONLY valid JSON array.`);
       return safeParseJSON(localText || '[]');
     } catch (e) {
       console.error("Local AI failed:", e);
@@ -1952,7 +1963,7 @@ export async function extractInfoFromMarkdown(markdown: string): Promise<HighSto
   if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[ExtractInfoFromMarkdown] Strict Local AI Mode active.");
-      const localText = await builtInAi.generate(`Extract key info as JSON from this text: ${markdown.substring(0, 1000)}`);
+      const localText = await (await getBuiltInAi()).generate(`Extract key info as JSON from this text: ${markdown.substring(0, 1000)}`);
       return safeParseJSON(localText || '[]');
     } catch (e) {
       console.error("Local AI failed:", e);
@@ -2192,7 +2203,7 @@ export async function generateBrandProfile(url: string, business?: Business): Pr
   if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateBrandProfile] Strict Local AI Mode active.");
-      return await builtInAi.generate(`Analyze this brand website and create a brief profile: ${url}. Return ONLY the profile text.`);
+      return await (await getBuiltInAi()).generate(`Analyze this brand website and create a brief profile: ${url}. Return ONLY the profile text.`);
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
@@ -2811,7 +2822,7 @@ export async function generateCampaignFromUrl(url: string, systemInstruction?: s
   if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateCampaignFromUrl] Strict Local AI Mode active.");
-      const localText = await builtInAi.generate(`Generate a JSON social media campaign for this URL: ${url}. ${systemInstruction || ''}`);
+      const localText = await (await getBuiltInAi()).generate(`Generate a JSON social media campaign for this URL: ${url}. ${systemInstruction || ''}`);
       return safeParseJSON(localText || '{}');
     } catch (e) {
       console.error("Local AI failed:", e);
@@ -3035,7 +3046,7 @@ Request: "${prompt}"
 Context: Business ${businessName}, Style: ${style}.
 Return ONLY the final prompt text. No quotes, no intro.`;
       
-      const localPrompt = await builtInAi.generate(orchestrationPrompt);
+      const localPrompt = await (await getBuiltInAi()).generate(orchestrationPrompt);
       const finalPrompt = localPrompt || fullPrompt;
       
       // Use pollination as the backend renderer for Local AI orchestration
@@ -3359,7 +3370,7 @@ Rules:
 
     if (shouldUseLocalFirst) {
       try {
-        const localResponse = await builtInAi.generate(flatPrompt);
+        const localResponse = await (await getBuiltInAi()).generate(flatPrompt);
         
         // Find the start of JSON
         const startIndex = localResponse.indexOf('{');
@@ -3627,7 +3638,7 @@ Rules:
     if (fallbackToGemini && isAuto && allowed.includes('builtin')) {
       try {
         await ensureLocalTextEngineReady();
-        const localResponse = await builtInAi.generate(flatPrompt);
+        const localResponse = await (await getBuiltInAi()).generate(flatPrompt);
         const parsedLocal = safeParseJSON(localResponse);
         if (parsedLocal && parsedLocal.message) {
             parsed = parsedLocal;
@@ -3788,7 +3799,7 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
         // Define flatPrompt locally if not available
         const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
         const flatPromptFallback = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
-        const localText = await builtInAi.generate(flatPromptFallback);
+        const localText = await (await getBuiltInAi()).generate(flatPromptFallback);
         const localParsed = safeParseJSON(localText || '{}');
         if (localParsed && localParsed.reply) return localParsed as WidgetBuilderChatResponse;
       } catch (e) {}
@@ -3914,7 +3925,7 @@ Prioritize one focused widget per request.`
         console.warn("Cloud providers failed for Applet. Using Local AI Engine...");
         const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
         const flatPromptFallback = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
-        const localText = await builtInAi.generate(flatPromptFallback);
+        const localText = await (await getBuiltInAi()).generate(flatPromptFallback);
         const localParsed = safeParseJSON(localText || '{}');
         if (localParsed && localParsed.reply) parsed = localParsed;
       } catch (e) {}

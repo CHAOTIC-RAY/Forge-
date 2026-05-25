@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import * as webllm from '@mlc-ai/web-llm';
+import type { MLCEngineInterface } from '@mlc-ai/web-llm';
 import {
   buildProxiedWebLlmAppConfig,
   normalizeBuiltinModelId,
@@ -59,8 +59,18 @@ Your core capabilities include:
 Always follow user instructions strictly. Be helpful, concise, and professional. 
 If an instructions file context is provided, prioritize it above all else.`;
 
+type WebLlmModule = typeof import('@mlc-ai/web-llm');
+
 class BuiltInAiService {
-  private engine: webllm.MLCEngineInterface | null = null;
+  private engine: MLCEngineInterface | null = null;
+  private webllmModule: WebLlmModule | null = null;
+
+  private async loadWebLlm(): Promise<WebLlmModule> {
+    if (!this.webllmModule) {
+      this.webllmModule = await import('@mlc-ai/web-llm');
+    }
+    return this.webllmModule;
+  }
   private currentModelId: string | null = null;
   private isLoading = false;
   private isProcessing = false;
@@ -191,6 +201,7 @@ class BuiltInAiService {
         console.log('[BuiltInAI] Using proxied WebLLM appConfig for HuggingFace weights.');
       }
 
+      const webllm = await this.loadWebLlm();
       this.engine = await webllm.CreateMLCEngine(normalizedId, engineConfig);
 
       this.isLoaded = true;
