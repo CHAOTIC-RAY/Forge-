@@ -2128,7 +2128,7 @@ export function SettingsView({
         <BentoCard
           id="analytics"
           title="Analytics"
-          subtitle={`${analyticsSettings.targetPlatforms?.length || 0} platforms tracked`}
+          subtitle="Optional profile links · insights use your calendar"
           icon={BarChart3}
           iconBg="bg-pink-100 dark:bg-pink-900/30"
           iconColor="text-pink-600 dark:text-pink-400"
@@ -2138,7 +2138,7 @@ export function SettingsView({
           <div className="space-y-6 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Instagram Account</label>
+                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Instagram profile (optional)</label>
                 <div className="relative group">
                   <input
                     type="url"
@@ -2153,7 +2153,7 @@ export function SettingsView({
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Facebook Account</label>
+                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Facebook profile (optional)</label>
                 <div className="relative group">
                   <input
                     type="url"
@@ -2175,8 +2175,8 @@ export function SettingsView({
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-blue-700 dark:text-blue-300">AI Analysis</h3>
-                  <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70">Enable automatic daily insights</p>
+                  <h3 className="text-sm font-bold text-blue-700 dark:text-blue-300">AI coach</h3>
+                  <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70">Optional daily summary from calendar stats (Insights tab)</p>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">

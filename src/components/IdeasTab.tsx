@@ -813,7 +813,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
   };
 
   const detailPanel = selectedBlock ? (
-    <div className="flex flex-col h-full bg-white dark:bg-[#151515] border-l border-[#E9E9E7] dark:border-[#2E2E2E]">
+    <div className="flex flex-col h-full w-full bg-white dark:bg-[#151515] border-l border-[#E9E9E7] dark:border-[#2E2E2E]">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] shrink-0">
         <button
           type="button"
@@ -1172,27 +1172,32 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
         </AnimatePresence>
       </div>
 
-      <div className="flex-1 flex overflow-hidden relative pb-20 md:pb-0 min-h-0">
+      <div
+        className={cn(
+          'flex-1 overflow-hidden relative pb-20 md:pb-0 min-h-0',
+          selectedBlockId ? 'flex flex-row' : 'flex flex-col'
+        )}
+      >
         {!isReady && (
           <div className="absolute inset-0 z-40 bg-white/80 dark:bg-black/60 backdrop-blur-sm overflow-y-auto">
             <IdeasBoardSkeleton />
           </div>
         )}
 
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <div
-            className={cn(
-              'flex-1 p-4 md:p-6 w-full min-w-0',
-              viewMode === 'board' && selectedBlockId ? 'overflow-x-auto overflow-y-hidden' : 'overflow-y-auto'
-            )}
-          >
+        <div
+          className={cn(
+            'flex flex-col min-h-0 overflow-hidden',
+            selectedBlockId ? 'md:w-[min(42%,720px)] md:max-w-[720px] md:shrink-0' : 'flex-1 min-w-0'
+          )}
+        >
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full min-w-0">
             {viewMode === 'board' ? (
               <div
                 className={cn(
-                  'flex gap-4 min-h-[240px] pb-2',
+                  'gap-4 min-h-[240px] h-full',
                   selectedBlockId
-                    ? 'w-max min-w-full md:min-w-[720px]'
-                    : 'w-full flex-col md:grid md:grid-cols-3'
+                    ? 'grid grid-cols-3 w-full'
+                    : 'grid grid-cols-1 md:grid-cols-3 w-full'
                 )}
               >
                 {(
@@ -1222,12 +1227,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
                 ).map((col) => (
                   <div
                     key={col.title}
-                    className={cn(
-                      'flex flex-col rounded-2xl glass-card min-h-[240px] max-h-[calc(100vh-280px)] overflow-hidden',
-                      selectedBlockId
-                        ? 'w-[min(100%,280px)] shrink-0 md:w-[280px]'
-                        : 'min-w-0 w-full'
-                    )}
+                    className="flex flex-col rounded-2xl glass-card min-h-[240px] max-h-[calc(100vh-280px)] overflow-hidden min-w-0 w-full"
                   >
                     <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0 sticky top-0 z-10 bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-sm">
                       <div>
@@ -1274,10 +1274,10 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
 
         {selectedBlockId && (
           <>
-            <div className="hidden md:flex w-[min(100%,min(480px,40vw))] min-w-[300px] max-w-[480px] shrink-0 min-h-0 overflow-hidden">
+            <div className="hidden md:flex flex-1 min-w-[280px] min-h-0 overflow-hidden">
               {detailPanel}
             </div>
-            <div className="md:hidden fixed inset-0 z-50">{detailPanel}</div>
+            <div className="md:hidden fixed inset-0 z-[60]">{detailPanel}</div>
           </>
         )}
       </div>

@@ -3635,7 +3635,13 @@ export default function App() {
 
                         {isAdmin && (
                           <LazyTab active={activeTab === 'analytics'}>
-                            {() => <AnalyticsTab setActiveTab={setActiveTab} />}
+                            {() => (
+                              <AnalyticsTab
+                                posts={posts}
+                                activeBusiness={activeBusiness}
+                                setActiveTab={setActiveTab}
+                              />
+                            )}
                           </LazyTab>
                         )}
 

@@ -64,13 +64,13 @@ Help teams **track how they show up on social** for each workspace: what they po
 
 ### Phase 1 — Ship free insights (recommended next PR)
 
-- [ ] Add `src/lib/insightsMetrics.ts` — pure functions: `computePostingStats(posts, range)`.
-- [ ] Refactor `AnalyticsTab.tsx`:
-  - Subscribe to posts `onSnapshot` for `activeBusiness.id` (same pattern as calendar).
+- [x] Add `src/lib/insightsMetrics.ts` — pure functions: `computePostingStats(posts, range)`.
+- [x] Refactor `AnalyticsTab.tsx`:
+  - Posts passed from `App.tsx` (same Firestore subscription as calendar).
   - Remove hard requirement for IG/FB URLs to render the tab.
   - Replace fake engagement JSON with computed stats + empty states.
-- [ ] Settings: relabel social URLs as “Profile links (optional reference).”
-- [ ] Keep `generateAnalyticsReport` behind “AI summary” with prompt: *only use provided stats object*.
+- [x] Settings: relabel social URLs as “Profile links (optional reference).”
+- [x] AI coach uses `generateTextWithCascade` with stats JSON only (no profile scrape).
 
 ### Phase 2 — Polish & parity
 
