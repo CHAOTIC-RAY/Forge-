@@ -446,6 +446,18 @@ function withBusinessKnowledge(prompt: string, options?: { forLocal?: boolean })
   if (settings.businessRules) blocks.push(`BUSINESS RULES:\n${settings.businessRules}`);
   if (settings.systemInstructions) blocks.push(`AI INSTRUCTIONS:\n${settings.systemInstructions}`);
   if (settings.brandKnowledge) blocks.push(`MERGED KNOWLEDGE:\n${settings.brandKnowledge}`);
+
+  try {
+    const kitRaw = localStorage.getItem('forge_brand_kit_snapshot');
+    if (kitRaw) {
+      const kit = JSON.parse(kitRaw);
+      if (kit.brandProfile?.trim()) blocks.push(`BRAND PROFILE (brand.md):\n${kit.brandProfile.trim()}`);
+      if (kit.designGuide?.trim()) blocks.push(`DESIGN GUIDE (design.md):\n${kit.designGuide.trim()}`);
+    }
+  } catch {
+    /* ignore parse errors */
+  }
+
   const localDbContext = getLocalDbContextSnippet();
   if (localDbContext) blocks.push(`LOCAL DB CONTEXT:\n${localDbContext}`);
 

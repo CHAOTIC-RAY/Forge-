@@ -3423,7 +3423,7 @@ export default function App() {
                             </button>
                             <button
                               onClick={handleRequestAccess}
-                              title="Request Access to Brand Kit"
+                              title="Request Access to Brand & AI Guide"
                               className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
                             >
                               <Palette className="w-5 h-5 shrink-0" />
@@ -3648,7 +3648,14 @@ export default function App() {
 
                         {isAdmin && (
                           <LazyTab active={activeTab === 'brandkit'}>
-                            {() => <BrandKitTab activeBusiness={activeBusiness} posts={posts} aiSettings={aiSettings} />}
+                            {() => (
+                              <BrandKitTab
+                                activeBusiness={activeBusiness}
+                                posts={posts}
+                                aiSettings={aiSettings}
+                                onAiSettingsChange={handleAiSettingChange}
+                              />
+                            )}
                           </LazyTab>
                         )}
 

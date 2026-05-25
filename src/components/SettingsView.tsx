@@ -20,6 +20,7 @@ import { BuiltInAiStatus, BUILTIN_MODELS, BUILTIN_VISION_MODELS } from '../lib/b
 import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
 import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
+import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
 
 const GEMINI_MODELS = [
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)' },
@@ -496,19 +497,17 @@ export function SettingsView({
   }, [aiSettings.systemInstructions, aiSettings.brandVoice, aiSettings.businessRules, aiSettings.localAiDebug]);
 
   const handleSaveInstructions = () => {
-    const mergedKnowledge = [
-      `## Brand Voice\n${brandVoiceText || 'Not set'}`,
-      `## Business Rules\n${businessRulesText || 'Not set'}`,
-      `## AI System Instructions\n${instructionText || 'Not set'}`
-    ].join('\n\n');
-
+    persistBrandKnowledgeToAiSettings({
+      brandVoice: brandVoiceText,
+      businessRules: businessRulesText,
+      systemInstructions: instructionText,
+    });
     handleAiSettingChange('brandVoice', brandVoiceText);
     handleAiSettingChange('businessRules', businessRulesText);
     handleAiSettingChange('systemInstructions', instructionText);
-    handleAiSettingChange('brandKnowledge', mergedKnowledge);
     handleAiSettingChange('localAiDebug', localAiDebug);
     setIsAiInstructionModalOpen(false);
-    toast.success("Knowledge center updated and synced to Local AI.");
+    toast.success('Knowledge saved — open Brand & AI Guide tab for full editing.');
   };
 
   const downloadExtensionFile = async (filename: string) => {
@@ -668,7 +667,7 @@ export function SettingsView({
           <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-[16px] flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-2">
             <Palette className="w-5 h-5" />
           </div>
-          <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] text-center line-clamp-1">{industryConfig?.terminology?.assets || 'Brand Kit'}</span>
+          <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] text-center line-clamp-1">{industryConfig?.terminology?.assets || 'Brand & AI Guide'}</span>
         </button>
 
         <button 
@@ -1133,11 +1132,14 @@ export function SettingsView({
           <div className="relative space-y-6 pt-4">
             <div className="absolute -top-12 right-0">
               <button 
-                onClick={() => setIsAiInstructionModalOpen(true)}
+                onClick={() => {
+                  sessionStorage.setItem('forge_brand_open_section', 'knowledge');
+                  setActiveTab?.('brandkit');
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
               >
                 <MessageSquareText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                Knowledge Center
+                Brand & AI Guide
               </button>
             </div>
             <div className="p-4 rounded-[16px] bg-indigo-50/80 dark:bg-indigo-900/15 border border-indigo-100 dark:border-indigo-900/30 space-y-2">

@@ -31,6 +31,7 @@ import {
   Plus,
   Hash,
   PenTool,
+  Tag,
   Instagram,
   RefreshCw,
 } from 'lucide-react';
@@ -489,7 +490,7 @@ function BrandKitLandingPreview() {
           </div>
           <div>
             <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">{landingTerms.assets}</p>
-            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Brand kit & references</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Brand, AI knowledge & rules</p>
           </div>
         </div>
         <button type="button" className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1">
@@ -714,104 +715,6 @@ const SECTIONS: LandingSection[] = [
     ],
   },
   {
-    id: 'ai',
-    icon: Sparkles,
-    title: 'Widgets',
-    description:
-      'Built-in AI widgets ship with the app—caption writer, hashtag packs, designer briefs, and hooks. Run locally in the browser when you want privacy; optional cloud models when you need more power. More widgets on the way.',
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/10',
-    bullets: [
-      {
-        icon: Cpu,
-        label: 'Local AI (WebLLM)',
-        text: 'Run models in-browser with WebGPU—fast iteration for sensitive brands and offline-friendly drafts.',
-      },
-      {
-        icon: Wand2,
-        label: 'Caption & brief tools',
-        text: 'Ready-made widgets for posts, hooks, hashtags, and designer briefs—paste straight into calendar cards.',
-      },
-      {
-        icon: Sparkles,
-        label: 'More coming soon',
-        text: 'We are expanding the built-in library—no custom builder required; new tools land in your workspace automatically.',
-      },
-      {
-        icon: Sparkles,
-        label: 'Cloud when you need it',
-        text: 'Optional Gemini, Groq, or Puter routes for heavier tasks while keeping local AI as the default.',
-      },
-    ],
-  },
-  {
-    id: 'studio',
-    icon: Palette,
-    title: landingTerms.assets,
-    description:
-      'Brand kit and creative references beside your calendar—logos, palettes, fonts, and example posts so every export matches the guide your team already approved.',
-    color: 'text-pink-500',
-    bg: 'bg-pink-500/10',
-    bullets: [
-      {
-        icon: Palette,
-        label: 'Visual identity',
-        text: 'Store primary/secondary colors, logo marks, and typography rules where writers and designers actually work.',
-      },
-      {
-        icon: ImageIcon,
-        label: 'Reference posts',
-        text: 'Pin high-performing examples so AI and humans mirror the look you want on the next campaign.',
-      },
-      {
-        icon: Sparkles,
-        label: 'Design guide sync',
-        text: 'Generate or refresh a written style guide from uploads—feeds widgets and post generation automatically.',
-      },
-      {
-        icon: Download,
-        label: 'Export-ready assets',
-        text: 'Pull on-brand elements into posts and mockups without digging through Drive folders mid-deadline.',
-      },
-    ],
-  },
-  {
-    id: 'analytics',
-    icon: BarChart3,
-    title: 'Insights & Analytics',
-    description:
-      'Track how you are really showing up online using the posts already on your calendar—posting rhythm, formats, outlets, and themes—plus optional profile links. Free insights with no Meta API keys required.',
-    color: 'text-green-500',
-    bg: 'bg-green-500/10',
-    bullets: [
-      {
-        icon: CalendarIcon,
-        label: 'Calendar-native metrics',
-        text: 'Scheduled and published posts in your workspace drive charts—no third-party analytics subscription.',
-      },
-      {
-        icon: TrendingUp,
-        label: 'Rhythm & format mix',
-        text: 'See which days, outlets, and post types you use most so planning stays intentional.',
-      },
-      {
-        icon: Sparkles,
-        label: 'Local AI summaries',
-        text: 'Optional narrative insights from your own data—built-in AI when you want a coach, not another dashboard login.',
-      },
-      {
-        icon: Link2,
-        label: 'Profile context (optional)',
-        text: 'Save Instagram or Facebook page URLs for reference; deep API pulls stay optional, not required.',
-      },
-      {
-        icon: BarChart3,
-        label: 'Plan with data',
-        text: 'Feed learnings back into the calendar and ideas board so the next month is intentional, not guesswork.',
-      },
-    ],
-  },
-  {
     id: 'localdb',
     icon: Database,
     title: landingTerms.products,
@@ -849,6 +752,104 @@ const SECTIONS: LandingSection[] = [
         icon: ClipboardPaste,
         label: 'Advanced',
         text: 'Paste console JSON or upload Firecrawl exports when you need a manual path.',
+      },
+    ],
+  },
+  {
+    id: 'studio',
+    icon: Palette,
+    title: landingTerms.assets,
+    description:
+      'One hub for brand visuals and AI knowledge—logos, colors, brand.md, design.md, voice, rules, and system instructions so local WebLLM and cloud models stay on-brand.',
+    color: 'text-pink-500',
+    bg: 'bg-pink-500/10',
+    bullets: [
+      {
+        icon: Palette,
+        label: 'Visual identity',
+        text: 'Store primary/secondary colors, logo marks, and typography rules where writers and designers actually work.',
+      },
+      {
+        icon: PenTool,
+        label: 'AI knowledge center',
+        text: 'Brand voice, business rules, and custom instructions merged with brand.md and design.md for every AI call.',
+      },
+      {
+        icon: Sparkles,
+        label: 'Design guide sync',
+        text: 'Generate or refresh a written style guide from uploads—feeds widgets and post generation automatically.',
+      },
+      {
+        icon: Tag,
+        label: 'Workspace categories',
+        text: 'Outlets, campaigns, and content formats power the calendar and catalogue auto-tagging.',
+      },
+    ],
+  },
+  {
+    id: 'ai',
+    icon: Sparkles,
+    title: 'Widgets',
+    description:
+      'Built-in AI widgets ship with the app—caption writer, hashtag packs, designer briefs, and hooks. Run locally in the browser when you want privacy; optional cloud models when you need more power. More widgets on the way.',
+    color: 'text-amber-500',
+    bg: 'bg-amber-500/10',
+    bullets: [
+      {
+        icon: Cpu,
+        label: 'Local AI (WebLLM)',
+        text: 'Run models in-browser with WebGPU—fast iteration for sensitive brands and offline-friendly drafts.',
+      },
+      {
+        icon: Wand2,
+        label: 'Caption & brief tools',
+        text: 'Ready-made widgets for posts, hooks, hashtags, and designer briefs—paste straight into calendar cards.',
+      },
+      {
+        icon: Sparkles,
+        label: 'More coming soon',
+        text: 'We are expanding the built-in library—no custom builder required; new tools land in your workspace automatically.',
+      },
+      {
+        icon: Sparkles,
+        label: 'Cloud when you need it',
+        text: 'Optional Gemini, Groq, or Puter routes for heavier tasks while keeping local AI as the default.',
+      },
+    ],
+  },
+  {
+    id: 'analytics',
+    icon: BarChart3,
+    title: 'Insights & Analytics',
+    description:
+      'Track how you are really showing up online using the posts already on your calendar—posting rhythm, formats, outlets, and themes—plus optional profile links. Free insights with no Meta API keys required.',
+    color: 'text-green-500',
+    bg: 'bg-green-500/10',
+    bullets: [
+      {
+        icon: CalendarIcon,
+        label: 'Calendar-native metrics',
+        text: 'Scheduled and published posts in your workspace drive charts—no third-party analytics subscription.',
+      },
+      {
+        icon: TrendingUp,
+        label: 'Rhythm & format mix',
+        text: 'See which days, outlets, and post types you use most so planning stays intentional.',
+      },
+      {
+        icon: Sparkles,
+        label: 'Local AI summaries',
+        text: 'Optional narrative insights from your own data—built-in AI when you want a coach, not another dashboard login.',
+      },
+      {
+        icon: Link2,
+        label: 'Live social metrics',
+        text: 'Local AI cannot scrape Instagram or Facebook—add a Gemini/Groq API key in Settings for future live pulls; until then, insights use your calendar only.',
+      },
+      {
+        icon: BarChart3,
+        label: 'Plan with data',
+        text: 'Feed learnings back into the calendar and ideas board so the next month is intentional, not guesswork.',
       },
     ],
   },

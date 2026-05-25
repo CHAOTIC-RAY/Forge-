@@ -29,7 +29,7 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
       products: 'Catalogue',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand Kit',
+      assets: 'Brand & AI Guide',
       chat: 'AI Assistant',
     },
     aiContext: {
@@ -49,7 +49,7 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
       products: 'Catalogue',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand Kit',
+      assets: 'Brand & AI Guide',
       chat: 'AI Agent',
     },
     aiContext: {
@@ -69,7 +69,7 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
       products: 'Catalogue',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand Kit',
+      assets: 'Brand & AI Guide',
       chat: 'Culinary AI',
     },
     aiContext: {
@@ -89,7 +89,7 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
       products: 'Catalogue',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand Kit',
+      assets: 'Brand & AI Guide',
       chat: 'Tech Copilot',
     },
     aiContext: {
@@ -109,7 +109,7 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
       products: 'Catalogue',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand Kit',
+      assets: 'Brand & AI Guide',
       chat: 'Strategy AI',
     },
     aiContext: {
@@ -129,7 +129,7 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
       products: 'Catalogue',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand Kit',
+      assets: 'Brand & AI Guide',
       chat: 'AI Assistant',
     },
     aiContext: {

@@ -222,6 +222,25 @@ Return 4–6 short bullet recommendations (markdown bullets) for what to post ne
       </div>
 
       <div className="w-full space-y-6 pb-12 flex-1 min-h-0 overflow-y-auto">
+        <div className="glass-card p-4 border-amber-200/60 dark:border-amber-900/40 bg-amber-500/5 flex gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-sm text-[#37352F] dark:text-[#EBE9ED]">
+            <p className="font-bold text-amber-800 dark:text-amber-300">Local AI cannot read live social networks</p>
+            <p className="text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+              Built-in and browser models only see your Forge calendar data and saved profile links—they do not fetch Instagram or Facebook metrics.
+              Charts and the AI coach use scheduled posts in this workspace. For live follower, reach, or engagement data, add a{' '}
+              <span className="font-bold">Gemini or Groq API key</span> in Settings → AI (Meta/Graph API integration is planned later).
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveTab?.('more')}
+              className="text-xs font-bold text-brand hover:underline mt-1"
+            >
+              Open AI & API settings
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <StatCard label={`Posts (${rangeDays}d)`} value={String(stats.postsCount)} hint={deltaLabel} />
           <StatCard label="Avg / week" value={String(stats.avgPerWeek)} hint="scheduled in range" />

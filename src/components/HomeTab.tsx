@@ -9,8 +9,8 @@ import {
   ArrowRight,
   MessageSquare,
   Sparkles,
-  Boxes,
   Lightbulb,
+  RefreshCw,
   BarChart3,
   Database,
   Instagram,
@@ -24,6 +24,8 @@ import { Post, Business } from '../data';
 import { cn } from '../lib/utils';
 import { HomeDashboardSkeleton } from './ui/Skeleton';
 import { generateDailyGreetings, HighStockProduct, generateTaskIdeas } from '../lib/gemini';
+import { saveTextToIdeasInbox } from '../lib/ideasInbox';
+import { toast } from 'sonner';
 import { User } from 'firebase/auth';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -45,6 +47,72 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
   const [products, setProducts] = useState<HighStockProduct[]>([]);
   const [recommendedIdea, setRecommendedIdea] = useState<any>(null);
   const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
+  const [isSavingIdea, setIsSavingIdea] = useState(false);
+
+  const loadRecommendedIdea = async (forceRefresh = false) => {
+    if (!activeBusiness?.id) return;
+
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const cacheKey = `daily_inspiration_${activeBusiness.id}`;
+
+    if (!forceRefresh) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed.date === todayStr) {
+            setRecommendedIdea(parsed.idea);
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to parse cached inspiration', e);
+        }
+      }
+    } else {
+      localStorage.removeItem(cacheKey);
+    }
+
+    setIsGeneratingIdea(true);
+    try {
+      const ideas = await generateTaskIdeas(
+        activeBusiness,
+        undefined,
+        undefined,
+        'Generate 1 single, highly creative and actionable content idea for today.'
+      );
+      if (ideas && ideas.length > 0) {
+        const idea = ideas[0];
+        setRecommendedIdea(idea);
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            date: todayStr,
+            idea,
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Failed to fetch recommended idea:', error);
+      toast.error('Could not refresh inspiration. Check AI settings.');
+    } finally {
+      setIsGeneratingIdea(false);
+    }
+  };
+
+  const handleSaveToIdeas = async () => {
+    if (!activeBusiness?.id || !recommendedIdea) return;
+    setIsSavingIdea(true);
+    try {
+      const body = recommendedIdea.description || recommendedIdea.brief || '';
+      await saveTextToIdeasInbox(activeBusiness.id, recommendedIdea.title, body);
+      toast.success('Saved to Ideas inbox');
+      setActiveTab('ideas');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save to Ideas');
+    } finally {
+      setIsSavingIdea(false);
+    }
+  };
 
   // Sync products with Firestore
   useEffect(() => {
@@ -106,44 +174,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
   }, [user?.displayName]);
 
   useEffect(() => {
-    const fetchRecommendedIdea = async () => {
-      if (!activeBusiness?.id) return;
-      
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const cacheKey = `daily_inspiration_${activeBusiness.id}`;
-      const cached = localStorage.getItem(cacheKey);
-      
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          if (parsed.date === todayStr) {
-            setRecommendedIdea(parsed.idea);
-            return;
-          }
-        } catch (e) {
-          console.error("Failed to parse cached inspiration", e);
-        }
-      }
-
-      setIsGeneratingIdea(true);
-      try {
-        const ideas = await generateTaskIdeas(activeBusiness, undefined, undefined, "Generate 1 single, highly creative and actionable content idea for today.");
-        if (ideas && ideas.length > 0) {
-          const idea = ideas[0];
-          setRecommendedIdea(idea);
-          localStorage.setItem(cacheKey, JSON.stringify({
-            date: todayStr,
-            idea
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to fetch recommended idea:", error);
-      } finally {
-        setIsGeneratingIdea(false);
-      }
-    };
-
-    fetchRecommendedIdea();
+    loadRecommendedIdea(false);
   }, [activeBusiness?.id]);
 
   const todayPosts = useMemo(() => {
@@ -275,19 +306,23 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
               </div>
               
               <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 sm:gap-4 pt-2">
-                <button 
-                  onClick={() => isAdmin ? setActiveTab('widgets') : onHandleRequestAccess?.()}
-                  className="px-5 sm:px-6 py-3 bg-brand text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest hover:bg-brand-hover transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand/25 active:scale-95 min-h-[48px]"
-                >
-                  <Boxes className="w-4 h-4" />
-                  {isAdmin ? 'Open in Widgets' : 'Request Access to Use'}
-                </button>
-                <button 
-                  onClick={() => isAdmin ? setActiveTab('ideas') : onHandleRequestAccess?.()}
-                  className="px-5 sm:px-6 py-3 bg-white dark:bg-[#252525] border border-[#E9E9E7] dark:border-[#333333] text-[#37352F] dark:text-[#EBE9ED] rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center justify-center gap-2 active:scale-95 min-h-[48px]"
+                <button
+                  type="button"
+                  onClick={() => (isAdmin ? handleSaveToIdeas() : onHandleRequestAccess?.())}
+                  disabled={isSavingIdea}
+                  className="px-5 sm:px-6 py-3 bg-amber-400 hover:bg-amber-500 text-[#1a1a1a] rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/30 active:scale-95 min-h-[48px] disabled:opacity-60"
                 >
                   <Lightbulb className="w-4 h-4" />
-                  {isAdmin ? 'Save to Ideas' : 'Request Access to Save'}
+                  {isSavingIdea ? 'Saving…' : isAdmin ? 'Save to Ideas' : 'Request Access to Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => (isAdmin ? loadRecommendedIdea(true) : onHandleRequestAccess?.())}
+                  disabled={isGeneratingIdea}
+                  className="px-5 sm:px-6 py-3 bg-white dark:bg-[#252525] border border-[#E9E9E7] dark:border-[#333333] text-[#37352F] dark:text-[#EBE9ED] rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center justify-center gap-2 active:scale-95 min-h-[48px] disabled:opacity-60"
+                >
+                  <RefreshCw className={cn('w-4 h-4', isGeneratingIdea && 'animate-spin')} />
+                  {isGeneratingIdea ? 'Refreshing…' : 'Refresh'}
                 </button>
               </div>
             </div>
