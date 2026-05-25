@@ -17,7 +17,8 @@ import {
   Facebook,
   Users,
   Eye,
-  Heart
+  Heart,
+  Boxes,
 } from 'lucide-react';
 import { format, isToday, parseISO, isAfter, startOfDay } from 'date-fns';
 import { Post, Business } from '../data';

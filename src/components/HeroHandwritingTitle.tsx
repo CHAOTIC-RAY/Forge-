@@ -1,8 +1,8 @@
 import React, { Suspense, lazy, Component, type ReactNode } from 'react';
 import { cn } from '../lib/utils';
-import { FORGE_SCRIBBLE_DRAW_S } from './ForgeLogo';
-
-const HANDWRITE_DURATION_MS = Math.round(FORGE_SCRIBBLE_DRAW_S * 1000);
+/** Hero handwriting draw — faster than background flame loop for snappier first impression */
+const HERO_HANDWRITE_DURATION_MS = 900;
+const HERO_HANDWRITE_DELAY_MS = 40;
 
 class TegakiErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
@@ -39,8 +39,8 @@ const TegakiHero = lazy(async () => {
           font={caveat}
           className={cn('text-white', className)}
           style={{ fontSize: 'clamp(2.25rem, 6.5vw, 4.75rem)', lineHeight: 1.05 }}
-          duration={HANDWRITE_DURATION_MS}
-          delay={120}
+          duration={HERO_HANDWRITE_DURATION_MS}
+          delay={HERO_HANDWRITE_DELAY_MS}
         >
           Sparks into substance
         </TegakiRenderer>
