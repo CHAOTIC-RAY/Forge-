@@ -50,7 +50,15 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // Use prebuilt font bundle so Vite does not break tegaki's import attributes
+        'tegaki/fonts/caveat': path.resolve(
+          __dirname,
+          'node_modules/tegaki/dist/fonts/caveat/bundle.mjs'
+        ),
       },
+    },
+    optimizeDeps: {
+      include: ['tegaki/react', 'tegaki/fonts/caveat'],
     },
     build: {
       rollupOptions: {

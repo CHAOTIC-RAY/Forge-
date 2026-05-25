@@ -61,11 +61,6 @@ export const fetchServerConfig = async () => {
   }
 };
 
-// Initial fetch
-if (typeof window !== 'undefined') {
-  fetchServerConfig();
-}
-
 export const isGeminiKeyAvailable = () => {
   const settings = getAiSettings();
   const apiKey = settings.geminiApiKey ||

@@ -324,9 +324,11 @@ export default function App() {
   const aiSettings = useAppStore(state => state.aiSettings) || initialAiSettings;
   const setAiSettingsState = useAppStore(state => state.setAiSettings);
 
+  // Skip server AI config + WebLLM preload on public landing (not signed in)
   useEffect(() => {
+    if (!user) return;
     fetchServerConfig().catch(console.error);
-  }, []);
+  }, [user]);
 
   const analyticsSettings = useAppStore(state => state.analyticsSettings) || initialAnalyticsSettings;
   const setAnalyticsSettingsState = useAppStore(state => state.setAnalyticsSettings);
@@ -676,8 +678,9 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // Preload WebLLM when Built-in / WebGPU local mode is active (or Auto with builtin enabled)
+  // Preload WebLLM only after sign-in when Built-in / WebGPU local mode is active
   useEffect(() => {
+    if (!user) return;
     const effective = getEffectiveTextProvider(aiSettings);
     const autoAllowsBuiltin =
       effective === 'auto' &&
@@ -687,6 +690,7 @@ export default function App() {
       console.warn('[App] Local model preload failed:', err);
     });
   }, [
+    user,
     aiSettings.preferredProvider,
     aiSettings.builtinModelId,
     aiSettings.geminiModel,
