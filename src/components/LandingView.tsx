@@ -1,5 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Sparkles, Palette, BarChart3, LogIn, ChevronDown, CheckCircle2, MessageSquare, Lightbulb, Pause, Square, Database, Image as ImageIcon, Users } from 'lucide-react';
+import {
+  Calendar as CalendarIcon,
+  Sparkles,
+  Palette,
+  BarChart3,
+  LogIn,
+  ChevronDown,
+  CheckCircle2,
+  MessageSquare,
+  Lightbulb,
+  Pause,
+  Square,
+  Database,
+  Image as ImageIcon,
+  Globe,
+  Search,
+  LayoutGrid,
+  Download,
+  ClipboardPaste,
+  List,
+} from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
@@ -37,6 +57,168 @@ const TypewriterText = ({ text, delay = 0, onComplete, className }: { text: stri
   return <span className={cn(className, 'inline')}>{displayedText}</span>;
 };
 
+const IMPORT_TABS = ['Discover', 'Fetch', 'Convert', 'Review', 'Advanced'] as const;
+
+function CatalogueImportLandingPreview() {
+  const [activeTab, setActiveTab] = useState<(typeof IMPORT_TABS)[number]>('Discover');
+
+  return (
+    <div className="w-full min-h-[320px] md:min-h-[360px] bg-white dark:bg-[#191919] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-3 md:p-4 flex flex-col gap-3 overflow-hidden">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
+            <Database className="w-4 h-4 text-brand" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">Catalogue</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97] truncate">Import & sync</p>
+          </div>
+        </div>
+        <div className="hidden sm:flex p-0.5 rounded-lg bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+          <span className="px-2 py-1 text-[10px] font-bold rounded-md bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]">Catalogue</span>
+          <span className="px-2 py-1 text-[10px] font-medium text-[#787774]">Knowledge</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          { label: 'Total items', value: '248' },
+          { label: 'Categories', value: '12' },
+          { label: 'Showing', value: '64' },
+          { label: 'Needs category', value: '3', accent: true },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-2"
+          >
+            <p className="text-[9px] font-bold uppercase tracking-wide text-[#787774] dark:text-[#9B9A97]">{stat.label}</p>
+            <p className={cn('text-lg font-bold mt-0.5', stat.accent ? 'text-orange-500' : 'text-[#37352F] dark:text-[#EBE9ED]')}>
+              {stat.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto no-scrollbar pb-0.5">
+        {IMPORT_TABS.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              'px-2.5 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition-colors shrink-0',
+              activeTab === tab
+                ? 'bg-brand text-white'
+                : 'text-[#787774] dark:text-[#9B9A97] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E]'
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 min-h-[140px]">
+        {activeTab === 'Discover' && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1">
+                <Globe className="w-3 h-3" /> Map site
+              </button>
+              <span className="text-[10px] text-[#787774] self-center">1,240 URLs · 186 listing pages</span>
+            </div>
+            <div className="space-y-1.5 max-h-[88px] overflow-hidden">
+              {[
+                { kind: 'Listing', url: '/shop/sofas' },
+                { kind: 'Product', url: '/product/rio-sofa' },
+                { kind: 'Listing', url: '/collections/outdoor' },
+              ].map((row) => (
+                <div key={row.url} className="flex items-center gap-2 p-1.5 rounded-lg bg-white dark:bg-[#191919] border border-[#E9E9E7]/80 dark:border-[#2E2E2E]">
+                  <div className="w-3 h-3 rounded border-2 border-brand bg-brand/20 shrink-0" />
+                  <span className="text-[9px] font-bold uppercase text-brand bg-brand/10 px-1 rounded shrink-0">{row.kind}</span>
+                  <span className="text-[10px] font-mono text-[#787774] truncate">{row.url}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {activeTab === 'Fetch' && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <span className="px-2 py-1 rounded-lg border border-brand/30 text-brand text-[10px] font-bold flex items-center gap-1">
+                <Download className="w-3 h-3" /> Scrape selected (42)
+              </span>
+              <span className="px-2 py-1 rounded-lg bg-[#EFEFED] dark:bg-[#2E2E2E] text-[10px] font-bold">Crawl · limit 100</span>
+            </div>
+            <div className="h-2 rounded-full bg-[#E9E9E7] dark:bg-[#3E3E3E] overflow-hidden">
+              <div className="h-full w-[68%] bg-brand rounded-full" />
+            </div>
+            <p className="text-[10px] text-[#787774]">Fetching markdown from Firecrawl… 29/42 pages</p>
+          </div>
+        )}
+        {activeTab === 'Convert' && (
+          <div className="space-y-2">
+            <button type="button" className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1 w-fit">
+              <Sparkles className="w-3 h-3" /> Convert with local AI
+            </button>
+            <p className="text-[10px] text-[#787774]">Chunking page markdown → structured catalogue JSON</p>
+            <div className="flex items-center gap-2 text-[10px] text-brand font-bold">
+              <Sparkles className="w-3.5 h-3.5" />
+              18 items extracted · 3 chunks/page avg
+            </div>
+          </div>
+        )}
+        {activeTab === 'Review' && (
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1.5">
+              {['Rio Corner Sofa', 'Teak Dining Set', 'LED Pendant'].map((title) => (
+                <div key={title} className="flex justify-between gap-2 p-1.5 rounded-lg bg-white dark:bg-[#191919] border border-[#E9E9E7]/80 dark:border-[#2E2E2E] text-[10px]">
+                  <span className="font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">{title}</span>
+                  <span className="text-[#787774] shrink-0">Furniture</span>
+                </div>
+              ))}
+            </div>
+            <div className="w-[38%] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] p-2 space-y-1.5">
+              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight">Rio Corner Sofa</p>
+              <p className="text-[9px] text-[#787774]">MVR 12,500 · In stock</p>
+              <div className="h-6 rounded bg-brand/90" />
+              <p className="text-[8px] text-center text-white font-bold">Save to catalogue</p>
+            </div>
+          </div>
+        )}
+        {activeTab === 'Advanced' && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-[#191919] border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E]">
+              <ClipboardPaste className="w-4 h-4 text-brand shrink-0" />
+              <div className="flex-1 space-y-1">
+                <div className="h-2 w-full bg-[#E9E9E7] dark:bg-[#3E3E3E] rounded" />
+                <div className="h-2 w-4/5 bg-[#E9E9E7] dark:bg-[#3E3E3E] rounded" />
+              </div>
+            </div>
+            <p className="text-[10px] text-[#787774]">Paste JSON or upload Firecrawl exports</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 pt-0.5">
+        <div className="flex-1 relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9B9A97]" />
+          <div className="h-8 pl-7 pr-2 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] flex items-center">
+            <span className="text-[10px] text-[#9B9A97]">Search catalogue…</span>
+          </div>
+        </div>
+        <div className="flex rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden shrink-0">
+          <div className="p-2 bg-brand text-white">
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </div>
+          <div className="p-2 bg-white dark:bg-[#191919] text-[#787774]">
+            <List className="w-3.5 h-3.5" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FeaturePreview({ id }: { id: string }) {
   switch (id) {
     case 'calendar':
@@ -61,27 +243,7 @@ function FeaturePreview({ id }: { id: string }) {
         </div>
       );
     case 'localdb':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-4 flex flex-col gap-4 overflow-hidden">
-          <div className="w-full h-10 bg-gray-100 dark:bg-[#202020] rounded-xl flex items-center px-4 gap-3 border border-gray-200 dark:border-gray-700">
-            <Database className="w-4 h-4 text-gray-400" />
-            <div className="w-32 h-3 bg-gray-300 dark:bg-gray-600 rounded-full" />
-          </div>
-          <div className="grid grid-cols-3 gap-3 flex-1">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-gray-50 dark:bg-[#202020] rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
-                <div className="flex-1 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                  <ImageIcon className="w-6 h-6 text-gray-400" />
-                </div>
-                <div className="p-2 space-y-1.5">
-                  <div className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                  <div className="w-2/3 h-2 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
+      return <CatalogueImportLandingPreview />;
     case 'ai':
       return (
         <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-4 flex flex-col overflow-hidden">
@@ -247,7 +409,17 @@ interface LandingViewProps {
   onLogin: () => void;
 }
 
-const SECTIONS = [
+type LandingSection = {
+  id: string;
+  icon: React.ComponentType<{ className?: string }> | null;
+  title: string;
+  description: string;
+  color: string;
+  bg: string;
+  bullets?: { icon: React.ComponentType<{ className?: string }>; label: string; text: string }[];
+};
+
+const SECTIONS: LandingSection[] = [
   {
     id: 'hero',
     icon: null,
@@ -300,10 +472,38 @@ const SECTIONS = [
     id: 'localdb',
     icon: Database,
     title: landingTerms.products,
-    description: 'A searchable catalogue and knowledge base: organize products or reference material, then drop entries into posts and AI tools in one click.',
+    description:
+      'Build a searchable product catalogue or knowledge base from any website. Map URLs, fetch markdown with Firecrawl, convert pages with local AI, review items, then use them in posts and widgets.',
     color: 'text-indigo-500',
-    bg: 'bg-indigo-500/10'
-  }
+    bg: 'bg-indigo-500/10',
+    bullets: [
+      {
+        icon: Globe,
+        label: 'Discover',
+        text: 'Map the site, classify listing vs product vs content pages, and queue URLs to import.',
+      },
+      {
+        icon: Download,
+        label: 'Fetch',
+        text: 'Batch-scrape selected pages or run a filtered crawl (product paths in, cart/checkout out).',
+      },
+      {
+        icon: Sparkles,
+        label: 'Convert',
+        text: 'Local AI turns markdown into structured items with categories, prices, and links.',
+      },
+      {
+        icon: CheckCircle2,
+        label: 'Review',
+        text: 'Preview new entries, skip duplicates, and commit to your workspace catalogue.',
+      },
+      {
+        icon: ClipboardPaste,
+        label: 'Advanced',
+        text: 'Paste console JSON or upload Firecrawl exports when you need a manual path.',
+      },
+    ],
+  },
 ];
 
 export function LandingView({ onLogin }: LandingViewProps) {
@@ -533,7 +733,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
                 </span>
               </h1>
               <p className="text-lg md:text-2xl text-secondary-safe max-w-2xl leading-relaxed">
-                One workspace for your calendar, {landingTerms.ideas.toLowerCase()}, local AI widgets, {landingTerms.assets}, and performance—so you can ship consistent social content without tab chaos.
+                One workspace for your calendar, {landingTerms.ideas.toLowerCase()}, local AI widgets, a website-to-catalogue importer, {landingTerms.assets}, and analytics—so you can ship consistent social content without tab chaos.
               </p>
               <div className="pt-2 flex flex-col sm:flex-row flex-wrap gap-3">
                 <button
@@ -556,9 +756,9 @@ export function LandingView({ onLogin }: LandingViewProps) {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 {[
+                  { stat: '5-step', label: 'Catalogue import' },
+                  { stat: 'Local AI', label: 'Markdown → items' },
                   { stat: '10k+', label: 'Posts scheduled' },
-                  { stat: 'Local AI', label: 'Runs in your browser' },
-                  { stat: '4.5:1', label: 'Contrast-safe UI' },
                 ].map((item) => (
                   <div key={item.label} className="glass-card p-4 text-center">
                     <p className="text-2xl font-black text-brand">{item.stat}</p>
@@ -620,6 +820,24 @@ export function LandingView({ onLogin }: LandingViewProps) {
                       <p className="text-lg md:text-xl text-[#787774] dark:text-[#9B9A97] leading-relaxed">
                         {section.description}
                       </p>
+                      {section.bullets && section.bullets.length > 0 && (
+                        <ul className="space-y-3 pt-2">
+                          {section.bullets.map((bullet) => {
+                            const BulletIcon = bullet.icon;
+                            return (
+                              <li key={bullet.label} className="flex gap-3 items-start">
+                                <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
+                                  <BulletIcon className="w-4 h-4 text-brand" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">{bullet.label}</p>
+                                  <p className="text-sm text-[#787774] dark:text-[#9B9A97] leading-relaxed">{bullet.text}</p>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                     </div>
                     <div className="flex-1 w-full max-w-xl perspective-[1000px]">
                       <motion.div
@@ -657,7 +875,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
               <div className="space-y-6 max-w-2xl relative z-10">
                 <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to ship your next month of content?</h2>
                 <p className="text-xl text-blue-100">
-                  Sign in to connect your workspace: plan on the {landingTerms.calendar.toLowerCase()}, draft in Widgets with local AI, and share a live view with your team or clients when you are ready.
+                  Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you are ready.
                 </p>
               </div>
               <div className="shrink-0 relative z-10 w-full md:w-auto">
