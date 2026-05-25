@@ -197,6 +197,50 @@ export default {
           });
         }
 
+        // GET|HEAD /api/hf-proxy/mlc-ai/<model>/... — HuggingFace weights for WebLLM (CORS + Range)
+        if (path.startsWith('/api/hf-proxy/')) {
+          const hfSubPath = path.slice('/api/hf-proxy/'.length);
+          if (!hfSubPath.startsWith('mlc-ai/')) {
+            return new Response(JSON.stringify({ error: 'Only mlc-ai HuggingFace repos are allowed' }), {
+              status: 403,
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            });
+          }
+
+          const targetUrl = new URL(`https://huggingface.co/${hfSubPath}`);
+          url.searchParams.forEach((value, key) => targetUrl.searchParams.set(key, value));
+
+          const forwardHeaders: Record<string, string> = {
+            'User-Agent': 'Forge-WebLLM-Proxy/1.0 (Cloudflare Worker)',
+          };
+          const range = request.headers.get('Range');
+          if (range) forwardHeaders['Range'] = range;
+
+          const hfRes = await fetch(targetUrl.toString(), {
+            method: request.method === 'HEAD' ? 'HEAD' : 'GET',
+            headers: forwardHeaders,
+          });
+
+          const outHeaders = new Headers();
+          for (const key of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'cache-control']) {
+            const v = hfRes.headers.get(key);
+            if (v) outHeaders.set(key, v);
+          }
+          outHeaders.set('Access-Control-Allow-Origin', '*');
+          outHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+          outHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type');
+          outHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+          outHeaders.set('Cross-Origin-Resource-Policy', 'cross-origin');
+          if (!outHeaders.has('cache-control') && request.method === 'GET') {
+            outHeaders.set('Cache-Control', 'public, max-age=86400');
+          }
+
+          return new Response(request.method === 'HEAD' ? null : hfRes.body, {
+            status: hfRes.status,
+            headers: outHeaders,
+          });
+        }
+
         // GET /api/proxy-image?url=...
         if (path === '/api/proxy-image' && request.method === 'GET') {
           const imageUrl = url.searchParams.get("url");

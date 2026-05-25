@@ -1,0 +1,84 @@
+/** Context budgeting for browser local models (WebLLM / Chrome Prompt API). */
+
+export interface LocalAiContextBudget {
+  contextWindow: number;
+  maxInputChars: number;
+  maxOutputChars: number;
+  reserveOutputRatio: number;
+}
+
+const DEFAULT_CONTEXT = 4096;
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+
+/** Conservative context windows per WebLLM model id (align with mlc overrides where known). */
+export const LOCAL_MODEL_CONTEXT: Record<string, number> = {
+  'Llama-3.2-1B-Instruct-q4f16_1-MLC': 4096,
+  'Phi-3-mini-4k-instruct-q4f16_1-MLC': 4096,
+  'Gemma-2-2b-it-q4f16_1-MLC': 8192,
+  'Llama-3.1-8B-Instruct-q4f32_1-MLC': 4096,
+  'Mistral-7B-Instruct-v0.3-q4f16_1-MLC': 4096,
+};
+
+export function getContextBudget(modelId: string | null): LocalAiContextBudget {
+  const contextWindow = (modelId && LOCAL_MODEL_CONTEXT[modelId]) || DEFAULT_CONTEXT;
+  const reserveOutputRatio = 0.28;
+  const maxInputTokens = Math.floor(contextWindow * (1 - reserveOutputRatio));
+  return {
+    contextWindow,
+    maxInputChars: maxInputTokens * CHARS_PER_TOKEN_ESTIMATE,
+    maxOutputChars: Math.floor(contextWindow * reserveOutputRatio) * CHARS_PER_TOKEN_ESTIMATE,
+    reserveOutputRatio,
+  };
+}
+
+export function estimateChars(text: string): number {
+  return text?.length || 0;
+}
+
+type ChatMessage = { role: string; content: string };
+
+/**
+ * Trim conversation for local inference: keep system + latest user, drop middle history.
+ */
+export function truncateMessagesForLocalAi(
+  messages: ChatMessage[],
+  maxInputChars: number
+): ChatMessage[] {
+  if (!messages.length) return messages;
+
+  const systemMsgs = messages.filter((m) => m.role === 'system');
+  const nonSystem = messages.filter((m) => m.role !== 'system');
+
+  const pack = (list: ChatMessage[]): ChatMessage[] => {
+    let total = list.reduce((n, m) => n + estimateChars(m.content), 0);
+    if (total <= maxInputChars) return list;
+
+    const trimmed = [...list];
+    while (trimmed.length > 1 && total > maxInputChars) {
+      const dropIndex = trimmed.findIndex((m) => m.role !== 'system');
+      if (dropIndex === -1) break;
+      total -= estimateChars(trimmed[dropIndex].content);
+      trimmed.splice(dropIndex, 1);
+    }
+
+    if (total > maxInputChars && trimmed.length > 0) {
+      const last = trimmed[trimmed.length - 1];
+      const allowed = Math.max(512, maxInputChars - 200);
+      trimmed[trimmed.length - 1] = {
+        ...last,
+        content: last.content.slice(-allowed),
+      };
+    }
+    return trimmed;
+  };
+
+  const core = pack([...systemMsgs, ...nonSystem]);
+  return core;
+}
+
+export function truncatePromptText(prompt: string, maxInputChars: number): string {
+  if (estimateChars(prompt) <= maxInputChars) return prompt;
+  const head = prompt.slice(0, Math.floor(maxInputChars * 0.15));
+  const tail = prompt.slice(-Math.floor(maxInputChars * 0.8));
+  return `${head}\n\n[...context truncated for local model memory limit...]\n\n${tail}`;
+}

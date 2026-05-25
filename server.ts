@@ -167,6 +167,54 @@ export async function startServer(forcePort?: number) {
   });
   // ----------------------------------
 
+  // HuggingFace proxy for WebLLM model weights (browser CORS)
+  app.use('/api/hf-proxy', async (req, res) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      return res.status(405).send('Method not allowed');
+    }
+    const hfSubPath = req.path.replace(/^\//, '');
+    if (!hfSubPath?.startsWith('mlc-ai/')) {
+      return res.status(403).json({ error: 'Only mlc-ai HuggingFace repos are allowed' });
+    }
+
+    try {
+      const targetUrl = `https://huggingface.co/${hfSubPath}`;
+      const response = await axios.get(targetUrl, {
+        responseType: 'stream',
+        timeout: 120000,
+        headers: {
+          'User-Agent': 'Forge-WebLLM-Proxy/1.0',
+          ...(req.headers.range ? { Range: req.headers.range as string } : {}),
+        },
+        validateStatus: (status) => status < 500,
+      });
+
+      if (response.status >= 400) {
+        return res.status(response.status).send(response.statusText);
+      }
+
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      if (response.headers['content-type']) {
+        res.setHeader('Content-Type', response.headers['content-type']);
+      }
+      if (response.headers['content-length']) {
+        res.setHeader('Content-Length', response.headers['content-length']);
+      }
+      if (response.headers['content-range']) {
+        res.setHeader('Content-Range', response.headers['content-range']);
+      }
+      if (response.headers['accept-ranges']) {
+        res.setHeader('Accept-Ranges', response.headers['accept-ranges']);
+      }
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      response.data.pipe(res);
+    } catch (error: any) {
+      console.error('[HF Proxy] failed:', error.message);
+      res.status(502).json({ error: 'HuggingFace proxy failed', details: error.message });
+    }
+  });
+
   // Proxy image endpoint to bypass CORS
   app.get("/api/proxy-image", async (req, res) => {
     const { url } = req.query;

@@ -1,5 +1,15 @@
 import { toast } from 'sonner';
 import * as webllm from '@mlc-ai/web-llm';
+import {
+  buildProxiedWebLlmAppConfig,
+  normalizeBuiltinModelId,
+  rewriteHuggingFaceModelUrl,
+} from './webLlmAppConfig';
+import {
+  getContextBudget,
+  truncateMessagesForLocalAi,
+  truncatePromptText,
+} from './localAiContext';
 
 /**
  * Built-in AI Service (Modernized with WebLLM)
@@ -206,14 +216,7 @@ class BuiltInAiService {
 
   async init(modelId: string = 'Phi-3-mini-4k-instruct-q4f16_1-MLC', customConfig?: any) {
     if (this.isLoading) return;
-    if (this.corsBlocked && !customConfig?.model_list) {
-      this.error = "Local AI download blocked by CORS on this hosted domain. Use Auto/Cloud providers, or run Forge from localhost/new tab for WebLLM.";
-      this.notify();
-      return;
-    }
-    
-    // WebLLM internal prebuilt IDs
-    const normalizedId = modelId;
+    const normalizedId = normalizeBuiltinModelId(modelId);
 
     if (this.isLoaded && this.currentModelId === normalizedId && !customConfig) return;
 
@@ -239,13 +242,22 @@ class BuiltInAiService {
         }
       };
 
-      if (customConfig) {
-        engineConfig.appConfig = customConfig;
-        console.log("[BuiltInAI] Using custom appConfig for local loading/CORS mitigation.");
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+      if (customConfig?.model_list) {
+        engineConfig.appConfig = {
+          ...customConfig,
+          model_list: customConfig.model_list.map((rec: any) => ({
+            ...rec,
+            model: rewriteHuggingFaceModelUrl(rec.model, origin),
+          })),
+        };
+        console.log('[BuiltInAI] Using custom appConfig (HF URLs proxied).');
+      } else {
+        engineConfig.appConfig = buildProxiedWebLlmAppConfig(origin);
+        console.log('[BuiltInAI] Using proxied WebLLM appConfig for HuggingFace weights.');
       }
 
-      // Use internal prebuilt patterns. In v0.2.82, passing appConfig is only needed for custom models.
-      // Forcing WebLLM to resolve libraries itself avoids common 404 logic errors.
       this.engine = await webllm.CreateMLCEngine(normalizedId, engineConfig);
 
       this.isLoaded = true;
@@ -259,9 +271,10 @@ class BuiltInAiService {
         errorMsg = "Browser Cache Restriction: Google AI Studio iframes block local storage. You MUST open this app in a NEW TAB to use local AI models.";
         console.warn("[BuiltInAI] Detected iframe cache restriction. User must open app in new tab.");
       }
-      if (raw.includes("cors") || raw.includes("access-control-allow-origin") || raw.includes("huggingface.co")) {
+      if (raw.includes('cors') || raw.includes('access-control-allow-origin')) {
         this.corsBlocked = true;
-        errorMsg = "Local AI model download is blocked by CORS (HuggingFace) on this domain. Switch to Auto/Gemini/Groq, or run locally on localhost to use WebLLM models.";
+        errorMsg =
+          'Local AI model download failed (network/CORS). Ensure /api/hf-proxy is deployed, or use Auto/Ollama/Groq in Settings.';
       }
 
       this.error = errorMsg;
@@ -316,15 +329,25 @@ class BuiltInAiService {
         messages.push({ role: "system", content: BUILTIN_SYSTEM_PROMPT });
       }
 
+      const budget = getContextBudget(this.currentModelId);
+
       if (typeof input === 'string') {
-        messages.push({ role: "user", content: input });
+        messages.push({
+          role: 'user',
+          content: truncatePromptText(input, budget.maxInputChars),
+        });
       } else {
-        messages.push(...input);
+        messages.push(
+          ...truncateMessagesForLocalAi(
+            input.map((m) => ({ role: m.role, content: m.content })),
+            budget.maxInputChars
+          )
+        );
       }
-      
+
       const flatPrompt = typeof input === 'string'
-        ? `${BUILTIN_SYSTEM_PROMPT}\n\nUSER: ${input}`
-        : input.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+        ? `${BUILTIN_SYSTEM_PROMPT}\n\nUSER: ${messages.find((m) => m.role === 'user')?.content || input}`
+        : messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
       // ── 1. Try Chrome's built-in Gemini Nano first ──
       // Note: window.ai currently only takes a string prompt
@@ -344,10 +367,10 @@ class BuiltInAiService {
       const chunks = await this.engine!.chat.completions.create({
         messages,
         stream: true,
-        // High quality sampling to avoid repetition and loops
         temperature: 0.7,
         top_p: 0.9,
         repetition_penalty: 1.2,
+        max_tokens: Math.min(1024, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
       });
 
       for await (const chunk of chunks) {
