@@ -615,13 +615,11 @@ export function LandingView({ onLogin }: LandingViewProps) {
     offset: ['start end', 'end end'],
   });
 
-  const calloutScale = useTransform(scrollYProgress, [0, 0.35, 0.75, 1], [0.76, 0.9, 0.97, 1]);
-  const calloutRadius = useTransform(scrollYProgress, [0, 0.5, 1], ['32px', '8px', '0px']);
-  const calloutWidth = useTransform(scrollYProgress, [0, 0.6, 1], ['86%', '96%', '100%']);
-  const sectionPadX = useTransform(scrollYProgress, [0, 1], ['1.5rem', '0px']);
+  const calloutScale = useTransform(scrollYProgress, [0, 0.35, 0.75, 1], [0.88, 0.94, 0.98, 1]);
+  const calloutRadius = useTransform(scrollYProgress, [0, 0.5, 1], ['28px', '20px', '16px']);
+  const sectionPadX = useTransform(scrollYProgress, [0, 1], ['1.25rem', '2rem']);
   const purpleFillOpacity = useTransform(scrollYProgress, [0.62, 0.88, 1], [0, 0.85, 1]);
-  const contentScale = useTransform(scrollYProgress, [0, 0.5, 1], [0.94, 1, 1.06]);
-  const headlineSize = useTransform(scrollYProgress, [0, 0.5, 1], ['2.25rem', '3.25rem', '4.5rem']);
+  const headlineSize = useTransform(scrollYProgress, [0, 0.5, 1], ['1.875rem', '2.5rem', '3rem']);
   const sidebarOpacity = useTransform(scrollYProgress, [0.52, 0.78], [1, 0]);
   const sidebarX = useTransform(scrollYProgress, [0.52, 0.78], ['0%', '-110%']);
   const decorOpacity = useTransform(scrollYProgress, [0.5, 0.75], [1, 0]);
@@ -981,8 +979,8 @@ export function LandingView({ onLogin }: LandingViewProps) {
           id="footer-cta"
           ref={footerRef}
           className={cn(
-            'relative min-h-[110dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden',
-            ctaImmersive && 'min-h-[100dvh] md:min-h-[100dvh]'
+            'relative min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden py-16 md:py-24',
+            ctaImmersive && 'min-h-[100dvh]'
           )}
           style={{ paddingLeft: sectionPadX, paddingRight: sectionPadX }}
         >
@@ -990,48 +988,46 @@ export function LandingView({ onLogin }: LandingViewProps) {
             style={{
               scale: calloutScale,
               borderRadius: calloutRadius,
-              width: calloutWidth,
             }}
             className={cn(
-              'bg-brand text-white text-center md:text-left flex flex-col md:flex-row items-center justify-center md:justify-between gap-8 md:gap-14 relative overflow-hidden min-h-[72dvh] md:min-h-[100dvh] px-8 md:px-16 py-12 md:py-20 mx-auto z-[90]',
-              ctaImmersive && 'min-h-[100dvh] rounded-none shadow-none max-w-none'
+              'relative z-[90] w-full max-w-4xl lg:max-w-5xl mx-auto',
+              'bg-brand text-white overflow-hidden',
+              'border border-white/25 shadow-[0_24px_80px_rgba(0,0,0,0.28)]',
+              'ring-1 ring-inset ring-white/10'
             )}
           >
-            <div className="absolute inset-0 opacity-10 pointer-events-none">
-              <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <div className="absolute inset-0 opacity-[0.12] pointer-events-none">
+              <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
                 <defs>
-                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1"/>
+                  <pattern id="footer-cta-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
                   </pattern>
                 </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
+                <rect width="100%" height="100%" fill="url(#footer-cta-grid)" />
               </svg>
             </div>
 
-            <motion.div
-              style={{ scale: contentScale }}
-              className="w-full flex flex-col md:flex-row items-center justify-center md:justify-between gap-8 md:gap-14 relative z-10"
-            >
-              <div className="space-y-6 max-w-3xl">
+            <div className="relative z-10 flex flex-col items-center text-center px-8 py-12 sm:px-12 sm:py-14 md:px-16 md:py-16 gap-8 md:gap-10">
+              <div className="space-y-4 md:space-y-5 max-w-2xl">
                 <motion.h2
                   style={{ fontSize: headlineSize }}
-                  className="font-bold tracking-tight leading-[1.05]"
+                  className="font-bold tracking-tight leading-[1.08]"
                 >
                   Ready to ship your next month of content?
                 </motion.h2>
-                <p className="text-lg md:text-2xl text-blue-100 max-w-2xl">
-                  Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you are ready.
+                <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed">
+                  Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the{' '}
+                  {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you
+                  are ready.
                 </p>
               </div>
-              <div className="shrink-0 w-full md:w-auto">
-                <button
-                  onClick={onLogin}
-                  className="interactive focus-ring w-full md:w-auto px-10 py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-xl transition-all shadow-xl min-h-[48px]"
-                >
-                  Sign Up Now
-                </button>
-              </div>
-            </motion.div>
+              <button
+                onClick={onLogin}
+                className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-all shadow-xl min-h-[48px]"
+              >
+                Sign Up Now
+              </button>
+            </div>
           </motion.div>
         </motion.section>
       </main>
