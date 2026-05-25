@@ -1933,33 +1933,42 @@ export default function App() {
         userId: user.uid
       };
 
-      handleSavePost(placeholderPost);
+      await handleSavePost(placeholderPost);
 
       try {
         const collageBase64 = await createImageCollage(base64Images);
         const match = collageBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        if (match) {
-          const mimeType = match[1];
-          const base64Data = match[2];
-          const generatedData = await generatePostFromImage(base64Data, mimeType);
-
-          handleSavePost({
-            ...placeholderPost,
-            title: generatedData.title || 'New Post',
-            brief: generatedData.brief || '',
-            caption: generatedData.caption || '',
-            hashtags: generatedData.hashtags || '',
-            type: generatedData.type || '🔴 General',
-            outlet: generatedData.outlet || 'Forge Enterprises'
-          });
+        if (!match) {
+          throw new Error('Could not read image data for AI analysis.');
         }
+        const mimeType = match[1];
+        const base64Data = match[2];
+        const generatedData = await generatePostFromImage(
+          base64Data,
+          mimeType,
+          undefined,
+          false,
+          activeBusiness || undefined
+        );
+
+        await handleSavePost({
+          ...placeholderPost,
+          title: generatedData.title || 'New Post',
+          brief: generatedData.brief || '',
+          caption: generatedData.caption || '',
+          hashtags: generatedData.hashtags || '',
+          type: generatedData.type || '🔴 General',
+          outlet: generatedData.outlet || 'Forge Enterprises',
+        });
       } catch (error) {
-        console.error("Failed to generate post from image:", error);
-        handleSavePost({
+        console.error('Failed to generate post from image:', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to auto-generate content.';
+        toast.error(errMsg);
+        await handleSavePost({
           ...placeholderPost,
           title: 'New Image Post',
-          brief: 'Failed to auto-generate content.',
-          type: '🔴 General'
+          brief: errMsg,
+          type: '🔴 General',
         });
       }
     } else {
@@ -1981,32 +1990,41 @@ export default function App() {
           userId: user.uid
         };
 
-        handleSavePost(placeholderPost);
+        await handleSavePost(placeholderPost);
 
         try {
           const match = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-          if (match) {
-            const mimeType = match[1];
-            const base64Data = match[2];
-            const generatedData = await generatePostFromImage(base64Data, mimeType, undefined, isVideo);
-
-            handleSavePost({
-              ...placeholderPost,
-              title: generatedData.title || 'New Post',
-              brief: generatedData.brief || '',
-              caption: generatedData.caption || '',
-              hashtags: generatedData.hashtags || '',
-              type: generatedData.type || '🔴 General',
-              outlet: generatedData.outlet || 'Forge Enterprises'
-            });
+          if (!match) {
+            throw new Error('Could not read image data for AI analysis.');
           }
+          const mimeType = match[1];
+          const base64Data = match[2];
+          const generatedData = await generatePostFromImage(
+            base64Data,
+            mimeType,
+            undefined,
+            isVideo,
+            activeBusiness || undefined
+          );
+
+          await handleSavePost({
+            ...placeholderPost,
+            title: generatedData.title || 'New Post',
+            brief: generatedData.brief || '',
+            caption: generatedData.caption || '',
+            hashtags: generatedData.hashtags || '',
+            type: generatedData.type || '🔴 General',
+            outlet: generatedData.outlet || 'Forge Enterprises',
+          });
         } catch (error) {
-          console.error("Failed to generate post from image:", error);
-          handleSavePost({
+          console.error('Failed to generate post from image:', error);
+          const errMsg = error instanceof Error ? error.message : 'Failed to auto-generate content.';
+          toast.error(errMsg);
+          await handleSavePost({
             ...placeholderPost,
             title: 'New Post',
-            brief: 'Failed to auto-generate content.',
-            type: '🔴 General'
+            brief: errMsg,
+            type: '🔴 General',
           });
         }
       }

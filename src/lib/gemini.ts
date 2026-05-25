@@ -1539,23 +1539,159 @@ export async function generatePostVisuals(title: string, brief: string, brandKit
   return images;
 }
 
-export async function generatePostFromImage(base64Data: string, mimeType: string, outlet?: string, isVideo?: boolean, business?: Business) {
+const IMAGE_POST_TIMEOUT_MS = 75_000;
+
+function withImageAnalysisTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(
+        () => reject(new Error(`${label} timed out. Try Gemini/Groq for vision, or edit the post manually.`)),
+        IMAGE_POST_TIMEOUT_MS
+      );
+    }),
+  ]);
+}
+
+function normalizePostFromImageResult(
+  parsed: Record<string, unknown> | null,
+  outlet?: string
+): Record<string, string> {
+  const o = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, string>;
+  return {
+    title: o.title || 'New post from image',
+    brief: o.brief || '',
+    caption: o.caption || '',
+    hashtags: o.hashtags || '',
+    type: o.type || '🔴 General',
+    outlet: o.outlet || outlet || 'Forge Enterprises',
+  };
+}
+
+function usesLocalTextForImages(settings = getAiSettings()): boolean {
+  const effective = getEffectiveTextProvider(settings);
+  return (
+    settings.preferredProvider === 'builtin' ||
+    settings.preferredProvider === 'local_proxy' ||
+    settings.geminiModel === 'webllm-local' ||
+    effective === 'builtin'
+  );
+}
+
+async function generatePostFromImageTextFallback(
+  businessName: string,
+  businessIndustry: string,
+  outletContext: string,
+  systemInstruction: string,
+  designContext: string,
+  isVideo: boolean,
+  business?: Business
+): Promise<Record<string, string>> {
+  const mediaNote = isVideo
+    ? 'The user added a video (shown as a frame collage). Local AI cannot see pixels — infer a strong post from brand context.'
+    : 'The user added image(s) to the calendar. Local AI cannot see pixels — infer a strong post from brand context.';
+
+  const prompt = `${mediaNote}
+Generate a social media post for ${businessName} (${businessIndustry})${outletContext}.
+${systemInstruction}
+${designContext}
+Return JSON with exactly these fields: title, brief, caption, hashtags, type, outlet.
+You MUST return ONLY a valid JSON object.`;
+
   const settings = getAiSettings();
-  
-  if (settings.preferredProvider === 'builtin') {
-    throw new Error("Local AI does not support image analysis yet. Please switch to Gemini or Groq.");
+  if (usesLocalTextForImages(settings)) {
+    await ensureLocalTextEngineReady();
+    const resp = await (await getBuiltInAi()).generate(prompt);
+    return normalizePostFromImageResult(safeParseJSON(resp || '{}') as Record<string, unknown> | null);
   }
 
+  const text = await generateAppText(prompt, true, business?.id);
+  return normalizePostFromImageResult(safeParseJSON(text || '{}') as Record<string, unknown> | null);
+}
+
+async function generatePostFromImageWithVision(
+  provider: 'puter' | 'groq' | 'firebase' | 'gemini',
+  settings: ReturnType<typeof getAiSettings>,
+  promptText: string,
+  base64Data: string,
+  mimeType: string
+): Promise<Record<string, string>> {
+  const jsonHint = ' You MUST return ONLY a valid JSON object.';
+  const imagePart = [{ base64: base64Data, mimeType }];
+
+  if (provider === 'puter') {
+    const puterResponse = await fetchFromPuter(promptText + jsonHint, imagePart);
+    return normalizePostFromImageResult(safeParseJSON(puterResponse || '{}') as Record<string, unknown> | null);
+  }
+
+  if (provider === 'groq') {
+    const groqResponse = await fetchFromGroq(promptText + jsonHint, imagePart);
+    return normalizePostFromImageResult(safeParseJSON(groqResponse || '{}') as Record<string, unknown> | null);
+  }
+
+  if (provider === 'firebase') {
+    const model = getVertexModel(settings.geminiModel);
+    const result = await model.generateContent([
+      { inlineData: { data: base64Data, mimeType } },
+      { text: promptText },
+    ]);
+    const response = await result.response;
+    return normalizePostFromImageResult(JSON.parse(response.text() || '{}'));
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+  const ai = getAi();
+  const response = await ai.models.generateContent({
+    model: settings.geminiModel,
+    contents: {
+      parts: [{ inlineData: { data: base64Data, mimeType } }, { text: promptText }],
+    },
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          brief: { type: Type.STRING },
+          caption: { type: Type.STRING },
+          hashtags: { type: Type.STRING },
+          type: { type: Type.STRING },
+          outlet: { type: Type.STRING },
+        },
+        required: ['title', 'brief', 'caption', 'hashtags', 'type', 'outlet'],
+      },
+    },
+  });
+  return normalizePostFromImageResult(JSON.parse(response.text || '{}'));
+}
+
+export async function generatePostFromImage(
+  base64Data: string,
+  mimeType: string,
+  outlet?: string,
+  isVideo?: boolean,
+  business?: Business
+) {
+  const settings = getAiSettings();
   const outletContext = outlet ? ` for the outlet "${outlet}"` : '';
   const businessName = business?.name || 'Forge Enterprises';
   const businessIndustry = business?.industry || 'professional business';
-  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
+  const systemInstruction = settings.systemInstructions
+    ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}`
+    : '';
 
   let designContext = '';
-  if (business?.id) {
+  if (business?.id && !usesLocalTextForImages(settings)) {
     const guide = await fetchBrandKitDesignGuide(business.id);
     if (guide) {
       designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE (Follow this style closely):\n${guide}\n`;
+    }
+  } else if (business?.id) {
+    const guide = await fetchBrandKitDesignGuide(business.id);
+    if (guide) {
+      designContext = `\n\nBRAND STYLE (text summary only):\n${guide.slice(0, 600)}\n`;
     }
   }
 
@@ -1570,73 +1706,83 @@ export async function generatePostFromImage(base64Data: string, mimeType: string
        ${designContext}
        Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`;
 
+  if (usesLocalTextForImages(settings)) {
+    return withImageAnalysisTimeout(
+      generatePostFromImageTextFallback(
+        businessName,
+        businessIndustry,
+        outletContext,
+        systemInstruction,
+        designContext,
+        !!isVideo,
+        business
+      ),
+      'Local AI post draft'
+    );
+  }
+
+  const visionOrder: Array<'puter' | 'groq' | 'firebase' | 'gemini'> = [];
+  const pref = settings.preferredProvider;
+
+  if (pref === 'puter') visionOrder.push('puter');
+  else if (pref === 'groq') visionOrder.push('groq');
+  else if (pref === 'firebase') visionOrder.push('firebase');
+  else if (pref === 'gemini') visionOrder.push('gemini');
+  else {
+    if (isGeminiKeyAvailable()) visionOrder.push('gemini');
+    if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) visionOrder.push('groq');
+    try {
+      if (await isPuterSignedIn()) visionOrder.push('puter');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const tried = new Set<string>();
+  let lastError: unknown;
+  for (const provider of visionOrder) {
+    if (tried.has(provider)) continue;
+    tried.add(provider);
+    try {
+      return await withImageAnalysisTimeout(
+        generatePostFromImageWithVision(provider, settings, promptText, base64Data, mimeType),
+        `${provider} vision`
+      );
+    } catch (error) {
+      lastError = error;
+      console.warn(`[generatePostFromImage] ${provider} failed:`, error);
+    }
+  }
+
   try {
-    if (settings.preferredProvider === 'puter') {
-      const puterResponse = await fetchFromPuter(
-        promptText + " You MUST return ONLY a valid JSON object.",
-        [{ base64: base64Data, mimeType }]
-      );
-      return safeParseJSON(puterResponse || '{}');
-    }
-
-    if (settings.preferredProvider === 'groq') {
-      const groqResponse = await fetchFromGroq(
-        promptText + " You MUST return ONLY a valid JSON object.",
-        [{ base64: base64Data, mimeType }]
-      );
-      return JSON.parse(groqResponse || '{}');
-    }
-
-    if (settings.preferredProvider === 'firebase') {
-      const model = getVertexModel(settings.geminiModel);
-      const result = await model.generateContent([
-        { inlineData: { data: base64Data, mimeType } },
-        { text: promptText }
-      ]);
-      const response = await result.response;
-      return JSON.parse(response.text() || '{}');
-    }
-
-    if (!isGeminiKeyAvailable()) {
-      await fetchServerConfig();
-    }
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: settings.geminiModel,
-      contents: {
-        parts: [
-          { inlineData: { data: base64Data, mimeType } },
-          { text: promptText }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            brief: { type: Type.STRING },
-            caption: { type: Type.STRING },
-            hashtags: { type: Type.STRING },
-            type: { type: Type.STRING },
-            outlet: { type: Type.STRING }
-          },
-          required: ["title", "brief", "caption", "hashtags", "type", "outlet"]
-        }
-      }
-    });
-    return JSON.parse(response.text || '{}');
+    const fallback = await withImageAnalysisTimeout(
+      generatePostFromImageTextFallback(
+        businessName,
+        businessIndustry,
+        outletContext,
+        systemInstruction,
+        designContext,
+        !!isVideo,
+        business
+      ),
+      'Text fallback'
+    );
+    return {
+      ...fallback,
+      brief:
+        fallback.brief ||
+        'Caption drafted without vision (local AI cannot see images). Add details or switch to Gemini/Groq for image analysis.',
+    };
   } catch (error) {
-    console.warn("Primary provider failed, falling back:", error);
-    if (settings.preferredProvider !== 'groq' && settings.preferredProvider !== 'auto' && settings.preferredProvider !== 'puter') {
-      const groqResponse = await fetchFromGroq(
-        promptText + " You MUST return ONLY a valid JSON object.",
-        [{ base64: base64Data, mimeType }]
-      );
-      return JSON.parse(groqResponse || '{}');
-    }
-    throw error;
+    console.warn('[generatePostFromImage] All providers failed:', error);
+    const msg =
+      lastError instanceof Error
+        ? lastError.message
+        : 'Could not analyze image. Edit this post manually or add a Gemini/Groq API key in Settings.';
+    return {
+      ...normalizePostFromImageResult(null, outlet),
+      brief: msg,
+    };
   }
 }
 
