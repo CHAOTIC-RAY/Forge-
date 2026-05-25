@@ -776,7 +776,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="max-w-xl mx-auto flex flex-col gap-4">
+        <div className="w-full flex flex-col gap-4">
           {selectedBlock.status === 'inbox' && (
             <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">Inbox — not scheduled yet</p>
           )}
@@ -904,7 +904,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
   return (
     <div className="h-full flex flex-col overflow-hidden bg-[#F7F7F5] dark:bg-[#151515] text-[#37352F] dark:text-[#EBE9ED] relative">
       <div className="shrink-0 p-4 md:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-amber-500/10 rounded-[14px] flex items-center justify-center">
               <Lightbulb className="w-6 h-6 text-amber-500" />
@@ -922,7 +922,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
           </div>
         </div>
 
-        <div className="mt-4 max-w-7xl mx-auto w-full flex gap-2">
+        <div className="mt-4 w-full flex gap-2">
           <input
             value={quickCapture}
             onChange={(e) => setQuickCapture(e.target.value)}
@@ -945,7 +945,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
           </button>
         </div>
 
-        <div className="mt-3 max-w-7xl mx-auto w-full flex flex-wrap items-center gap-2">
+        <div className="mt-3 w-full flex flex-wrap items-center gap-2">
           <div className="flex p-1 bg-[#EFEFED] dark:bg-[#2E2E2E] rounded-lg">
             <button
               type="button"
@@ -970,7 +970,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
               List
             </button>
           </div>
-          <div className="flex-1 min-w-[140px] max-w-xs relative">
+          <div className="flex-1 min-w-[160px] relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#757681]" />
             <input
               value={searchQuery}
@@ -1012,7 +1012,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden max-w-7xl mx-auto w-full"
+              className="overflow-hidden w-full"
             >
               <div className="mt-3 p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#202020]">
                 <textarea
@@ -1064,7 +1064,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
             selectedBlockId && 'hidden md:flex'
           )}
         >
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full min-w-0">
             {viewMode === 'board' ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {(
@@ -1120,7 +1120,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
                 ))}
               </div>
             ) : (
-              <div className="space-y-8 max-w-2xl">
+              <div className="space-y-8 w-full">
                 {[
                   { title: 'Inbox', items: inboxIdeas },
                   { title: 'Ready', items: activeIdeas },
