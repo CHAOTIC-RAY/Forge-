@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ForgeLoader } from './ForgeLoader';
+import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
 import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Moon, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen, LayoutGrid, List, ChevronDown, Plus, FileJson } from 'lucide-react';
 import { CatalogueGridSkeleton } from './ui/Skeleton';
 import * as XLSX from 'xlsx';
@@ -1141,43 +1142,22 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
   return (
     <div className="flex flex-col bg-transparent relative">
-      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
-              <Database className="w-6 h-6 text-brand" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED]">{catalogueLabels.title}</h2>
-              <p className="text-sm text-secondary-safe mt-1">{catalogueLabels.subtitle}</p>
-            </div>
-          </div>
-          <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-            <button
-              onClick={() => setDbMode('product')}
-              className={cn(
-                'px-4 py-1.5 rounded-[8px] text-xs font-medium transition-colors',
-                dbMode === 'product'
-                  ? 'bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
-                  : 'text-secondary-safe hover:text-[#37352F] dark:hover:text-[#EBE9ED]'
-              )}
-            >
-              Catalogue
-            </button>
-            <button
-              onClick={() => setDbMode('info')}
-              className={cn(
-                'px-4 py-1.5 rounded-[8px] text-xs font-medium transition-colors',
-                dbMode === 'info'
-                  ? 'bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
-                  : 'text-secondary-safe hover:text-[#37352F] dark:hover:text-[#EBE9ED]'
-              )}
-            >
-              Knowledge base
-            </button>
-          </div>
-        </div>
-      </div>
+      <TabPageHeader
+        className="mb-6"
+        icon={Database}
+        title={catalogueLabels.title}
+        subtitle={catalogueLabels.subtitle}
+        actions={
+          <TabHeaderSegments
+            options={[
+              { id: 'product', label: 'Catalogue' },
+              { id: 'info', label: 'Knowledge base' },
+            ]}
+            value={dbMode}
+            onChange={setDbMode}
+          />
+        }
+      />
 
       {showScrollTop && (
         <button

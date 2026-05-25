@@ -9,6 +9,7 @@ import {
   type WidgetCategory,
 } from '../lib/widgetRegistry';
 import { WidgetOutputActions } from './WidgetOutputActions';
+import { TabPageHeader } from './ui/TabPageHeader';
 import { WidgetShell } from './WidgetShell';
 import { saveTextToIdeasInbox } from '../lib/ideasInbox';
 import { ImageResizerTab } from './ImageResizerTab';
@@ -1272,24 +1273,17 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
 
   return (
     <div className="flex flex-col bg-transparent pb-20 md:pb-0 relative">
-      <div className="shrink-0 p-4 md:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] mb-6 rounded-[16px]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-brand/10 rounded-[14px] flex items-center justify-center">
-              <LayoutGrid className="w-6 h-6 text-brand" />
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</h2>
-              <p className="text-xs md:text-sm text-[#757681] dark:text-[#9B9A97]">
-                Built-in AI tools for captions, briefs, and campaign copy—more widgets coming soon.
-              </p>
-            </div>
-          </div>
+      <TabPageHeader
+        className="mb-6"
+        icon={LayoutGrid}
+        title="Widgets"
+        subtitle="Built-in AI tools for captions, briefs, and campaign copy—more widgets coming soon."
+        actions={
           <span className="px-3 py-1.5 rounded-full bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wider shrink-0">
             More coming soon
           </span>
-        </div>
-      </div>
+        }
+      />
 
       <div className="space-y-10">
         {pinnedWidgetIds.length > 0 && (

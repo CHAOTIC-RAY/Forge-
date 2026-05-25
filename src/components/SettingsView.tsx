@@ -20,6 +20,7 @@ import { BuiltInAiStatus, BUILTIN_MODELS, BUILTIN_VISION_MODELS } from '../lib/b
 import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
 import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
+import { TabPageHeader } from './ui/TabPageHeader';
 import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
 
 const GEMINI_MODELS = [
@@ -531,35 +532,45 @@ export function SettingsView({
 
   return (
     <div className="flex flex-col bg-transparent relative">
-      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
-              <Settings className="w-6 h-6 text-brand" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] tracking-tight">Settings</h1>
-              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">Manage your workspace, integrations, and preferences.</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] mr-2">Data Actions:</span>
-            <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
-              <Printer className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Print PDF
+      <TabPageHeader
+        className="mb-6 md:mb-8"
+        icon={Settings}
+        title="Settings"
+        subtitle="Manage your workspace, integrations, and preferences."
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-[#757681] hover:text-brand min-h-[36px]"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print PDF
             </button>
-            <button onClick={() => setDataAction({ type: 'restore' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
-              <Upload className="w-3.5 h-3.5 text-[#757681] dark:text-[#9B9A97]" /> Restore JSON
+            <button
+              type="button"
+              onClick={() => setDataAction({ type: 'restore' })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-[#757681] hover:text-brand min-h-[36px]"
+            >
+              <Upload className="w-3.5 h-3.5" /> Restore JSON
             </button>
-            <button onClick={() => setDataAction({ type: 'export' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
-              <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Export Excel
+            <button
+              type="button"
+              onClick={() => setDataAction({ type: 'export' })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-[#757681] hover:text-brand min-h-[36px]"
+            >
+              <Download className="w-3.5 h-3.5" /> Export Excel
             </button>
-            <button onClick={() => setDataAction({ type: 'backup' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
-              <Save className="w-3.5 h-3.5 text-[#757681] dark:text-[#9B9A97]" /> Backup JSON
+            <button
+              type="button"
+              onClick={() => setDataAction({ type: 'backup' })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-[#757681] hover:text-brand min-h-[36px]"
+            >
+              <Save className="w-3.5 h-3.5" /> Backup JSON
             </button>
             <input type="file" accept=".json" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* AI Instruction Modal */}
       <AnimatePresence>

@@ -23,6 +23,7 @@ import {
 import type { Post } from '../data';
 import type { Business } from '../data';
 import { ForgeLoader } from './ForgeLoader';
+import { TabPageHeader } from './ui/TabPageHeader';
 
 type AnalyticsTabProps = {
   posts?: Post[];
@@ -177,22 +178,15 @@ Return 4–6 short bullet recommendations (markdown bullets) for what to post ne
 
   return (
     <div className="flex flex-col bg-transparent relative h-full min-h-0">
-      <div className="shrink-0 p-4 md:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] mb-6 rounded-[16px]">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-emerald-500/10 rounded-[14px] flex items-center justify-center">
-              <BarChart3 className="w-6 h-6 text-emerald-500" />
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED]">
-                Insights & Analytics
-              </h2>
-              <p className="text-xs md:text-sm text-[#757681] dark:text-[#9B9A97]">
-                Built from your calendar—no API keys required.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+      <TabPageHeader
+        className="mb-6"
+        icon={BarChart3}
+        iconBgClassName="bg-emerald-500/10"
+        iconClassName="text-emerald-500"
+        title="Insights & Analytics"
+        subtitle="Built from your calendar—no API keys required."
+        actions={
+          <>
             {([7, 30, 90] as InsightsRangeDays[]).map((d) => (
               <button
                 key={d}
@@ -217,9 +211,9 @@ Return 4–6 short bullet recommendations (markdown bullets) for what to post ne
               Profile links
               <ChevronRight className="w-3 h-3" />
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="w-full space-y-6 pb-12 flex-1 min-h-0 overflow-y-auto">
         <div className="glass-card p-4 border-amber-200/60 dark:border-amber-900/40 bg-amber-500/5 flex gap-3">
