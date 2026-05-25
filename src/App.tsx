@@ -50,6 +50,7 @@ import { LocalDb } from './components/LocalDb';
 import { FloatingChat } from './components/FloatingChat';
 import { CorsImage } from './components/CorsImage';
 import { NetworkStatus } from './components/NetworkStatus';
+import { SkipLink } from './components/SkipLink';
 import type { ExportSettings } from './components/modals/ExportModal';
 
 // React lazy imports for heavy components
@@ -3109,6 +3110,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <SkipLink />
       {showOnboarding && user && (
         <OnboardingWizard
           userEmail={user.email || ''}
@@ -3167,7 +3169,7 @@ export default function App() {
               ]}>
                 <div className="flex flex-1 w-full relative">
                   {/* Sidebar (Desktop Only) */}
-                  <aside className="hidden md:flex sticky top-0 h-screen w-20 bg-[#F7F7F5] dark:bg-[#202020] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
+                  <aside className="hidden md:flex sticky top-0 h-screen w-20 glass-panel border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
                       {/* Logo */}
                       <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
@@ -3182,7 +3184,7 @@ export default function App() {
                             <button
                               onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
                               title={activeBusiness.name}
-                              className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-brand text-white border-brand-hover  hover:scale-105"
+                              className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-colors border-2 shrink-0 bg-brand text-white border-brand-hover interactive focus-ring"
                             >
                               {activeBusiness.name.substring(0, 2).toUpperCase()}
                             </button>
@@ -3251,8 +3253,8 @@ export default function App() {
                           onClick={() => setActiveTab('home')}
                           title="Home"
                           className={cn(
-                            "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                            activeTab === 'home' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                            "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                            activeTab === 'home' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                           )}
                         >
                           <LayoutGrid className="w-5 h-5 shrink-0" />
@@ -3262,8 +3264,8 @@ export default function App() {
                           onClick={() => setActiveTab('schedule')}
                           title={industryConfig.terminology.calendar}
                           className={cn(
-                            "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                            activeTab === 'schedule' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                            "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                            activeTab === 'schedule' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                           )}
                         >
                           <CalendarIcon className="w-5 h-5 shrink-0" />
@@ -3274,8 +3276,8 @@ export default function App() {
                               onClick={() => setActiveTab('search')}
                               title={industryConfig.terminology.products}
                               className={cn(
-                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                                activeTab === 'search' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                activeTab === 'search' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
                               <Database className="w-5 h-5 shrink-0" />
@@ -3284,8 +3286,8 @@ export default function App() {
                               onClick={() => setActiveTab('ideas')}
                               title="Ideas"
                               className={cn(
-                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                                isIdeasTabActive ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                isIdeasTabActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
                               <Lightbulb className="w-5 h-5 shrink-0" />
@@ -3294,8 +3296,8 @@ export default function App() {
                               onClick={() => setActiveTab('brandkit')}
                               title={industryConfig.terminology.assets}
                               className={cn(
-                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                                activeTab === 'brandkit' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                activeTab === 'brandkit' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
                               <Palette className="w-5 h-5 shrink-0" />
@@ -3304,8 +3306,8 @@ export default function App() {
                               onClick={() => setActiveTab('widgets')}
                               title="Widgets"
                               className={cn(
-                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                                isWidgetsTabActive ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                isWidgetsTabActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
                               <Boxes className="w-5 h-5 shrink-0" />
@@ -3314,8 +3316,8 @@ export default function App() {
                               onClick={() => setActiveTab('analytics')}
                               title="Insights & Analytics"
                               className={cn(
-                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                                activeTab === 'analytics' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                activeTab === 'analytics' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
                               <BarChart3 className="w-5 h-5 shrink-0" />
@@ -3463,7 +3465,9 @@ export default function App() {
 
                   {/* Main Content Area */}
                   <div className={cn("flex-1 flex flex-col min-w-0 relative print:h-auto print:overflow-visible", activeTab === 'chat' && "md:flex")}>
-                    <main className={cn(
+                    <main
+                      id="main-content"
+                      className={cn(
                       "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-28 print:p-0 print:overflow-visible",
                       (activeTab === 'chat' || activeTab === 'home' || isIdeasTabActive) && "p-0 sm:p-0 md:p-0 pb-0",
                       activeTab !== 'search' && "no-scrollbar"
@@ -3820,7 +3824,7 @@ export default function App() {
 
               {/* Mobile Bottom Navigation */}
               <div className={cn(
-                "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white/95 dark:bg-[#191919]/95 backdrop-blur-xl border-t border-[#E9E9E7] dark:border-[#2E2E2E] min-h-[72px] pb-[env(safe-area-inset-bottom)] flex items-center px-2"
+                "md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-[#E9E9E7] dark:border-[#2E2E2E] min-h-[72px] pb-[env(safe-area-inset-bottom)] flex items-center px-2"
               )}>
                 {isAdmin ? (
                   <nav className="flex-1 flex flex-row justify-between w-full h-[72px] items-stretch" aria-label="Primary mobile navigation">
@@ -3840,9 +3844,8 @@ export default function App() {
                           onClick={() => setActiveTab(tab.id as any)}
                           aria-current={isActive ? 'page' : undefined}
                           className={cn(
-                            "flex flex-col items-center justify-center gap-1 transition-all duration-200 relative flex-1 h-full rounded-[14px]",
-                            isActive ? "text-brand" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]",
-                            isActive && "bg-brand-bg"
+                            "interactive focus-ring flex flex-col items-center justify-center gap-1 relative flex-1 h-full rounded-[14px]",
+                            isActive ? "text-brand nav-pill-active" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                           )}
                           title={tab.title}
                         >

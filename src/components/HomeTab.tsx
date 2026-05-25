@@ -441,7 +441,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             <div className="grid grid-cols-1 gap-3">
               <button 
                 onClick={() => isAdmin ? setActiveTab('widgets') : onHandleRequestAccess?.()}
-                className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all flex items-center gap-4 group text-left min-h-[44px]"
+                className="glass-card interactive p-5 flex items-center gap-4 group text-left min-h-[44px]"
               >
                 <div className="w-12 h-12 rounded-[8px] bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
                   <Boxes className="w-6 h-6 text-purple-500" />
@@ -454,7 +454,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
               </button>
               <button 
                 onClick={() => isAdmin ? setActiveTab('notebook') : onHandleRequestAccess?.()}
-                className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all flex items-center gap-4 group text-left min-h-[44px]"
+                className="glass-card interactive p-5 flex items-center gap-4 group text-left min-h-[44px]"
               >
                 <div className="w-12 h-12 rounded-[8px] bg-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
                   <Lightbulb className="w-6 h-6 text-amber-500" />

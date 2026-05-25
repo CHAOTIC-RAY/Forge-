@@ -182,13 +182,13 @@ export function Login() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(35,131,226,0.12),transparent_32%),radial-gradient(circle_at_80%_80%,rgba(147,51,234,0.1),transparent_28%)] pointer-events-none" />
 
       <div className="relative z-10 min-h-screen flex flex-col">
-        <header className="flex items-center justify-between px-6 md:px-10 py-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white/75 dark:bg-[#191919]/75 backdrop-blur-xl">
+        <header className="flex items-center justify-between px-6 md:px-10 py-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] glass-panel">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-[12px] bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-center">
               <ForgeLogo size={24} className="text-[#37352F] dark:text-[#EBE9ED]" />
             </div>
             <div>
-              <p className="font-black text-lg tracking-tight">Forge</p>
+              <p className="font-display font-bold text-lg tracking-tight">Forge</p>
               <p className="text-xs text-[#787774] dark:text-[#9B9A97]">Content calendar and idea workspace</p>
             </div>
           </div>
@@ -212,7 +212,7 @@ export function Login() {
               </div>
 
               <div className="space-y-5">
-                <h1 className="text-5xl xl:text-6xl font-black tracking-[-0.06em] leading-[0.95]">
+                <h1 className="font-display text-5xl xl:text-6xl font-bold tracking-[-0.06em] leading-[0.95]">
                   Turn ideas into scheduled content.
                 </h1>
                 <p className="text-lg text-[#787774] dark:text-[#9B9A97] leading-relaxed max-w-lg">
@@ -270,12 +270,12 @@ export function Login() {
             transition={{ duration: 0.55, ease: 'easeOut', delay: 0.08 }}
             className="w-full max-w-md mx-auto"
           >
-            <div className="bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[28px] p-6 md:p-8 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.35)]">
+            <div className="glass-card rounded-[28px] p-6 md:p-8 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.35)]">
               <div className="text-center mb-8">
                 <div className="w-16 h-16 rounded-[18px] bg-brand-bg border border-brand-border flex items-center justify-center mx-auto mb-5 text-brand">
                   <ForgeLogo size={38} />
                 </div>
-                <h2 className="text-3xl font-black tracking-tight">
+                <h2 className="font-display text-3xl font-bold tracking-tight">
                   {authMode === 'signUp' ? 'Create your Forge account' : 'Welcome back'}
                 </h2>
                 <p className="mt-2 text-sm text-[#787774] dark:text-[#9B9A97]">
