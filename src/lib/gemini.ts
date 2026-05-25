@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
 import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
+import { createImageCollage } from './utils';
 
 declare const puter: any;
 
@@ -1786,6 +1787,135 @@ export async function generatePostFromImage(
   }
 }
 
+export type IdeasFromImagesMode = 'quick' | 'strategy' | 'postcard' | 'visual';
+
+export function parseImageDataUrl(dataUrl: string): { base64: string; mimeType: string } | null {
+  const match = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+  if (!match) return null;
+  return { mimeType: match[1], base64: match[2] };
+}
+
+function buildVisionProviderOrder(settings = getAiSettings()): Array<'puter' | 'groq' | 'firebase' | 'gemini'> {
+  const order: Array<'puter' | 'groq' | 'firebase' | 'gemini'> = [];
+  const pref = settings.preferredProvider;
+  if (pref === 'puter') order.push('puter');
+  else if (pref === 'groq') order.push('groq');
+  else if (pref === 'firebase') order.push('firebase');
+  else if (pref === 'gemini') order.push('gemini');
+  else {
+    if (isGeminiKeyAvailable()) order.push('gemini');
+    if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) order.push('groq');
+  }
+  return order;
+}
+
+async function runVisionTextPrompt(
+  promptText: string,
+  imageDataUrls: string[],
+  settings = getAiSettings()
+): Promise<string | null> {
+  const collage =
+    imageDataUrls.length > 1 ? await createImageCollage(imageDataUrls.slice(0, 6)) : imageDataUrls[0];
+  const parsed = parseImageDataUrl(collage);
+  if (!parsed) return null;
+
+  const jsonHint = ' You MUST return ONLY valid JSON.';
+  const order = buildVisionProviderOrder(settings);
+  const tried = new Set<string>();
+
+  for (const provider of order) {
+    if (tried.has(provider)) continue;
+    tried.add(provider);
+    try {
+      if (provider === 'puter') {
+        const signedIn = await isPuterSignedIn();
+        if (!signedIn) continue;
+        return await fetchFromPuter(promptText + jsonHint, [parsed]);
+      }
+      if (provider === 'groq') {
+        return await fetchFromGroq(promptText + jsonHint, [parsed]);
+      }
+      if (provider === 'firebase') {
+        const model = getVertexModel(settings.geminiModel);
+        const result = await model.generateContent([
+          { inlineData: { data: parsed.base64, mimeType: parsed.mimeType } },
+          { text: promptText + jsonHint },
+        ]);
+        return (await result.response).text();
+      }
+      if (provider === 'gemini') {
+        if (!isGeminiKeyAvailable()) await fetchServerConfig();
+        const ai = getAi();
+        const response = await ai.models.generateContent({
+          model: settings.geminiModel || 'gemini-2.5-flash',
+          contents: {
+            parts: [
+              { inlineData: { data: parsed.base64, mimeType: parsed.mimeType } },
+              { text: promptText + jsonHint },
+            ],
+          },
+          config: { responseMimeType: 'application/json', temperature: 0.6 },
+        });
+        return response.text || null;
+      }
+    } catch (err) {
+      console.warn(`[Vision] ${provider} failed:`, err);
+    }
+  }
+  return null;
+}
+
+/** Generate inbox ideas from uploaded reference image(s). Uses vision when available; text fallback for local-only. */
+export async function generateIdeasFromImages(
+  userPrompt: string,
+  imageDataUrls: string[],
+  business?: Business,
+  mode: IdeasFromImagesMode = 'strategy',
+  extraContext?: string
+): Promise<Record<string, unknown>[]> {
+  const businessName = business?.name || 'the brand';
+  const industry = business?.industry || 'their industry';
+  const contextLine = extraContext ? `\nExtra context: ${extraContext}` : '';
+  const userLine = userPrompt.trim()
+    ? `User request: "${userPrompt}"`
+    : 'Infer strong content ideas from what you see in the image(s).';
+
+  let promptText = '';
+  if (mode === 'postcard') {
+    promptText = `Analyze the attached image(s) for ${businessName} (${industry}). ${userLine}${contextLine}
+Return a JSON array (3 items) with: title, front, back, imagePrompt.`;
+  } else if (mode === 'visual' || mode === 'strategy') {
+    promptText = `You are a creative strategist for ${businessName} (${industry}). Study the attached image(s) carefully—products, UI, mood, text, and audience signals.
+${userLine}${contextLine}
+Return a JSON array of 3–6 ideas. Each object must include: title, brief (designer notes), caption, hashtags, feasibility (1-10), impact (1-10), format (Post, Reel, Story, or Carousel).
+If the user asks for features, angles, or campaigns, tailor each idea to what is actually visible.`;
+  } else {
+    promptText = `Analyze the image(s) for ${businessName}. ${userLine}${contextLine}
+Return a JSON array of quick social post ideas with: title, caption, brief, hashtags, format.`;
+  }
+
+  const visionText = await withImageAnalysisTimeout(
+    runVisionTextPrompt(promptText, imageDataUrls),
+    'Vision idea generation'
+  );
+  if (visionText) {
+    const parsed = safeParseJSONArray(visionText) || safeParseJSON(visionText);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as Record<string, unknown>[];
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const arr = (parsed as { ideas?: unknown[] }).ideas;
+      if (Array.isArray(arr)) return arr as Record<string, unknown>[];
+    }
+  }
+
+  const textFallback = await generateAppText(
+    `${promptText}\n\nLocal AI cannot see pixels—draft ideas based on the user request and brand context only. Return a JSON array.`,
+    true,
+    business?.id
+  );
+  const fallbackParsed = safeParseJSONArray(textFallback) || [];
+  return fallbackParsed as Record<string, unknown>[];
+}
+
 export async function analyzeDesignImages(images: string[], business?: Business): Promise<string> {
   const settings = getAiSettings();
 
@@ -3442,8 +3572,16 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
 
     const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
     const lastUserMessage = messages[messages.length - 1]?.content || "";
-    const isSmallTask = lastUserMessage.length < 200 && !lastUserMessage.toLowerCase().includes('search') && !lastUserMessage.toLowerCase().includes('research') && !lastUserMessage.toLowerCase().includes('read') && !lastUserMessage.toLowerCase().includes('analyze');
-    
+    const lastUserImages = messages[messages.length - 1]?.images || [];
+    const hasImages = messages.some((m) => m.images && m.images.length > 0);
+    const isSmallTask =
+      !hasImages &&
+      lastUserMessage.length < 200 &&
+      !lastUserMessage.toLowerCase().includes('search') &&
+      !lastUserMessage.toLowerCase().includes('research') &&
+      !lastUserMessage.toLowerCase().includes('read') &&
+      !lastUserMessage.toLowerCase().includes('analyze');
+
     const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
     const effectiveProvider = getEffectiveTextProvider(settings);
     const isAuto = effectiveProvider === 'auto';
@@ -3451,6 +3589,37 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     const forcePuter = effectiveProvider === 'puter';
     const forceGroq = effectiveProvider === 'groq';
     const forceLocalProxy = effectiveProvider === 'local_proxy';
+
+    if (hasImages && lastUserImages.length > 0) {
+      const visionPrompt = `${systemInstruction}\n\nConversation:\n${conversation}\n\nRespond to the latest user message. If they attached images, describe what you see and answer their request.`;
+      try {
+        const visionRaw = await withImageAnalysisTimeout(
+          runVisionTextPrompt(visionPrompt, lastUserImages, settings),
+          'Chat vision'
+        );
+        if (visionRaw) {
+          const visionParsed = safeParseJSON(visionRaw);
+          if (visionParsed?.message) {
+            visionParsed.provider =
+              isGeminiKeyAvailable() || settings.groqApiKey
+                ? 'Vision AI'
+                : 'Vision AI (cloud)';
+            if (visionParsed.imagePrompt) {
+              try {
+                const imgRes = await generateAiImage(visionParsed.imagePrompt, 'photorealistic');
+                visionParsed.generatedImage = imgRes.url;
+                visionParsed.generatedImageProvider = imgRes.provider;
+              } catch {
+                /* ignore */
+              }
+            }
+            return visionParsed as ChatResponse;
+          }
+        }
+      } catch (err) {
+        console.warn('[chatWithAi] Vision path failed, falling back to text:', err);
+      }
+    }
 
     let finalSystemInstruction = systemInstruction;
 
@@ -3478,7 +3647,8 @@ Rules:
     }
 
     let flatPrompt = `Instruction: ${finalSystemInstruction}\nHistory: ${conversation}\nJSON Response:`;
-    const shouldUseLocalFirst = forceBuiltin || (isAuto && isSmallTask && allowed.includes('builtin'));
+    const shouldUseLocalFirst =
+      !hasImages && (forceBuiltin || (isAuto && isSmallTask && allowed.includes('builtin')));
 
     if (shouldUseLocalFirst) {
        // Llama 3.2 1B usually likes this specific prompt style

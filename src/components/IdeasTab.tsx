@@ -18,6 +18,7 @@ import {
   List,
   X,
   GripVertical,
+  Upload,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -33,7 +34,16 @@ import {
   doc, 
   serverTimestamp
 } from 'firebase/firestore';
-import { generateTextWithCascade, safeParseJSON, safeParseJSONArray, isGeminiKeyAvailable, fetchServerConfig, generateTaskIdeas } from '../lib/gemini';
+import {
+  generateTextWithCascade,
+  safeParseJSON,
+  safeParseJSONArray,
+  isGeminiKeyAvailable,
+  fetchServerConfig,
+  generateTaskIdeas,
+  generateIdeasFromImages,
+  type IdeasFromImagesMode,
+} from '../lib/gemini';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { IdeasBoardSkeleton } from './ui/Skeleton';
@@ -122,7 +132,13 @@ function IdeaCard({
   return (
     <div className="mb-2">
     <DraggableBlock block={block} isSelected={isSelected} onClick={onSelect}>
-      {block.type === 'postcard' ? (
+      {block.type === 'image' ? (
+        <img
+          src={block.content}
+          alt=""
+          className="w-10 h-10 rounded-lg object-cover shrink-0 border border-[#E9E9E7] dark:border-[#2E2E2E]"
+        />
+      ) : block.type === 'postcard' ? (
         <ImageIcon className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
       ) : (
         <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -237,8 +253,10 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
   const [isReady, setIsReady] = useState(false);
   const isInitialLoad = useRef(true);
   const [aiPrompt, setAiPrompt] = useState('');
-  const [ideaMode, setIdeaMode] = useState<'quick' | 'strategy' | 'postcard'>('quick');
+  const [ideaMode, setIdeaMode] = useState<IdeasFromImagesMode>('quick');
   const [isIdeaGeneratorExpanded, setIsIdeaGeneratorExpanded] = useState(false);
+  const [ideaReferenceImages, setIdeaReferenceImages] = useState<string[]>([]);
+  const ideaImageInputRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<IdeasViewMode>('board');
   const [quickCapture, setQuickCapture] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -454,8 +472,23 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
     toast.success('Idea archived to History');
   };
 
+  const handleIdeaImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        if (dataUrl) setIdeaReferenceImages((prev) => [...prev, dataUrl].slice(0, 6));
+      };
+      reader.readAsDataURL(file);
+    });
+    if (ideaImageInputRef.current) ideaImageInputRef.current.value = '';
+    if (!isIdeaGeneratorExpanded) setIsIdeaGeneratorExpanded(true);
+  };
+
   const generateIdeas = async () => {
-    if (!aiPrompt.trim() || isAiLoading) return;
+    if ((!aiPrompt.trim() && ideaReferenceImages.length === 0) || isAiLoading) return;
     setIsAiLoading(true);
 
     try {
@@ -464,8 +497,31 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
       }
 
       let ideas: any[] = [];
+      const visionMode: IdeasFromImagesMode =
+        ideaMode === 'visual' || ideaReferenceImages.length > 0
+          ? ideaMode === 'postcard'
+            ? 'postcard'
+            : ideaMode === 'quick'
+              ? 'quick'
+              : 'visual'
+          : ideaMode;
 
-      if (ideaMode === 'quick') {
+      if (ideaReferenceImages.length > 0) {
+        const selectedBlock = blocks.find((b) => b.id === selectedBlockId);
+        const extraContext =
+          selectedBlock?.type === 'text'
+            ? selectedBlock.content
+            : selectedBlock?.type === 'image'
+              ? 'Related to attached reference image idea'
+              : undefined;
+        ideas = await generateIdeasFromImages(
+          aiPrompt.trim() || 'Suggest strong content ideas based on these images',
+          ideaReferenceImages,
+          activeBusiness,
+          visionMode,
+          extraContext
+        );
+      } else if (ideaMode === 'quick') {
         const selectedBlock = blocks.find(b => b.id === selectedBlockId);
         const extraContext = selectedBlock?.type === 'text' ? selectedBlock.content : undefined;
         const generatedIdeas = await generateTaskIdeas(activeBusiness, undefined, undefined, `USER PROMPT: ${aiPrompt}`, extraContext);
@@ -498,6 +554,16 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
       }
 
       if (ideas && Array.isArray(ideas) && ideas.length > 0) {
+        const refImageBlocks: Block[] = ideaReferenceImages.map((url) => ({
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'image' as const,
+          title: 'Reference image',
+          content: url,
+          status: 'inbox' as const,
+          folderId: null,
+          createdAt: Date.now(),
+        }));
+
         const newBlocks: Block[] = await Promise.all(ideas.map(async (idea: any) => {
           const id = Math.random().toString(36).substr(2, 9);
           
@@ -557,13 +623,16 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
           };
         }));
 
-        setBlocks(prev => {
-          const updated = [...prev, ...newBlocks];
+        setBlocks((prev) => {
+          const updated = [...prev, ...refImageBlocks, ...newBlocks];
           saveNotebook(updated, links, folders);
           return updated;
         });
         setAiPrompt('');
-        toast.success(`Added ${ideas.length} idea${ideas.length === 1 ? '' : 's'} to Inbox`);
+        setIdeaReferenceImages([]);
+        toast.success(
+          `Added ${ideas.length} idea${ideas.length === 1 ? '' : 's'}${refImageBlocks.length ? ' with reference images' : ''} to Inbox`
+        );
       }
     } catch (error) {
       console.error('Idea generation error:', error);
@@ -833,6 +902,15 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
               )}
             </div>
           )}
+          {selectedBlock.type === 'image' && selectedBlock.content ? (
+            <div className="rounded-2xl overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
+              <img
+                src={selectedBlock.content}
+                alt={selectedBlock.title || 'Reference'}
+                className="w-full max-h-[min(50vh,420px)] object-contain"
+              />
+            </div>
+          ) : null}
           <textarea
             value={selectedBlock.title || ''}
             onChange={(e) => updateBlock(selectedBlock.id, { title: e.target.value })}
@@ -1015,14 +1093,57 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
               className="overflow-hidden w-full"
             >
               <div className="mt-3 p-4 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#202020]">
+                <input
+                  ref={ideaImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleIdeaImageUpload}
+                />
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => ideaImageInputRef.current?.click()}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-brand/40 text-brand text-xs font-bold hover:bg-brand/5"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload images
+                  </button>
+                  <span className="text-[10px] text-[#757681]">
+                    Local AI uses vision when Gemini/Groq is configured; otherwise drafts from your prompt + brand.
+                  </span>
+                </div>
+                {ideaReferenceImages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {ideaReferenceImages.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={url}
+                          alt="Reference"
+                          className="w-16 h-16 rounded-lg object-cover border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setIdeaReferenceImages((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#37352F] text-white flex items-center justify-center opacity-0 group-hover:opacity-100"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <textarea
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="Describe a campaign, audience, or theme..."
+                  placeholder="Describe what you want (e.g. product features, campaign angles, mood board) — optional if images are attached"
                   className="w-full h-20 text-sm rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] p-3 resize-none focus:outline-none focus:border-brand"
                 />
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {(['quick', 'strategy', 'postcard'] as const).map((mode) => (
+                  {(['quick', 'strategy', 'visual', 'postcard'] as const).map((mode) => (
                     <button
                       key={mode}
                       type="button"
@@ -1038,7 +1159,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
                   <button
                     type="button"
                     onClick={generateIdeas}
-                    disabled={isAiLoading || !aiPrompt.trim()}
+                    disabled={isAiLoading || (!aiPrompt.trim() && ideaReferenceImages.length === 0)}
                     className="ml-auto flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-xs font-bold disabled:opacity-40"
                   >
                     <Sparkles className="w-4 h-4" />
