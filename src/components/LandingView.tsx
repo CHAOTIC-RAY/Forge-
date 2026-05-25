@@ -22,11 +22,16 @@ import {
   Share2,
   ImagePlus,
   GripVertical,
-  Archive,
   Wand2,
   Cpu,
   Link2,
   TrendingUp,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Hash,
+  PenTool,
+  Instagram,
 } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
@@ -199,177 +204,401 @@ function CatalogueImportLandingPreview() {
   );
 }
 
-function FeaturePreview({ id }: { id: string }) {
-  switch (id) {
-    case 'calendar':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-4 flex flex-col gap-2 overflow-hidden relative">
-          <div className="flex justify-between items-center mb-2">
-            <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded-full" />
-            <div className="flex gap-2">
-              <div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30" />
-              <div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30" />
-            </div>
+const LANDING_PREVIEW_SHELL =
+  'w-full min-h-[320px] md:min-h-[360px] bg-white dark:bg-[#191919] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-3 md:p-4 flex flex-col gap-3 overflow-hidden';
+
+function CalendarLandingPreview() {
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const postsByDay: Record<number, { title: string; color: string }[]> = {
+    3: [{ title: 'Summer drop', color: 'bg-brand' }],
+    8: [{ title: 'Reel hook', color: 'bg-amber-400' }],
+    12: [
+      { title: 'Carousel', color: 'bg-brand' },
+      { title: 'Story', color: 'bg-purple-400' },
+    ],
+    17: [{ title: 'Client review', color: 'bg-emerald-500' }],
+    22: [{ title: 'UGC repost', color: 'bg-pink-400' }],
+  };
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
+            <CalendarIcon className="w-4 h-4 text-brand" />
           </div>
-          <div className="grid grid-cols-7 gap-2 flex-1">
-            {Array.from({ length: 28 }).map((_, i) => (
-              <div key={i} className={cn("rounded-lg border border-gray-100 dark:border-gray-700 p-1.5", i === 12 ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200" : "bg-gray-50 dark:bg-[#202020]")}>
-                <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600 mb-1.5" />
-                {i % 5 === 0 && <div className="w-full h-2 bg-blue-400 rounded-sm mb-1" />}
-                {i % 8 === 0 && <div className="w-full h-2 bg-purple-400 rounded-sm" />}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    case 'localdb':
-      return <CatalogueImportLandingPreview />;
-    case 'ai':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-4 flex flex-col overflow-hidden">
-          <div className="flex-1 flex flex-col gap-3 p-2">
-            <div className="self-end bg-blue-500 text-white p-3 rounded-2xl rounded-tr-sm max-w-[80%]">
-              <div className="w-24 h-2 bg-blue-200 rounded-full mb-2" />
-              <div className="w-32 h-2 bg-blue-200 rounded-full" />
-            </div>
-            <div className="self-start bg-gray-100 dark:bg-[#202020] p-3 rounded-2xl rounded-tl-sm max-w-[80%] border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <div className="w-16 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-              </div>
-              <div className="space-y-2">
-                <div className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                <div className="w-5/6 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                <div className="w-4/6 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-              </div>
-            </div>
-          </div>
-          <div className="h-12 bg-gray-50 dark:bg-[#202020] rounded-xl border border-gray-200 dark:border-gray-700 flex items-center px-4 gap-3 mt-2">
-            <MessageSquare className="w-4 h-4 text-gray-400" />
-            <div className="w-40 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">{landingTerms.calendar}</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">May 2026 · Work mode</p>
           </div>
         </div>
-      );
-    case 'studio':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] flex overflow-hidden">
-          <div className="w-16 border-r border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-[#202020] flex flex-col items-center py-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700" />
-            ))}
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="hidden sm:flex p-0.5 rounded-lg bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+            <span className="px-2 py-1 text-[10px] font-bold rounded-md bg-white dark:bg-[#2E2E2E] text-brand">Grid</span>
+            <span className="px-2 py-1 text-[10px] font-medium text-[#787774]">Timeline</span>
           </div>
-          <div className="flex-1 p-6 flex items-center justify-center bg-gray-100/50 dark:bg-[#191919]">
-            <div className="w-full max-w-xs aspect-[4/5] bg-white dark:bg-[#2E2E2E] rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
-              <div className="flex-1 bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/20 dark:to-purple-900/20 flex items-center justify-center">
-                <Palette className="w-12 h-12 text-pink-400 opacity-50" />
-              </div>
-              <div className="p-3 space-y-2 bg-white dark:bg-[#2E2E2E]">
-                <div className="w-3/4 h-3 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                <div className="w-1/2 h-2 bg-gray-100 dark:bg-gray-600 rounded-full" />
+          <button type="button" className="p-1.5 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774]" aria-hidden>
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <button type="button" className="p-1.5 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774]" aria-hidden>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+          <span className="px-2 py-1 rounded-lg bg-brand/10 text-brand text-[10px] font-bold flex items-center gap-1">
+            <Share2 className="w-3 h-3" /> Share
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-[9px] font-bold text-[#787774] dark:text-[#9B9A97] px-0.5">
+        {weekDays.map((d) => (
+          <div key={d} className="text-center py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex-1 grid grid-cols-7 gap-1 min-h-[180px]">
+        {Array.from({ length: 28 }).map((_, i) => {
+          const dayPosts = postsByDay[i] ?? [];
+          const isToday = i === 12;
+          return (
+            <div
+              key={i}
+              className={cn(
+                'rounded-lg border p-1 min-h-[52px] flex flex-col gap-0.5',
+                isToday
+                  ? 'bg-brand/5 border-brand/40 dark:border-brand/30'
+                  : 'bg-[#FAFAF9] dark:bg-[#202020] border-[#E9E9E7]/80 dark:border-[#2E2E2E]'
+              )}
+            >
+              <span
+                className={cn(
+                  'text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full',
+                  isToday ? 'bg-brand text-white' : 'text-[#787774]'
+                )}
+              >
+                {i + 1}
+              </span>
+              <div className="space-y-0.5 flex-1 overflow-hidden">
+                {dayPosts.map((post) => (
+                  <div
+                    key={post.title}
+                    className={cn('h-1.5 rounded-sm truncate opacity-90', post.color)}
+                    title={post.title}
+                  />
+                ))}
               </div>
             </div>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 pt-0.5 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+        <span className="text-[10px] text-[#787774]">12 posts this month</span>
+        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+          3 scheduled today
+        </span>
+        <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[10px] font-bold flex items-center gap-1">
+          <ImagePlus className="w-3 h-3" /> Drop images on a day
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function IdeasLandingPreview() {
+  const columns = [
+    {
+      title: 'Inbox',
+      count: 4,
+      cards: [
+        { title: 'Behind-the-scenes reel', tag: 'Campaign' },
+        { title: 'Product comparison carousel', tag: 'Evergreen' },
+      ],
+    },
+    {
+      title: 'Ready',
+      count: 2,
+      cards: [{ title: 'Friday flash sale hook', tag: 'Promo' }],
+    },
+    {
+      title: 'Archive',
+      count: 8,
+      cards: [{ title: 'Q1 testimonial post', tag: 'Social proof' }],
+    },
+  ] as const;
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+            <Lightbulb className="w-4 h-4 text-yellow-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">{landingTerms.ideas}</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Board · Collections</p>
           </div>
         </div>
-      );
-    case 'analytics':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-6 overflow-hidden">
-          <div className="flex gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex-1 bg-gray-50 dark:bg-[#202020] rounded-xl p-3 border border-gray-100 dark:border-gray-700">
-                <div className="w-12 h-2 bg-gray-300 dark:bg-gray-600 rounded-full mb-3" />
-                <div className="w-20 h-4 bg-gray-800 dark:bg-gray-200 rounded-full" />
-              </div>
-            ))}
-          </div>
-          <div className="flex-1 flex items-end gap-2 px-2">
-            {[40, 70, 45, 90, 65, 80, 55, 100, 75, 85].map((h, i) => (
-              <div key={i} className="flex-1 bg-green-100 dark:bg-green-900/30 rounded-t-md relative group">
-                <div 
-                  className="absolute bottom-0 left-0 w-full bg-green-500 rounded-t-md transition-all duration-1000"
-                  style={{ height: `${h}%` }}
-                />
-              </div>
-            ))}
-          </div>
+        <span className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1">
+          <Sparkles className="w-3 h-3" /> AI brainstorm
+        </span>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex-1 h-8 pl-3 pr-2 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] flex items-center text-[10px] text-[#9B9A97]">
+          Quick capture — press Enter…
         </div>
-      );
-    case 'tasks':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-4 overflow-hidden">
-          <div className="flex justify-between items-center mb-2">
-            <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded-full" />
-            <div className="w-20 h-6 bg-orange-100 dark:bg-orange-900/30 rounded-lg" />
-          </div>
-          <div className="space-y-3 flex-1">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-[#202020] rounded-xl border border-gray-100 dark:border-gray-700">
-                <CheckCircle2 className={cn("w-5 h-5", i === 0 ? "text-green-500" : "text-gray-300 dark:text-gray-600")} />
-                <div className="flex-1 space-y-2">
-                  <div className={cn("w-2/3 h-2.5 rounded-full", i === 0 ? "bg-gray-300 dark:bg-gray-600" : "bg-gray-800 dark:bg-gray-200")} />
-                  <div className="w-1/3 h-2 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                </div>
-                <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700" />
-              </div>
-            ))}
-          </div>
+        <div className="p-2 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774]">
+          <Search className="w-3.5 h-3.5" />
         </div>
-      );
-    case 'ideas':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-4 overflow-hidden">
-          <div className="flex justify-between items-center mb-4">
-            <div className="w-40 h-5 bg-gray-200 dark:bg-gray-700 rounded-full" />
-            <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-              <Lightbulb className="w-4 h-4 text-yellow-500" />
+      </div>
+
+      <div className="flex-1 grid grid-cols-3 gap-2 min-h-[160px]">
+        {columns.map((col) => (
+          <div
+            key={col.title}
+            className="flex flex-col rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] overflow-hidden min-h-0"
+          >
+            <div className="px-2.5 py-2 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0">
+              <div>
+                <p className="text-[10px] font-black text-[#37352F] dark:text-[#EBE9ED]">{col.title}</p>
+                <p className="text-[8px] text-[#787774]">{col.count} ideas</p>
+              </div>
+              <Plus className="w-3.5 h-3.5 text-[#787774]" />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 flex-1">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-yellow-50/50 dark:bg-yellow-900/10 rounded-xl p-4 border border-yellow-100 dark:border-yellow-900/20 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="w-full h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
-                  <div className="w-3/4 h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
-                  <div className="w-1/2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                </div>
-                <div className="w-16 h-4 bg-yellow-200 dark:bg-yellow-800/50 rounded-md mt-4" />
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    case 'workspace':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-6 overflow-hidden">
-          <div className="flex items-center gap-4 p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-900/30">
-            <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-              F
-            </div>
-            <div className="flex-1 space-y-2">
-              <div className="w-32 h-3 bg-indigo-900/80 dark:bg-indigo-100/80 rounded-full" />
-              <div className="w-20 h-2 bg-indigo-900/40 dark:bg-indigo-100/40 rounded-full" />
-            </div>
-            <div className="flex -space-x-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-[#2E2E2E] bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                  <Users className="w-4 h-4 text-white" />
+            <div className="p-2 space-y-1.5 flex-1 overflow-hidden">
+              {col.cards.map((card) => (
+                <div
+                  key={card.title}
+                  className="p-2 rounded-lg bg-white dark:bg-[#191919] border border-[#E9E9E7]/80 dark:border-[#2E2E2E] shadow-sm"
+                >
+                  <p className="text-[9px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-snug line-clamp-2">
+                    {card.title}
+                  </p>
+                  <span className="mt-1 inline-block text-[8px] font-bold uppercase tracking-wide text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 px-1 rounded">
+                    {card.tag}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 flex-1">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="bg-gray-50 dark:bg-[#202020] rounded-xl p-4 border border-gray-100 dark:border-gray-700 flex flex-col justify-between">
-                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4" />
-                <div className="space-y-2">
-                  <div className="w-full h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
-                  <div className="w-1/2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                </div>
-              </div>
+        ))}
+      </div>
+
+      <p className="text-[10px] text-[#787774] flex items-center gap-1.5">
+        <GripVertical className="w-3 h-3 text-brand" />
+        Drag ready ideas onto the calendar to schedule
+      </p>
+    </div>
+  );
+}
+
+function WidgetsLandingPreview() {
+  const widgets = [
+    { label: 'Caption writer', icon: PenTool },
+    { label: 'Hashtag pack', icon: Hash },
+    { label: 'Designer brief', icon: Wand2 },
+    { label: 'Hook generator', icon: Sparkles },
+  ];
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Local-first AI tools</p>
+          </div>
+        </div>
+        <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+          <Cpu className="w-3 h-3" /> WebLLM ready
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {widgets.map((w) => {
+          const Icon = w.icon;
+          return (
+            <button
+              key={w.label}
+              type="button"
+              className="p-2.5 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] text-left hover:border-brand/40 transition-colors"
+            >
+              <Icon className="w-3.5 h-3.5 text-brand mb-1.5" />
+              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight">{w.label}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 flex flex-col gap-2 min-h-[120px]">
+        <div className="self-end max-w-[85%] px-3 py-2 rounded-2xl rounded-tr-sm bg-brand text-white text-[10px] leading-relaxed">
+          Write a caption for our new outdoor collection — warm, premium tone.
+        </div>
+        <div className="self-start max-w-[90%] px-3 py-2 rounded-2xl rounded-tl-sm bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[10px] text-[#37352F] dark:text-[#EBE9ED] leading-relaxed">
+          <span className="font-bold text-amber-500 flex items-center gap-1 mb-1">
+            <Sparkles className="w-3 h-3" /> Forge · Caption widget
+          </span>
+          Golden hour on the terrace. Built for slow evenings and open-air dining — discover the Outdoor ’26 line.
+        </div>
+        <div className="mt-auto flex items-center gap-2 p-2 rounded-lg border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919]">
+          <MessageSquare className="w-3.5 h-3.5 text-[#9B9A97] shrink-0" />
+          <span className="text-[10px] text-[#9B9A97]">Refine tone or paste into calendar…</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BrandKitLandingPreview() {
+  const colors = [
+    { name: 'Forge Blue', hex: '#2383E2' },
+    { name: 'Ink', hex: '#37352F' },
+    { name: 'Sand', hex: '#F7F7F5' },
+  ];
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
+            <Palette className="w-4 h-4 text-pink-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">{landingTerms.assets}</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Brand kit & references</p>
+          </div>
+        </div>
+        <button type="button" className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1">
+          <Sparkles className="w-3 h-3" /> Sync guide
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {colors.map((c) => (
+          <div key={c.name} className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden">
+            <div className="h-10" style={{ backgroundColor: c.hex }} />
+            <div className="p-2 bg-white dark:bg-[#191919]">
+              <p className="text-[9px] font-bold text-[#37352F] dark:text-[#EBE9ED]">{c.name}</p>
+              <p className="text-[8px] font-mono text-[#787774]">{c.hex}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex-1 grid grid-cols-[1fr_42%] gap-2 min-h-[120px]">
+        <div className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] p-3 bg-[#FAFAF9] dark:bg-[#202020] space-y-2">
+          <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Typography</p>
+          <p className="text-lg font-bold tracking-tight text-[#37352F] dark:text-[#EBE9ED]">Display · Cal Sans</p>
+          <p className="text-sm text-[#787774]">Body · Inter — friendly, clear, product-led</p>
+          <div className="flex gap-1.5 pt-1">
+            {['Logo lockup', 'Wordmark'].map((label) => (
+              <span key={label} className="px-2 py-1 rounded-md bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[9px] font-bold text-[#787774]">
+                {label}
+              </span>
             ))}
           </div>
         </div>
-      );
+        <div className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden flex flex-col">
+          <div className="h-14 bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/20 flex items-center justify-center">
+            <ImageIcon className="w-6 h-6 text-pink-400" />
+          </div>
+          <div className="p-2 bg-white dark:bg-[#191919] flex-1">
+            <p className="text-[9px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Reference post</p>
+            <p className="text-[8px] text-[#787774] mt-0.5">Carousel · high engagement</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsLandingPreview() {
+  const bars = [42, 68, 55, 88, 72, 95, 61];
+  const stats = [
+    { label: 'Engagement', value: '4.8%', delta: '+12%' },
+    { label: 'Best time', value: 'Tue 6pm', delta: 'IG' },
+    { label: 'Top format', value: 'Carousel', delta: '2.1×' },
+  ];
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <BarChart3 className="w-4 h-4 text-green-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Insights</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Connected profiles</p>
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <span className="p-1.5 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-[#E9E9E7] dark:border-[#2E2E2E]">
+            <Instagram className="w-3.5 h-3.5 text-pink-500" />
+          </span>
+          <span className="p-1.5 rounded-lg bg-brand/10 border border-brand/20">
+            <Link2 className="w-3.5 h-3.5 text-brand" />
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-2.5"
+          >
+            <p className="text-[9px] font-bold uppercase tracking-wide text-[#787774]">{s.label}</p>
+            <p className="text-base font-black text-[#37352F] dark:text-[#EBE9ED] mt-0.5">{s.value}</p>
+            <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">{s.delta}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex-1 flex gap-2 min-h-[100px]">
+        <div className="flex-[1.2] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 flex items-end gap-1.5">
+          {bars.map((h, i) => (
+            <div key={i} className="flex-1 flex flex-col justify-end gap-1 min-w-0">
+              <div className="w-full bg-emerald-500/80 rounded-t-md" style={{ height: `${h}%`, minHeight: 4 }} />
+              <span className="text-[7px] text-center text-[#787774] font-bold">{['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex-1 rounded-xl border border-brand/20 bg-brand/5 dark:bg-brand/10 p-2.5 flex flex-col gap-1">
+          <p className="text-[9px] font-bold text-brand flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> AI summary
+          </p>
+          <p className="text-[9px] text-[#37352F] dark:text-[#EBE9ED] leading-relaxed flex-1">
+            Carousels outperform reels this month. Post Tue–Thu 6–8pm; lean into product close-ups.
+          </p>
+          <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" /> +18% vs last period
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeaturePreview({ id }: { id: string }) {
+  switch (id) {
+    case 'calendar':
+      return <CalendarLandingPreview />;
+    case 'localdb':
+      return <CatalogueImportLandingPreview />;
+    case 'ai':
+      return <WidgetsLandingPreview />;
+    case 'studio':
+      return <BrandKitLandingPreview />;
+    case 'analytics':
+      return <AnalyticsLandingPreview />;
+    case 'ideas':
+      return <IdeasLandingPreview />;
     default:
       return null;
   }
