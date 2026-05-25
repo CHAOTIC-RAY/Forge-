@@ -1078,17 +1078,17 @@ export function LandingView({ onLogin }: LandingViewProps) {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-8 relative z-10 max-w-2xl lg:w-1/2"
+              className="flex flex-col items-stretch w-full max-w-2xl lg:w-1/2 space-y-8 relative z-10"
             >
-              <div className="flex items-center gap-4 mb-4">
-                <ForgeLogo size={40} className="text-white" />
-                <span className="font-bold text-3xl tracking-tight text-white">Forge</span>
+              <div className="flex items-center gap-4">
+                <ForgeLogo size={40} className="text-white shrink-0" />
+                <span className="font-display font-bold text-3xl tracking-tight text-white">Forge</span>
               </div>
               
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] min-w-0">
-                <HeroHandwritingTitle className="block shrink min-w-0" />
+              <h1 className="w-full m-0 p-0 text-left">
+                <HeroHandwritingTitle />
               </h1>
-              <p className="text-lg md:text-2xl text-secondary-safe max-w-2xl leading-relaxed">
+              <p className="text-lg md:text-2xl text-secondary-safe w-full leading-relaxed m-0 text-left">
                 One workspace for your calendar, {landingTerms.ideas.toLowerCase()}, local AI widgets, a website-to-catalogue importer, {landingTerms.assets}, and analytics—so you can ship consistent social content without tab chaos.
               </p>
               <div className="pt-2 flex flex-col sm:flex-row flex-wrap gap-3">

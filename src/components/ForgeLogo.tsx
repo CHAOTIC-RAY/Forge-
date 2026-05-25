@@ -33,6 +33,11 @@ export function ForgeLogo({ className, size = 32 }: ForgeLogoProps) {
   );
 }
 
+/** Full background flame loop (seconds) — keep in sync with hero title reveal */
+export const FORGE_SCRIBBLE_CYCLE_S = 6;
+/** Active stroke draw phase (~40% of cycle), matches hero headline animation */
+export const FORGE_SCRIBBLE_DRAW_S = FORGE_SCRIBBLE_CYCLE_S * 0.4;
+
 export const ScribbleFlame = () => {
   const colors = ['#2383E2', '#E2234D', '#E2A123', '#23E25D', '#9333EA'];
   const [colorIndex, setColorIndex] = useState(0);
@@ -40,7 +45,7 @@ export const ScribbleFlame = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setColorIndex((prev) => (prev + 1) % colors.length);
-    }, 6000);
+    }, FORGE_SCRIBBLE_CYCLE_S * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -62,7 +67,7 @@ export const ScribbleFlame = () => {
           strokeWidth="10"
           initial={{ opacity: 0, filter: "blur(0px)", scale: 1 }}
           animate={{ opacity: [0, 0, 0.8, 0, 0], filter: ["blur(0px)", "blur(0px)", "blur(20px)", "blur(60px)", "blur(0px)"], scale: [1, 1, 1.1, 1.5, 1] }}
-          transition={{ duration: 6, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut" }}
+          transition={{ duration: FORGE_SCRIBBLE_CYCLE_S, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut" }}
           style={{ transformOrigin: "center" }}
         />
         <motion.path
@@ -72,7 +77,7 @@ export const ScribbleFlame = () => {
           strokeWidth="10"
           initial={{ opacity: 0, filter: "blur(0px)", scale: 1 }}
           animate={{ opacity: [0, 0, 0.8, 0, 0], filter: ["blur(0px)", "blur(0px)", "blur(20px)", "blur(60px)", "blur(0px)"], scale: [1, 1, 1.1, 1.5, 1] }}
-          transition={{ duration: 6, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut", delay: 0.1 }}
+          transition={{ duration: FORGE_SCRIBBLE_CYCLE_S, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut", delay: 0.1 }}
           style={{ transformOrigin: "center" }}
         />
         
@@ -84,7 +89,7 @@ export const ScribbleFlame = () => {
           strokeWidth="3"
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: [0, 1, 1, 1, 0], opacity: [1, 1, 0.5, 0, 0] }}
-          transition={{ duration: 6, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut" }}
+          transition={{ duration: FORGE_SCRIBBLE_CYCLE_S, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut" }}
         />
         <motion.path
           d={path2}
@@ -93,7 +98,7 @@ export const ScribbleFlame = () => {
           strokeWidth="3"
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: [0, 1, 1, 1, 0], opacity: [1, 1, 0.5, 0, 0] }}
-          transition={{ duration: 6, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut", delay: 0.1 }}
+          transition={{ duration: FORGE_SCRIBBLE_CYCLE_S, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut", delay: 0.1 }}
         />
       </svg>
     </motion.div>
