@@ -364,7 +364,6 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
       saveNotebook(blocks, links, updated);
       return updated;
     });
-    setExpandedFolders(prev => ({ ...prev, [id]: true }));
   };
 
   const addBlock = (folderId: string | null = null, status: Block['status'] = 'organized') => {
@@ -442,10 +441,6 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
       saveNotebook(updated, links, folders);
       return updated;
     });
-  };
-
-  const toggleFolder = (id: string) => {
-    setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const archiveBlock = (id: string, e?: React.MouseEvent) => {
