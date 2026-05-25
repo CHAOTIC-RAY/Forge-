@@ -3485,13 +3485,14 @@ export default function App() {
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center px-2 mt-4 lg:mt-0 pb-4 shrink-0">
                       {builtInStatus.isLoading && (
                         <div
-                          className="flex flex-col items-center gap-1 mb-1"
+                          className="mb-1"
                           title={builtInStatus.message || 'Downloading local AI models…'}
                         >
-                          <ForgeLoader size={32} />
-                          <span className="text-[9px] font-bold text-brand tabular-nums">
-                            {Math.round(builtInStatus.progress)}%
-                          </span>
+                          <ForgeLoader
+                            size={26}
+                            variant="monochrome"
+                            progress={builtInStatus.progress}
+                          />
                         </div>
                       )}
 
