@@ -45,6 +45,24 @@ const landingTerms = INDUSTRY_CONFIGS.default.terminology;
 
 const IMPORT_TABS = ['Discover', 'Fetch', 'Convert', 'Review', 'Advanced'] as const;
 
+function FooterCtaGrid({ className }: { className?: string }) {
+  return (
+    <svg
+      className={cn('absolute inset-0 w-full h-full pointer-events-none', className)}
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <defs>
+        <pattern id="footer-cta-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#footer-cta-grid)" />
+    </svg>
+  );
+}
+
 function CatalogueImportLandingPreview() {
   const [activeTab, setActiveTab] = useState<(typeof IMPORT_TABS)[number]>('Discover');
 
@@ -850,18 +868,21 @@ export function LandingView({ onLogin }: LandingViewProps) {
     offset: ['start end', 'end end'],
   });
 
-  const calloutScale = useTransform(scrollYProgress, [0, 0.35, 0.75, 1], [0.88, 0.94, 0.98, 1]);
-  const calloutRadius = useTransform(scrollYProgress, [0, 0.5, 1], ['28px', '20px', '16px']);
-  const sectionPadX = useTransform(scrollYProgress, [0, 1], ['1.25rem', '2rem']);
-  const purpleFillOpacity = useTransform(scrollYProgress, [0.62, 0.88, 1], [0, 0.85, 1]);
-  const headlineSize = useTransform(scrollYProgress, [0, 0.5, 1], ['1.875rem', '2.5rem', '3rem']);
-  const sidebarOpacity = useTransform(scrollYProgress, [0.52, 0.78], [1, 0]);
-  const sidebarX = useTransform(scrollYProgress, [0.52, 0.78], ['0%', '-110%']);
-  const decorOpacity = useTransform(scrollYProgress, [0.5, 0.75], [1, 0]);
+  const calloutScale = useTransform(scrollYProgress, [0, 0.4, 0.72], [0.92, 0.98, 1]);
+  const calloutRadius = useTransform(scrollYProgress, [0, 0.55, 0.8], ['28px', '16px', '0px']);
+  const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.58, 0.82], [1, 1, 0]);
+  const fullBleedOpacity = useTransform(scrollYProgress, [0.55, 0.78, 1], [0, 0.6, 1]);
+  const headlineSize = useTransform(scrollYProgress, [0, 0.75, 1], ['1.875rem', '2.25rem', '3rem']);
+  const contentY = useTransform(scrollYProgress, [0.7, 1], [12, 0]);
+  const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
+  const sidebarX = useTransform(scrollYProgress, [0.48, 0.72], ['0%', '-110%']);
+  const decorOpacity = useTransform(scrollYProgress, [0.45, 0.7], [1, 0]);
   const [ctaImmersive, setCtaImmersive] = useState(false);
+  const [tourFocusId, setTourFocusId] = useState<string | null>(null);
 
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    const immersive = v >= 0.72;
+    const immersive = v >= 0.78;
     setCtaImmersive(immersive);
     if (immersive) setActiveSection('footer-cta');
   });
@@ -886,25 +907,35 @@ export function LandingView({ onLogin }: LandingViewProps) {
     setIsAutoScrolling(true);
 
     const sections = SECTIONS.filter((s) => s.icon !== null);
-    const stops: { id: string; dwellMs: number; scrollMs: number }[] = [
-      ...sections.map((s, i) => ({
+    const stops: { id: string; dwellMs: number }[] = [
+      ...sections.map((s) => ({
         id: s.id,
-        scrollMs: 1200 + i * 80,
-        dwellMs: 2600,
+        dwellMs: 2400,
       })),
-      { id: 'footer-cta', scrollMs: 1800, dwellMs: 3200 },
+      { id: 'footer-cta', dwellMs: 3800 },
     ];
 
-    for (const stop of stops) {
+    for (let i = 0; i < stops.length; i++) {
+      const stop = stops[i];
       if (tourAbortRef.current.aborted) break;
       const el = document.getElementById(stop.id);
       if (!el) continue;
+
+      setTourFocusId(stop.id);
       if (stop.id !== 'footer-cta') setActiveSection(stop.id);
-      const targetTop = Math.max(0, el.offsetTop - (stop.id === 'footer-cta' ? 0 : 24));
-      await animateScrollTo(container, targetTop, stop.scrollMs, tourAbortRef.current);
-      await waitMs(stop.dwellMs, tourAbortRef.current);
+
+      const targetTop = Math.max(0, el.offsetTop - (stop.id === 'footer-cta' ? 0 : 32));
+      const isLast = stop.id === 'footer-cta';
+      await animateScrollTo(
+        container,
+        targetTop,
+        undefined,
+        tourAbortRef.current
+      );
+      await waitMs(isLast ? stop.dwellMs + 400 : stop.dwellMs, tourAbortRef.current);
     }
 
+    setTourFocusId(null);
     stopAutoScroll();
   };
 
@@ -953,12 +984,14 @@ export function LandingView({ onLogin }: LandingViewProps) {
         ctaImmersive && 'bg-brand'
       )}
     >
-      {/* Full-viewport purple takeover on final scroll */}
+      {/* Full-viewport purple + grid on final scroll (breaks out of content width) */}
       <motion.div
-        className="fixed inset-0 z-[80] bg-brand pointer-events-none"
-        style={{ opacity: purpleFillOpacity }}
+        className="fixed inset-0 z-[85] bg-brand pointer-events-none"
+        style={{ opacity: fullBleedOpacity }}
         aria-hidden
-      />
+      >
+        <FooterCtaGrid className="opacity-[0.14]" />
+      </motion.div>
 
       {/* Sidebar (Desktop) / Bottom Bar (Mobile) */}
       <motion.aside
@@ -1099,13 +1132,15 @@ export function LandingView({ onLogin }: LandingViewProps) {
                 >
                   Get started free
                 </button>
-                <button
+                <motion.button
                   type="button"
                   onClick={startAutoScroll}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   className="interactive focus-ring px-8 py-4 bg-white/90 dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] text-[#37352F] dark:text-[#EBE9ED] rounded-xl font-bold text-lg min-h-[48px]"
                 >
                   See how it works
-                </button>
+                </motion.button>
               </div>
               <div className="flex flex-wrap items-center gap-6 pt-6 text-sm text-secondary-safe">
                 <span className="font-semibold text-[#37352F] dark:text-[#EBE9ED]">Trusted by teams who plan in public</span>
@@ -1144,6 +1179,10 @@ export function LandingView({ onLogin }: LandingViewProps) {
               transition={{ delay: 2, duration: 1.5, repeat: Infinity }}
               className="absolute bottom-10 left-1/2 -translate-x-1/2 text-[#787774] dark:text-[#9B9A97] cursor-pointer z-20"
               onClick={startAutoScroll}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && startAutoScroll()}
+              aria-label="See how it works — guided scroll tour"
             >
               <ChevronDown className="w-8 h-8" />
             </motion.div>
@@ -1155,12 +1194,25 @@ export function LandingView({ onLogin }: LandingViewProps) {
             {navSections.map((section, index) => {
               const Icon = section.icon!;
               return (
-                <section key={section.id} id={section.id} className="min-h-[50vh] flex flex-col justify-center py-10">
+                <section
+                  key={section.id}
+                  id={section.id}
+                  className={cn(
+                    'min-h-[50vh] flex flex-col justify-center py-10 rounded-3xl transition-shadow duration-500',
+                    tourFocusId === section.id &&
+                      'ring-2 ring-brand/50 ring-offset-4 ring-offset-[#F7F7F5] dark:ring-offset-[#202020]'
+                  )}
+                >
                   <motion.div 
                     initial={{ opacity: 0, y: 50 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-20%" }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+                    animate={
+                      tourFocusId === section.id
+                        ? { scale: [1, 1.01, 1], transition: { duration: 1.2, repeat: Infinity } }
+                        : { scale: 1 }
+                    }
                     className={cn("flex flex-col items-center gap-12", index % 2 === 0 ? "lg:flex-row" : "lg:flex-row-reverse")}
                   >
                     <div className="flex-1 space-y-6 max-w-2xl w-full">
@@ -1214,36 +1266,61 @@ export function LandingView({ onLogin }: LandingViewProps) {
           id="footer-cta"
           ref={footerRef}
           className={cn(
-            'relative min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden py-16 md:py-24',
-            ctaImmersive && 'min-h-[100dvh]'
+            'relative min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden',
+            ctaImmersive ? 'py-0' : 'py-16 md:py-24',
+            tourFocusId === 'footer-cta' && 'ring-2 ring-white/30 ring-inset'
           )}
           style={{ paddingLeft: sectionPadX, paddingRight: sectionPadX }}
         >
+          {/* Bordered card — fades out as you scroll in */}
           <motion.div
             style={{
               scale: calloutScale,
               borderRadius: calloutRadius,
+              opacity: cardOpacity,
             }}
             className={cn(
               'relative z-[90] w-full max-w-4xl lg:max-w-5xl mx-auto',
               'bg-brand text-white overflow-hidden',
               'border border-white/25 shadow-[0_24px_80px_rgba(0,0,0,0.28)]',
-              'ring-1 ring-inset ring-white/10'
+              'ring-1 ring-inset ring-white/10',
+              ctaImmersive && 'pointer-events-none'
             )}
           >
-            <div className="absolute inset-0 opacity-[0.12] pointer-events-none">
-              <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-                <defs>
-                  <pattern id="footer-cta-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#footer-cta-grid)" />
-              </svg>
-            </div>
-
+            <FooterCtaGrid className="opacity-[0.12]" />
             <div className="relative z-10 flex flex-col items-center text-center px-8 py-12 sm:px-12 sm:py-14 md:px-16 md:py-16 gap-8 md:gap-10">
               <div className="space-y-4 md:space-y-5 max-w-2xl">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-[1.08]">
+                  Ready to ship your next month of content?
+                </h2>
+                <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed">
+                  Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the{' '}
+                  {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you
+                  are ready.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onLogin}
+                className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-all shadow-xl min-h-[48px]"
+              >
+                Sign Up Now
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Full-bleed copy (no card) — visible when purple fills the viewport */}
+          <motion.div
+            style={{ opacity: fullBleedOpacity, y: contentY }}
+            className="absolute inset-0 z-[95] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 pointer-events-none"
+          >
+            <div
+              className={cn(
+                'flex flex-col items-center gap-8 md:gap-10 max-w-3xl w-full',
+                ctaImmersive ? 'pointer-events-auto' : 'pointer-events-none'
+              )}
+            >
+              <div className="space-y-4 md:space-y-5">
                 <motion.h2
                   style={{ fontSize: headlineSize }}
                   className="font-bold tracking-tight leading-[1.08]"
@@ -1256,12 +1333,15 @@ export function LandingView({ onLogin }: LandingViewProps) {
                   are ready.
                 </p>
               </div>
-              <button
+              <motion.button
+                type="button"
                 onClick={onLogin}
-                className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-all shadow-xl min-h-[48px]"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
+                className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-colors shadow-xl min-h-[48px]"
               >
                 Sign Up Now
-              </button>
+              </motion.button>
             </div>
           </motion.div>
         </motion.section>
