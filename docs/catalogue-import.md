@@ -28,7 +28,7 @@ How the Catalogue tab ingests website data into `HighStockProduct` records.
 ## Flows
 
 1. **Discover** — Map site → classify URLs (`product_list`, `product_detail`, `content`, `other`) → build import queue
-2. **Fetch** — Scrape selected URLs or crawl with path filters (Firecrawl API key required)
+2. **Fetch** — Scrape selected URLs or crawl with path filters (Firecrawl when keyed; otherwise Crawlee, cloudscraper, or direct fetch)
 3. **Convert** — `extractCatalogueFromMarkdown` per page (local AI by default; optional cloud fallback in Settings)
 4. **Review** — Preview pending items, then commit to Firestore
 5. **Advanced** — Console paste, JSON upload, legacy category import

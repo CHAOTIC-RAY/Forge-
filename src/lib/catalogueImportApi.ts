@@ -14,6 +14,7 @@ export interface ScrapePageResult {
   url: string;
   markdown?: string;
   metadata?: { title?: string };
+  provider?: 'firecrawl' | 'crawlee' | 'cloudscraper' | 'cheerio';
   error?: string;
 }
 
@@ -53,6 +54,7 @@ export async function scrapePageMarkdown(
     url,
     markdown: data.data?.markdown,
     metadata: data.data?.metadata,
+    provider: data.provider,
   };
 }
 

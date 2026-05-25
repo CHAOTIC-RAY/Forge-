@@ -379,37 +379,50 @@ export async function startServer(forcePort?: number) {
       return res.status(400).json({ error: "URL is required" });
     }
 
-    const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
-    const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
-    if (!FIRECRAWL_API_KEY) {
-      return res.status(500).json({ error: "Firecrawl API key is not configured" });
-    }
-
     try {
-      const response = await axios.post(
-        "https://api.firecrawl.dev/v2/scrape",
-        {
-          url: url,
-          formats: ["markdown"],
-          onlyMainContent,
-          waitFor,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      res.json(response.data);
+      const { scrapeWithProviders } = await import("./server/scrapers/unifiedScrape.js");
+      const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+      if (result.markdown) {
+        return res.json({
+          success: true,
+          data: { markdown: result.markdown, metadata: result.metadata },
+          provider: result.provider,
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        error: result.error || "Scrape failed",
+        provider: result.provider,
+      });
     } catch (error: any) {
-      console.error("Firecrawl scrape failed:", error.response?.data || error.message);
-      res.status(500).json({ 
-        error: "Firecrawl scrape failed", 
-        details: error.response?.data || error.message,
-        success: false
+      console.error("Unified scrape failed:", error.message);
+      res.status(500).json({
+        error: "Scrape failed",
+        details: error.message,
+        success: false,
       });
     }
+  });
+
+  app.post("/api/catalogue-scrape", async (req, res) => {
+    const { url, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: "URL is required" });
+    }
+    const { scrapeWithProviders } = await import("./server/scrapers/unifiedScrape.js");
+    const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+    if (result.markdown) {
+      return res.json({
+        success: true,
+        data: { markdown: result.markdown, metadata: result.metadata },
+        provider: result.provider,
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: result.error || "Scrape failed",
+      provider: result.provider,
+    });
   });
 
   app.post("/api/firecrawl-scrape-batch", async (req, res) => {
@@ -418,39 +431,29 @@ export async function startServer(forcePort?: number) {
       return res.status(400).json({ error: "urls array is required" });
     }
 
-    const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
-    const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
-    if (!FIRECRAWL_API_KEY) {
-      return res.status(500).json({ error: "Firecrawl API key is not configured" });
-    }
-
-    const results: Array<{ url: string; markdown?: string; metadata?: unknown; error?: string }> = [];
+    const { scrapeWithProviders } = await import("./server/scrapers/unifiedScrape.js");
+    const results: Array<{
+      url: string;
+      markdown?: string;
+      metadata?: unknown;
+      provider?: string;
+      error?: string;
+    }> = [];
     const batch = urls.slice(0, 40);
 
     for (const url of batch) {
-      try {
-        const response = await axios.post(
-          "https://api.firecrawl.dev/v2/scrape",
-          { url, formats: ["markdown"], onlyMainContent, waitFor },
-          {
-            headers: {
-              Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+      const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+      if (result.markdown) {
         results.push({
           url,
-          markdown: response.data?.data?.markdown,
-          metadata: response.data?.data?.metadata,
+          markdown: result.markdown,
+          metadata: result.metadata,
+          provider: result.provider,
         });
-      } catch (error: any) {
-        results.push({
-          url,
-          error: error.response?.data?.error || error.message,
-        });
+      } else {
+        results.push({ url, error: result.error || "Scrape failed", provider: result.provider });
       }
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 300));
     }
 
     res.json({ success: true, results });

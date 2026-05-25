@@ -24,38 +24,10 @@ import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
 import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
+import { HeroHandwritingTitle } from './HeroHandwritingTitle';
+import { animateScrollTo, waitMs } from '../lib/guidedScroll';
 
 const landingTerms = INDUSTRY_CONFIGS.default.terminology;
-
-const TypewriterText = ({ text, delay = 0, onComplete, className }: { text: string, delay?: number, onComplete?: () => void, className?: string }) => {
-  const [displayedText, setDisplayedText] = useState("");
-  
-  useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    let currentIndex = 0;
-    
-    const startTyping = () => {
-      timeout = setInterval(() => {
-        if (currentIndex < text.length) {
-          setDisplayedText(text.slice(0, currentIndex + 1));
-          currentIndex++;
-        } else {
-          clearInterval(timeout);
-          if (onComplete) onComplete();
-        }
-      }, 100); // typing speed
-    };
-
-    const initialDelay = setTimeout(startTyping, delay);
-    
-    return () => {
-      clearTimeout(initialDelay);
-      clearInterval(timeout);
-    };
-  }, [text, delay]);
-
-  return <span className={cn(className, 'inline')}>{displayedText}</span>;
-};
 
 const IMPORT_TABS = ['Discover', 'Fetch', 'Convert', 'Review', 'Advanced'] as const;
 
@@ -152,7 +124,7 @@ function CatalogueImportLandingPreview() {
             <div className="h-2 rounded-full bg-[#E9E9E7] dark:bg-[#3E3E3E] overflow-hidden">
               <div className="h-full w-[68%] bg-brand rounded-full" />
             </div>
-            <p className="text-[10px] text-[#787774]">Fetching markdown from Firecrawl… 29/42 pages</p>
+            <p className="text-[10px] text-[#787774]">Fetching markdown (Firecrawl → Crawlee → cloudscraper)… 29/42</p>
           </div>
         )}
         {activeTab === 'Convert' && (
@@ -511,64 +483,60 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
-  const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const tourAbortRef = useRef({ aborted: false });
+  const tourRunningRef = useRef(false);
 
   const { scrollYProgress } = useScroll({
     container: containerRef,
     target: footerRef,
-    offset: ["start end", "end end"]
+    offset: ['start end', 'center center'],
   });
 
-  const calloutScale = useTransform(scrollYProgress, [0, 1], [0.95, 1]);
-  const calloutRadius = useTransform(scrollYProgress, [0, 1], ["24px", "0px"]);
+  const calloutScale = useTransform(scrollYProgress, [0, 0.55, 1], [0.92, 0.98, 1]);
+  const calloutRadius = useTransform(scrollYProgress, [0, 1], ['28px', '0px']);
+  const calloutPadding = useTransform(scrollYProgress, [0, 1], ['2.5rem', '0px']);
 
-  const startAutoScroll = () => {
-    setIsAutoScrolling(true);
-    if (autoScrollIntervalRef.current) clearInterval(autoScrollIntervalRef.current);
-    
-    // Find current section index
-    const navSections = SECTIONS.filter(s => s.icon !== null);
-    let currentIdx = navSections.findIndex(s => s.id === activeSection);
-    if (currentIdx === -1) currentIdx = 0;
-
-    autoScrollIntervalRef.current = setInterval(() => {
-      currentIdx++;
-      if (currentIdx < navSections.length) {
-        scrollToSection(navSections[currentIdx].id);
-      } else {
-        // Scroll to footer at the end
-        if (footerRef.current && containerRef.current) {
-          containerRef.current.scrollTo({
-            top: footerRef.current.offsetTop,
-            behavior: 'smooth'
-          });
-        }
-        stopAutoScroll();
-      }
-    }, 4000);
+  const stopAutoScroll = () => {
+    tourAbortRef.current.aborted = true;
+    tourRunningRef.current = false;
+    setIsAutoScrolling(false);
   };
 
   const pauseAutoScroll = () => {
-    setIsAutoScrolling(false);
-    if (autoScrollIntervalRef.current) {
-      clearInterval(autoScrollIntervalRef.current);
-      autoScrollIntervalRef.current = null;
-    }
+    stopAutoScroll();
   };
 
-  const stopAutoScroll = () => {
-    setIsAutoScrolling(false);
-    if (autoScrollIntervalRef.current) {
-      clearInterval(autoScrollIntervalRef.current);
-      autoScrollIntervalRef.current = null;
-    }
-  };
+  const startAutoScroll = async () => {
+    const container = containerRef.current;
+    if (!container || tourRunningRef.current) return;
 
-  useEffect(() => {
-    return () => {
-      if (autoScrollIntervalRef.current) clearInterval(autoScrollIntervalRef.current);
-    };
-  }, []);
+    stopAutoScroll();
+    tourAbortRef.current = { aborted: false };
+    tourRunningRef.current = true;
+    setIsAutoScrolling(true);
+
+    const sections = SECTIONS.filter((s) => s.icon !== null);
+    const stops: { id: string; dwellMs: number; scrollMs: number }[] = [
+      ...sections.map((s, i) => ({
+        id: s.id,
+        scrollMs: 1200 + i * 80,
+        dwellMs: 2600,
+      })),
+      { id: 'footer-cta', scrollMs: 1800, dwellMs: 3200 },
+    ];
+
+    for (const stop of stops) {
+      if (tourAbortRef.current.aborted) break;
+      const el = document.getElementById(stop.id);
+      if (!el) continue;
+      if (stop.id !== 'footer-cta') setActiveSection(stop.id);
+      const targetTop = Math.max(0, el.offsetTop - (stop.id === 'footer-cta' ? 0 : 24));
+      await animateScrollTo(container, targetTop, stop.scrollMs, tourAbortRef.current);
+      await waitMs(stop.dwellMs, tourAbortRef.current);
+    }
+
+    stopAutoScroll();
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -702,7 +670,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
       </div>
 
       {/* Main Content */}
-      <main ref={containerRef} className="flex-1 overflow-y-auto scroll-smooth pb-24 md:pb-0">
+      <main ref={containerRef} className="flex-1 overflow-y-auto scroll-smooth snap-y snap-proximity pb-24 md:pb-0">
         <div className="max-w-5xl mx-auto px-6 md:px-12 py-12 md:py-24 space-y-24 md:space-y-40">
           
           {/* Hero Section */}
@@ -719,18 +687,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
               </div>
               
               <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] min-w-0">
-                <span className="inline-flex flex-nowrap items-baseline gap-0.5 max-w-full">
-                  <TypewriterText text="Sparks into substance" delay={0} className="text-gray-900 dark:text-white shrink min-w-0" />
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: [1, 1, 0, 0] }}
-                    transition={{ repeat: Infinity, duration: 1.1, ease: 'linear', times: [0, 0.45, 0.55, 1] }}
-                    className="inline-block text-brand shrink-0 translate-y-px font-light w-[0.55ch] text-center select-none"
-                    aria-hidden
-                  >
-                    |
-                  </motion.span>
-                </span>
+                <HeroHandwritingTitle className="block shrink min-w-0" />
               </h1>
               <p className="text-lg md:text-2xl text-secondary-safe max-w-2xl leading-relaxed">
                 One workspace for your calendar, {landingTerms.ideas.toLowerCase()}, local AI widgets, a website-to-catalogue importer, {landingTerms.assets}, and analytics—so you can ship consistent social content without tab chaos.
@@ -853,13 +810,18 @@ export function LandingView({ onLogin }: LandingViewProps) {
             })}
           </div>
 
-          <section ref={footerRef} className="py-24 md:py-40 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-            <motion.div 
-              style={{ 
+          <section
+            id="footer-cta"
+            ref={footerRef}
+            className="min-h-[100dvh] flex items-center justify-center py-8 md:py-12 border-t border-[#E9E9E7] dark:border-[#2E2E2E] snap-center snap-always"
+          >
+            <motion.div
+              style={{
                 scale: calloutScale,
-                borderRadius: calloutRadius
+                borderRadius: calloutRadius,
+                padding: calloutPadding,
               }}
-              className="bg-brand p-8 md:p-16 text-white text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 relative overflow-hidden min-h-[60vh] md:min-h-[80vh]"
+              className="bg-brand w-full text-white text-center md:text-left flex flex-col md:flex-row items-center justify-center md:justify-between gap-8 md:gap-12 relative overflow-hidden min-h-[min(100dvh,920px)] md:min-h-[100dvh]"
             >
               <div className="absolute inset-0 opacity-10 pointer-events-none">
                 <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
