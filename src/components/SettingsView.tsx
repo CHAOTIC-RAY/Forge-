@@ -5,7 +5,7 @@ import {
   Download, Save, Upload, RefreshCw, FileSpreadsheet, 
   Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
   Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2,
-  FileText, MessageSquareText, Box, Wand2, ExternalLink
+  FileText, MessageSquareText, Box, Wand2, ExternalLink, Boxes
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
@@ -17,6 +17,7 @@ import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
 import { builtInAi, BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
+import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
 import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection } from '../lib/gemini';
 
@@ -649,13 +650,13 @@ export function SettingsView({
         </button>
 
         <button 
-          onClick={() => setActiveTab?.('creative')}
+          onClick={() => setActiveTab?.('widgets')}
           className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
           <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-[12px] flex items-center justify-center text-purple-600 dark:text-purple-400 mb-1.5">
-            <Sparkles className="w-4 h-4" />
+            <Boxes className="w-4 h-4" />
           </div>
-          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Studio</span>
+          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</span>
         </button>
 
         <button 
@@ -1212,6 +1213,34 @@ export function SettingsView({
                               : BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'))?.description}
                           </p>
                         </div>
+                        {(() => {
+                          const modelId =
+                            aiSettings.builtinModelId === 'custom'
+                              ? null
+                              : aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+                          const budget = getContextBudget(modelId);
+                          const inputK = Math.round(budget.maxInputChars / 1000);
+                          const loadedBudget =
+                            builtInStatus.isLoaded && builtInStatus.maxInputChars
+                              ? builtInStatus.maxInputChars
+                              : budget.maxInputChars;
+                          return (
+                            <div className="p-3 rounded-[10px] bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-1">
+                              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wide">
+                                Context budget
+                              </p>
+                              <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+                                ~{inputK}k input chars ({budget.contextWindow.toLocaleString()} token window).
+                                Brand knowledge capped at {LOCAL_KNOWLEDGE_MAX_CHARS.toLocaleString()} chars for local AI.
+                              </p>
+                              {builtInStatus.isLoaded && (
+                                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                  Engine ready — up to ~{Math.round(loadedBudget / 1000)}k chars per request.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {aiSettings.builtinModelId === 'custom' && (

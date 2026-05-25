@@ -21,7 +21,7 @@ interface AnalyticsData {
   contentPillars: { pillar: string; performance: number }[];
 }
 
-export function AnalyticsTab({ setActiveTab }: { setActiveTab?: (tab: 'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook') => void }) {
+export function AnalyticsTab({ setActiveTab }: { setActiveTab?: (tab: 'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'widgets' | 'creative' | 'analytics' | 'ideas' | 'notebook') => void }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [viewMode, setViewMode] = useState<'summary' | 'timeline' | 'json'>('summary');

@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { ForgeLoader } from './ForgeLoader';
-import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings, Cpu, Terminal, Banana } from 'lucide-react';
+import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings, Cpu, Terminal, Banana, Lightbulb, ChevronDown } from 'lucide-react';
+import {
+  BUILTIN_WIDGET_CATALOG,
+  WIDGET_CATEGORY_LABELS,
+  getWidgetsByCategory,
+  type WidgetCategory,
+} from '../lib/widgetRegistry';
+import { WidgetOutputActions } from './WidgetOutputActions';
+import { saveTextToIdeasInbox } from '../lib/ideasInbox';
 import { ImageResizerTab } from './ImageResizerTab';
 import { LinkShortener } from './LinkShortener';
 import { NanoBananaUpscaler } from './NanoBananaUpscaler';
@@ -49,14 +57,14 @@ interface CustomWidget {
   code?: string;
 }
 
-interface CreativeStudioTabProps {
+export interface WidgetsTabProps {
   onSavePost?: (post: Post) => Promise<void>;
+  onDraftPost?: (partial: Partial<Post>) => void;
   userId?: string;
   activeBusiness?: Business | null;
-  onOpenSandbox?: () => void;
 }
 
-export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSandbox }: CreativeStudioTabProps) {
+export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: WidgetsTabProps) {
   const { config } = useWorkspaceConfig();
   const [activeWidget, setActiveWidget] = useState<WidgetType>(null);
   const [isPlaygroundOpen, setIsPlaygroundOpen] = useState(false);
@@ -358,6 +366,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
   const [generatedPosts, setGeneratedPosts] = useState<Partial<Post>[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [isSavingBulk, setIsSavingBulk] = useState(false);
+  const [isSavingBulkToIdeas, setIsSavingBulkToIdeas] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   // URL to Campaign State
   const [campaignUrl, setCampaignUrl] = useState('');
@@ -596,57 +606,28 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
     }
   };
 
-  const defaultWidgets = [
-    {
-      id: 'copywriting',
-      title: 'AI Copywriting',
-      description: 'Automatically write social media captions, blog posts, ad copy, and product descriptions.',
-      icon: <PenTool className="w-6 h-6 text-brand" />,
-      color: 'bg-brand-bg'
-    },
-    {
-      id: 'frameworks',
-      title: 'Marketing Frameworks',
-      description: 'Create copy optimized for standard marketing formulas like AIDA, PAS, and BAB.',
-      icon: <Target className="w-6 h-6 text-purple-500" />,
-      color: 'bg-purple-500/10'
-    },
-    {
-      id: 'resizer',
-      title: 'Image Resizer',
-      description: 'Quickly resize and crop images for different social media platforms.',
-      icon: <ImageIcon className="w-6 h-6 text-pink-500" />,
-      color: 'bg-pink-500/10'
-    },
-    {
-      id: 'bulk',
-      title: 'Bulk Content Generator',
-      description: 'Transform a topic into a week of content ideas instantly. (Available in AI Content Tab)',
-      icon: <Wand2 className="w-6 h-6 text-emerald-500" />,
-      color: 'bg-emerald-500/10'
-    },
-    {
-      id: 'urlToCampaign',
-      title: 'URL to Campaign',
-      description: 'Turn any blog post, news article, or webpage into a multi-platform social media campaign.',
-      icon: <Link className="w-6 h-6 text-orange-500" />,
-      color: 'bg-orange-500/10'
-    },
-    {
-      id: 'shortener',
-      title: 'Link Shortener',
-      description: 'Create trackable, branded short links for your marketing campaigns.',
-      icon: <Link2 className="w-6 h-6 text-indigo-500" />,
-      color: 'bg-indigo-500/10'
-    },
-    {
-      id: 'nano-upscaler',
-      title: 'Nano Banana Upscaler',
-      description: 'Advanced AI image upscaling using the Nano Banana model architecture.',
-      icon: <Banana className="w-6 h-6 text-yellow-500" />,
-      color: 'bg-yellow-500/10'
+  const defaultWidgets = BUILTIN_WIDGET_CATALOG;
+
+  const handleSaveBulkToIdeas = async () => {
+    if (!activeBusiness?.id || selectedIndices.length === 0) return;
+    setIsSavingBulkToIdeas(true);
+    try {
+      for (const idx of selectedIndices) {
+        const p = generatedPosts[idx];
+        const body = [p.title, p.caption, p.brief, p.hashtags].filter(Boolean).join('\n\n');
+        await saveTextToIdeasInbox(
+          activeBusiness.id,
+          p.title || 'Bulk idea',
+          body
+        );
+      }
+      toast.success(`Saved ${selectedIndices.length} ideas to Ideas inbox`);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save to Ideas');
+    } finally {
+      setIsSavingBulkToIdeas(false);
     }
-  ];
+  };
 
   const renderWidgetUI = (widgetId: string) => {
     if (widgetId === 'nano-upscaler') {
@@ -718,6 +699,12 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
                 <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
                   {copyResult}
                 </div>
+                <WidgetOutputActions
+                  text={copyResult}
+                  title="Copywriter output"
+                  activeBusiness={activeBusiness}
+                  onCreatePost={onDraftPost}
+                />
               </div>
             )}
           </div>
@@ -790,6 +777,12 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
                 <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
                   {frameworkResult}
                 </div>
+                <WidgetOutputActions
+                  text={frameworkResult}
+                  title={`${framework} copy`}
+                  activeBusiness={activeBusiness}
+                  onCreatePost={onDraftPost}
+                />
               </div>
             )}
           </div>
@@ -957,14 +950,24 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center justify-between px-1">
                   <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Generated Post Ideas</h4>
-                  <button
-                    onClick={handleSaveBulk}
-                    disabled={isSavingBulk || selectedIndices.length === 0}
-                    className="px-4 py-2 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-[12px] text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2 "
-                  >
-                    {isSavingBulk ? <ForgeLoader size={14} /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                    Save {selectedIndices.length} to Calendar
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleSaveBulk}
+                      disabled={isSavingBulk || selectedIndices.length === 0}
+                      className="px-4 py-2 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-[12px] text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {isSavingBulk ? <ForgeLoader size={14} /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      Save {selectedIndices.length} to Calendar
+                    </button>
+                    <button
+                      onClick={handleSaveBulkToIdeas}
+                      disabled={isSavingBulkToIdeas || selectedIndices.length === 0}
+                      className="px-4 py-2 border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 rounded-[12px] text-xs font-bold disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {isSavingBulkToIdeas ? <ForgeLoader size={14} /> : <Lightbulb className="w-3.5 h-3.5" />}
+                      Save to Ideas
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
@@ -1269,7 +1272,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
             <div className="p-4 border-b border-white/5 bg-[#0A0A0A]">
               <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 text-brand" />
-                AI Studio Chat
+                Widget builder chat
               </h4>
               <p className="text-[10px] text-white/40 mt-1">Describe the functionality you want to build.</p>
             </div>
@@ -1530,7 +1533,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
           className="flex items-center gap-2 text-sm font-bold text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors mb-6 w-fit"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to AI Studio
+          Back to Widgets
         </button>
 
         <div className="w-full">
@@ -1540,46 +1543,50 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
     );
   }
 
+  const categoryOrder: WidgetCategory[] = ['write', 'image', 'utility'];
+
   return (
     <div className="flex flex-col bg-transparent pb-20 md:pb-0 relative">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative p-6 md:p-12 border border-white/10 dark:border-white/5 bg-gradient-to-br from-brand/20 via-purple-500/10 to-transparent rounded-[24px] md:rounded-[32px] overflow-hidden mb-8 md:mb-12 group"
-      >
-        <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px]" />
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-brand/20 blur-[100px] rounded-full group-hover:bg-brand/30 transition-colors duration-700" />
-        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/10 blur-[100px] rounded-full group-hover:bg-purple-500/20 transition-colors duration-700" />
-        
-        <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-8">
-          <div className="flex items-center gap-4 md:gap-6">
-            <motion.div 
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-              className="w-12 h-12 md:w-16 md:h-16 bg-white dark:bg-white/10 backdrop-blur-xl rounded-[12px] md:rounded-[16px] flex items-center justify-center border border-white/20 shrink-0"
-            >
-              <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-brand" />
-            </motion.div>
+      <div className="shrink-0 p-4 md:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] mb-6 rounded-[16px]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 bg-brand/10 rounded-[14px] flex items-center justify-center">
+              <LayoutGrid className="w-6 h-6 text-brand" />
+            </div>
             <div>
-              <h2 className="text-2xl md:text-4xl font-black text-[#37352F] dark:text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand to-purple-500">
-                AI Studio
-              </h2>
-              <p className="text-sm md:text-base text-[#757681] dark:text-white/60 mt-1 md:mt-2 max-w-md leading-relaxed">
-                The ultimate playground for custom AI workflows. Build, pin, and automate your creative process.
+              <h2 className="text-xl md:text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</h2>
+              <p className="text-xs md:text-sm text-[#757681] dark:text-[#9B9A97]">
+                Built-in tools and custom workflows for your workspace.
               </p>
             </div>
           </div>
-          <button 
-            onClick={openPlayground}
-            className="w-full md:w-auto flex items-center justify-center gap-3 px-6 md:px-8 py-3 md:py-4 bg-brand text-white rounded-[12px] md:rounded-[16px] text-sm md:text-base font-black hover:scale-105 transition-all active:scale-95 group/btn"
+          <button
+            type="button"
+            onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E]"
           >
-            <Plus className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:rotate-90 transition-transform" />
-            Create New Widget
+            <Wand2 className="w-4 h-4 text-brand" />
+            Custom widget builder
+            <ChevronDown className={cn('w-4 h-4 transition-transform', isAdvancedOpen && 'rotate-180')} />
           </button>
         </div>
-      </motion.div>
+        {isAdvancedOpen && (
+          <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={openPlayground}
+              className="px-4 py-2 bg-brand text-white rounded-lg text-xs font-bold"
+            >
+              Open widget builder
+            </button>
+            <p className="text-[10px] text-[#757681] w-full">
+              Design prompt-based widgets with AI assistance. Published widgets appear under My widgets below.
+            </p>
+          </div>
+        )}
+      </div>
 
-      <div className="space-y-12">
+      <div className="space-y-10">
         {pinnedWidgetIds.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-center gap-3 mb-6">
@@ -1592,36 +1599,44 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
           </div>
         )}
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-1.5 h-6 bg-brand rounded-full" />
-            <h3 className="text-sm font-black text-[#757681] dark:text-white/40 uppercase tracking-[0.2em]">Available Modules</h3>
+        {categoryOrder.map((cat) => (
+          <div key={cat} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-1.5 h-5 bg-brand rounded-full" />
+              <h3 className="text-xs font-black text-[#757681] uppercase tracking-[0.2em]">
+                {WIDGET_CATEGORY_LABELS[cat]}
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {getWidgetsByCategory(cat).map((widget) => (
+                <div
+                  key={widget.id}
+                  onClick={() => setActiveWidget(widget.id as WidgetType)}
+                  className="group bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-5 cursor-pointer hover:border-brand transition-all flex flex-col"
+                >
+                  <div className={cn('w-11 h-11 rounded-[12px] flex items-center justify-center mb-3', widget.color)}>
+                    {widget.icon}
+                  </div>
+                  <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] mb-1 group-hover:text-brand">
+                    {widget.title}
+                  </h3>
+                  <p className="text-xs text-[#757681] flex-1">{widget.description}</p>
+                  <span className="text-[10px] font-bold text-brand mt-3 opacity-0 group-hover:opacity-100">
+                    Open tool →
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {defaultWidgets.map(widget => (
-              <div 
-                key={widget.id}
-                onClick={() => setActiveWidget(widget.id as WidgetType)}
-                className="group relative bg-white dark:bg-white/[0.03] backdrop-blur-sm border border-[#E9E9E7] dark:border-white/10 rounded-[24px] md:rounded-[28px] p-6 md:p-8 cursor-pointer hover:border-brand hover:shadow-2xl hover:shadow-brand/20 transition-all duration-500 flex flex-col overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className={cn("w-12 h-12 md:w-14 md:h-14 rounded-[16px] flex items-center justify-center mb-4 md:mb-6 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 relative z-10", widget.color)}>
-                  {widget.icon}
-                </div>
-                <h3 className="text-lg md:text-xl font-black text-[#37352F] dark:text-white mb-2 md:mb-3 group-hover:text-brand transition-colors relative z-10">{widget.title}</h3>
-                <p className="text-xs md:text-sm text-[#757681] dark:text-white/50 leading-relaxed flex-1 relative z-10">{widget.description}</p>
-                <div className="mt-4 md:mt-6 flex items-center justify-between relative z-10">
-                  <div className="text-[10px] md:text-xs font-black text-brand opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0 flex items-center gap-2">
-                    Launch Module <LayoutGrid className="w-3 h-3 md:w-4 md:h-4" />
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-[#F7F7F5] dark:bg-white/5 flex items-center justify-center group-hover:bg-brand group-hover:text-white transition-colors">
-                    <ArrowLeft className="w-4 h-4 rotate-180" />
-                  </div>
-                </div>
-              </div>
-            ))}
+        ))}
 
+        {customWidgets.length > 0 && (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-1.5 h-5 bg-amber-500 rounded-full" />
+              <h3 className="text-xs font-black text-[#757681] uppercase tracking-[0.2em]">My widgets</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {customWidgets.map(widget => (
               <div 
                 key={widget.id}
@@ -1666,9 +1681,13 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
                 </div>
               </div>
             ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
+
+/** @deprecated Use WidgetsTab */
+export const CreativeStudioTab = WidgetsTab;

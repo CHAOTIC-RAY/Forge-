@@ -9,6 +9,7 @@ import {
   ArrowRight,
   MessageSquare,
   Sparkles,
+  Boxes,
   Lightbulb,
   BarChart3,
   Database,
@@ -269,11 +270,11 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
               
               <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 sm:gap-4 pt-2">
                 <button 
-                  onClick={() => isAdmin ? setActiveTab('creative') : onHandleRequestAccess?.()}
+                  onClick={() => isAdmin ? setActiveTab('widgets') : onHandleRequestAccess?.()}
                   className="px-5 sm:px-6 py-3 bg-brand text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest hover:bg-brand-hover transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand/25 active:scale-95 min-h-[48px]"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  {isAdmin ? 'Use in AI Studio' : 'Request Access to Use'}
+                  <Boxes className="w-4 h-4" />
+                  {isAdmin ? 'Open in Widgets' : 'Request Access to Use'}
                 </button>
                 <button 
                   onClick={() => isAdmin ? setActiveTab('ideas') : onHandleRequestAccess?.()}
@@ -412,7 +413,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
                     <CalendarIcon className="w-10 h-10 text-[#757681]/30" />
                   </div>
                   <h4 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2">Clear Schedule</h4>
-                  <p className="text-sm text-[#757681] max-w-xs mx-auto mb-6">No posts scheduled for today. Use the AI Studio to generate some fresh content!</p>
+                  <p className="text-sm text-[#757681] max-w-xs mx-auto mb-6">No posts scheduled for today. Use Widgets to generate some fresh content!</p>
                   {isAdmin && (
                     <button 
                       onClick={onAddPost}
@@ -439,15 +440,15 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             <h3 className="text-xs font-black text-[#757681] uppercase tracking-[0.2em] px-1">Quick Actions</h3>
             <div className="grid grid-cols-1 gap-3">
               <button 
-                onClick={() => isAdmin ? setActiveTab('creative') : onHandleRequestAccess?.()}
+                onClick={() => isAdmin ? setActiveTab('widgets') : onHandleRequestAccess?.()}
                 className="p-5 bg-white dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all flex items-center gap-4 group text-left min-h-[44px]"
               >
                 <div className="w-12 h-12 rounded-[8px] bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
-                  <Sparkles className="w-6 h-6 text-purple-500" />
+                  <Boxes className="w-6 h-6 text-purple-500" />
                 </div>
                 <div>
-                  <span className="block text-sm font-black">AI Studio</span>
-                  <span className="text-xs text-[#757681]">Generate new content</span>
+                  <span className="block text-sm font-black">Widgets</span>
+                  <span className="text-xs text-[#757681]">Copy, images, and utility tools</span>
                 </div>
                 <ArrowRight className="w-4 h-4 ml-auto text-[#757681] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
               </button>

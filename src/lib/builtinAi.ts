@@ -24,6 +24,8 @@ export interface BuiltInAiStatus {
   message: string;
   error: string | null;
   modelId: string | null;
+  contextWindow?: number;
+  maxInputChars?: number;
 }
 
 export interface BuiltInModel {
@@ -144,6 +146,7 @@ class BuiltInAiService {
   private corsBlocked = false;
 
   getStatus(): BuiltInAiStatus {
+    const budget = getContextBudget(this.currentModelId);
     return {
       isLoaded: this.isLoaded,
       isLoading: this.isLoading,
@@ -151,7 +154,9 @@ class BuiltInAiService {
       progress: this.progress,
       message: this.message,
       error: this.error,
-      modelId: this.currentModelId
+      modelId: this.currentModelId,
+      contextWindow: budget.contextWindow,
+      maxInputChars: budget.maxInputChars,
     };
   }
 

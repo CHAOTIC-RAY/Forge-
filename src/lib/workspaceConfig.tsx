@@ -6,6 +6,8 @@ export interface WorkspaceConfig {
   modules: {
     showCalendar: boolean;
     showCreativeStudio: boolean;
+    /** Alias for showCreativeStudio — gates Widgets tab visibility */
+    showWidgets?: boolean;
     showAnalytics: boolean;
     showBrandKit: boolean;
     showInventory: boolean;
@@ -90,8 +92,12 @@ const INDUSTRY_PROFILES: Record<string, WorkspaceConfig> = {
   },
 };
 
+export type ResolvedWorkspaceConfig = WorkspaceConfig & {
+  modules: WorkspaceConfig['modules'] & { showWidgets: boolean };
+};
+
 interface WorkspaceContextType {
-  config: WorkspaceConfig;
+  config: ResolvedWorkspaceConfig;
   activeBusiness: Business | null;
 }
 
@@ -104,15 +110,19 @@ export function WorkspaceProvider({
   children: React.ReactNode; 
   activeBusiness: Business | null;
 }) {
-  const config = useMemo(() => {
-    if (!activeBusiness || !activeBusiness.industry) return DEFAULT_CONFIG;
-    
-    // Try to find a matching profile, or return default
-    const profile = Object.entries(INDUSTRY_PROFILES).find(([key]) => 
-      activeBusiness.industry?.toLowerCase().includes(key.toLowerCase())
-    );
-    
-    return profile ? profile[1] : DEFAULT_CONFIG;
+  const config = useMemo((): ResolvedWorkspaceConfig => {
+    const base =
+      !activeBusiness || !activeBusiness.industry
+        ? DEFAULT_CONFIG
+        : Object.entries(INDUSTRY_PROFILES).find(([key]) =>
+            activeBusiness.industry?.toLowerCase().includes(key.toLowerCase())
+          )?.[1] ?? DEFAULT_CONFIG;
+
+    const showWidgets = base.modules.showWidgets ?? base.modules.showCreativeStudio;
+    return {
+      ...base,
+      modules: { ...base.modules, showWidgets },
+    };
   }, [activeBusiness]);
 
   return (

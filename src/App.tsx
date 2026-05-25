@@ -31,7 +31,7 @@ import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import {
   Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2, Terminal, Wand2,
-  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box
+  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box, Boxes
 } from 'lucide-react';
 import { Type } from "@google/genai";
 
@@ -61,14 +61,12 @@ const ExportModal = React.lazy(() => import('./components/modals/ExportModal').t
 const ExcelImportModal = React.lazy(() => import('./components/modals/ExcelImportModal').then(m => ({ default: m.ExcelImportModal })));
 const BusinessModal = React.lazy(() => import('./components/modals/BusinessModal').then(m => ({ default: m.BusinessModal })));
 const AutoFillModal = React.lazy(() => import('./components/modals/AutoFillModal').then(m => ({ default: m.AutoFillModal })));
-const CreativeStudioTab = React.lazy(() => import('./components/CreativeStudioTab').then(m => ({ default: m.CreativeStudioTab })));
+const WidgetsTab = React.lazy(() => import('./components/CreativeStudioTab').then(m => ({ default: m.WidgetsTab })));
 const AnalyticsTab = React.lazy(() => import('./components/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
 const SettingsView = React.lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
 const BrandKitTab = React.lazy(() => import('./components/BrandKitTab').then(m => ({ default: m.BrandKitTab })));
 const IdeasTab = React.lazy(() => import('./components/IdeasTab').then(m => ({ default: m.IdeasTab })));
 const WorkspaceManagementTab = React.lazy(() => import('./components/WorkspaceManagementTab').then(m => ({ default: m.WorkspaceManagementTab })));
-const AiStudioTab = React.lazy(() => import('./components/AiStudioTab').then(m => ({ default: m.AiStudioTab })));
-
 function LazyModal({ isOpen, children }: { isOpen: boolean, children: () => React.ReactNode }) {
   const [hasRendered, setHasRendered] = React.useState(isOpen);
   React.useEffect(() => {
@@ -576,9 +574,9 @@ export default function App() {
   }, [activeBusiness, user, businesses]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'widgets' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
   const isIdeasTabActive = activeTab === 'ideas' || activeTab === 'notebook';
-  const [creativeView, setCreativeView] = useState<'modules' | 'sandbox'>('modules');
+  const isWidgetsTabActive = activeTab === 'widgets' || activeTab === 'creative';
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -2061,6 +2059,27 @@ export default function App() {
     setIsPostModalOpen(true);
   };
 
+  const openDraftPostFromWidget = (partial: Partial<Post>) => {
+    const draft: Post = {
+      id: uuidv4(),
+      date: format(new Date(), 'yyyy-MM-dd'),
+      title: partial.title || 'Widget draft',
+      brief: partial.brief || '',
+      caption: partial.caption || '',
+      hashtags: partial.hashtags || '',
+      type: partial.type || '🔴 General',
+      outlet: partial.outlet || activeBusiness?.name || 'All Outlets',
+      status: 'draft',
+      approvalStatus: 'draft',
+      images: partial.images || [],
+      isAiGenerated: true,
+      createdAt: new Date().toISOString(),
+    };
+    setSelectedPost(draft);
+    setSelectedDate(draft.date);
+    setIsPostModalOpen(true);
+  };
+
   const handleAutoFillSubmit = async (prompt: string, count: number) => {
     if (!activeBusiness) {
       toast.error("Please select a workspace first.");
@@ -3276,17 +3295,14 @@ export default function App() {
                               <Palette className="w-5 h-5 shrink-0" />
                             </button>
                             <button
-                              onClick={() => {
-                                setActiveTab('creative');
-                                setCreativeView('modules');
-                              }}
-                              title="AI Studio"
+                              onClick={() => setActiveTab('widgets')}
+                              title="Widgets"
                               className={cn(
                                 "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
-                                activeTab === 'creative' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                isWidgetsTabActive ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
-                              <Sparkles className="w-5 h-5 shrink-0" />
+                              <Boxes className="w-5 h-5 shrink-0" />
                             </button>
                             <button
                               onClick={() => setActiveTab('analytics')}
@@ -3346,10 +3362,10 @@ export default function App() {
                             </button>
                             <button
                               onClick={handleRequestAccess}
-                              title="Request Access to AI Studio"
+                              title="Request Access to Widgets"
                               className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
                             >
-                              <Sparkles className="w-5 h-5 shrink-0" />
+                              <Boxes className="w-5 h-5 shrink-0" />
                               <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
                             </button>
                             <button
@@ -3464,7 +3480,7 @@ export default function App() {
                                 {activeTab === 'schedule' && industryConfig.terminology.calendar}
                                 {activeTab === 'search' && industryConfig.terminology.products}
                                 {activeTab === 'brandkit' && industryConfig.terminology.assets}
-                                {activeTab === 'creative' && 'AI Studio'}
+                                {isWidgetsTabActive && 'Widgets'}
                                 {activeTab === 'analytics' && 'Insights & Analytics'}
                                 {isIdeasTabActive && 'Ideas'}
                                 {activeTab === 'more' && 'Settings'}
@@ -3564,18 +3580,13 @@ export default function App() {
                         )}
 
                         {isAdmin && (
-                          <LazyTab active={activeTab === 'creative'}>
-                            {() => creativeView === 'modules' ? (
-                              <CreativeStudioTab
+                          <LazyTab active={isWidgetsTabActive}>
+                            {() => (
+                              <WidgetsTab
                                 userId={user?.uid}
                                 activeBusiness={activeBusiness}
-                                onOpenSandbox={() => setCreativeView('sandbox')}
-                              />
-                            ) : (
-                              <AiStudioTab
-                                userId={user?.uid}
-                                activeBusiness={activeBusiness}
-                                onBack={() => setCreativeView('modules')}
+                                onSavePost={handleSavePost}
+                                onDraftPost={openDraftPostFromWidget}
                               />
                             )}
                           </LazyTab>
@@ -3815,7 +3826,7 @@ export default function App() {
                       { id: 'more', icon: Menu, title: 'More' }
                     ].map(tab => {
                       const Icon = tab.icon;
-                      const isSubTabActive = tab.id === 'more' && (['search', 'workspace_management', 'brandkit', 'creative', 'analytics', 'more'].includes(activeTab) || activeTab.startsWith('applet_'));
+                      const isSubTabActive = tab.id === 'more' && (['search', 'workspace_management', 'brandkit', 'widgets', 'creative', 'analytics', 'more'].includes(activeTab) || activeTab.startsWith('applet_'));
                       const isActive = activeTab === tab.id || isSubTabActive;
                       return (
                         <button

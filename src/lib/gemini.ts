@@ -4,6 +4,7 @@ import { vertexAI, auth, db } from './firebase';
 import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
+import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
 
 declare const puter: any;
 
@@ -356,7 +357,7 @@ function getLocalDbContextSnippet(): string {
   }
 }
 
-function withBusinessKnowledge(prompt: string): string {
+function withBusinessKnowledge(prompt: string, options?: { forLocal?: boolean }): string {
   const settings = getAiSettings();
   const blocks: string[] = [];
   if (settings.brandVoice) blocks.push(`BRAND VOICE:\n${settings.brandVoice}`);
@@ -366,10 +367,10 @@ function withBusinessKnowledge(prompt: string): string {
   const localDbContext = getLocalDbContextSnippet();
   if (localDbContext) blocks.push(`LOCAL DB CONTEXT:\n${localDbContext}`);
 
-  const maxChars = 4000;
+  const maxChars = options?.forLocal ? LOCAL_KNOWLEDGE_MAX_CHARS : 4000;
   let knowledge = blocks.join('\n\n');
   if (knowledge.length > maxChars) {
-    knowledge = `${knowledge.slice(0, maxChars)}\n\n[Knowledge truncated for local model stability]`;
+    knowledge = `${knowledge.slice(0, maxChars)}\n\n[Knowledge truncated to fit local model context limit]`;
   }
 
   if (!knowledge.trim()) return prompt;
@@ -518,16 +519,20 @@ export async function ensureLocalTextEngineReady(): Promise<void> {
 export async function generateAppText(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
   const settings = getAiSettings();
   const effectiveProvider = getEffectiveTextProvider(settings);
+  const forLocal = isLocalTextProvider(settings);
 
   let designContext = '';
   if (businessId) {
-    const guide = await fetchBrandKitDesignGuide(businessId);
+    let guide = await fetchBrandKitDesignGuide(businessId);
+    if (guide && forLocal && guide.length > 800) {
+      guide = `${guide.slice(0, 800)}\n[Design guide truncated for local AI context]`;
+    }
     if (guide) {
       designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE:\n${guide}\nRefer to the above guide for style, tone, and formatting consistency.\n`;
     }
   }
 
-  const contextualPrompt = withBusinessKnowledge(prompt + designContext);
+  const contextualPrompt = withBusinessKnowledge(prompt + designContext, { forLocal });
   const fullPrompt = expectJson ? `${contextualPrompt}\n\nYou MUST return ONLY a valid JSON object or array.` : contextualPrompt;
 
   // Try Built-in AI if selected or if auto mode is on and we want maximum free access
