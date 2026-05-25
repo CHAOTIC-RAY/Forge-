@@ -107,7 +107,7 @@ import {
   fetchServerConfig,
   generateAppJson,
   generateGenericText,
-  ensureLocalTextEngineReady,
+  ensureLocalAiEnginesReady,
   getEffectiveTextProvider,
 } from './lib/gemini';
 import { db, auth, storage, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
@@ -378,6 +378,7 @@ export default function App() {
   const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
   const [isCheckingShare, setIsCheckingShare] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [userOnboardingComplete, setUserOnboardingComplete] = useState<boolean | null>(null);
 
   const industryConfig = useMemo(() => getIndustryConfig(activeBusiness?.industry), [activeBusiness?.industry]);
   const brandKit = useAppStore(state => state.brandKit);
@@ -678,24 +679,13 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // Preload WebLLM only after sign-in when Built-in / WebGPU local mode is active
+  // Preload local text + vision models after sign-in (default provider is built-in)
   useEffect(() => {
     if (!user) return;
-    const effective = getEffectiveTextProvider(aiSettings);
-    const autoAllowsBuiltin =
-      effective === 'auto' &&
-      (aiSettings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini']).includes('builtin');
-    if (effective !== 'builtin' && !autoAllowsBuiltin) return;
-    ensureLocalTextEngineReady().catch((err) => {
-      console.warn('[App] Local model preload failed:', err);
+    ensureLocalAiEnginesReady().catch((err) => {
+      console.warn('[App] Local AI preload failed:', err);
     });
-  }, [
-    user,
-    aiSettings.preferredProvider,
-    aiSettings.builtinModelId,
-    aiSettings.geminiModel,
-    aiSettings.allowedAutoProviders,
-  ]);
+  }, [user, aiSettings.builtinModelId, aiSettings.builtinVisionModelId]);
 
   // Migration logic for 2003ray.dark@gmail.com
   // Migration completed. Legacy code removed.
@@ -863,9 +853,10 @@ export default function App() {
       setBusinesses(bizList);
       setLoadingBusinesses(false);
 
-      // If user has no businesses and we're not in view-only mode, show onboarding
-      if (bizList.length === 0 && !isViewOnly && !loadingBusinesses) {
-        setShowOnboarding(true);
+      if (!isViewOnly && !loadingBusinesses) {
+        const shouldOnboard =
+          bizList.length === 0 && userOnboardingComplete !== true;
+        setShowOnboarding(shouldOnboard);
       } else {
         setShowOnboarding(false);
       }
@@ -888,7 +879,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [user, isViewOnly, loading]);
+  }, [user, isViewOnly, loading, userOnboardingComplete]);
 
   useEffect(() => {
     if (activeBusiness && !isViewOnly) {
@@ -1541,10 +1532,15 @@ export default function App() {
 
       // Load AI Settings
       getDoc(userRef).then(docSnap => {
-        if (docSnap.exists() && docSnap.data().aiSettings) {
-          const syncedSettings = docSnap.data().aiSettings;
-          setAiSettingsState(syncedSettings);
-          setAiSettings(syncedSettings);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.aiSettings) {
+            setAiSettingsState(data.aiSettings);
+            setAiSettings(data.aiSettings);
+          }
+          setUserOnboardingComplete(data.onboardingComplete === true);
+        } else {
+          setUserOnboardingComplete(false);
         }
       }).catch(err => console.error("Failed to load AI settings", err));
 
@@ -3072,7 +3068,14 @@ export default function App() {
     e.target.value = '';
   };
 
-  const handleOnboardingComplete = async (data: Partial<Business> & { targetUrl?: string; theme?: string; geminiApiKey?: string }) => {
+  const handleOnboardingComplete = async (
+    data: Partial<Business> & {
+      targetUrl?: string;
+      theme?: string;
+      geminiApiKey?: string;
+      outletNames?: string;
+    }
+  ) => {
     if (!user) return;
     try {
       const bizId = uuidv4();
@@ -3086,10 +3089,27 @@ export default function App() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         shareToken: uuidv4(),
-        status: 'active'
+        status: 'active',
+        targetUrl: data.targetUrl,
       };
 
       await setDoc(doc(db, 'businesses', bizId), newBiz);
+
+      const outletNames = (data.outletNames || data.name || 'Main Store')
+        .split(/[,;\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const uniqueOutlets = [...new Set(outletNames)];
+      await setDoc(doc(db, 'categories', bizId), {
+        businessId: bizId,
+        categories: uniqueOutlets.map((name) => ({
+          id: uuidv4(),
+          name,
+          type: 'outlet',
+          enabled: true,
+        })),
+        updatedAt: new Date().toISOString(),
+      });
 
       // Initialize Brand Kit
       await setDoc(doc(db, 'brand_kits', bizId), {
@@ -3129,8 +3149,20 @@ export default function App() {
         localStorage.setItem('forge_theme_mode', data.theme);
       }
 
-      toast.success("Workspace created successfully!");
+      await setDoc(
+        doc(db, 'users', user.uid),
+        { onboardingComplete: true, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+      setUserOnboardingComplete(true);
+      setActiveBusiness(newBiz);
       setShowOnboarding(false);
+
+      ensureLocalAiEnginesReady()
+        .then(() => toast.success('Workspace ready — local AI models loaded.'))
+        .catch(() => toast.success('Workspace created — open Settings to finish loading local AI.'));
+
+      toast.success('Welcome to Forge!');
     } catch (error) {
       console.error("Failed to complete onboarding", error);
       toast.error("Failed to create workspace.");

@@ -11,6 +11,7 @@ import {
   signInWithRedirect,
 } from 'firebase/auth';
 import { MigrationTool } from './MigrationTool';
+import { toast } from 'sonner';
 
 type AuthMode = 'signIn' | 'signUp';
 

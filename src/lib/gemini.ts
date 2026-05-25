@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { getGenerativeModel } from 'firebase/vertexai';
 import { vertexAI, auth, db } from './firebase';
-import { collection, query, where, getDocs, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
 import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
@@ -616,6 +616,77 @@ export async function ensureBuiltinVisionReady(): Promise<void> {
   if (!status.visionIsLoaded && !status.visionIsLoading) {
     await builtInAi.initVision(visionId);
   }
+}
+
+export { ensureLocalAiEnginesReady } from './localAiBootstrap';
+
+/** Outlets / branches for vision matching (brand kit + workspace name). */
+export async function fetchBusinessOutlets(business?: Business | null): Promise<string[]> {
+  const names: string[] = [];
+  const add = (n?: string) => {
+    const t = n?.trim();
+    if (!t) return;
+    if (!names.some((x) => x.toLowerCase() === t.toLowerCase())) names.push(t);
+  };
+  add(business?.name);
+  if (business?.id) {
+    try {
+      const snap = await getDoc(doc(db, 'categories', business.id));
+      if (snap.exists()) {
+        const cats = snap.data().categories as
+          | Array<{ name: string; type?: string; enabled?: boolean }>
+          | undefined;
+        cats?.forEach((c) => {
+          if (c.enabled !== false && (!c.type || c.type === 'outlet')) add(c.name);
+        });
+      }
+    } catch (e) {
+      console.warn('[fetchBusinessOutlets]', e);
+    }
+  }
+  return names.length > 0 ? names : [business?.name?.trim() || 'Main Store'];
+}
+
+function resolveDetectedOutlet(
+  raw: string | undefined,
+  allowedOutlets: string[],
+  preferred?: string
+): string {
+  const preferredTrim = preferred?.trim();
+  const list =
+    allowedOutlets.length > 0
+      ? allowedOutlets
+      : preferredTrim
+        ? [preferredTrim]
+        : [];
+
+  const rawTrim = raw?.trim() || '';
+  if (!rawTrim) {
+    if (preferredTrim && list.some((a) => a.toLowerCase() === preferredTrim.toLowerCase())) {
+      return list.find((a) => a.toLowerCase() === preferredTrim.toLowerCase())!;
+    }
+    return list[0] || preferredTrim || '';
+  }
+
+  const lower = rawTrim.toLowerCase();
+  const exact = list.find((a) => a.toLowerCase() === lower);
+  if (exact) return exact;
+
+  const partial = list.find(
+    (a) => lower.includes(a.toLowerCase()) || a.toLowerCase().includes(lower)
+  );
+  if (partial) return partial;
+
+  const genericWrong = ['forge enterprises', 'forge', 'your brand', 'main channel'];
+  if (
+    genericWrong.some((g) => lower === g || lower.startsWith(g + ' ')) &&
+    !list.some((a) => genericWrong.includes(a.toLowerCase()))
+  ) {
+    return preferredTrim || list[0] || rawTrim;
+  }
+
+  if (list.some((a) => a.toLowerCase() === lower)) return rawTrim;
+  return preferredTrim || list[0] || rawTrim;
 }
 
 async function generateWithBuiltinVision(
@@ -1603,6 +1674,7 @@ function withImageAnalysisTimeout<T>(promise: Promise<T>, label: string): Promis
 type PostFromImageNormalizeOptions = {
   outlet?: string;
   businessName?: string;
+  allowedOutlets?: string[];
 };
 
 function normalizePostFromImageResult(
@@ -1616,7 +1688,20 @@ function normalizePostFromImageResult(
   let title = String(o.title ?? '').trim();
   const hashtags = String(o.hashtags ?? '').trim();
   const type = String(o.type ?? '🔴 General').trim() || '🔴 General';
-  const defaultOutlet = options?.outlet?.trim() || options?.businessName?.trim() || '';
+  const allowedOutlets =
+    options?.allowedOutlets?.length
+      ? options.allowedOutlets
+      : [options?.outlet, options?.businessName].filter(Boolean) as string[];
+  const preferredOutlet = options?.outlet?.trim() || options?.businessName?.trim() || '';
+  const contactNumber = String(o.contactNumber ?? o.outletPhone ?? o.phone ?? '').trim();
+  const outletEvidence = String(o.visibleOutletEvidence ?? o.outletEvidence ?? '').trim();
+
+  if (contactNumber && !brief.includes(contactNumber)) {
+    brief = brief ? `${brief}\nContact shown: ${contactNumber}` : `Contact shown in image: ${contactNumber}`;
+  }
+  if (outletEvidence && !brief.toLowerCase().includes(outletEvidence.toLowerCase().slice(0, 24))) {
+    brief = brief ? `${brief}\nBranding: ${outletEvidence}` : `Visible branding: ${outletEvidence}`;
+  }
 
   if (!caption && rawMessage) {
     caption = rawMessage;
@@ -1638,7 +1723,7 @@ function normalizePostFromImageResult(
     caption,
     hashtags,
     type,
-    outlet: String(o.outlet ?? '').trim() || defaultOutlet,
+    outlet: resolveDetectedOutlet(String(o.outlet ?? '').trim(), allowedOutlets, preferredOutlet),
   };
 }
 
@@ -1660,25 +1745,41 @@ function buildPostFromImagePrompt(
   designContext: string,
   isVideo: boolean,
   forLocal: boolean,
-  preferredOutlet?: string
+  preferredOutlet?: string,
+  allowedOutlets: string[] = []
 ): string {
   const mediaIntro = isVideo
     ? 'Analyze this 2x2 collage of video frames. Describe what happens across the sequence, then draft the post.'
-    : 'Analyze the attached image in detail. Describe products, text, mood, and setting you see, then draft the post from that content.';
+    : 'Analyze the attached image in detail. Read all visible text, logos, signage, packaging, uniforms, and storefront branding.';
+
+  const outletList =
+    allowedOutlets.length > 0
+      ? allowedOutlets.map((n) => `"${n}"`).join(', ')
+      : preferredOutlet
+        ? `"${preferredOutlet}"`
+        : '(use brand name only)';
 
   const core = `${mediaIntro}
 
 Brand: ${businessName} (${businessIndustry})${outletContext}
 ${designContext}
-${preferredOutlet ? `Preferred outlet: "${preferredOutlet}"` : 'Choose the best outlet name for this brand.'}
+
+OUTLET IDENTIFICATION (required):
+- Allowed outlet names (pick exactly one for the "outlet" field): ${outletList}
+- Look for outlet logos, branch names on signs, receipts, price tags, social handles, or watermarks in the image.
+- ${preferredOutlet ? `If branding for "${preferredOutlet}" is visible, use that outlet.` : 'Choose the outlet that best matches visible branding.'}
+- Do NOT use generic placeholders like "Forge Enterprises" unless that exact name is in the allowed list.
+- If a phone, WhatsApp, or tel. number is visible on signage or materials, put it in contactNumber and mention it in the brief.
 
 Return JSON with exactly these fields:
 - title (specific to the image; never use "New post from image")
-- brief (designer instructions referencing visible elements)
+- brief (designer instructions referencing visible products, signage, and outlet branding)
 - caption (full social caption; follow ALL business rules, brand voice, and mandatory suffixes from knowledge context)
 - hashtags (space-separated)
 - type (post category, e.g. "🔴 General" or industry-specific)
-- outlet (brand outlet name)
+- outlet (must be one of the allowed outlet names above)
+- visibleOutletEvidence (short note: what logo/sign/text identified the outlet)
+- contactNumber (phone/WhatsApp found in image, or empty string)
 
 You MUST return ONLY a valid JSON object.`;
 
@@ -1702,7 +1803,8 @@ async function generatePostFromImageTextFallback(
   designContext: string,
   isVideo: boolean,
   business?: Business,
-  preferredOutlet?: string
+  preferredOutlet?: string,
+  allowedOutlets: string[] = []
 ): Promise<Record<string, string>> {
   const settings = getAiSettings();
   const forLocal = usesLocalTextForImages(settings);
@@ -1721,7 +1823,8 @@ async function generatePostFromImageTextFallback(
       designContext,
       isVideo,
       forLocal,
-      preferredOutlet
+      preferredOutlet,
+      allowedOutlets
     ) + blindNote;
 
   const text = await generateAppText(prompt, true, business?.id, forLocal ? { forceLocal: true } : undefined);
@@ -1729,6 +1832,7 @@ async function generatePostFromImageTextFallback(
   return normalizePostFromImageResult(parsed, {
     outlet: preferredOutlet,
     businessName,
+    allowedOutlets,
   });
 }
 
@@ -1786,6 +1890,8 @@ async function generatePostFromImageWithVision(
           hashtags: { type: Type.STRING },
           type: { type: Type.STRING },
           outlet: { type: Type.STRING },
+          visibleOutletEvidence: { type: Type.STRING },
+          contactNumber: { type: Type.STRING },
         },
         required: ['title', 'brief', 'caption', 'hashtags', 'type', 'outlet'],
       },
@@ -1802,7 +1908,10 @@ export async function generatePostFromImage(
   business?: Business
 ) {
   const settings = getAiSettings();
-  const preferredOutlet = outlet?.trim() || business?.name?.trim();
+  const allowedOutlets = await fetchBusinessOutlets(business);
+  const preferredOutlet =
+    outlet?.trim() ||
+    (allowedOutlets.length === 1 ? allowedOutlets[0] : business?.name?.trim());
   const outletContext = preferredOutlet ? ` for the outlet "${preferredOutlet}"` : '';
   const businessName = business?.name?.trim() || 'your brand';
   const businessIndustry = business?.industry || 'professional business';
@@ -1810,6 +1919,7 @@ export async function generatePostFromImage(
   const normalizeOptions: PostFromImageNormalizeOptions = {
     outlet: preferredOutlet,
     businessName,
+    allowedOutlets,
   };
 
   let designContext = '';
@@ -1828,7 +1938,8 @@ export async function generatePostFromImage(
     designContext,
     !!isVideo,
     forLocal,
-    preferredOutlet
+    preferredOutlet,
+    allowedOutlets
   );
 
   const jsonHint = ' You MUST return ONLY a valid JSON object.';
@@ -1922,7 +2033,8 @@ export async function generatePostFromImage(
         designContext,
         !!isVideo,
         business,
-        preferredOutlet
+        preferredOutlet,
+        allowedOutlets
       ),
       forLocal ? 'Local AI post draft' : 'Text fallback'
     );
