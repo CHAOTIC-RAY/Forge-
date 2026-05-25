@@ -145,7 +145,7 @@ function IdeaCard({
       )}
       <div className="flex-1 min-w-0 py-0.5">
         <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold text-sm truncate text-[#37352F] dark:text-[#EBE9ED]">
+          <p className="font-semibold text-sm line-clamp-2 break-words text-[#37352F] dark:text-[#EBE9ED]">
             {block.title || 'Untitled idea'}
           </p>
           <span className="text-[9px] text-[#757681] shrink-0">{formatIdeaAge(block.createdAt)}</span>
@@ -916,7 +916,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
             onChange={(e) => updateBlock(selectedBlock.id, { title: e.target.value })}
             placeholder="Idea title"
             rows={1}
-            className="text-2xl md:text-3xl font-bold bg-transparent resize-none focus:outline-none w-full"
+            className="text-2xl md:text-3xl font-bold bg-transparent resize-none focus:outline-none w-full break-words"
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
               target.style.height = 'auto';
@@ -945,7 +945,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
                 value={selectedBlock.content || ''}
                 onChange={(e) => updateBlock(selectedBlock.id, { content: e.target.value })}
                 placeholder="Notes, caption draft, or angle..."
-                className="w-full min-h-[160px] text-sm leading-relaxed bg-[#F7F7F5] dark:bg-[#202020] rounded-xl p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] resize-none focus:outline-none focus:border-brand"
+                className="w-full min-h-[160px] text-sm leading-relaxed bg-[#F7F7F5] dark:bg-[#202020] rounded-xl p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] resize-none focus:outline-none focus:border-brand break-words"
               />
               {selectedBlock.metadata?.hashtags && (
                 <p className="text-xs text-brand font-medium">{selectedBlock.metadata.hashtags}</p>
@@ -967,7 +967,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
                     onClick={() => setSelectedBlockId(child.id)}
                     className="text-left p-3 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/40 transition-colors"
                   >
-                    <p className="font-bold text-sm truncate">{child.title}</p>
+                    <p className="font-bold text-sm break-words line-clamp-2">{child.title}</p>
                     <p className="text-xs text-[#757681] line-clamp-2">{child.content}</p>
                   </button>
                 ))}
@@ -1179,15 +1179,22 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
           </div>
         )}
 
-        <div
-          className={cn(
-            'flex-1 flex flex-col min-w-0 overflow-hidden',
-            selectedBlockId && 'hidden md:flex'
-          )}
-        >
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div
+            className={cn(
+              'flex-1 p-4 md:p-6 w-full min-w-0',
+              viewMode === 'board' && selectedBlockId ? 'overflow-x-auto overflow-y-hidden' : 'overflow-y-auto'
+            )}
+          >
             {viewMode === 'board' ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div
+                className={cn(
+                  'flex gap-4 min-h-[240px] pb-2',
+                  selectedBlockId
+                    ? 'w-max min-w-full md:min-w-[720px]'
+                    : 'w-full flex-col md:grid md:grid-cols-3'
+                )}
+              >
                 {(
                   [
                     {
@@ -1215,7 +1222,12 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
                 ).map((col) => (
                   <div
                     key={col.title}
-                    className="flex flex-col rounded-2xl glass-card min-h-[240px] max-h-[calc(100vh-280px)] overflow-hidden"
+                    className={cn(
+                      'flex flex-col rounded-2xl glass-card min-h-[240px] max-h-[calc(100vh-280px)] overflow-hidden',
+                      selectedBlockId
+                        ? 'w-[min(100%,280px)] shrink-0 md:w-[280px]'
+                        : 'min-w-0 w-full'
+                    )}
                   >
                     <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0 sticky top-0 z-10 bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-sm">
                       <div>
@@ -1262,7 +1274,9 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
 
         {selectedBlockId && (
           <>
-            <div className="hidden md:flex w-[min(100%,420px)] shrink-0">{detailPanel}</div>
+            <div className="hidden md:flex w-[min(100%,min(480px,40vw))] min-w-[300px] max-w-[480px] shrink-0 min-h-0 overflow-hidden">
+              {detailPanel}
+            </div>
             <div className="md:hidden fixed inset-0 z-50">{detailPanel}</div>
           </>
         )}

@@ -32,6 +32,7 @@ import {
   Hash,
   PenTool,
   Instagram,
+  RefreshCw,
 } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
@@ -411,11 +412,11 @@ function WidgetsLandingPreview() {
           </div>
           <div>
             <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</p>
-            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Local-first AI tools</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Built-in tools · more coming soon</p>
           </div>
         </div>
         <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
-          <Cpu className="w-3 h-3" /> WebLLM ready
+          <Cpu className="w-3 h-3" /> Local AI
         </span>
       </div>
 
@@ -520,9 +521,9 @@ function BrandKitLandingPreview() {
 function AnalyticsLandingPreview() {
   const bars = [42, 68, 55, 88, 72, 95, 61];
   const stats = [
-    { label: 'Engagement', value: '4.8%', delta: '+12%' },
-    { label: 'Best time', value: 'Tue 6pm', delta: 'IG' },
-    { label: 'Top format', value: 'Carousel', delta: '2.1×' },
+    { label: 'Posts / 30d', value: '24', delta: 'scheduled' },
+    { label: 'Top day', value: 'Tuesday', delta: '6 posts' },
+    { label: 'Top format', value: 'Carousel', delta: '42%' },
   ];
 
   return (
@@ -534,17 +535,12 @@ function AnalyticsLandingPreview() {
           </div>
           <div>
             <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Insights</p>
-            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Connected profiles</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">From your calendar — no API keys</p>
           </div>
         </div>
-        <div className="flex gap-1">
-          <span className="p-1.5 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-[#E9E9E7] dark:border-[#2E2E2E]">
-            <Instagram className="w-3.5 h-3.5 text-pink-500" />
-          </span>
-          <span className="p-1.5 rounded-lg bg-brand/10 border border-brand/20">
-            <Link2 className="w-3.5 h-3.5 text-brand" />
-          </span>
-        </div>
+        <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+          Free
+        </span>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
@@ -574,10 +570,10 @@ function AnalyticsLandingPreview() {
             <Sparkles className="w-3 h-3" /> AI summary
           </p>
           <p className="text-[9px] text-[#37352F] dark:text-[#EBE9ED] leading-relaxed flex-1">
-            Carousels outperform reels this month. Post Tue–Thu 6–8pm; lean into product close-ups.
+            You post most on Tue/Thu. Carousels lead your mix—consider one reel this week to balance formats.
           </p>
           <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> +18% vs last period
+            <TrendingUp className="w-3 h-3" /> From your calendar
           </span>
         </div>
       </div>
@@ -704,7 +700,7 @@ const SECTIONS: LandingSection[] = [
     icon: Sparkles,
     title: 'Widgets',
     description:
-      'Local-first AI widgets in the browser: draft captions, briefs, hashtags, and campaign copy without sending client data to the cloud unless you choose to.',
+      'Built-in AI widgets ship with the app—caption writer, hashtag packs, designer briefs, and hooks. Run locally in the browser when you want privacy; optional cloud models when you need more power. More widgets on the way.',
     color: 'text-amber-500',
     bg: 'bg-amber-500/10',
     bullets: [
@@ -716,12 +712,12 @@ const SECTIONS: LandingSection[] = [
       {
         icon: Wand2,
         label: 'Caption & brief tools',
-        text: 'Structured widgets for posts, hooks, hashtags, and designer briefs that paste into calendar cards.',
+        text: 'Ready-made widgets for posts, hooks, hashtags, and designer briefs—paste straight into calendar cards.',
       },
       {
-        icon: MessageSquare,
-        label: 'Chat-style drafting',
-        text: 'Iterate in conversation until the tone is right, then commit copy to a post in one click.',
+        icon: Sparkles,
+        label: 'More coming soon',
+        text: 'We are expanding the built-in library—no custom builder required; new tools land in your workspace automatically.',
       },
       {
         icon: Sparkles,
@@ -766,24 +762,29 @@ const SECTIONS: LandingSection[] = [
     icon: BarChart3,
     title: 'Insights & Analytics',
     description:
-      'Connect social profiles, run AI-assisted reviews of what is working, and turn performance patterns into clearer next steps for content and format choices.',
+      'Track how you are really showing up online using the posts already on your calendar—posting rhythm, formats, outlets, and themes—plus optional profile links. Free insights with no Meta API keys required.',
     color: 'text-green-500',
     bg: 'bg-green-500/10',
     bullets: [
       {
-        icon: Link2,
-        label: 'Profile linking',
-        text: 'Attach Instagram and Facebook URLs per workspace so analysis stays tied to the right brand.',
+        icon: CalendarIcon,
+        label: 'Calendar-native metrics',
+        text: 'Scheduled and published posts in your workspace drive charts—no third-party analytics subscription.',
       },
       {
         icon: TrendingUp,
-        label: 'Performance snapshots',
-        text: 'See engagement themes, posting rhythm, and format mix in one dashboard-style view.',
+        label: 'Rhythm & format mix',
+        text: 'See which days, outlets, and post types you use most so planning stays intentional.',
       },
       {
         icon: Sparkles,
-        label: 'AI recommendations',
-        text: 'Get narrative insights—not just numbers—on what to post more of and what to retire.',
+        label: 'Local AI summaries',
+        text: 'Optional narrative insights from your own data—built-in AI when you want a coach, not another dashboard login.',
+      },
+      {
+        icon: Link2,
+        label: 'Profile context (optional)',
+        text: 'Save Instagram or Facebook page URLs for reference; deep API pulls stay optional, not required.',
       },
       {
         icon: BarChart3,
@@ -801,6 +802,11 @@ const SECTIONS: LandingSection[] = [
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/10',
     bullets: [
+      {
+        icon: RefreshCw,
+        label: 'One-click sync',
+        text: 'Hit Sync to refresh from your site URL; open the panel for map, crawl, terminal logs, and advanced import.',
+      },
       {
         icon: Globe,
         label: 'Discover',

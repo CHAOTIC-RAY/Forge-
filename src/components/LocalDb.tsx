@@ -478,6 +478,20 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     }
   };
 
+  const handleQuickSync = async () => {
+    const url = (manualUrl || activeBusiness?.targetUrl || aiSettings.targetUrl || '').trim();
+    if (!url) {
+      toast.error('Add your website URL in Settings, or open import tools to enter one.');
+      setShowImportPanel(true);
+      return;
+    }
+    if (!manualUrl) {
+      setManualUrl(url);
+      setManualUrlInput(url);
+    }
+    await handleStartCrawl();
+  };
+
   const handleStartCrawl = async () => {
     if (!manualUrl) {
       toast.error("Please enter a URL to crawl.");
@@ -1250,20 +1264,36 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                 <Plus className="w-4 h-4" />
                 Add {catalogueLabels.itemSingular}
               </button>
-              <button
-                type="button"
-                onClick={() => setShowImportPanel(!showImportPanel)}
-                className={cn(
-                  'px-4 py-3 rounded-[12px] text-sm font-bold border min-h-[44px] flex items-center gap-2',
-                  showImportPanel
-                    ? 'bg-brand-bg border-brand text-brand'
-                    : 'bg-white dark:bg-[#191919] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
-                )}
-              >
-                <FileJson className="w-4 h-4" />
-                Import & sync
-                <ChevronDown className={cn('w-4 h-4 transition-transform', showImportPanel && 'rotate-180')} />
-              </button>
+              <div className="flex rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden min-h-[44px]">
+                <button
+                  type="button"
+                  onClick={handleQuickSync}
+                  disabled={isCrawling || isCheckingCounts}
+                  className={cn(
+                    'px-4 py-3 text-sm font-bold flex items-center gap-2 min-h-[44px]',
+                    'bg-brand text-white hover:bg-brand-hover disabled:opacity-50'
+                  )}
+                  title="Start catalogue sync from your site URL"
+                >
+                  <RefreshCw className={cn('w-4 h-4', (isCrawling || isCheckingCounts) && 'animate-spin')} />
+                  Sync
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowImportPanel(!showImportPanel)}
+                  className={cn(
+                    'px-3 py-3 border-l border-[#E9E9E7] dark:border-[#2E2E2E] min-h-[44px] flex items-center',
+                    showImportPanel
+                      ? 'bg-brand-bg text-brand'
+                      : 'bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#EBE9ED]'
+                  )}
+                  aria-expanded={showImportPanel}
+                  aria-label={showImportPanel ? 'Hide import tools' : 'Show import tools and terminal'}
+                  title="Import, map site, and view sync log"
+                >
+                  <ChevronDown className={cn('w-4 h-4 transition-transform', showImportPanel && 'rotate-180')} />
+                </button>
+              </div>
               {products.length > 0 && (
                 <>
                   <button

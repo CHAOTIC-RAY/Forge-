@@ -1080,9 +1080,6 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
             </div>
             {activeWidget === null && (
               <div className="flex items-center gap-2">
-                <button onClick={(e) => editWidget(customWidget, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Edit Widget">
-                  <PenTool className="w-4 h-4" />
-                </button>
                 <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
                 </button>
@@ -1252,296 +1249,6 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     return null;
   };
 
-  if (isPlaygroundOpen) {
-    const vars = extractVariables(newWidgetPrompt);
-    
-    return (
-      <div className="flex flex-col h-[calc(100vh-120px)] bg-black rounded-[32px] overflow-hidden border border-white/10 shadow-2xl shadow-indigo-500/10">
-        <div className="flex items-center justify-between p-6 bg-[#0A0A0A] border-b border-white/5">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-brand/10 rounded-[12px] flex items-center justify-center border border-brand/20">
-              <Wand2 className="w-5 h-5 text-brand" />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-white tracking-tight">Studio Builder</h3>
-              <p className="text-[10px] uppercase font-bold text-white/40 tracking-[0.2em]">Build & Design Mini-Apps</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsPlaygroundOpen(false)} 
-              className="px-6 py-2.5 text-sm font-bold text-white/40 hover:text-white transition-colors"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={handleCreateWidget}
-              className="flex items-center gap-2 px-6 py-2.5 bg-brand text-white rounded-[12px] text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-brand/20 active:scale-95"
-            >
-              <Save className="w-4 h-4" />
-              {editingWidgetId ? 'Update App' : 'Publish to Studio'}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
-          {/* Left Panel: Builder Chat */}
-          <div className="w-full md:w-1/2 flex flex-col border-r border-white/5 bg-[#000000]">
-            <div className="p-4 border-b border-white/5 bg-[#0A0A0A]">
-              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-brand" />
-                Widget builder chat
-              </h4>
-              <p className="text-[10px] text-white/40 mt-1">Describe the functionality you want to build.</p>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
-              {builderChatMessages.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                    <Cpu className="w-8 h-8 text-brand" />
-                  </div>
-                  <h4 className="text-white font-bold mb-2">Hello, I'm the Studio Architect</h4>
-                  <p className="text-xs text-white/40 max-w-[200px]">
-                    What kind of mini-app or AI workflow should we architect today?
-                  </p>
-                </div>
-              )}
-              {builderChatMessages.map((msg, i) => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  key={i} 
-                  className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}
-                >
-                  <div className={cn(
-                    "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                    msg.role === 'user' 
-                      ? "bg-brand text-white rounded-tr-none shadow-lg shadow-brand/10 border border-white/10" 
-                      : "bg-white/5 backdrop-blur-md text-white/90 rounded-tl-none border border-white/10"
-                  )}>
-                    {msg.content}
-                  </div>
-                </motion.div>
-              ))}
-              {isBuilderChatting && (
-                <div className="flex justify-start">
-                  <div className="bg-white/5 rounded-2xl rounded-tl-none px-4 py-3 border border-white/5">
-                    <div className="flex gap-1">
-                      <div className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce [animation-delay:-0.3s]" />
-                      <div className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce [animation-delay:-0.15s]" />
-                      <div className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="p-4 border-t border-white/5 bg-[#000000]">
-              <form 
-                onSubmit={handleBuilderChatSubmit}
-                className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 focus-within:border-brand/50 transition-all"
-              >
-                <input
-                  type="text"
-                  value={builderChatInput}
-                  onChange={(e) => setBuilderChatInput(e.target.value)}
-                  placeholder="Ask me to build a tool..."
-                  className="flex-1 px-3 py-2 bg-transparent text-sm outline-none text-white placeholder:text-white/20"
-                />
-                <button
-                  type="submit"
-                  disabled={isBuilderChatting || !builderChatInput.trim()}
-                  className="p-2.5 bg-brand text-white rounded-xl hover:scale-105 active:scale-95 disabled:opacity-50 transition-all shadow-lg shadow-brand/20"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Right Panel: Preview & Test */}
-          <div className="w-full md:w-1/2 overflow-hidden bg-[#0A0A0A] flex flex-col relative">
-            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-[#111111]">
-              <div className="flex bg-white/5 p-1 rounded-lg">
-                <button 
-                  onClick={() => setNewWidgetOutputType('html')}
-                  className={cn(
-                    "px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2",
-                    newWidgetOutputType === 'html' ? "bg-brand text-white shadow-lg" : "text-white/40 hover:text-white"
-                  )}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  App Preview
-                </button>
-                <button 
-                  onClick={() => setNewWidgetOutputType('text')}
-                  className={cn(
-                    "px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2",
-                    newWidgetOutputType !== 'html' ? "bg-brand text-white shadow-lg" : "text-white/40 hover:text-white"
-                  )}
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                  Configuration
-                </button>
-              </div>
-
-              {(isTyping || isBuilderChatting) && (
-                <div className="flex items-center gap-2 text-[10px] font-bold text-brand animate-pulse">
-                  <Cpu className="w-3 h-3" />
-                  {isTyping ? 'BUILDING LIVE...' : 'SYNTHESIZING...'}
-                </div>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {newWidgetOutputType === 'html' ? (
-                <div className="h-full flex flex-col">
-                  {displayedCode ? (
-                    <div className="flex-1 relative group">
-                      <iframe
-                        srcDoc={displayedCode}
-                        className="w-full h-full border-none bg-white"
-                        sandbox="allow-scripts allow-forms allow-popups allow-modals"
-                        title="App Preview"
-                      />
-                      {isTyping && (
-                        <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-[10px] font-mono text-brand flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 bg-brand rounded-full animate-ping" />
-                          UPDATING DOM...
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-[#050505]">
-                      <div className="w-20 h-20 bg-brand/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                        <Terminal className="w-10 h-10 text-brand" />
-                      </div>
-                      <h3 className="text-xl font-bold text-white mb-2">No App Generated Yet</h3>
-                      <p className="text-sm text-white/40 max-w-xs">
-                        Use the AI Chat on the left to describe the mini-app you want to build.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-6 space-y-8">
-                  {/* Configuration Form */}
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Title</label>
-                        <input 
-                          type="text" 
-                          value={newWidgetTitle}
-                          onChange={(e) => setNewWidgetTitle(e.target.value)}
-                          className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand transition-all text-white"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Type</label>
-                        <div className="flex gap-2 p-1 bg-white/5 border border-white/5 rounded-xl">
-                          {(['text', 'image', 'html'] as const).map(t => (
-                            <button
-                              key={t}
-                              onClick={() => setNewWidgetOutputType(t)}
-                              className={cn(
-                                "flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all",
-                                newWidgetOutputType === t ? "bg-white/10 text-white shadow-sm" : "text-white/40 hover:text-white"
-                              )}
-                            >
-                              {t.toUpperCase()}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Description</label>
-                      <input 
-                        type="text" 
-                        value={newWidgetDescription}
-                        onChange={(e) => setNewWidgetDescription(e.target.value)}
-                        className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand transition-all text-white"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between mb-1 ml-1">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Prompt Template</label>
-                        <button 
-                          onClick={refinePromptWithAi}
-                          disabled={isRefiningPrompt || !newWidgetPrompt}
-                          className="text-[10px] font-bold text-brand hover:underline flex items-center gap-1 disabled:opacity-50"
-                        >
-                          {isRefiningPrompt ? <ForgeLoader size={10} /> : <Sparkles className="w-3 h-3" />}
-                          Refine
-                        </button>
-                      </div>
-                      <textarea 
-                        value={newWidgetPrompt}
-                        onChange={(e) => setNewWidgetPrompt(e.target.value)}
-                        className="w-full h-32 p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand resize-none transition-all text-white font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Test Inputs */}
-                  <div className="pt-6 border-t border-white/5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Play className="w-4 h-4 text-emerald-500" />
-                      <h4 className="text-sm font-black text-white uppercase tracking-widest">Live Test Mode</h4>
-                    </div>
-
-                    <div className="space-y-6">
-                      {vars.length > 0 ? (
-                        <div className="space-y-4">
-                          {vars.map(v => (
-                            <div key={v}>
-                              <label className="block text-[10px] font-black text-white/40 uppercase tracking-widest ml-1 mb-1.5">{v}</label>
-                              <input
-                                type="text"
-                                value={playgroundTestInputs[v] || ''}
-                                onChange={(e) => setPlaygroundTestInputs(prev => ({ ...prev, [v]: e.target.value }))}
-                                className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-sm outline-none focus:border-brand transition-all text-white"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-xs text-white/40 bg-white/5 p-4 rounded-xl border border-white/5">
-                          No dynamic variables detected in prompt.
-                        </div>
-                      )}
-
-                      <button
-                        onClick={handleTestPlayground}
-                        disabled={isTestingPlayground || !newWidgetPrompt}
-                        className="flex items-center justify-center gap-2 w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all   active:scale-95 shadow-lg shadow-emerald-500/20"
-                      >
-                        {isTestingPlayground ? <ForgeLoader size={16} /> : <Play className="w-4 h-4 fill-current" />}
-                        Run Test
-                      </button>
-
-                      {playgroundTestResult && (
-                        <div className="bg-white/5 border border-white/10 rounded-xl p-5 ">
-                          <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-4">Execution Result</h4>
-                          <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-white/80">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {playgroundTestResult}
-                            </ReactMarkdown>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (activeWidget !== null) {
     return (
@@ -1574,34 +1281,14 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
             <div>
               <h2 className="text-xl md:text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</h2>
               <p className="text-xs md:text-sm text-[#757681] dark:text-[#9B9A97]">
-                Built-in tools and custom workflows for your workspace.
+                Built-in AI tools for captions, briefs, and campaign copy—more widgets coming soon.
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E]"
-          >
-            <Wand2 className="w-4 h-4 text-brand" />
-            Custom widget builder
-            <ChevronDown className={cn('w-4 h-4 transition-transform', isAdvancedOpen && 'rotate-180')} />
-          </button>
+          <span className="px-3 py-1.5 rounded-full bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wider shrink-0">
+            More coming soon
+          </span>
         </div>
-        {isAdvancedOpen && (
-          <div className="mt-4 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={openPlayground}
-              className="px-4 py-2 bg-brand text-white rounded-lg text-xs font-bold"
-            >
-              Open widget builder
-            </button>
-            <p className="text-[10px] text-[#757681] w-full">
-              Design prompt-based widgets with AI assistance. Published widgets appear under My widgets below.
-            </p>
-          </div>
-        )}
       </div>
 
       <div className="space-y-10">
@@ -1663,13 +1350,6 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-[-10px] group-hover:translate-y-0 z-20">
-                  <button 
-                    onClick={(e) => editWidget(widget, e)}
-                    className="p-2 text-brand hover:bg-brand-bg rounded-[12px] transition-all hover:scale-110"
-                    title="Edit Widget"
-                  >
-                    <PenTool className="w-4 h-4" />
-                  </button>
                   <button 
                     onClick={(e) => togglePinWidget(widget.id, e)}
                     className={cn("p-2 rounded-[12px] transition-all hover:scale-110", pinnedWidgetIds.includes(widget.id) ? "text-brand bg-brand-bg" : "text-[#757681] dark:text-white/40 hover:bg-[#F7F7F5] dark:hover:bg-white/10")}
