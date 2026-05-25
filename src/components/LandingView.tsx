@@ -873,7 +873,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const calloutRadius = useTransform(scrollYProgress, [0, 0.55, 0.8], ['28px', '16px', '0px']);
   const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
   const cardOpacity = useTransform(scrollYProgress, [0, 0.5, 0.72], [1, 1, 0]);
-  const fullBleedOpacity = useTransform(scrollYProgress, [0.48, 0.68, 0.88], [0, 0.55, 1]);
+  const fullBleedOpacity = useTransform(scrollYProgress, [0.38, 0.58, 0.82], [0, 0.7, 1]);
   const headlineSize = useTransform(scrollYProgress, [0, 0.75, 1], ['1.875rem', '2.25rem', '3rem']);
   const contentY = useTransform(scrollYProgress, [0.7, 1], [12, 0]);
   const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
@@ -882,8 +882,11 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const [ctaImmersive, setCtaImmersive] = useState(false);
   const [tourFocusId, setTourFocusId] = useState<string | null>(null);
 
+  const footerImmersive = ctaImmersive || tourFocusId === 'footer-cta';
+  const hideScribbleDecor = isAutoScrolling || !!tourFocusId || footerImmersive;
+
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    const immersive = v >= 0.72;
+    const immersive = v >= 0.65;
     setCtaImmersive(immersive);
     if (immersive) setActiveSection('footer-cta');
   });
@@ -925,14 +928,11 @@ export function LandingView({ onLogin }: LandingViewProps) {
       setTourFocusId(stop.id);
       if (stop.id !== 'footer-cta') setActiveSection(stop.id);
 
-      const targetTop =
-        stop.id === 'footer-cta'
-          ? Math.max(
-              0,
-              el.offsetTop + el.offsetHeight - container.clientHeight * 0.12
-            )
-          : Math.max(0, el.offsetTop - 32);
       const isLast = stop.id === 'footer-cta';
+      const targetTop = isLast
+        ? Math.max(0, container.scrollHeight - container.clientHeight)
+        : Math.max(0, el.offsetTop - 32);
+      if (isLast) setCtaImmersive(true);
       const scrollDelta = Math.abs(targetTop - container.scrollTop);
       await animateScrollTo(
         container,
@@ -946,6 +946,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
 
     setTourFocusId(null);
     stopAutoScroll();
+    if (containerRef.current) {
+      const maxTop =
+        containerRef.current.scrollHeight - containerRef.current.clientHeight;
+      if (containerRef.current.scrollTop >= maxTop - 8) {
+        setCtaImmersive(true);
+      }
+    }
   };
 
   useEffect(() => {
@@ -990,13 +997,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
     <div
       className={cn(
         'relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white',
-        ctaImmersive && 'bg-brand'
+        footerImmersive && 'bg-brand'
       )}
     >
-      {/* Full-viewport purple + grid on final scroll (breaks out of content width) */}
+      {/* Full-viewport brand + grid on final scroll (covers entire screen) */}
       <motion.div
-        className="fixed inset-0 z-[85] bg-brand pointer-events-none"
-        style={{ opacity: fullBleedOpacity }}
+        className="fixed inset-0 z-[90] bg-brand pointer-events-none"
+        style={{ opacity: footerImmersive ? 1 : fullBleedOpacity }}
         aria-hidden
       >
         <FooterCtaGrid className="opacity-[0.14]" />
@@ -1007,7 +1014,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
         style={{ opacity: sidebarOpacity, x: sidebarX }}
         className={cn(
           'fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto w-full md:w-16 h-[64px] md:h-full border-t md:border-t-0 md:border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] md:bg-[#F7F7F5] md:dark:bg-[#202020] flex md:flex-col items-center py-0 md:py-4 shrink-0 z-50 shadow-[0_-8px_24px_rgba(0,0,0,0.05)] md:shadow-none px-2 md:px-0 transition-[visibility] duration-300',
-          ctaImmersive && 'invisible md:w-0 md:min-w-0 md:border-0 md:p-0 md:overflow-hidden pointer-events-none'
+          footerImmersive && 'invisible md:w-0 md:min-w-0 md:border-0 md:p-0 md:overflow-hidden pointer-events-none'
         )}
       >
         <div className="hidden md:block mb-8">
@@ -1094,12 +1101,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
         </div>
       </motion.aside>
 
-      {/* Fixed Background Animation for all views */}
+      {/* Scribble flame — hero only; hidden during guided tour so it never covers feature copy */}
       <motion.div
-        style={{ opacity: decorOpacity }}
-        className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[600px] aspect-[210/339] opacity-10 md:opacity-20 dark:opacity-10 md:dark:opacity-20 pointer-events-none z-0"
+        style={{ opacity: hideScribbleDecor ? 0 : decorOpacity }}
+        className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[480px] aspect-[210/339] pointer-events-none z-[1] opacity-10 md:opacity-15"
+        aria-hidden
       >
-        <div className="w-full h-full scale-150 md:scale-100 origin-right">
+        <div className="w-full h-full scale-125 md:scale-90 origin-right translate-x-[8%]">
           <ScribbleFlame />
         </div>
       </motion.div>
@@ -1108,9 +1116,9 @@ export function LandingView({ onLogin }: LandingViewProps) {
       <main
         ref={containerRef}
         className={cn(
-          'flex-1 overflow-y-auto pb-24 md:pb-0 min-w-0',
+          'relative z-10 flex-1 overflow-y-auto pb-24 md:pb-0 min-w-0',
           !isAutoScrolling && 'scroll-smooth snap-y snap-proximity',
-          ctaImmersive && 'md:w-full'
+          footerImmersive && 'md:w-full'
         )}
       >
         <div className="max-w-5xl mx-auto px-6 md:px-12 py-12 md:py-24 space-y-24 md:space-y-40">
@@ -1207,25 +1215,16 @@ export function LandingView({ onLogin }: LandingViewProps) {
                 <section
                   key={section.id}
                   id={section.id}
-                  className={cn(
-                    'min-h-[50vh] flex flex-col justify-center py-10 rounded-3xl transition-shadow duration-500',
-                    tourFocusId === section.id &&
-                      'ring-2 ring-brand/50 ring-offset-4 ring-offset-[#F7F7F5] dark:ring-offset-[#202020]'
-                  )}
+                  className="relative z-10 min-h-[50vh] flex flex-col justify-center py-10 rounded-3xl"
                 >
                   <motion.div 
                     initial={{ opacity: 0, y: 50 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-20%" }}
                     transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-                    animate={
-                      tourFocusId === section.id
-                        ? { scale: [1, 1.01, 1], transition: { duration: 1.2, repeat: Infinity } }
-                        : { scale: 1 }
-                    }
-                    className={cn("flex flex-col items-center gap-12", index % 2 === 0 ? "lg:flex-row" : "lg:flex-row-reverse")}
+                    className={cn("relative z-10 flex flex-col items-center gap-12", index % 2 === 0 ? "lg:flex-row" : "lg:flex-row-reverse")}
                   >
-                    <div className="flex-1 space-y-6 max-w-2xl w-full">
+                    <div className="relative z-10 flex-1 space-y-6 max-w-2xl w-full">
                       <div className="flex items-center gap-4 mb-6">
                         <div className={cn("p-4 rounded-2xl shrink-0 shadow-sm", section.bg, section.color)}>
                           <ScribbleIcon Icon={Icon} className="w-8 h-8 md:w-10 md:h-10" />
@@ -1276,25 +1275,28 @@ export function LandingView({ onLogin }: LandingViewProps) {
           id="footer-cta"
           ref={footerRef}
           className={cn(
-            'relative min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden',
-            ctaImmersive ? 'py-0' : 'py-16 md:py-24',
-            tourFocusId === 'footer-cta' && 'ring-2 ring-white/30 ring-inset'
+            'relative z-10 min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden',
+            footerImmersive ? 'py-0 px-0' : 'py-16 md:py-24'
           )}
-          style={{ paddingLeft: sectionPadX, paddingRight: sectionPadX }}
+          style={
+            footerImmersive
+              ? undefined
+              : { paddingLeft: sectionPadX, paddingRight: sectionPadX }
+          }
         >
           {/* Bordered card — fades out as you scroll in */}
           <motion.div
             style={{
-              scale: calloutScale,
-              borderRadius: calloutRadius,
-              opacity: cardOpacity,
+              scale: footerImmersive ? 1 : calloutScale,
+              borderRadius: footerImmersive ? 0 : calloutRadius,
+              opacity: footerImmersive ? 0 : cardOpacity,
             }}
             className={cn(
-              'relative z-[90] w-full max-w-4xl lg:max-w-5xl mx-auto',
+              'relative z-[20] w-full max-w-4xl lg:max-w-5xl mx-auto',
               'bg-brand text-white overflow-hidden',
               'border border-white/25 shadow-[0_24px_80px_rgba(0,0,0,0.28)]',
               'ring-1 ring-inset ring-white/10',
-              ctaImmersive && 'pointer-events-none'
+              footerImmersive && 'pointer-events-none'
             )}
           >
             <FooterCtaGrid className="opacity-[0.12]" />
@@ -1321,13 +1323,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
 
           {/* Full-bleed copy (no card) — visible when purple fills the viewport */}
           <motion.div
-            style={{ opacity: fullBleedOpacity, y: contentY }}
-            className="absolute inset-0 z-[95] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 pointer-events-none"
+            style={{ opacity: footerImmersive ? 1 : fullBleedOpacity, y: contentY }}
+            className="absolute inset-0 z-[30] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 pointer-events-none text-white"
           >
             <div
               className={cn(
                 'flex flex-col items-center gap-8 md:gap-10 max-w-3xl w-full',
-                ctaImmersive ? 'pointer-events-auto' : 'pointer-events-none'
+                footerImmersive ? 'pointer-events-auto' : 'pointer-events-none'
               )}
             >
               <div className="space-y-4 md:space-y-5">
