@@ -17,8 +17,9 @@ How the Catalogue tab ingests website data into `HighStockProduct` records.
 - `POST /api/map` — Firecrawl v2 map (sitemap, up to 5000 URLs)
 - `POST /api/crawl` — Start crawl job; supports `includePaths`, `excludePaths`, `limit`, `scrapeOptions`
 - `GET /api/crawl/:id` — Poll crawl status and page markdown batches
-- `POST /api/firecrawl-scrape` — Single-page markdown scrape
-- `POST /api/firecrawl-scrape-batch` — Sequential batch scrape for selected URLs
+- `POST /api/firecrawl-scrape` — Single-page markdown scrape (provider chain: Firecrawl → Crawlee → cloudscraper → cheerio)
+- `POST /api/catalogue-scrape` — Same unified scrape pipeline (explicit alias)
+- `POST /api/firecrawl-scrape-batch` — Sequential batch scrape with the same fallback chain per URL
 
 ## Client modules
 
