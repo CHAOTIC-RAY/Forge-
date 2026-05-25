@@ -303,6 +303,7 @@ export function getDefaultAiSettings() {
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
     builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
+    builtinVisionModelId: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
     customModelUrl: '',
     customModelConfig: null,
     allowedAutoProviders: ['builtin', 'local_proxy', 'groq', 'gemini'],
@@ -358,6 +359,7 @@ export const getAiSettings = () => {
       if (!parsed.imageProvider) parsed.imageProvider = 'builtin';
       if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
       if (!parsed.builtinModelId) parsed.builtinModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
+      if (!parsed.builtinVisionModelId) parsed.builtinVisionModelId = 'Phi-3.5-vision-instruct-q4f16_1-MLC';
       if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'local_proxy', 'groq', 'gemini'];
       if (!parsed.brandVoice) parsed.brandVoice = '';
       if (!parsed.businessRules) parsed.businessRules = '';
@@ -380,6 +382,7 @@ export const getAiSettings = () => {
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
     builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
+    builtinVisionModelId: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
     customModelUrl: '',
     customModelConfig: null,
     allowedAutoProviders: ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'],
@@ -589,6 +592,43 @@ export async function ensureLocalTextEngineReady(): Promise<void> {
   if (!status.isLoaded && !status.isLoading) {
     await builtInAi.init(settings.builtinModelId || 'Phi-3-mini-4k-instruct-q4f16_1-MLC');
   }
+}
+
+export function isBuiltinVisionPreferred(settings = getAiSettings()): boolean {
+  return (
+    settings.imageProvider === 'builtin' ||
+    settings.preferredProvider === 'builtin' ||
+    usesLocalTextForImages(settings)
+  );
+}
+
+export function canUseBuiltinWebGpuVision(): boolean {
+  return typeof navigator !== 'undefined' && !!(navigator as Navigator & { gpu?: unknown }).gpu;
+}
+
+/** Preload WebLLM Phi-3.5 Vision for local image understanding. */
+export async function ensureBuiltinVisionReady(): Promise<void> {
+  const settings = getAiSettings();
+  if (!canUseBuiltinWebGpuVision()) return;
+  const builtInAi = await getBuiltInAi();
+  const visionId = settings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC';
+  const status = builtInAi.getStatus();
+  if (!status.visionIsLoaded && !status.visionIsLoading) {
+    await builtInAi.initVision(visionId);
+  }
+}
+
+async function generateWithBuiltinVision(
+  promptText: string,
+  base64Data: string,
+  mimeType: string
+): Promise<string> {
+  const settings = getAiSettings();
+  const visionId = settings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC';
+  const dataUrl = `data:${mimeType};base64,${base64Data}`;
+  const builtInAi = await getBuiltInAi();
+  await builtInAi.initVision(visionId);
+  return builtInAi.generateWithVision(promptText, [dataUrl]);
 }
 
 /**
@@ -1666,9 +1706,12 @@ async function generatePostFromImageTextFallback(
 ): Promise<Record<string, string>> {
   const settings = getAiSettings();
   const forLocal = usesLocalTextForImages(settings);
-  const blindNote = forLocal
-    ? '\n\nNote: Local AI cannot see image pixels. Use brand knowledge and any filename/context hints; still return complete title, brief, and caption JSON—not placeholders.'
-    : '';
+  const blindNote =
+    forLocal && !canUseBuiltinWebGpuVision()
+      ? '\n\nNote: WebGPU is unavailable—local text cannot see the image. Return complete JSON from brand knowledge only.'
+      : forLocal
+        ? '\n\nNote: Local vision was unavailable; infer from brand knowledge and return complete title, brief, and caption JSON.'
+        : '';
 
   const prompt =
     buildPostFromImagePrompt(
@@ -1788,6 +1831,29 @@ export async function generatePostFromImage(
     preferredOutlet
   );
 
+  const jsonHint = ' You MUST return ONLY a valid JSON object.';
+
+  if (isBuiltinVisionPreferred(settings) && canUseBuiltinWebGpuVision()) {
+    try {
+      const raw = await withImageAnalysisTimeout(
+        generateWithBuiltinVision(promptText + jsonHint, base64Data, mimeType),
+        'WebLLM vision'
+      );
+      const result = normalizePostFromImageResult(
+        safeParseJSON(raw || '{}') as Record<string, unknown> | null,
+        normalizeOptions
+      );
+      if (
+        result.caption?.trim() ||
+        (result.title && !/^(image post draft|new post from image)$/i.test(result.title))
+      ) {
+        return result;
+      }
+    } catch (error) {
+      console.warn('[generatePostFromImage] WebLLM vision failed:', error);
+    }
+  }
+
   const visionOrder: Array<'puter' | 'groq' | 'firebase' | 'gemini'> = [];
   const pref = settings.preferredProvider;
 
@@ -1841,7 +1907,9 @@ export async function generatePostFromImage(
   if (!visionAttempted && !visionAvailable && forLocal) {
     notifyFallback(
       'Local AI image draft',
-      'No vision API configured—drafting from Knowledge Center only. Add Gemini or Groq in Settings for true image analysis.'
+      canUseBuiltinWebGpuVision()
+        ? 'Local vision model failed—drafting from Knowledge Center. Retry or add Gemini/Groq as fallback.'
+        : 'WebGPU required for local vision—drafting from Knowledge Center only, or add Gemini/Groq in Settings.'
     );
   }
 
@@ -1915,6 +1983,19 @@ async function runVisionTextPrompt(
   if (!parsed) return null;
 
   const jsonHint = ' You MUST return ONLY valid JSON.';
+
+  if (isBuiltinVisionPreferred(settings) && canUseBuiltinWebGpuVision()) {
+    try {
+      const raw = await withImageAnalysisTimeout(
+        generateWithBuiltinVision(promptText + jsonHint, parsed.base64, parsed.mimeType),
+        'WebLLM vision'
+      );
+      if (raw?.trim()) return raw;
+    } catch (err) {
+      console.warn('[runVisionTextPrompt] WebLLM vision failed:', err);
+    }
+  }
+
   const order = buildVisionProviderOrder(settings);
   const tried = new Set<string>();
 

@@ -16,7 +16,7 @@ import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
-import { BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
+import { BuiltInAiStatus, BUILTIN_MODELS, BUILTIN_VISION_MODELS } from '../lib/builtinAi';
 import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
 import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
@@ -1310,6 +1310,34 @@ export function SettingsView({
                         })()}
                       </div>
 
+                      <div className="space-y-2 pt-2 border-t border-indigo-200/60 dark:border-indigo-900/40">
+                        <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">
+                          Local vision model (image analysis)
+                        </label>
+                        <select
+                          value={aiSettings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC'}
+                          onChange={(e) => handleAiSettingChange('builtinVisionModelId', e.target.value)}
+                          className="w-full p-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
+                        >
+                          {BUILTIN_VISION_MODELS.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name} ({m.size})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+                          {BUILTIN_VISION_MODELS.find(
+                            (m) => m.id === (aiSettings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC')
+                          )?.description}{' '}
+                          Used when you drop images on the calendar, analyse posts, or brainstorm from photos—runs in-browser via WebGPU (Phi-3.5 Vision).
+                        </p>
+                        {builtInStatus.visionIsLoaded && (
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            Vision engine ready ({builtInStatus.visionModelId})
+                          </p>
+                        )}
+                      </div>
+
                       {aiSettings.builtinModelId === 'custom' && (
                         <div className="space-y-3 p-3 bg-white dark:bg-[#1A1A1A] border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] animate-in zoom-in-95 duration-200">
                           <div className="space-y-1.5">
@@ -1916,7 +1944,7 @@ export function SettingsView({
                   : aiSettings.imageProvider === 'puter' 
                     ? 'Using Puter.js for image generation.' 
                     : aiSettings.imageProvider === 'builtin'
-                      ? 'Local AI refines prompts, then Flux generates the image.'
+                      ? 'Phi-3.5 Vision (WebLLM) understands images locally; generation still uses your image provider below when creating assets.'
                       : aiSettings.imageProvider === 'auto'
                         ? 'Tries local orchestration first, then Pollination, then cloud.'
                         : 'Using Gemini Flash Image for high-quality, prompt-aligned images.'}

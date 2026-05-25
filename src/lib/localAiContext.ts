@@ -25,6 +25,8 @@ export const LOCAL_MODEL_CONTEXT: Record<string, number> = {
   'Gemma-2-2b-it-q4f16_1-MLC': 8192,
   'Llama-3.1-8B-Instruct-q4f32_1-MLC': 4096,
   'Mistral-7B-Instruct-v0.3-q4f16_1-MLC': 4096,
+  'Phi-3.5-vision-instruct-q4f16_1-MLC': 4096,
+  'Phi-3.5-vision-instruct-q4f32_1-MLC': 4096,
 };
 
 export function getContextBudget(modelId: string | null): LocalAiContextBudget {

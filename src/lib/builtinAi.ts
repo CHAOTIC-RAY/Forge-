@@ -9,10 +9,15 @@ import {
   truncateMessagesForLocalAi,
   truncatePromptText,
 } from './localAiContext';
-import { BUILTIN_MODELS, type BuiltInModel } from './builtinModels';
+import {
+  BUILTIN_MODELS,
+  BUILTIN_VISION_MODELS,
+  DEFAULT_BUILTIN_VISION_MODEL_ID,
+  type BuiltInModel,
+} from './builtinModels';
 
 export type { BuiltInModel };
-export { BUILTIN_MODELS };
+export { BUILTIN_MODELS, BUILTIN_VISION_MODELS, DEFAULT_BUILTIN_VISION_MODEL_ID };
 
 /**
  * Built-in AI Service (Modernized with WebLLM)
@@ -29,6 +34,9 @@ export interface BuiltInAiStatus {
   modelId: string | null;
   contextWindow?: number;
   maxInputChars?: number;
+  visionModelId?: string | null;
+  visionIsLoaded?: boolean;
+  visionIsLoading?: boolean;
 }
 
 // ─── Chrome Built-in AI (Prompt API) ────────────────────────────────────────
@@ -63,6 +71,8 @@ type WebLlmModule = typeof import('@mlc-ai/web-llm');
 class BuiltInAiService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private engine: any = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private visionEngine: any = null;
   private webllmModule: WebLlmModule | null = null;
 
   private async loadWebLlm(): Promise<WebLlmModule> {
@@ -72,6 +82,9 @@ class BuiltInAiService {
     return this.webllmModule;
   }
   private currentModelId: string | null = null;
+  private visionModelId: string | null = null;
+  private visionIsLoading = false;
+  private visionIsLoaded = false;
   private isLoading = false;
   private isProcessing = false;
   private isLoaded = false;
@@ -87,7 +100,7 @@ class BuiltInAiService {
     const budget = getContextBudget(this.currentModelId);
     return {
       isLoaded: this.isLoaded,
-      isLoading: this.isLoading,
+      isLoading: this.isLoading || this.visionIsLoading,
       isProcessing: this.isProcessing,
       progress: this.progress,
       message: this.message,
@@ -95,6 +108,9 @@ class BuiltInAiService {
       modelId: this.currentModelId,
       contextWindow: budget.contextWindow,
       maxInputChars: budget.maxInputChars,
+      visionModelId: this.visionModelId,
+      visionIsLoaded: this.visionIsLoaded,
+      visionIsLoading: this.visionIsLoading,
     };
   }
 
@@ -148,6 +164,13 @@ class BuiltInAiService {
       this.engine.unload();
       this.engine = null;
     }
+    if (this.visionEngine) {
+      this.visionEngine.unload();
+      this.visionEngine = null;
+    }
+    this.visionModelId = null;
+    this.visionIsLoaded = false;
+    this.visionIsLoading = false;
     this.isLoading = false;
     this.isLoaded = false;
     this.progress = 0;
@@ -155,6 +178,111 @@ class BuiltInAiService {
     this.error = null;
     this.corsBlocked = false;
     this.notify();
+  }
+
+  async initVision(modelId: string = DEFAULT_BUILTIN_VISION_MODEL_ID) {
+    const normalizedId = normalizeBuiltinModelId(modelId);
+    if (this.visionIsLoading) return;
+    if (this.visionIsLoaded && this.visionModelId === normalizedId) return;
+
+    if (this.visionEngine && this.visionModelId !== normalizedId) {
+      this.visionEngine.unload();
+      this.visionEngine = null;
+      this.visionIsLoaded = false;
+    }
+
+    this.visionIsLoading = true;
+    this.message = `Loading vision model (${normalizedId})…`;
+    this.notify();
+
+    try {
+      if (!(navigator as Navigator & { gpu?: unknown }).gpu) {
+        throw new Error('WebGPU is required for local vision. Enable hardware acceleration in your browser.');
+      }
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const engineConfig: Record<string, unknown> = {
+        initProgressCallback: (report: { text?: string; progress?: number }) => {
+          this.message = report.text ? `Vision: ${report.text}` : 'Loading vision model…';
+          this.progress = Math.round((report.progress ?? 0) * 100);
+          this.notify();
+        },
+        appConfig: await buildProxiedWebLlmAppConfig(origin),
+      };
+
+      const webllm = await this.loadWebLlm();
+      this.visionEngine = await webllm.CreateMLCEngine(normalizedId, engineConfig);
+      this.visionModelId = normalizedId;
+      this.visionIsLoaded = true;
+      this.message = 'Local vision model ready';
+      console.log(`[BuiltInAI] Vision model ${normalizedId} loaded.`);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load local vision model.';
+      this.error = errorMsg;
+      console.error('[BuiltInAI] Vision init failed:', err);
+      throw new Error(errorMsg);
+    } finally {
+      this.visionIsLoading = false;
+      this.notify();
+    }
+  }
+
+  /**
+   * Multimodal inference (Phi-3.5 Vision). Pass one or more data:image URLs or https image URLs.
+   */
+  async generateWithVision(prompt: string, imageUrls: string[]): Promise<string> {
+    if (!imageUrls.length) {
+      throw new Error('At least one image URL is required for vision.');
+    }
+
+    const previous = this.pendingRequest;
+    let resolveLock: (val: unknown) => void;
+    this.pendingRequest = new Promise((resolve) => {
+      resolveLock = resolve;
+    });
+
+    try {
+      await previous;
+      this.isProcessing = true;
+      this.notify();
+
+      const visionId = this.visionModelId || DEFAULT_BUILTIN_VISION_MODEL_ID;
+      if (!this.visionIsLoaded || !this.visionEngine) {
+        await this.initVision(visionId);
+      }
+      if (!this.visionEngine) {
+        throw new Error(this.error || 'Local vision engine not ready.');
+      }
+
+      const budget = getContextBudget(visionId);
+      const textPrompt = truncatePromptText(prompt, Math.floor(budget.maxInputChars * 0.65));
+
+      const imageParts = imageUrls.slice(0, 4).map((url) => ({
+        type: 'image_url' as const,
+        image_url: { url },
+      }));
+
+      const response = await this.visionEngine.chat.completions.create({
+        messages: [
+          { role: 'system', content: BUILTIN_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [...imageParts, { type: 'text' as const, text: textPrompt }],
+          },
+        ],
+        stream: false,
+        temperature: 0.35,
+        max_tokens: Math.min(1536, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
+      });
+
+      const content = response?.choices?.[0]?.message?.content;
+      if (typeof content === 'string') return content;
+      return '';
+    } finally {
+      this.isProcessing = false;
+      this.notify();
+      resolveLock!(null);
+    }
   }
 
   async init(modelId: string = 'Phi-3-mini-4k-instruct-q4f16_1-MLC', customConfig?: any) {

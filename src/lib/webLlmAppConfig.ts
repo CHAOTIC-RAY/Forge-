@@ -1,4 +1,4 @@
-import { BUILTIN_MODEL_IDS } from './builtinModels';
+import { BUILTIN_MODEL_IDS, BUILTIN_VISION_MODEL_IDS } from './builtinModels';
 
 const ALLOWED_REPO_PREFIX = 'mlc-ai/';
 
@@ -44,7 +44,7 @@ export async function buildProxiedWebLlmAppConfig(origin?: string) {
     (typeof window !== 'undefined' ? window.location.origin : '');
 
   const model_list = prebuiltAppConfig.model_list
-    .filter((r) => BUILTIN_MODEL_IDS.has(r.model_id))
+    .filter((r) => BUILTIN_MODEL_IDS.has(r.model_id) || BUILTIN_VISION_MODEL_IDS.has(r.model_id))
     .map((r) => cloneModelRecord(r, baseOrigin));
 
   return {

@@ -11,6 +11,8 @@ export interface BuiltInModel {
   recommendedDatasetMax: number;
   expectedTuneMinutes: string;
   supportsAdvancedTuning?: boolean;
+  /** Multimodal (image + text) via WebLLM VLM */
+  supportsVision?: boolean;
 }
 
 export const BUILTIN_MODELS: BuiltInModel[] = [
@@ -80,3 +82,38 @@ export const BUILTIN_MODELS: BuiltInModel[] = [
 ];
 
 export const BUILTIN_MODEL_IDS = new Set(BUILTIN_MODELS.map((m) => m.id));
+
+/** WebLLM vision-language models (Phi-3.5 Vision) for in-browser image analysis */
+export const BUILTIN_VISION_MODELS: BuiltInModel[] = [
+  {
+    id: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
+    name: 'Phi-3.5 Vision (balanced)',
+    size: '3.9GB VRAM',
+    description:
+      'Microsoft multimodal model in the browser. Analyzes images for captions, catalogue, and post drafts—no cloud API required.',
+    recommendedRamGb: 12,
+    estimatedVramGb: 4,
+    recommendedDatasetMin: 0,
+    recommendedDatasetMax: 0,
+    expectedTuneMinutes: '8-20',
+    supportsAdvancedTuning: false,
+    supportsVision: true,
+  },
+  {
+    id: 'Phi-3.5-vision-instruct-q4f32_1-MLC',
+    name: 'Phi-3.5 Vision (higher quality)',
+    size: '5.9GB VRAM',
+    description: 'Higher-precision vision variant. Use on GPUs with 8GB+ VRAM for sharper image understanding.',
+    recommendedRamGb: 16,
+    estimatedVramGb: 6,
+    recommendedDatasetMin: 0,
+    recommendedDatasetMax: 0,
+    expectedTuneMinutes: '12-28',
+    supportsAdvancedTuning: false,
+    supportsVision: true,
+  },
+];
+
+export const BUILTIN_VISION_MODEL_IDS = new Set(BUILTIN_VISION_MODELS.map((m) => m.id));
+
+export const DEFAULT_BUILTIN_VISION_MODEL_ID = 'Phi-3.5-vision-instruct-q4f16_1-MLC';
