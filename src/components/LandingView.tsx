@@ -19,11 +19,19 @@ import {
   Download,
   ClipboardPaste,
   List,
+  Share2,
+  ImagePlus,
+  GripVertical,
+  Archive,
+  Wand2,
+  Cpu,
+  Link2,
+  TrendingUp,
 } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
-import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
+import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent } from 'motion/react';
 import { HeroHandwritingTitle } from './HeroHandwritingTitle';
 import { animateScrollTo, waitMs } from '../lib/guidedScroll';
 
@@ -404,48 +412,163 @@ const SECTIONS: LandingSection[] = [
     id: 'calendar',
     icon: CalendarIcon,
     title: landingTerms.calendar,
-    description: 'Drag-and-drop content calendar: plan posts by day, attach media, share a read-only link with clients, and keep your whole team aligned in one schedule.',
+    description:
+      'Your publishing command center: plan every post on a visual month grid, attach creative, drag to reschedule, and share a live read-only view with clients or stakeholders.',
     color: 'text-blue-500',
-    bg: 'bg-blue-500/10'
+    bg: 'bg-blue-500/10',
+    bullets: [
+      {
+        icon: GripVertical,
+        label: 'Plan & reschedule',
+        text: 'Drag posts between days, duplicate winning formats, and see your whole month at a glance—no spreadsheet juggling.',
+      },
+      {
+        icon: ImagePlus,
+        label: 'Media on every post',
+        text: 'Drop images onto days for AI-assisted captions, collages for multi-image posts, and Cloudinary-backed hosting.',
+      },
+      {
+        icon: Share2,
+        label: 'Client-ready sharing',
+        text: 'Generate a password-protected share link so clients approve content without logging into your workspace.',
+      },
+      {
+        icon: CalendarIcon,
+        label: 'Team alignment',
+        text: 'One schedule for editors, designers, and approvers—status, outlets, and categories stay visible on every card.',
+      },
+    ],
   },
   {
     id: 'ideas',
     icon: Lightbulb,
     title: landingTerms.ideas,
-    description: 'Capture sparks before they fade. Sort inspiration by category, then promote the best lines into real posts on your calendar without losing context.',
+    description:
+      'A creative inbox before anything hits the calendar: capture lines in seconds, sort on a board, group by collection, then promote the best ideas into scheduled posts.',
     color: 'text-yellow-500',
-    bg: 'bg-yellow-500/10'
+    bg: 'bg-yellow-500/10',
+    bullets: [
+      {
+        icon: Lightbulb,
+        label: 'Quick capture',
+        text: 'Type an idea and press Enter—it lands in Inbox so nothing gets lost in notes or DMs.',
+      },
+      {
+        icon: LayoutGrid,
+        label: 'Board workflow',
+        text: 'Inbox → Ready → Archive columns mirror how real teams triage concepts before production.',
+      },
+      {
+        icon: List,
+        label: 'Collections',
+        text: 'Tag ideas by campaign, product line, or client so you can filter and brainstorm in context.',
+      },
+      {
+        icon: Sparkles,
+        label: 'AI brainstorm',
+        text: 'Expand a theme into multiple post angles, then move winners straight to the calendar.',
+      },
+    ],
   },
   {
     id: 'ai',
     icon: Sparkles,
     title: 'Widgets',
-    description: 'Draft captions, images, and campaigns with local AI in your browser. Iterate fast, keep your voice, and paste results straight into posts.',
+    description:
+      'Local-first AI widgets in the browser: draft captions, briefs, hashtags, and campaign copy without sending client data to the cloud unless you choose to.',
     color: 'text-amber-500',
-    bg: 'bg-amber-500/10'
+    bg: 'bg-amber-500/10',
+    bullets: [
+      {
+        icon: Cpu,
+        label: 'Local AI (WebLLM)',
+        text: 'Run models in-browser with WebGPU—fast iteration for sensitive brands and offline-friendly drafts.',
+      },
+      {
+        icon: Wand2,
+        label: 'Caption & brief tools',
+        text: 'Structured widgets for posts, hooks, hashtags, and designer briefs that paste into calendar cards.',
+      },
+      {
+        icon: MessageSquare,
+        label: 'Chat-style drafting',
+        text: 'Iterate in conversation until the tone is right, then commit copy to a post in one click.',
+      },
+      {
+        icon: Sparkles,
+        label: 'Cloud when you need it',
+        text: 'Optional Gemini, Groq, or Puter routes for heavier tasks while keeping local AI as the default.',
+      },
+    ],
   },
   {
     id: 'studio',
     icon: Palette,
     title: landingTerms.assets,
-    description: 'Logos, palettes, and references live next to your workflow so every asset and export stays on-brand—no more hunting through folders mid-campaign.',
+    description:
+      'Brand kit and creative references beside your calendar—logos, palettes, fonts, and example posts so every export matches the guide your team already approved.',
     color: 'text-pink-500',
-    bg: 'bg-pink-500/10'
+    bg: 'bg-pink-500/10',
+    bullets: [
+      {
+        icon: Palette,
+        label: 'Visual identity',
+        text: 'Store primary/secondary colors, logo marks, and typography rules where writers and designers actually work.',
+      },
+      {
+        icon: ImageIcon,
+        label: 'Reference posts',
+        text: 'Pin high-performing examples so AI and humans mirror the look you want on the next campaign.',
+      },
+      {
+        icon: Sparkles,
+        label: 'Design guide sync',
+        text: 'Generate or refresh a written style guide from uploads—feeds widgets and post generation automatically.',
+      },
+      {
+        icon: Download,
+        label: 'Export-ready assets',
+        text: 'Pull on-brand elements into posts and mockups without digging through Drive folders mid-deadline.',
+      },
+    ],
   },
   {
     id: 'analytics',
     icon: BarChart3,
     title: 'Insights & Analytics',
-    description: 'See what resonates across channels. Track performance, compare formats, and double down on the content that actually moves your numbers.',
+    description:
+      'Connect social profiles, run AI-assisted reviews of what is working, and turn performance patterns into clearer next steps for content and format choices.',
     color: 'text-green-500',
-    bg: 'bg-green-500/10'
+    bg: 'bg-green-500/10',
+    bullets: [
+      {
+        icon: Link2,
+        label: 'Profile linking',
+        text: 'Attach Instagram and Facebook URLs per workspace so analysis stays tied to the right brand.',
+      },
+      {
+        icon: TrendingUp,
+        label: 'Performance snapshots',
+        text: 'See engagement themes, posting rhythm, and format mix in one dashboard-style view.',
+      },
+      {
+        icon: Sparkles,
+        label: 'AI recommendations',
+        text: 'Get narrative insights—not just numbers—on what to post more of and what to retire.',
+      },
+      {
+        icon: BarChart3,
+        label: 'Plan with data',
+        text: 'Feed learnings back into the calendar and ideas board so the next month is intentional, not guesswork.',
+      },
+    ],
   },
   {
     id: 'localdb',
     icon: Database,
     title: landingTerms.products,
     description:
-      'Build a searchable product catalogue or knowledge base from any website. Map URLs, fetch markdown with Firecrawl, convert pages with local AI, review items, then use them in posts and widgets.',
+      'Turn any website into a searchable product catalogue or knowledge base: map URLs, fetch page markdown (Firecrawl with Crawlee and cloudscraper fallbacks), convert with local AI, review, then drop items into posts and widgets.',
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/10',
     bullets: [
@@ -496,9 +619,19 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const calloutRadius = useTransform(scrollYProgress, [0, 0.5, 1], ['32px', '8px', '0px']);
   const calloutWidth = useTransform(scrollYProgress, [0, 0.6, 1], ['86%', '96%', '100%']);
   const sectionPadX = useTransform(scrollYProgress, [0, 1], ['1.5rem', '0px']);
-  const purpleFillOpacity = useTransform(scrollYProgress, [0.68, 1], [0, 1]);
+  const purpleFillOpacity = useTransform(scrollYProgress, [0.62, 0.88, 1], [0, 0.85, 1]);
   const contentScale = useTransform(scrollYProgress, [0, 0.5, 1], [0.94, 1, 1.06]);
   const headlineSize = useTransform(scrollYProgress, [0, 0.5, 1], ['2.25rem', '3.25rem', '4.5rem']);
+  const sidebarOpacity = useTransform(scrollYProgress, [0.52, 0.78], [1, 0]);
+  const sidebarX = useTransform(scrollYProgress, [0.52, 0.78], ['0%', '-110%']);
+  const decorOpacity = useTransform(scrollYProgress, [0.5, 0.75], [1, 0]);
+  const [ctaImmersive, setCtaImmersive] = useState(false);
+
+  useMotionValueEvent(scrollYProgress, 'change', (v) => {
+    const immersive = v >= 0.72;
+    setCtaImmersive(immersive);
+    if (immersive) setActiveSection('footer-cta');
+  });
 
   const stopAutoScroll = () => {
     tourAbortRef.current.aborted = true;
@@ -552,7 +685,9 @@ export function LandingView({ onLogin }: LandingViewProps) {
         const top = section.offsetTop;
         const height = section.offsetHeight;
         if (scrollPosition >= top && scrollPosition < top + height) {
-          setActiveSection(section.id);
+          if (section.id !== 'footer-cta' || !ctaImmersive) {
+            setActiveSection(section.id);
+          }
         }
       });
     };
@@ -564,7 +699,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
       handleScroll();
       return () => container.removeEventListener('scroll', handleScroll);
     }
-  }, []);
+  }, [ctaImmersive]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -579,9 +714,27 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const navSections = SECTIONS.filter(s => s.icon !== null);
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white">
+    <div
+      className={cn(
+        'relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white',
+        ctaImmersive && 'bg-brand'
+      )}
+    >
+      {/* Full-viewport purple takeover on final scroll */}
+      <motion.div
+        className="fixed inset-0 z-[80] bg-brand pointer-events-none"
+        style={{ opacity: purpleFillOpacity }}
+        aria-hidden
+      />
+
       {/* Sidebar (Desktop) / Bottom Bar (Mobile) */}
-      <aside className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto w-full md:w-16 h-[64px] md:h-full border-t md:border-t-0 md:border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] md:bg-[#F7F7F5] md:dark:bg-[#202020] flex md:flex-col items-center py-0 md:py-4 shrink-0 z-50 shadow-[0_-8px_24px_rgba(0,0,0,0.05)] md:shadow-none px-2 md:px-0">
+      <motion.aside
+        style={{ opacity: sidebarOpacity, x: sidebarX }}
+        className={cn(
+          'fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto w-full md:w-16 h-[64px] md:h-full border-t md:border-t-0 md:border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] md:bg-[#F7F7F5] md:dark:bg-[#202020] flex md:flex-col items-center py-0 md:py-4 shrink-0 z-50 shadow-[0_-8px_24px_rgba(0,0,0,0.05)] md:shadow-none px-2 md:px-0 transition-[visibility] duration-300',
+          ctaImmersive && 'invisible md:w-0 md:min-w-0 md:border-0 md:p-0 md:overflow-hidden pointer-events-none'
+        )}
+      >
         <div className="hidden md:block mb-8">
           <ForgeLogo size={28} className="p-1" />
         </div>
@@ -664,17 +817,26 @@ export function LandingView({ onLogin }: LandingViewProps) {
             <LogIn className="w-5 h-5" />
           </button>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* Fixed Background Animation for all views */}
-      <div className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[600px] aspect-[210/339] opacity-10 md:opacity-20 dark:opacity-10 md:dark:opacity-20 pointer-events-none z-0">
+      <motion.div
+        style={{ opacity: decorOpacity }}
+        className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[600px] aspect-[210/339] opacity-10 md:opacity-20 dark:opacity-10 md:dark:opacity-20 pointer-events-none z-0"
+      >
         <div className="w-full h-full scale-150 md:scale-100 origin-right">
           <ScribbleFlame />
         </div>
-      </div>
+      </motion.div>
 
       {/* Main Content */}
-      <main ref={containerRef} className="flex-1 overflow-y-auto scroll-smooth snap-y snap-proximity pb-24 md:pb-0">
+      <main
+        ref={containerRef}
+        className={cn(
+          'flex-1 overflow-y-auto scroll-smooth snap-y snap-proximity pb-24 md:pb-0 min-w-0',
+          ctaImmersive && 'md:w-full'
+        )}
+      >
         <div className="max-w-5xl mx-auto px-6 md:px-12 py-12 md:py-24 space-y-24 md:space-y-40">
           
           {/* Hero Section */}
@@ -818,21 +980,22 @@ export function LandingView({ onLogin }: LandingViewProps) {
         <motion.section
           id="footer-cta"
           ref={footerRef}
-          className="relative min-h-[110dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden"
+          className={cn(
+            'relative min-h-[110dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden',
+            ctaImmersive && 'min-h-[100dvh] md:min-h-[100dvh]'
+          )}
           style={{ paddingLeft: sectionPadX, paddingRight: sectionPadX }}
         >
-          <motion.div
-            className="absolute inset-0 bg-brand pointer-events-none"
-            style={{ opacity: purpleFillOpacity }}
-            aria-hidden
-          />
           <motion.div
             style={{
               scale: calloutScale,
               borderRadius: calloutRadius,
               width: calloutWidth,
             }}
-            className="bg-brand text-white text-center md:text-left flex flex-col md:flex-row items-center justify-center md:justify-between gap-8 md:gap-14 relative overflow-hidden min-h-[72dvh] md:min-h-[100dvh] px-8 md:px-16 py-12 md:py-20 mx-auto"
+            className={cn(
+              'bg-brand text-white text-center md:text-left flex flex-col md:flex-row items-center justify-center md:justify-between gap-8 md:gap-14 relative overflow-hidden min-h-[72dvh] md:min-h-[100dvh] px-8 md:px-16 py-12 md:py-20 mx-auto z-[90]',
+              ctaImmersive && 'min-h-[100dvh] rounded-none shadow-none max-w-none'
+            )}
           >
             <div className="absolute inset-0 opacity-10 pointer-events-none">
               <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
