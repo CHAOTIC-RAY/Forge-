@@ -36,8 +36,8 @@ const TegakiHero = lazy(async () => {
           font={caveat}
           className={cn('text-gray-900 dark:text-white', className)}
           style={{ fontSize: 'clamp(2.5rem, 8vw, 5.5rem)', lineHeight: 1.05 }}
-          duration={3200}
-          delay={200}
+          duration={2400}
+          delay={120}
         >
           Sparks into substance
         </TegakiRenderer>

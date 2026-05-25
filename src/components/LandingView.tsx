@@ -489,12 +489,16 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const { scrollYProgress } = useScroll({
     container: containerRef,
     target: footerRef,
-    offset: ['start end', 'center center'],
+    offset: ['start end', 'end end'],
   });
 
-  const calloutScale = useTransform(scrollYProgress, [0, 0.55, 1], [0.92, 0.98, 1]);
-  const calloutRadius = useTransform(scrollYProgress, [0, 1], ['28px', '0px']);
-  const calloutPadding = useTransform(scrollYProgress, [0, 1], ['2.5rem', '0px']);
+  const calloutScale = useTransform(scrollYProgress, [0, 0.35, 0.75, 1], [0.76, 0.9, 0.97, 1]);
+  const calloutRadius = useTransform(scrollYProgress, [0, 0.5, 1], ['32px', '8px', '0px']);
+  const calloutWidth = useTransform(scrollYProgress, [0, 0.6, 1], ['86%', '96%', '100%']);
+  const sectionPadX = useTransform(scrollYProgress, [0, 1], ['1.5rem', '0px']);
+  const purpleFillOpacity = useTransform(scrollYProgress, [0.68, 1], [0, 1]);
+  const contentScale = useTransform(scrollYProgress, [0, 0.5, 1], [0.94, 1, 1.06]);
+  const headlineSize = useTransform(scrollYProgress, [0, 0.5, 1], ['2.25rem', '3.25rem', '4.5rem']);
 
   const stopAutoScroll = () => {
     tourAbortRef.current.aborted = true;
@@ -809,38 +813,54 @@ export function LandingView({ onLogin }: LandingViewProps) {
               );
             })}
           </div>
+        </div>
 
-          <section
-            id="footer-cta"
-            ref={footerRef}
-            className="min-h-[100dvh] flex items-center justify-center py-8 md:py-12 border-t border-[#E9E9E7] dark:border-[#2E2E2E] snap-center snap-always"
+        <motion.section
+          id="footer-cta"
+          ref={footerRef}
+          className="relative min-h-[110dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden"
+          style={{ paddingLeft: sectionPadX, paddingRight: sectionPadX }}
+        >
+          <motion.div
+            className="absolute inset-0 bg-brand pointer-events-none"
+            style={{ opacity: purpleFillOpacity }}
+            aria-hidden
+          />
+          <motion.div
+            style={{
+              scale: calloutScale,
+              borderRadius: calloutRadius,
+              width: calloutWidth,
+            }}
+            className="bg-brand text-white text-center md:text-left flex flex-col md:flex-row items-center justify-center md:justify-between gap-8 md:gap-14 relative overflow-hidden min-h-[72dvh] md:min-h-[100dvh] px-8 md:px-16 py-12 md:py-20 mx-auto"
           >
+            <div className="absolute inset-0 opacity-10 pointer-events-none">
+              <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1"/>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+              </svg>
+            </div>
+
             <motion.div
-              style={{
-                scale: calloutScale,
-                borderRadius: calloutRadius,
-                padding: calloutPadding,
-              }}
-              className="bg-brand w-full text-white text-center md:text-left flex flex-col md:flex-row items-center justify-center md:justify-between gap-8 md:gap-12 relative overflow-hidden min-h-[min(100dvh,920px)] md:min-h-[100dvh]"
+              style={{ scale: contentScale }}
+              className="w-full flex flex-col md:flex-row items-center justify-center md:justify-between gap-8 md:gap-14 relative z-10"
             >
-              <div className="absolute inset-0 opacity-10 pointer-events-none">
-                <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1"/>
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-              </div>
-              
-              <div className="space-y-6 max-w-2xl relative z-10">
-                <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to ship your next month of content?</h2>
-                <p className="text-xl text-blue-100">
+              <div className="space-y-6 max-w-3xl">
+                <motion.h2
+                  style={{ fontSize: headlineSize }}
+                  className="font-bold tracking-tight leading-[1.05]"
+                >
+                  Ready to ship your next month of content?
+                </motion.h2>
+                <p className="text-lg md:text-2xl text-blue-100 max-w-2xl">
                   Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you are ready.
                 </p>
               </div>
-              <div className="shrink-0 relative z-10 w-full md:w-auto">
+              <div className="shrink-0 w-full md:w-auto">
                 <button
                   onClick={onLogin}
                   className="interactive focus-ring w-full md:w-auto px-10 py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-xl transition-all shadow-xl min-h-[48px]"
@@ -849,8 +869,8 @@ export function LandingView({ onLogin }: LandingViewProps) {
                 </button>
               </div>
             </motion.div>
-          </section>
-        </div>
+          </motion.div>
+        </motion.section>
       </main>
 
       {/* Auto-scroll Controls */}
