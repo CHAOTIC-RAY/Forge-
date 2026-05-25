@@ -9,7 +9,7 @@ import {
   type WidgetCategory,
 } from '../lib/widgetRegistry';
 import { WidgetOutputActions } from './WidgetOutputActions';
-import { TabPageHeader } from './ui/TabPageHeader';
+import { TabHeaderBadge, TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 import { WidgetShell } from './WidgetShell';
 import { saveTextToIdeasInbox } from '../lib/ideasInbox';
 import { ImageResizerTab } from './ImageResizerTab';
@@ -1272,19 +1272,19 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
   const categoryOrder: WidgetCategory[] = ['write', 'image', 'utility'];
 
   return (
-    <div className="flex flex-col bg-transparent pb-20 md:pb-0 relative">
+    <TabPageShell className="relative pb-20 md:pb-0">
       <TabPageHeader
-        className="mb-6"
         icon={LayoutGrid}
         title="Widgets"
         subtitle="Built-in AI tools for captions, briefs, and campaign copy—more widgets coming soon."
         actions={
-          <span className="px-3 py-1.5 rounded-full bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wider shrink-0">
+          <TabHeaderBadge className="bg-brand/10 text-brand uppercase tracking-wider text-[10px]">
             More coming soon
-          </span>
+          </TabHeaderBadge>
         }
       />
 
+      <TabPageContent className="overflow-y-auto pb-20 md:pb-8">
       <div className="space-y-10">
         {pinnedWidgetIds.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1377,7 +1377,8 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
           </div>
         )}
       </div>
-    </div>
+      </TabPageContent>
+    </TabPageShell>
   );
 }
 

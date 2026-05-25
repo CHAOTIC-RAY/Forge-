@@ -24,7 +24,7 @@ import {
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { Post, Business, OUTLETS, PRODUCT_CATEGORIES } from '../data';
-import { TabPageHeader } from './ui/TabPageHeader';
+import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 
 interface BrandKit {
   colors: { name: string; hex: string }[];
@@ -811,9 +811,8 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F7F7F5] dark:bg-[#191919]">
+    <TabPageShell>
       <TabPageHeader
-        className="shrink-0 mb-6 md:mb-8"
         icon={Palette}
         iconBgClassName="bg-brand/10"
         iconClassName="text-brand"
@@ -884,6 +883,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
         </div>
       </TabPageHeader>
 
+      <TabPageContent>
       {/* Mobile Controls */}
       <div className="md:hidden flex flex-col gap-4 mb-6">
         <div className="flex items-center justify-between">
@@ -1823,6 +1823,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
           </div>
         )}
       </div>
-    </div>
+      </TabPageContent>
+    </TabPageShell>
   );
 }

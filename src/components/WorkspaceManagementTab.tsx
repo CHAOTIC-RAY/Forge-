@@ -5,7 +5,7 @@ import { db } from '../lib/firebase';
 import { toast } from 'sonner';
 import { Users, Shield, UserPlus, Check, XCircle, Clock, Trash2, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { TabPageHeader } from './ui/TabPageHeader';
+import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 
 interface AccessRequest {
   id: string;
@@ -109,9 +109,8 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
   }
 
   return (
-    <div className="flex flex-col bg-transparent relative">
+    <TabPageShell className="relative">
       <TabPageHeader
-        className="mb-6 md:mb-8"
         icon={Users}
         iconBgClassName="bg-emerald-500/10"
         iconClassName="text-emerald-500"
@@ -130,7 +129,7 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
         }
       />
 
-      <div className="space-y-8 max-w-4xl mx-auto pb-20 w-full">
+      <TabPageContent className="max-w-4xl mx-auto space-y-8 pb-20 w-full">
         {/* Access Requests */}
         <section className="space-y-4">
           <div className="flex items-center justify-between mb-2">
@@ -247,7 +246,7 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
             </div>
           </div>
         </section>
-      </div>
-    </div>
+      </TabPageContent>
+    </TabPageShell>
   );
 }

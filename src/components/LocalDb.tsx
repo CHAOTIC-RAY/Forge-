@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ForgeLoader } from './ForgeLoader';
-import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
+import { TabPageContent, TabPageHeader, TabHeaderSegments, TabPageShell } from './ui/TabPageHeader';
 import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Moon, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen, LayoutGrid, List, ChevronDown, Plus, FileJson } from 'lucide-react';
 import { CatalogueGridSkeleton } from './ui/Skeleton';
 import * as XLSX from 'xlsx';
@@ -1141,9 +1141,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const categoryCount = new Set(products.map(p => p.type).filter(Boolean)).size;
 
   return (
-    <div className="flex flex-col bg-transparent relative">
+    <TabPageShell className="relative">
       <TabPageHeader
-        className="mb-6"
         icon={Database}
         title={catalogueLabels.title}
         subtitle={catalogueLabels.subtitle}
@@ -1159,6 +1158,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         }
       />
 
+      <TabPageContent className="pb-6">
       {showScrollTop && (
         <button
           onClick={scrollToTop}
@@ -1169,7 +1169,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         </button>
       )}
 
-      <div className="flex flex-col pb-6 px-4 md:px-0 gap-6">
+      <div className="flex flex-col gap-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="glass-card p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Total {catalogueLabels.itemPlural}</p>
@@ -1676,6 +1676,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
           </div>
         )}
       </div>
-    </div>
+      </TabPageContent>
+    </TabPageShell>
   );
 }

@@ -20,7 +20,7 @@ import { BuiltInAiStatus, BUILTIN_MODELS, BUILTIN_VISION_MODELS } from '../lib/b
 import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
 import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
-import { TabPageHeader } from './ui/TabPageHeader';
+import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
 
 const GEMINI_MODELS = [
@@ -531,9 +531,8 @@ export function SettingsView({
   };
 
   return (
-    <div className="flex flex-col bg-transparent relative">
+    <TabPageShell className="relative">
       <TabPageHeader
-        className="mb-6 md:mb-8"
         icon={Settings}
         title="Settings"
         subtitle="Manage your workspace, integrations, and preferences."
@@ -572,6 +571,7 @@ export function SettingsView({
         }
       />
 
+      <TabPageContent className="overflow-visible">
       {/* AI Instruction Modal */}
       <AnimatePresence>
         {isAiInstructionModalOpen && (
@@ -2458,6 +2458,7 @@ export function SettingsView({
           </div>
         )}
       </AnimatePresence>
-    </div>
+      </TabPageContent>
+    </TabPageShell>
   );
 }

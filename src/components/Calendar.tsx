@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
-import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
+import { TabPageContent, TabPageHeader, TabHeaderSegments, TabPageShell } from './ui/TabPageHeader';
 import { Post, PRODUCT_CATEGORIES } from '../data';
 import { cn, getTrustedCdnImageElementProps, getCalendarImageDisplayUrl } from '../lib/utils';
 import { DraggableProduct } from './DraggableProduct';
@@ -120,12 +120,13 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
   const selectedItemCount = selectedPosts.length + selectedTodos.length;
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="flex-1 flex flex-col"
+      className="flex-1 flex flex-col min-h-0"
     >
+    <TabPageShell className="flex-1 min-h-0">
       <ContextMenu
         isOpen={!!contextMenu}
         x={contextMenu?.x || 0}
@@ -140,7 +141,6 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
       />
       {!isGuest && (
         <TabPageHeader
-          className="mb-6 md:mb-8"
           icon={CalendarIcon}
           title="Content Calendar"
           subtitle="Plan and schedule your social media content."
@@ -158,7 +158,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           }
         />
       )}
-      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[12px] md:rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:border-none print:h-auto print:block">
+      <TabPageContent className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 pb-4 md:pb-6">
+      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[12px] md:rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:border-none print:h-auto print:block min-h-0">
         <div className="flex-1 flex flex-col min-w-0">
         {/* Header & View Switcher */}
         <div className="flex items-center justify-between gap-2 p-2 md:p-1.5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] shrink-0 print:border-none print:p-0 print:mb-4">
@@ -442,6 +443,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
       )}
       </div>
       </div>
+      </TabPageContent>
+    </TabPageShell>
     </motion.div>
   );
 }

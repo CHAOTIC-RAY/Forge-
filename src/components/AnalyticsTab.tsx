@@ -23,7 +23,7 @@ import {
 import type { Post } from '../data';
 import type { Business } from '../data';
 import { ForgeLoader } from './ForgeLoader';
-import { TabPageHeader } from './ui/TabPageHeader';
+import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 
 type AnalyticsTabProps = {
   posts?: Post[];
@@ -177,9 +177,8 @@ Return 4–6 short bullet recommendations (markdown bullets) for what to post ne
       : `${stats.deltaPercent >= 0 ? '+' : ''}${stats.deltaPercent}% vs prior`;
 
   return (
-    <div className="flex flex-col bg-transparent relative h-full min-h-0">
+    <TabPageShell className="relative">
       <TabPageHeader
-        className="mb-6"
         icon={BarChart3}
         iconBgClassName="bg-emerald-500/10"
         iconClassName="text-emerald-500"
@@ -215,7 +214,7 @@ Return 4–6 short bullet recommendations (markdown bullets) for what to post ne
         }
       />
 
-      <div className="w-full space-y-6 pb-12 flex-1 min-h-0 overflow-y-auto">
+      <TabPageContent className="space-y-6 pb-12">
         <div className="glass-card p-4 border-amber-200/60 dark:border-amber-900/40 bg-amber-500/5 flex gap-3">
           <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="space-y-1 text-sm text-[#37352F] dark:text-[#EBE9ED]">
@@ -426,7 +425,7 @@ Return 4–6 short bullet recommendations (markdown bullets) for what to post ne
             </AnimatePresence>
           </div>
         </div>
-      </div>
-    </div>
+      </TabPageContent>
+    </TabPageShell>
   );
 }

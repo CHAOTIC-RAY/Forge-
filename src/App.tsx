@@ -581,6 +581,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'widgets' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
   const isIdeasTabActive = activeTab === 'ideas' || activeTab === 'notebook';
   const isWidgetsTabActive = activeTab === 'widgets' || activeTab === 'creative';
+  const usesTabPageLayout =
+    isIdeasTabActive ||
+    isWidgetsTabActive ||
+    activeTab === 'analytics' ||
+    activeTab === 'brandkit' ||
+    activeTab === 'search' ||
+    activeTab === 'schedule' ||
+    activeTab === 'more' ||
+    activeTab === 'workspace_management';
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -3537,12 +3546,19 @@ export default function App() {
                       id="main-content"
                       className={cn(
                       "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-28 print:p-0 print:overflow-visible",
-                      (activeTab === 'chat' || activeTab === 'home' || isIdeasTabActive) && "p-0 sm:p-0 md:p-0 pb-0",
+                      (activeTab === 'chat' || activeTab === 'home' || usesTabPageLayout) &&
+                        'p-0 sm:p-0 md:p-0 pb-0',
                       activeTab !== 'search' && "no-scrollbar"
                     )}>
                       <div className={cn("w-full flex-1 flex flex-col print:max-w-none print:h-auto print:block", (activeTab === 'chat' || activeTab === 'home') && "max-w-none h-full")}>
                         {/* Page Title */}
-                        <div className={cn("mb-2 md:mb-4 flex items-center justify-between shrink-0 print:hidden px-2 md:px-0", (activeTab === 'chat' || activeTab === 'home' || activeTab === 'more') && "hidden", "md:hidden")}>
+                        <div
+                          className={cn(
+                            'mb-2 md:mb-4 flex items-center justify-between shrink-0 print:hidden px-2 md:px-0',
+                            (activeTab === 'chat' || activeTab === 'home' || usesTabPageLayout) && 'hidden',
+                            'md:hidden'
+                          )}
+                        >
                           <div className="flex items-center gap-3">
                             {user && !isViewOnly && (
                               <button
