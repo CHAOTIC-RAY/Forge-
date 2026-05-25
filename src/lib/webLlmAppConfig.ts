@@ -1,5 +1,5 @@
 import { prebuiltAppConfig, type AppConfig, type ModelRecord } from '@mlc-ai/web-llm';
-import { BUILTIN_MODELS } from './builtinAi';
+import { BUILTIN_MODEL_IDS } from './builtinModels';
 
 const HF_ORIGIN = 'https://huggingface.co';
 const ALLOWED_REPO_PREFIX = 'mlc-ai/';
@@ -35,7 +35,7 @@ function cloneModelRecord(record: ModelRecord, origin: string): ModelRecord {
   };
 }
 
-const SUPPORTED_IDS = new Set(BUILTIN_MODELS.map((m) => m.id));
+const SUPPORTED_IDS = BUILTIN_MODEL_IDS;
 
 /**
  * AppConfig for WebLLM with HF weights fetched via /api/hf-proxy (Workers + Express).

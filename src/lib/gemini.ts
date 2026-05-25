@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
 import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
+import { builtInAi } from './builtinAi';
 
 declare const puter: any;
 
@@ -487,8 +488,6 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
     throw error;
   }
 }
-
-import { builtInAi } from './builtinAi';
 
 export type ForgeTextProvider = 'auto' | 'builtin' | 'local_proxy' | 'gemini' | 'groq' | 'puter' | 'firebase';
 
