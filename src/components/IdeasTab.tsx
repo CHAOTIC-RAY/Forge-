@@ -47,7 +47,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { IdeasBoardSkeleton } from './ui/Skeleton';
-import { TabHeaderBadge, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
+import { TabPageHeader } from './ui/TabPageHeader';
 
 /**
  * Shorthand for generating unique IDs
@@ -981,8 +981,9 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
   ) : null;
 
   return (
-    <TabPageShell className="relative">
+    <div className="h-full flex flex-col overflow-hidden bg-[#F7F7F5] dark:bg-[#151515] text-[#37352F] dark:text-[#EBE9ED] relative">
       <TabPageHeader
+        className="shrink-0 mb-4"
         icon={Lightbulb}
         iconBgClassName="bg-amber-500/10"
         iconClassName="text-amber-500"
@@ -990,10 +991,10 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
         subtitle="Capture, organize, and ship content — drag to calendar when ready."
         actions={
           <>
-            <TabHeaderBadge className="bg-amber-500/10 text-amber-700 dark:text-amber-400">
+            <span className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold">
               {inboxCount} inbox
-            </TabHeaderBadge>
-            <TabHeaderBadge className="bg-brand/10 text-brand">{activeCount} ready</TabHeaderBadge>
+            </span>
+            <span className="px-3 py-1.5 rounded-lg bg-brand/10 text-brand text-xs font-bold">{activeCount} ready</span>
           </>
         }
       >
@@ -1303,6 +1304,6 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
         )}
       </AnimatePresence>
 
-    </TabPageShell>
+    </div>
   );
 }

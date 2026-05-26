@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ForgeLoader } from './ForgeLoader';
+<<<<<<< HEAD
 import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Save, Moon, Camera, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen } from 'lucide-react';
+=======
+import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
+import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Moon, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen, LayoutGrid, List, ChevronDown, Plus, FileJson } from 'lucide-react';
+import { CatalogueGridSkeleton } from './ui/Skeleton';
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -1093,6 +1099,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
   return (
     <div className="flex flex-col bg-transparent relative">
+<<<<<<< HEAD
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -1140,6 +1147,25 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       </div>
 
       {/* Scroll to Top Button */}
+=======
+      <TabPageHeader
+        className="mb-6"
+        icon={Database}
+        title={catalogueLabels.title}
+        subtitle={catalogueLabels.subtitle}
+        actions={
+          <TabHeaderSegments
+            options={[
+              { id: 'product', label: 'Catalogue' },
+              { id: 'info', label: 'Knowledge base' },
+            ]}
+            value={dbMode}
+            onChange={setDbMode}
+          />
+        }
+      />
+
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       {showScrollTop && (
         <button
           onClick={scrollToTop}
@@ -1150,11 +1176,38 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         </button>
       )}
 
+<<<<<<< HEAD
       {/* Body */}
       <div className="flex flex-col pb-6 px-4 md:px-0">
         <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
           <div className="flex-1 w-full max-w-md">
             <div className="relative">
+=======
+      <div className="flex flex-col pb-6 px-4 md:px-0 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Total {catalogueLabels.itemPlural}</p>
+            <p className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] mt-1">{products.length}</p>
+          </div>
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Categories</p>
+            <p className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] mt-1">{categoryCount}</p>
+          </div>
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Showing</p>
+            <p className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] mt-1">{filteredProducts.length}</p>
+          </div>
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">Needs category</p>
+            <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{uncategorizedCount}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9A97]" />
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
               <input
                 type="url"
                 placeholder={`Target URL (defaults to ${aiSettings.targetUrl || 'https://example.com'})`}

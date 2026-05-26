@@ -20,67 +20,7 @@ type TabPageHeaderProps = {
   className?: string;
 };
 
-/** Full-height tab shell — matches Ideas tab page chrome */
-export function TabPageShell({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex flex-col h-full min-h-0 overflow-hidden bg-[#F7F7F5] dark:bg-[#151515] text-[#37352F] dark:text-[#EBE9ED]',
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** Scrollable body below tab header — horizontal padding matches Ideas content area */
-export function TabPageContent({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex-1 min-h-0 overflow-y-auto px-4 md:px-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8',
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** Status pill in tab header (Ideas inbox / ready badges) */
-export function TabHeaderBadge({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        'px-3 py-1.5 rounded-lg text-xs font-bold shrink-0',
-        className
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
-/** Consistent tab header — sized like Ideas (full-width card, generous padding) */
+/** Consistent tab header used on Widgets, Insights, Calendar, Catalogue, etc. */
 export function TabPageHeader({
   icon: Icon,
   title,
@@ -94,7 +34,7 @@ export function TabPageHeader({
   return (
     <div
       className={cn(
-        'shrink-0 mb-4 p-5 md:p-6 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] rounded-[16px]',
+        'shrink-0 p-4 md:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] rounded-[16px]',
         className
       )}
     >

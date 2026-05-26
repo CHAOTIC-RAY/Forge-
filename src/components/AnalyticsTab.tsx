@@ -5,6 +5,18 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateAnalyticsReport } from '../lib/gemini';
 import { getAnalyticsSettings, setAnalyticsSettings, cn } from '../lib/utils';
+<<<<<<< HEAD
+=======
+import {
+  computePostingStats,
+  statsPayloadForCoach,
+  type InsightsRangeDays,
+} from '../lib/insightsMetrics';
+import type { Post } from '../data';
+import type { Business } from '../data';
+import { ForgeLoader } from './ForgeLoader';
+import { TabPageHeader } from './ui/TabPageHeader';
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 
 interface AnalyticsData {
   bestTime: string;
@@ -87,6 +99,7 @@ Ensure the response is a valid JSON object.`;
   const hasAccounts = settings.instagramUrl || settings.facebookUrl;
 
   return (
+<<<<<<< HEAD
     <div className="flex flex-col bg-transparent relative">
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
@@ -102,6 +115,63 @@ Ensure the response is a valid JSON object.`;
                 Deep dive into your social media performance.
               </p>
             </div>
+=======
+    <div className="flex flex-col bg-transparent relative h-full min-h-0">
+      <TabPageHeader
+        className="mb-6"
+        icon={BarChart3}
+        iconBgClassName="bg-emerald-500/10"
+        iconClassName="text-emerald-500"
+        title="Insights & Analytics"
+        subtitle="Built from your calendar—no API keys required."
+        actions={
+          <>
+            {([7, 30, 90] as InsightsRangeDays[]).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setRangeDays(d)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors min-h-[36px]',
+                  rangeDays === d
+                    ? 'bg-brand text-white border-brand'
+                    : 'bg-white dark:bg-[#191919] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681]'
+                )}
+              >
+                {d}d
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setActiveTab?.('more')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681] hover:text-brand min-h-[36px]"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Profile links
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          </>
+        }
+      />
+
+      <div className="w-full space-y-6 pb-12 flex-1 min-h-0 overflow-y-auto">
+        <div className="glass-card p-4 border-amber-200/60 dark:border-amber-900/40 bg-amber-500/5 flex gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-sm text-[#37352F] dark:text-[#EBE9ED]">
+            <p className="font-bold text-amber-800 dark:text-amber-300">Local AI cannot read live social networks</p>
+            <p className="text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+              Built-in and browser models only see your Forge calendar data and saved profile links—they do not fetch Instagram or Facebook metrics.
+              Charts and the AI coach use scheduled posts in this workspace. For live follower, reach, or engagement data, add a{' '}
+              <span className="font-bold">Gemini or Groq API key</span> in Settings → AI (Meta/Graph API integration is planned later).
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveTab?.('more')}
+              className="text-xs font-bold text-brand hover:underline mt-1"
+            >
+              Open AI & API settings
+            </button>
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
           </div>
         </div>
       </div>
@@ -447,6 +517,7 @@ Ensure the response is a valid JSON object.`;
           </motion.div>
         )}
 
+<<<<<<< HEAD
         {analytics && viewMode === 'json' && (
           <motion.div 
             key="json"
@@ -478,6 +549,42 @@ Ensure the response is a valid JSON object.`;
           </motion.div>
         )}
       </AnimatePresence>
+=======
+        <div className="glass-card overflow-hidden">
+          <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-brand" />
+              AI coach
+            </h3>
+            <p className="text-xs text-[#757681] mt-1">
+              Summarizes your calendar stats only—does not scrape profiles or invent engagement numbers.
+            </p>
+          </div>
+          <div className="p-4 space-y-4">
+            <button
+              type="button"
+              onClick={handleCoach}
+              disabled={isCoaching || stats.postsCount === 0}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand hover:bg-brand-hover text-white rounded-xl text-sm font-bold disabled:opacity-50 min-h-[44px]"
+            >
+              {isCoaching ? <ForgeLoader size={18} /> : <Sparkles className="w-4 h-4" />}
+              {isCoaching ? 'Summarizing…' : 'Generate summary from my calendar'}
+            </button>
+            <AnimatePresence>
+              {coachSummary && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="p-4 rounded-xl border border-brand/20 bg-brand/5 text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED] whitespace-pre-wrap"
+                >
+                  {coachSummary}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       </div>
     </div>
   );

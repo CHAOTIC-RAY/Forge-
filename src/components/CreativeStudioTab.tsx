@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { ForgeLoader } from './ForgeLoader';
+<<<<<<< HEAD
 import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings, Cpu, Terminal, Banana } from 'lucide-react';
+=======
+import { PenTool, LayoutGrid, Image as ImageIcon, Sparkles, Target, ArrowLeft, Wand2, Plus, X, Link, Play, Save, Link2, Send, Settings, Cpu, Terminal, Banana, Lightbulb, ChevronDown } from 'lucide-react';
+import {
+  BUILTIN_WIDGET_CATALOG,
+  WIDGET_CATEGORY_LABELS,
+  getWidgetsByCategory,
+  type WidgetCategory,
+} from '../lib/widgetRegistry';
+import { WidgetOutputActions } from './WidgetOutputActions';
+import { TabPageHeader } from './ui/TabPageHeader';
+import { WidgetShell } from './WidgetShell';
+import { saveTextToIdeasInbox } from '../lib/ideasInbox';
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 import { ImageResizerTab } from './ImageResizerTab';
 import { LinkShortener } from './LinkShortener';
 import { NanoBananaUpscaler } from './NanoBananaUpscaler';
@@ -1543,6 +1557,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
 
   return (
     <div className="flex flex-col bg-transparent pb-20 md:pb-0 relative">
+<<<<<<< HEAD
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1581,6 +1596,21 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
       </motion.div>
 
       <div className="space-y-12">
+=======
+      <TabPageHeader
+        className="mb-6"
+        icon={LayoutGrid}
+        title="Widgets"
+        subtitle="Built-in AI tools for captions, briefs, and campaign copy—more widgets coming soon."
+        actions={
+          <span className="px-3 py-1.5 rounded-full bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wider shrink-0">
+            More coming soon
+          </span>
+        }
+      />
+
+      <div className="space-y-10">
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
         {pinnedWidgetIds.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-center gap-3 mb-6">
