@@ -24,6 +24,10 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { Post, Business, OUTLETS, PRODUCT_CATEGORIES } from '../data';
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+import { TabPageHeader } from './ui/TabPageHeader';
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 =======
 import { TabPageHeader } from './ui/TabPageHeader';
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
@@ -719,6 +723,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
   return (
     <div className="flex flex-col h-full bg-[#F7F7F5] dark:bg-[#191919]">
 <<<<<<< HEAD
+<<<<<<< HEAD
       {/* Header */}
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between mb-6">
@@ -751,6 +756,8 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
 
         {/* Tab Navigation (Desktop) */}
 =======
+=======
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       <TabPageHeader
         className="shrink-0 mb-6 md:mb-8"
         icon={Palette}

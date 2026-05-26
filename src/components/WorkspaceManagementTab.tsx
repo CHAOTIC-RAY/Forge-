@@ -6,6 +6,10 @@ import { toast } from 'sonner';
 import { Users, Shield, UserPlus, Check, XCircle, Clock, Trash2, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+import { TabPageHeader } from './ui/TabPageHeader';
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 =======
 import { TabPageHeader } from './ui/TabPageHeader';
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
@@ -114,10 +118,13 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
   return (
     <div className="flex flex-col bg-transparent relative">
 <<<<<<< HEAD
+<<<<<<< HEAD
       <div className="p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center gap-4">
           <button 
 =======
+=======
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       <TabPageHeader
         className="mb-6 md:mb-8"
         icon={Users}

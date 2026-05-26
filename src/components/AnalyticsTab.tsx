@@ -16,6 +16,9 @@ import type { Post } from '../data';
 import type { Business } from '../data';
 import { ForgeLoader } from './ForgeLoader';
 import { TabPageHeader } from './ui/TabPageHeader';
+<<<<<<< HEAD
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
+=======
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 
 interface AnalyticsData {
@@ -100,6 +103,7 @@ Ensure the response is a valid JSON object.`;
 
   return (
 <<<<<<< HEAD
+<<<<<<< HEAD
     <div className="flex flex-col bg-transparent relative">
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
@@ -116,6 +120,8 @@ Ensure the response is a valid JSON object.`;
               </p>
             </div>
 =======
+=======
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
     <div className="flex flex-col bg-transparent relative h-full min-h-0">
       <TabPageHeader
         className="mb-6"
@@ -584,6 +590,9 @@ Ensure the response is a valid JSON object.`;
             </AnimatePresence>
           </div>
         </div>
+<<<<<<< HEAD
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
+=======
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       </div>
     </div>

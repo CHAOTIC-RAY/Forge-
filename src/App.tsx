@@ -579,6 +579,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'widgets' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
   const isIdeasTabActive = activeTab === 'ideas' || activeTab === 'notebook';
   const isWidgetsTabActive = activeTab === 'widgets' || activeTab === 'creative';
+<<<<<<< HEAD
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
+=======
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
@@ -3474,6 +3477,9 @@ export default function App() {
                       className={cn(
                       "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-28 print:p-0 print:overflow-visible",
                       (activeTab === 'chat' || activeTab === 'home' || isIdeasTabActive) && "p-0 sm:p-0 md:p-0 pb-0",
+<<<<<<< HEAD
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
+=======
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
                       activeTab !== 'search' && "no-scrollbar"
                     )}>

@@ -6,6 +6,10 @@ import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sort
 import { CSS } from '@dnd-kit/utilities';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 =======
 import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
@@ -204,6 +208,9 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
         />
       )}
       <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[12px] md:rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:border-none print:h-auto print:block">
+<<<<<<< HEAD
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
+=======
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
         <div className="flex-1 flex flex-col min-w-0">
         {/* Header & View Switcher */}

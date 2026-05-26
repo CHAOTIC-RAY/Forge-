@@ -516,6 +516,7 @@ export function SettingsView({
   return (
     <div className="flex flex-col bg-transparent relative">
 <<<<<<< HEAD
+<<<<<<< HEAD
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
@@ -532,6 +533,8 @@ export function SettingsView({
             <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
               <Printer className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Print PDF
 =======
+=======
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       <TabPageHeader
         className="mb-6 md:mb-8"
         icon={Settings}

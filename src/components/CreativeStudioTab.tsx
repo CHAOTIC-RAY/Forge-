@@ -1558,6 +1558,7 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
   return (
     <div className="flex flex-col bg-transparent pb-20 md:pb-0 relative">
 <<<<<<< HEAD
+<<<<<<< HEAD
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1597,6 +1598,8 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
 
       <div className="space-y-12">
 =======
+=======
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       <TabPageHeader
         className="mb-6"
         icon={LayoutGrid}

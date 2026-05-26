@@ -2,8 +2,11 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ForgeLoader } from './ForgeLoader';
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Save, Moon, Camera, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen } from 'lucide-react';
 =======
+=======
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
 import { X, Search, ExternalLink, Download, Trash2, Filter, RefreshCw, PlusCircle, Check, Upload, Moon, ClipboardPaste, ChevronUp, Sparkles, Square, Globe, Database, BookOpen, LayoutGrid, List, ChevronDown, Plus, FileJson } from 'lucide-react';
 import { CatalogueGridSkeleton } from './ui/Skeleton';
@@ -1100,6 +1103,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   return (
     <div className="flex flex-col bg-transparent relative">
 <<<<<<< HEAD
+<<<<<<< HEAD
       <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -1148,6 +1152,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
       {/* Scroll to Top Button */}
 =======
+=======
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       <TabPageHeader
         className="mb-6"
         icon={Database}
@@ -1165,6 +1171,9 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         }
       />
 
+<<<<<<< HEAD
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
+=======
 >>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       {showScrollTop && (
         <button
@@ -1177,12 +1186,15 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       )}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
       {/* Body */}
       <div className="flex flex-col pb-6 px-4 md:px-0">
         <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
           <div className="flex-1 w-full max-w-md">
             <div className="relative">
 =======
+=======
+>>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
       <div className="flex flex-col pb-6 px-4 md:px-0 gap-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="glass-card p-4">
