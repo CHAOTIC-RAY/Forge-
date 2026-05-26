@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { auth } from '../lib/firebase';
-import { getTrustedCdnImageElementProps, getCalendarImageDisplayUrl } from '../lib/utils';
 
 interface ImageViewerProps {
   isOpen: boolean;
@@ -33,7 +32,6 @@ export function ImageViewer({ isOpen, images, initialIndex = 0, aiProvider, onCl
   };
 
   const currentImageUrl = images[currentIndex];
-  const displayUrl = getCalendarImageDisplayUrl(currentImageUrl);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm" onClick={onClose}>
@@ -64,9 +62,9 @@ export function ImageViewer({ isOpen, images, initialIndex = 0, aiProvider, onCl
       {/* Container optimized for 1080x1350 (4:5 aspect ratio) */}
       <div className="relative w-full max-w-[calc(100vh*0.8)] aspect-[4/5] max-h-[90vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
         <img
-          src={displayUrl}
+          src={currentImageUrl}
           alt={`Preview ${currentIndex + 1}`}
-          {...getTrustedCdnImageElementProps(currentImageUrl)}
+          crossOrigin="anonymous"
           className="max-w-full max-h-full object-contain rounded-[12px] shadow-2xl"
         />
         

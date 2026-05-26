@@ -1,24 +1,11 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { getGenerativeModel } from 'firebase/vertexai';
 import { vertexAI, auth, db } from './firebase';
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
-import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
-import { createImageCollage } from './utils';
 
 declare const puter: any;
-
-/** Lazy-load to keep @mlc-ai/web-llm out of the main bundle init path (avoids TDZ crashes). */
-type BuiltInAiInstance = typeof import('./builtinAi').builtInAi;
-let builtInAiCache: BuiltInAiInstance | null = null;
-
-async function getBuiltInAi(): Promise<BuiltInAiInstance> {
-  if (!builtInAiCache) {
-    builtInAiCache = (await import('./builtinAi')).builtInAi;
-  }
-  return builtInAiCache;
-}
 
 let serverConfig: { 
   hasGeminiApiKey?: boolean; 
@@ -61,6 +48,11 @@ export const fetchServerConfig = async () => {
     isFetchingConfig = false;
   }
 };
+
+// Initial fetch
+if (typeof window !== 'undefined') {
+  fetchServerConfig();
+}
 
 export const isGeminiKeyAvailable = () => {
   const settings = getAiSettings();
@@ -178,23 +170,17 @@ export const safeParseJSON = (text: string) => {
         const replyMatch = cleaned.match(/"reply"\s*:\s*"([^"]*)"/);
         const messageMatch = cleaned.match(/"message"\s*:\s*"([^"]*)"/);
         const titleMatch = cleaned.match(/"title"\s*:\s*"([^"]*)"/);
-        const briefMatch = cleaned.match(/"brief"\s*:\s*"([^"]*)"/);
         const captionMatch = cleaned.match(/"caption"\s*:\s*"([^"]*)"/) || cleaned.match(/"text"\s*:\s*"([^"]*)"/);
-        const hashtagsMatch = cleaned.match(/"hashtags"\s*:\s*"([^"]*)"/);
 
-        if (replyMatch || messageMatch || titleMatch || captionMatch || briefMatch) {
+        if (replyMatch || messageMatch) {
           return {
             reply: replyMatch ? replyMatch[1] : undefined,
             message: messageMatch ? messageMatch[1] : undefined,
             title: titleMatch ? titleMatch[1] : undefined,
-            brief: briefMatch ? briefMatch[1] : undefined,
-            caption: captionMatch ? captionMatch[1] : undefined,
-            hashtags: hashtagsMatch ? hashtagsMatch[1] : undefined,
             suggestedPost: captionMatch ? {
               title: titleMatch ? titleMatch[1] : undefined,
-              caption: captionMatch[1],
-              brief: briefMatch ? briefMatch[1] : undefined,
-            } : undefined,
+              caption: captionMatch[1]
+            } : undefined
           };
         }
         throw finalError;
@@ -289,109 +275,27 @@ export async function fetchBrandKitDesignGuide(businessId: string): Promise<stri
   return '';
 }
 
-export type AiRouteOptions = { forceLocal?: boolean };
-
-export function getDefaultAiSettings() {
-  return {
-    preferredProvider: 'builtin',
-    imageProvider: 'builtin',
-    geminiModel: 'gemini-2.5-flash',
-    groqModel: 'llama-3.3-70b-versatile',
-    groqVisionModel: 'llama-3.2-11b-vision-preview',
-    pollinationModel: 'flux',
-    pollinationApiKey: '',
-    puterTextModel: 'gpt-4o-mini',
-    puterImageModel: 'dall-e-3',
-    builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
-    builtinVisionModelId: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
-    customModelUrl: '',
-    customModelConfig: null,
-    allowedAutoProviders: ['builtin', 'local_proxy', 'groq', 'gemini'],
-    targetUrl: '',
-    geminiApiKey: '',
-    groqApiKey: '',
-    firecrawlApiKey: '',
-    systemInstructions: '',
-    brandVoice: '',
-    businessRules: '',
-    brandKnowledge: '',
-    localAiDebug: false,
-    localFirstDefaults: true,
-    localProxyUrl: 'http://localhost:11434/v1',
-    localProxyModel: 'llama3',
-    localProxyApiKey: '',
-    cloudinaryCloudName: '',
-    cloudinaryApiKey: '',
-    cloudinaryApiSecret: '',
-    catalogueImportLocalOnly: true,
-    catalogueImportCloudFallback: true,
-    catalogueCrawlLimit: 100,
-    fallbackToCloudAi: false,
-  };
-}
-
-export function isCloudAiFallbackEnabled(settings = getAiSettings()): boolean {
-  return settings.fallbackToCloudAi === true;
-}
-
-/** Cloud APIs only when explicitly selected, or when user enables fallback. */
-export function canUseCloudAiProviders(
-  settings = getAiSettings(),
-  effectiveProvider?: ForgeTextProvider
-): boolean {
-  const provider = effectiveProvider ?? getEffectiveTextProvider(settings);
-  if (provider === 'gemini' || provider === 'groq' || provider === 'puter') return true;
-  if (provider === 'local_proxy') return true;
-  if (provider === 'firebase') return true;
-  return isCloudAiFallbackEnabled(settings);
-}
-
-function migrateToLocalFirstDefaults(parsed: Record<string, unknown>) {
-  if (parsed.localFirstDefaults) return parsed;
-  const legacyText =
-    !parsed.preferredProvider || parsed.preferredProvider === 'auto';
-  const legacyImage =
-    !parsed.imageProvider ||
-    parsed.imageProvider === 'gemini' ||
-    parsed.imageProvider === 'auto' ||
-    parsed.imageProvider === 'puter';
-  if (legacyText) parsed.preferredProvider = 'builtin';
-  if (legacyImage) parsed.imageProvider = 'builtin';
-  parsed.localFirstDefaults = true;
-  try {
-    localStorage.setItem('forge_ai_settings', JSON.stringify(parsed));
-  } catch {
-    /* ignore quota errors */
-  }
-  return parsed;
-}
-
 export const getAiSettings = () => {
   const saved = localStorage.getItem('forge_ai_settings');
   if (saved) {
     try {
-      const parsed = migrateToLocalFirstDefaults(JSON.parse(saved));
+      const parsed = JSON.parse(saved);
       // Ensure targetUrl exists in saved settings
       if (!parsed.targetUrl) parsed.targetUrl = '';
-      if (!parsed.imageProvider) parsed.imageProvider = 'builtin';
+      if (!parsed.imageProvider) parsed.imageProvider = 'gemini';
       if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
       if (!parsed.builtinModelId) parsed.builtinModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
-      if (!parsed.builtinVisionModelId) parsed.builtinVisionModelId = 'Phi-3.5-vision-instruct-q4f16_1-MLC';
-      if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'local_proxy', 'groq', 'gemini'];
+      if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'puter', 'groq', 'gemini'];
       if (!parsed.brandVoice) parsed.brandVoice = '';
       if (!parsed.businessRules) parsed.businessRules = '';
       if (!parsed.brandKnowledge) parsed.brandKnowledge = '';
       if (!parsed.localAiDebug) parsed.localAiDebug = false;
-      if (parsed.catalogueImportLocalOnly === undefined) parsed.catalogueImportLocalOnly = true;
-      if (parsed.catalogueImportCloudFallback === undefined) parsed.catalogueImportCloudFallback = true;
-      if (!parsed.catalogueCrawlLimit) parsed.catalogueCrawlLimit = 100;
-      if (parsed.fallbackToCloudAi === undefined) parsed.fallbackToCloudAi = false;
       return parsed;
     } catch (e) {}
   }
   return {
-    preferredProvider: 'builtin',
-    imageProvider: 'builtin',
+    preferredProvider: 'auto', // Default to auto
+    imageProvider: 'gemini',
     geminiModel: 'gemini-2.5-flash',
     groqModel: 'llama-3.3-70b-versatile',
     groqVisionModel: 'llama-3.2-11b-vision-preview',
@@ -400,10 +304,9 @@ export const getAiSettings = () => {
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
     builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
-    builtinVisionModelId: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
     customModelUrl: '',
     customModelConfig: null,
-    allowedAutoProviders: ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'],
+    allowedAutoProviders: ['builtin', 'puter', 'groq', 'gemini'],
     targetUrl: '',
     geminiApiKey: '',
     groqApiKey: '',
@@ -413,17 +316,12 @@ export const getAiSettings = () => {
     businessRules: '',
     brandKnowledge: '',
     localAiDebug: false,
-    localFirstDefaults: true,
     localProxyUrl: 'http://localhost:11434/v1',
     localProxyModel: 'llama3',
     localProxyApiKey: '',
     cloudinaryCloudName: '',
     cloudinaryApiKey: '',
-    cloudinaryApiSecret: '',
-    catalogueImportLocalOnly: true,
-    catalogueImportCloudFallback: true,
-    catalogueCrawlLimit: 100,
-    fallbackToCloudAi: false,
+    cloudinaryApiSecret: ''
   };
 };
 
@@ -458,32 +356,20 @@ function getLocalDbContextSnippet(): string {
   }
 }
 
-function withBusinessKnowledge(prompt: string, options?: { forLocal?: boolean }): string {
+function withBusinessKnowledge(prompt: string): string {
   const settings = getAiSettings();
   const blocks: string[] = [];
   if (settings.brandVoice) blocks.push(`BRAND VOICE:\n${settings.brandVoice}`);
   if (settings.businessRules) blocks.push(`BUSINESS RULES:\n${settings.businessRules}`);
   if (settings.systemInstructions) blocks.push(`AI INSTRUCTIONS:\n${settings.systemInstructions}`);
   if (settings.brandKnowledge) blocks.push(`MERGED KNOWLEDGE:\n${settings.brandKnowledge}`);
-
-  try {
-    const kitRaw = localStorage.getItem('forge_brand_kit_snapshot');
-    if (kitRaw) {
-      const kit = JSON.parse(kitRaw);
-      if (kit.brandProfile?.trim()) blocks.push(`BRAND PROFILE (brand.md):\n${kit.brandProfile.trim()}`);
-      if (kit.designGuide?.trim()) blocks.push(`DESIGN GUIDE (design.md):\n${kit.designGuide.trim()}`);
-    }
-  } catch {
-    /* ignore parse errors */
-  }
-
   const localDbContext = getLocalDbContextSnippet();
   if (localDbContext) blocks.push(`LOCAL DB CONTEXT:\n${localDbContext}`);
 
-  const maxChars = options?.forLocal ? LOCAL_KNOWLEDGE_MAX_CHARS : 4000;
+  const maxChars = 4000;
   let knowledge = blocks.join('\n\n');
   if (knowledge.length > maxChars) {
-    knowledge = `${knowledge.slice(0, maxChars)}\n\n[Knowledge truncated to fit local model context limit]`;
+    knowledge = `${knowledge.slice(0, maxChars)}\n\n[Knowledge truncated for local model stability]`;
   }
 
   if (!knowledge.trim()) return prompt;
@@ -601,189 +487,31 @@ async function fetchFromPuter(prompt: string, images?: { base64: string, mimeTyp
   }
 }
 
-export type ForgeTextProvider = 'auto' | 'builtin' | 'local_proxy' | 'gemini' | 'groq' | 'puter' | 'firebase';
+import { builtInAi } from './builtinAi';
 
-/** Resolves UI aliases (e.g. chat selecting WebLLM) to the provider that should run. */
-export function getEffectiveTextProvider(settings = getAiSettings()): ForgeTextProvider {
-  if (settings.geminiModel === 'webllm-local') return 'builtin';
-  return (settings.preferredProvider || 'auto') as ForgeTextProvider;
-}
-
-export function isLocalTextProvider(settings = getAiSettings()): boolean {
-  const provider = getEffectiveTextProvider(settings);
-  return provider === 'builtin' || provider === 'local_proxy';
-}
-
-/** Preload WebLLM when Built-in / WebGPU local mode is selected. */
-export async function ensureLocalTextEngineReady(): Promise<void> {
+export async function generateTextWithCascade(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
   const settings = getAiSettings();
-  if (getEffectiveTextProvider(settings) !== 'builtin') return;
-  const builtInAi = await getBuiltInAi();
-  const status = builtInAi.getStatus();
-  if (!status.isLoaded && !status.isLoading) {
-    await builtInAi.init(settings.builtinModelId || 'Phi-3-mini-4k-instruct-q4f16_1-MLC');
-  }
-}
-
-export function isBuiltinVisionPreferred(settings = getAiSettings()): boolean {
-  return (
-    settings.imageProvider === 'builtin' ||
-    settings.preferredProvider === 'builtin' ||
-    usesLocalTextForImages(settings)
-  );
-}
-
-export function canUseBuiltinWebGpuVision(): boolean {
-  return typeof navigator !== 'undefined' && !!(navigator as Navigator & { gpu?: unknown }).gpu;
-}
-
-/** Preload WebLLM Phi-3.5 Vision for local image understanding. */
-export async function ensureBuiltinVisionReady(): Promise<void> {
-  const settings = getAiSettings();
-  if (!canUseBuiltinWebGpuVision()) return;
-  const builtInAi = await getBuiltInAi();
-  const visionId = settings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC';
-  const status = builtInAi.getStatus();
-  if (!status.visionIsLoaded && !status.visionIsLoading) {
-    await builtInAi.initVision(visionId);
-  }
-}
-
-export { ensureLocalAiEnginesReady } from './localAiBootstrap';
-
-/** Outlets / branches for vision matching (brand kit + workspace name). */
-export async function fetchBusinessOutlets(business?: Business | null): Promise<string[]> {
-  const names: string[] = [];
-  const add = (n?: string) => {
-    const t = n?.trim();
-    if (!t) return;
-    if (!names.some((x) => x.toLowerCase() === t.toLowerCase())) names.push(t);
-  };
-  add(business?.name);
-  if (business?.id) {
-    try {
-      const snap = await getDoc(doc(db, 'categories', business.id));
-      if (snap.exists()) {
-        const cats = snap.data().categories as
-          | Array<{ name: string; type?: string; enabled?: boolean }>
-          | undefined;
-        cats?.forEach((c) => {
-          if (c.enabled !== false && (!c.type || c.type === 'outlet')) add(c.name);
-        });
-      }
-    } catch (e) {
-      console.warn('[fetchBusinessOutlets]', e);
-    }
-  }
-  return names.length > 0 ? names : [business?.name?.trim() || 'Main Store'];
-}
-
-function resolveDetectedOutlet(
-  raw: string | undefined,
-  allowedOutlets: string[],
-  preferred?: string
-): string {
-  const preferredTrim = preferred?.trim();
-  const list =
-    allowedOutlets.length > 0
-      ? allowedOutlets
-      : preferredTrim
-        ? [preferredTrim]
-        : [];
-
-  const rawTrim = raw?.trim() || '';
-  if (!rawTrim) {
-    if (preferredTrim && list.some((a) => a.toLowerCase() === preferredTrim.toLowerCase())) {
-      return list.find((a) => a.toLowerCase() === preferredTrim.toLowerCase())!;
-    }
-    return list[0] || preferredTrim || '';
-  }
-
-  const lower = rawTrim.toLowerCase();
-  const exact = list.find((a) => a.toLowerCase() === lower);
-  if (exact) return exact;
-
-  const partial = list.find(
-    (a) => lower.includes(a.toLowerCase()) || a.toLowerCase().includes(lower)
-  );
-  if (partial) return partial;
-
-  const genericWrong = ['forge enterprises', 'forge', 'your brand', 'main channel'];
-  if (
-    genericWrong.some((g) => lower === g || lower.startsWith(g + ' ')) &&
-    !list.some((a) => genericWrong.includes(a.toLowerCase()))
-  ) {
-    return preferredTrim || list[0] || rawTrim;
-  }
-
-  if (list.some((a) => a.toLowerCase() === lower)) return rawTrim;
-  return preferredTrim || list[0] || rawTrim;
-}
-
-async function generateWithBuiltinVision(
-  promptText: string,
-  base64Data: string,
-  mimeType: string
-): Promise<string> {
-  const settings = getAiSettings();
-  const visionId = settings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC';
-  const dataUrl = `data:${mimeType};base64,${base64Data}`;
-  const builtInAi = await getBuiltInAi();
-  await builtInAi.initVision(visionId);
-  return builtInAi.generateWithVision(promptText, [dataUrl]);
-}
-
-/**
- * App-wide text generation: Built-in WebLLM, Ollama/LM Studio, Groq, Puter, Gemini, and Auto cascade.
- */
-export async function generateAppText(
-  prompt: string,
-  expectJson: boolean = false,
-  businessId?: string,
-  options?: AiRouteOptions
-): Promise<string> {
-  const settings = getAiSettings();
-  const effectiveProvider = options?.forceLocal ? 'builtin' : getEffectiveTextProvider(settings);
-  const cloudAllowed = options?.forceLocal ? false : canUseCloudAiProviders(settings, effectiveProvider);
-  const forLocal = options?.forceLocal || isLocalTextProvider(settings);
 
   let designContext = '';
   if (businessId) {
-    let guide = await fetchBrandKitDesignGuide(businessId);
-    if (guide && forLocal && guide.length > 800) {
-      guide = `${guide.slice(0, 800)}\n[Design guide truncated for local AI context]`;
-    }
+    const guide = await fetchBrandKitDesignGuide(businessId);
     if (guide) {
       designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE:\n${guide}\nRefer to the above guide for style, tone, and formatting consistency.\n`;
     }
   }
 
-  const contextualPrompt = withBusinessKnowledge(prompt + designContext, { forLocal });
+  const contextualPrompt = withBusinessKnowledge(prompt + designContext);
   const fullPrompt = expectJson ? `${contextualPrompt}\n\nYou MUST return ONLY a valid JSON object or array.` : contextualPrompt;
 
-  // Widgets and explicit built-in mode: local only
-  if (options?.forceLocal) {
-    await ensureLocalTextEngineReady();
-    const resp = await (await getBuiltInAi()).generate(fullPrompt);
-    if (resp) return resp;
-    throw new Error('Local AI failed to generate text. Initialize the model in Settings.');
-  }
-
-  // Try Built-in AI first for built-in mode and auto (when cloud fallback is off, auto stays local-only)
-  if (effectiveProvider === 'builtin' || effectiveProvider === 'auto') {
+  // Try Built-in AI if selected or if auto mode is on and we want maximum free access
+  if (settings.preferredProvider === 'builtin' || (settings.preferredProvider === 'auto' && !isGeminiKeyAvailable())) {
     try {
-      await ensureLocalTextEngineReady();
-      const resp = await (await getBuiltInAi()).generate(fullPrompt);
+      const resp = await builtInAi.generate(fullPrompt);
       if (resp) return resp;
     } catch (e) {
       console.error('Built-in AI failed:', e);
-      if (!cloudAllowed) {
-        throw new Error(
-          'Local AI failed. Enable "Fallback to cloud AI services" in Settings to use Gemini, Groq, or other cloud providers.'
-        );
-      }
       notifyFallback('Local AI fallback', 'Built-in model failed, trying cloud providers.');
-      if (effectiveProvider === 'builtin') throw e;
+      if (settings.preferredProvider === 'builtin') throw e;
       console.warn('Built-in AI failed, cascading...');
     }
   }
@@ -791,27 +519,27 @@ export async function generateAppText(
   // Decision logic for providers
   const isPuterSignedIn = typeof window !== 'undefined' && (window as any).puter && await (window as any).puter.auth.isSignedIn();
 
-  if (effectiveProvider === 'puter') {
+  if (settings.preferredProvider === 'puter') {
     try {
       const resp = await fetchFromPuter(fullPrompt);
       if (resp) return resp;
     } catch (e) {
       console.error('Puter failed:', e);
       notifyFallback('Provider fallback', 'Puter unavailable, trying next provider.');
-      if (effectiveProvider === 'puter') throw e;
+      if (settings.preferredProvider === 'puter') throw e;
       console.warn('Puter failed, cascading...');
     }
-  } else if (effectiveProvider === 'groq') {
+  } else if (settings.preferredProvider === 'groq') {
     try {
       const resp = await fetchFromGroq(fullPrompt);
       if (resp) return resp;
     } catch (e) {
       console.error('Groq failed:', e);
       notifyFallback('Provider fallback', 'Groq unavailable, trying next provider.');
-      if (effectiveProvider === 'groq') throw e;
+      if (settings.preferredProvider === 'groq') throw e;
       console.warn('Groq failed, cascading...');
     }
-  } else if (effectiveProvider === 'local_proxy') {
+  } else if (settings.preferredProvider === 'local_proxy') {
     try {
       const resp = await fetchFromLocalServer(fullPrompt);
       if (resp) return resp;
@@ -820,32 +548,24 @@ export async function generateAppText(
       notifyFallback('Provider fallback', 'Local Server unavailable. Ensure Ollama/LM Studio is running.');
       throw e;
     }
-  } else if (effectiveProvider === 'auto') {
-    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'groq', 'gemini'];
-
-    if (allowed.includes('builtin')) {
-      try {
-        await ensureLocalTextEngineReady();
-        const localResp = await (await getBuiltInAi()).generate(fullPrompt);
-        if (localResp) return localResp;
-      } catch (e) {
-        console.warn('Auto mode: Built-in WebLLM failed, trying next...');
-      }
-    }
-
-    if (allowed.includes('local_proxy')) {
-      try {
-        return await fetchFromLocalServer(fullPrompt);
-      } catch (e) {
-        console.warn('Auto mode: Local Proxy (Ollama) failed, trying next...');
-      }
-    }
-
+  } else if (settings.preferredProvider === 'auto') {
+    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
+    
+    // 1. Try Groq first in auto mode if allowed
     if (allowed.includes('groq')) {
       try {
         return await fetchFromGroq(fullPrompt);
       } catch (e) {
         console.warn('Auto mode: Groq failed, trying next...');
+      }
+    }
+
+    // 2. Try Local Proxy (Ollama) if allowed
+    if (allowed.includes('local_proxy')) {
+      try {
+        return await fetchFromLocalServer(fullPrompt);
+      } catch (e) {
+        console.warn('Auto mode: Local Proxy (Ollama) failed, trying next...');
       }
     }
   }
@@ -877,6 +597,7 @@ export async function generateAppText(
     console.warn("Gemini failed, cascading...");
     notifyFallback('Provider fallback', 'Gemini failed, trying alternates.');
     
+    // Fallback 1: Puter (if auto/preferred)
     if (settings.preferredProvider === 'auto' && isPuterSignedIn) {
       try {
         console.log("Cascading to last resort Puter...");
@@ -884,48 +605,20 @@ export async function generateAppText(
       } catch (e) { }
     }
 
-    if (effectiveProvider === 'auto') {
-      const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
-      if (allowed.includes('builtin')) {
-        try {
-          console.warn("Cloud AI exhausted. Falling back to WebLLM Local AI Engine...");
-          notifyFallback('Auto routing', 'Cloud quota exhausted, switching to Local AI (WebGPU).');
-          await ensureLocalTextEngineReady();
-          const localResp = await (await getBuiltInAi()).generate(fullPrompt);
-          if (localResp) return localResp;
-        } catch (e) {
-          console.error("Local AI also failed:", e);
-        }
-      }
-      if (allowed.includes('local_proxy')) {
-        try {
-          return await fetchFromLocalServer(fullPrompt);
-        } catch (e) {
-          console.error("Local proxy fallback failed:", e);
-        }
+    // Fallback 2: Local AI (absolute last resort in auto mode)
+    if (settings.preferredProvider === 'auto') {
+      try {
+        console.warn("Cloud AI exhausted. Falling back to WebLLM Local AI Engine...");
+        notifyFallback('Auto routing', 'Cloud quota exhausted, switching to Local AI (WebGPU).');
+        const localResp = await builtInAi.generate(fullPrompt);
+        if (localResp) return localResp;
+      } catch (e) {
+        console.error("Local AI also failed:", e);
       }
     }
 
     throw new Error("All AI providers (Gemini, Groq, Puter, Local) failed or are unavailable.");
   }
-}
-
-/** JSON helper used across the app (posts, ideas, mappings, analytics). */
-export async function generateAppJson(
-  prompt: string,
-  options?: { businessId?: string; expectArray?: boolean; forceLocal?: boolean }
-): Promise<any> {
-  const jsonHint = options?.expectArray
-    ? '\n\nYou MUST return ONLY a valid JSON array.'
-    : '\n\nYou MUST return ONLY a valid JSON object or array.';
-  const text = await generateAppText(prompt + jsonHint, true, options?.businessId, {
-    forceLocal: options?.forceLocal,
-  });
-  return options?.expectArray ? safeParseJSONArray(text) : safeParseJSON(text);
-}
-
-export async function generateTextWithCascade(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
-  return generateAppText(prompt, expectJson, businessId);
 }
 
 async function fetchFromLocalServer(prompt: string, history: ChatMessage[] = [], images?: { base64: string, mimeType: string }[]) {
@@ -1143,7 +836,7 @@ export async function generatePostContent(outlet: string, productCategory?: stri
     try {
       console.log("[GeneratePostContent] Strict Local AI Mode active.");
       const localPrompt = `Generate a high-engagement social media post for ${business?.name || 'our brand'} about ${category}. ${categoryPrompt} ${avoidPrompt}`;
-      const localText = await (await getBuiltInAi()).generate(localPrompt + " You MUST return ONLY a valid JSON object.");
+      const localText = await builtInAi.generate(localPrompt + " You MUST return ONLY a valid JSON object.");
       return safeParseJSON(localText || '{}');
     } catch (e) {
       console.error("Local AI failed:", e);
@@ -1244,18 +937,6 @@ export async function generatePostContent(outlet: string, productCategory?: stri
       if (parsed && parsed.title) return parsed;
     } catch (error) {
       console.warn("Groq failed. Cascading to Gemini...");
-    }
-  }
-
-  if (settings.preferredProvider === 'auto') {
-    try {
-      const parsed = await generateAppJson(
-        `${prompt}\n\nReturn a JSON object with fields: title, brief, caption, hashtags.`,
-        { businessId: business?.id }
-      );
-      if (parsed?.title) return parsed;
-    } catch (e) {
-      console.warn('[GeneratePostContent] Auto provider cascade failed, trying Gemini.', e);
     }
   }
 
@@ -1477,7 +1158,7 @@ export async function generateSmartBrief(title: string, recentPosts: Post[], bus
     try {
       console.log("[GenerateSmartBrief] Strict Local AI Mode active.");
       const localPrompt = `Generate a design brief for post: "${title}". Context: ${recentContext}`;
-      return await (await getBuiltInAi()).generate(localPrompt);
+      return await builtInAi.generate(localPrompt);
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
@@ -1553,14 +1234,12 @@ export async function generateSmartPost(title: string, category: string, outlet:
   const dbContext = localDB.slice(0, 5).map(p => `- ${p.title}: ${p.type} (${mode === 'product' ? (p.price || 'N/A') : (p.stockInfo || 'N/A')})`).join('\n');
   const settings = getAiSettings();
   
-  if (getEffectiveTextProvider(settings) === 'builtin') {
+  if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateSmartPost] Strict Local AI Mode active.");
-      const parsed = await generateAppJson(
-        `Generate a social media post JSON for title: "${title}", category: "${category}". Business: ${business?.name || 'Manual'}. Mode: ${mode}.
-        Return fields: title, brief, caption, hashtags, type, outlet.`
-      );
-      if (parsed && parsed.title) return parsed;
+      const localPrompt = `Generate a JSON post for title: "${title}", category: "${category}". Business: ${business?.name || 'Manual'}. Mode: ${mode}.`;
+      const localText = await builtInAi.generate(localPrompt + " You MUST return ONLY a valid JSON object.");
+      return safeParseJSON(localText || '{}');
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
@@ -1600,9 +1279,10 @@ export async function generateSmartPost(title: string, category: string, outlet:
 
   const prompt = withBusinessKnowledge(basePrompt);
 
-  if (getEffectiveTextProvider(settings) === 'local_proxy') {
+  if (settings.preferredProvider === 'local_proxy') {
     try {
-      const parsed = await generateAppJson(prompt);
+      const localResponse = await fetchFromLocalServer(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
+      const parsed = safeParseJSON(localResponse || '{}');
       if (parsed && parsed.title) return parsed;
     } catch (error) {
       console.warn("Local server failed for smart post, falling back:", error);
@@ -1694,551 +1374,105 @@ export async function generatePostVisuals(title: string, brief: string, brandKit
   return images;
 }
 
-const IMAGE_POST_TIMEOUT_MS = 75_000;
-
-function withImageAnalysisTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(
-        () => reject(new Error(`${label} timed out. Try Gemini/Groq for vision, or edit the post manually.`)),
-        IMAGE_POST_TIMEOUT_MS
-      );
-    }),
-  ]);
-}
-
-type PostFromImageNormalizeOptions = {
-  outlet?: string;
-  businessName?: string;
-  allowedOutlets?: string[];
-};
-
-function normalizePostFromImageResult(
-  parsed: Record<string, unknown> | null,
-  options?: PostFromImageNormalizeOptions
-): Record<string, string> {
-  const o = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>;
-  const rawMessage = typeof o.message === 'string' ? o.message.trim() : '';
-  let caption = String(o.caption ?? o.text ?? '').trim();
-  let brief = String(o.brief ?? '').trim();
-  let title = String(o.title ?? '').trim();
-  const hashtags = String(o.hashtags ?? '').trim();
-  const type = String(o.type ?? '🔴 General').trim() || '🔴 General';
-  const allowedOutlets =
-    options?.allowedOutlets?.length
-      ? options.allowedOutlets
-      : [options?.outlet, options?.businessName].filter(Boolean) as string[];
-  const preferredOutlet = options?.outlet?.trim() || options?.businessName?.trim() || '';
-  const contactNumber = String(o.contactNumber ?? o.outletPhone ?? o.phone ?? '').trim();
-  const outletEvidence = String(o.visibleOutletEvidence ?? o.outletEvidence ?? '').trim();
-
-  if (contactNumber && !brief.includes(contactNumber)) {
-    brief = brief ? `${brief}\nContact shown: ${contactNumber}` : `Contact shown in image: ${contactNumber}`;
-  }
-  if (outletEvidence && !brief.toLowerCase().includes(outletEvidence.toLowerCase().slice(0, 24))) {
-    brief = brief ? `${brief}\nBranding: ${outletEvidence}` : `Visible branding: ${outletEvidence}`;
-  }
-
-  if (!caption && rawMessage) {
-    caption = rawMessage;
-  }
-  if (!brief && rawMessage && !caption) {
-    brief = rawMessage;
-  }
-  if (!title && caption) {
-    title = caption.split(/[.!?\n]/)[0]?.trim().slice(0, 72) || '';
-  }
-  const genericTitles = /^(new post from image|analyzing images?|new image post|image post)$/i;
-  if (!title || genericTitles.test(title)) {
-    title = caption ? caption.split(/[.!?\n]/)[0]?.trim().slice(0, 72) || 'Image post draft' : 'Image post draft';
-  }
-
-  return {
-    title,
-    brief,
-    caption,
-    hashtags,
-    type,
-    outlet: resolveDetectedOutlet(String(o.outlet ?? '').trim(), allowedOutlets, preferredOutlet),
-  };
-}
-
-async function hasVisionProviderAvailable(settings = getAiSettings()): Promise<boolean> {
-  if (isGeminiKeyAvailable()) return true;
-  if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) return true;
-  try {
-    if (await isPuterSignedIn()) return true;
-  } catch {
-    /* ignore */
-  }
-  return false;
-}
-
-function buildPostFromImagePrompt(
-  businessName: string,
-  businessIndustry: string,
-  outletContext: string,
-  designContext: string,
-  isVideo: boolean,
-  forLocal: boolean,
-  preferredOutlet?: string,
-  allowedOutlets: string[] = []
-): string {
-  const mediaIntro = isVideo
-    ? 'Analyze this 2x2 collage of video frames. Describe what happens across the sequence, then draft the post.'
-    : 'Analyze the attached image in detail. Read all visible text, logos, signage, packaging, uniforms, and storefront branding.';
-
-  const outletList =
-    allowedOutlets.length > 0
-      ? allowedOutlets.map((n) => `"${n}"`).join(', ')
-      : preferredOutlet
-        ? `"${preferredOutlet}"`
-        : '(use brand name only)';
-
-  const core = `${mediaIntro}
-
-Brand: ${businessName} (${businessIndustry})${outletContext}
-${designContext}
-
-OUTLET IDENTIFICATION (required):
-- Allowed outlet names (pick exactly one for the "outlet" field): ${outletList}
-- Look for outlet logos, branch names on signs, receipts, price tags, social handles, or watermarks in the image.
-- ${preferredOutlet ? `If branding for "${preferredOutlet}" is visible, use that outlet.` : 'Choose the outlet that best matches visible branding.'}
-- Do NOT use generic placeholders like "Forge Enterprises" unless that exact name is in the allowed list.
-- If a phone, WhatsApp, or tel. number is visible on signage or materials, put it in contactNumber and mention it in the brief.
-
-Return JSON with exactly these fields:
-- title (specific to the image; never use "New post from image")
-- brief (designer instructions referencing visible products, signage, and outlet branding)
-- caption (full social caption; follow ALL business rules, brand voice, and mandatory suffixes from knowledge context)
-- hashtags (space-separated)
-- type (post category, e.g. "🔴 General" or industry-specific)
-- outlet (must be one of the allowed outlet names above)
-- visibleOutletEvidence (short note: what logo/sign/text identified the outlet)
-- contactNumber (phone/WhatsApp found in image, or empty string)
-
-You MUST return ONLY a valid JSON object.`;
-
-  return withBusinessKnowledge(core, { forLocal });
-}
-
-function usesLocalTextForImages(settings = getAiSettings()): boolean {
-  const effective = getEffectiveTextProvider(settings);
-  return (
-    settings.preferredProvider === 'builtin' ||
-    settings.preferredProvider === 'local_proxy' ||
-    settings.geminiModel === 'webllm-local' ||
-    effective === 'builtin'
-  );
-}
-
-async function generatePostFromImageTextFallback(
-  businessName: string,
-  businessIndustry: string,
-  outletContext: string,
-  designContext: string,
-  isVideo: boolean,
-  business?: Business,
-  preferredOutlet?: string,
-  allowedOutlets: string[] = []
-): Promise<Record<string, string>> {
+export async function generatePostFromImage(base64Data: string, mimeType: string, outlet?: string, isVideo?: boolean, business?: Business) {
   const settings = getAiSettings();
-  const forLocal = usesLocalTextForImages(settings);
-  const blindNote =
-    forLocal && !canUseBuiltinWebGpuVision()
-      ? '\n\nNote: WebGPU is unavailable—local text cannot see the image. Return complete JSON from brand knowledge only.'
-      : forLocal
-        ? '\n\nNote: Local vision was unavailable; infer from brand knowledge and return complete title, brief, and caption JSON.'
-        : '';
-
-  const prompt =
-    buildPostFromImagePrompt(
-      businessName,
-      businessIndustry,
-      outletContext,
-      designContext,
-      isVideo,
-      forLocal,
-      preferredOutlet,
-      allowedOutlets
-    ) + blindNote;
-
-  const text = await generateAppText(prompt, true, business?.id, forLocal ? { forceLocal: true } : undefined);
-  const parsed = safeParseJSON(text || '{}') as Record<string, unknown> | null;
-  return normalizePostFromImageResult(parsed, {
-    outlet: preferredOutlet,
-    businessName,
-    allowedOutlets,
-  });
-}
-
-async function generatePostFromImageWithVision(
-  provider: 'puter' | 'groq' | 'firebase' | 'gemini',
-  settings: ReturnType<typeof getAiSettings>,
-  promptText: string,
-  base64Data: string,
-  mimeType: string,
-  normalizeOptions?: PostFromImageNormalizeOptions
-): Promise<Record<string, string>> {
-  const jsonHint = ' You MUST return ONLY a valid JSON object.';
-  const imagePart = [{ base64: base64Data, mimeType }];
-
-  const normalize = (raw: string) =>
-    normalizePostFromImageResult(safeParseJSON(raw || '{}') as Record<string, unknown> | null, normalizeOptions);
-
-  if (provider === 'puter') {
-    const puterResponse = await fetchFromPuter(promptText + jsonHint, imagePart);
-    return normalize(puterResponse || '{}');
+  
+  if (settings.preferredProvider === 'builtin') {
+    throw new Error("Local AI does not support image analysis yet. Please switch to Gemini or Groq.");
   }
 
-  if (provider === 'groq') {
-    const groqResponse = await fetchFromGroq(promptText + jsonHint, imagePart);
-    return normalize(groqResponse || '{}');
-  }
-
-  if (provider === 'firebase') {
-    const model = getVertexModel(settings.geminiModel);
-    const result = await model.generateContent([
-      { inlineData: { data: base64Data, mimeType } },
-      { text: promptText + jsonHint },
-    ]);
-    const response = await result.response;
-    return normalize(response.text() || '{}');
-  }
-
-  if (!isGeminiKeyAvailable()) {
-    await fetchServerConfig();
-  }
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: settings.geminiModel,
-    contents: {
-      parts: [{ inlineData: { data: base64Data, mimeType } }, { text: promptText + jsonHint }],
-    },
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          brief: { type: Type.STRING },
-          caption: { type: Type.STRING },
-          hashtags: { type: Type.STRING },
-          type: { type: Type.STRING },
-          outlet: { type: Type.STRING },
-          visibleOutletEvidence: { type: Type.STRING },
-          contactNumber: { type: Type.STRING },
-        },
-        required: ['title', 'brief', 'caption', 'hashtags', 'type', 'outlet'],
-      },
-    },
-  });
-  return normalize(response.text || '{}');
-}
-
-export async function generatePostFromImage(
-  base64Data: string,
-  mimeType: string,
-  outlet?: string,
-  isVideo?: boolean,
-  business?: Business
-) {
-  const settings = getAiSettings();
-  const allowedOutlets = await fetchBusinessOutlets(business);
-  const preferredOutlet =
-    outlet?.trim() ||
-    (allowedOutlets.length === 1 ? allowedOutlets[0] : business?.name?.trim());
-  const outletContext = preferredOutlet ? ` for the outlet "${preferredOutlet}"` : '';
-  const businessName = business?.name?.trim() || 'your brand';
+  const outletContext = outlet ? ` for the outlet "${outlet}"` : '';
+  const businessName = business?.name || 'Forge Enterprises';
   const businessIndustry = business?.industry || 'professional business';
-  const forLocal = usesLocalTextForImages(settings);
-  const normalizeOptions: PostFromImageNormalizeOptions = {
-    outlet: preferredOutlet,
-    businessName,
-    allowedOutlets,
-  };
+  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
 
   let designContext = '';
   if (business?.id) {
     const guide = await fetchBrandKitDesignGuide(business.id);
     if (guide) {
-      const trimmed = forLocal && guide.length > 800 ? `${guide.slice(0, 800)}\n[Truncated for local AI]` : guide;
-      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE:\n${trimmed}\n`;
+      designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE (Follow this style closely):\n${guide}\n`;
     }
   }
 
-  const promptText = buildPostFromImagePrompt(
-    businessName,
-    businessIndustry,
-    outletContext,
-    designContext,
-    !!isVideo,
-    forLocal,
-    preferredOutlet,
-    allowedOutlets
-  );
-
-  const jsonHint = ' You MUST return ONLY a valid JSON object.';
-
-  if (isBuiltinVisionPreferred(settings) && canUseBuiltinWebGpuVision()) {
-    try {
-      const raw = await withImageAnalysisTimeout(
-        generateWithBuiltinVision(promptText + jsonHint, base64Data, mimeType),
-        'WebLLM vision'
-      );
-      const result = normalizePostFromImageResult(
-        safeParseJSON(raw || '{}') as Record<string, unknown> | null,
-        normalizeOptions
-      );
-      if (
-        result.caption?.trim() ||
-        (result.title && !/^(image post draft|new post from image)$/i.test(result.title))
-      ) {
-        return result;
-      }
-    } catch (error) {
-      console.warn('[generatePostFromImage] WebLLM vision failed:', error);
-    }
-  }
-
-  const visionOrder: Array<'puter' | 'groq' | 'firebase' | 'gemini'> = [];
-  const pref = settings.preferredProvider;
-
-  if (pref === 'puter') visionOrder.push('puter');
-  else if (pref === 'groq') visionOrder.push('groq');
-  else if (pref === 'firebase') visionOrder.push('firebase');
-  else if (pref === 'gemini') visionOrder.push('gemini');
-  else {
-    if (isGeminiKeyAvailable()) visionOrder.push('gemini');
-    if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) visionOrder.push('groq');
-    try {
-      if (await isPuterSignedIn()) visionOrder.push('puter');
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const tried = new Set<string>();
-  let lastError: unknown;
-  let visionAttempted = false;
-
-  if (visionOrder.length > 0) {
-    for (const provider of visionOrder) {
-      if (tried.has(provider)) continue;
-      tried.add(provider);
-      visionAttempted = true;
-      try {
-        const result = await withImageAnalysisTimeout(
-          generatePostFromImageWithVision(
-            provider,
-            settings,
-            promptText,
-            base64Data,
-            mimeType,
-            normalizeOptions
-          ),
-          `${provider} vision`
-        );
-        if (result.caption?.trim() || (result.title && !/^(image post draft|new post from image)$/i.test(result.title))) {
-          return result;
-        }
-        lastError = new Error(`${provider} returned empty caption`);
-      } catch (error) {
-        lastError = error;
-        console.warn(`[generatePostFromImage] ${provider} failed:`, error);
-      }
-    }
-  }
-
-  const visionAvailable = await hasVisionProviderAvailable(settings);
-  if (!visionAttempted && !visionAvailable && forLocal) {
-    notifyFallback(
-      'Local AI image draft',
-      canUseBuiltinWebGpuVision()
-        ? 'Local vision model failed—drafting from Knowledge Center. Retry or add Gemini/Groq as fallback.'
-        : 'WebGPU required for local vision—drafting from Knowledge Center only, or add Gemini/Groq in Settings.'
-    );
-  }
+  const promptText = isVideo
+    ? `Analyze this 2x2 collage of frames extracted from a video and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
+       Treat this as a video analysis by looking at the sequence of frames.
+       ${systemInstruction}
+       ${designContext}
+       Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`
+    : `Analyze this image and generate a social media post for ${businessName} (a ${businessIndustry})${outletContext}. 
+       ${systemInstruction}
+       ${designContext}
+       Return JSON with exactly these fields: title (short, catchy), brief (internal instructions for designer), caption (engaging social media text), hashtags (string of space-separated tags), type (e.g., 'Tiles & Flooring', 'How-To / Tips', 'Living Mall', 'Behind the Scenes'), outlet (e.g., 'Buildware', 'Living Mall', 'Office system').`;
 
   try {
-    const fallback = await withImageAnalysisTimeout(
-      generatePostFromImageTextFallback(
-        businessName,
-        businessIndustry,
-        outletContext,
-        designContext,
-        !!isVideo,
-        business,
-        preferredOutlet,
-        allowedOutlets
-      ),
-      forLocal ? 'Local AI post draft' : 'Text fallback'
-    );
-    const needsVisionNote = forLocal && !visionAvailable;
-    return {
-      ...fallback,
-      brief:
-        fallback.brief ||
-        (needsVisionNote
-          ? 'Drafted from Knowledge Center without seeing the image. Add Gemini/Groq for vision, or edit fields manually.'
-          : visionAttempted
-            ? 'Caption drafted without vision after cloud providers failed. Review and edit before publishing.'
-            : ''),
-    };
-  } catch (error) {
-    console.warn('[generatePostFromImage] All providers failed:', error);
-    const msg =
-      lastError instanceof Error
-        ? lastError.message
-        : 'Could not analyze image. Edit this post manually or add a Gemini/Groq API key in Settings.';
-    return {
-      ...normalizePostFromImageResult(null, normalizeOptions),
-      brief: msg,
-    };
-  }
-}
-
-export type IdeasFromImagesMode = 'quick' | 'strategy' | 'postcard' | 'visual';
-
-export function parseImageDataUrl(dataUrl: string): { base64: string; mimeType: string } | null {
-  const match = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-  if (!match) return null;
-  return { mimeType: match[1], base64: match[2] };
-}
-
-function buildVisionProviderOrder(settings = getAiSettings()): Array<'puter' | 'groq' | 'firebase' | 'gemini'> {
-  const order: Array<'puter' | 'groq' | 'firebase' | 'gemini'> = [];
-  const pref = settings.preferredProvider;
-  if (pref === 'puter') order.push('puter');
-  else if (pref === 'groq') order.push('groq');
-  else if (pref === 'firebase') order.push('firebase');
-  else if (pref === 'gemini') order.push('gemini');
-  else {
-    if (isGeminiKeyAvailable()) order.push('gemini');
-    if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) order.push('groq');
-  }
-  return order;
-}
-
-async function runVisionTextPrompt(
-  promptText: string,
-  imageDataUrls: string[],
-  settings = getAiSettings()
-): Promise<string | null> {
-  const collage =
-    imageDataUrls.length > 1 ? await createImageCollage(imageDataUrls.slice(0, 6)) : imageDataUrls[0];
-  const parsed = parseImageDataUrl(collage);
-  if (!parsed) return null;
-
-  const jsonHint = ' You MUST return ONLY valid JSON.';
-
-  if (isBuiltinVisionPreferred(settings) && canUseBuiltinWebGpuVision()) {
-    try {
-      const raw = await withImageAnalysisTimeout(
-        generateWithBuiltinVision(promptText + jsonHint, parsed.base64, parsed.mimeType),
-        'WebLLM vision'
+    if (settings.preferredProvider === 'puter') {
+      const puterResponse = await fetchFromPuter(
+        promptText + " You MUST return ONLY a valid JSON object.",
+        [{ base64: base64Data, mimeType }]
       );
-      if (raw?.trim()) return raw;
-    } catch (err) {
-      console.warn('[runVisionTextPrompt] WebLLM vision failed:', err);
+      return safeParseJSON(puterResponse || '{}');
     }
-  }
 
-  const order = buildVisionProviderOrder(settings);
-  const tried = new Set<string>();
+    if (settings.preferredProvider === 'groq') {
+      const groqResponse = await fetchFromGroq(
+        promptText + " You MUST return ONLY a valid JSON object.",
+        [{ base64: base64Data, mimeType }]
+      );
+      return JSON.parse(groqResponse || '{}');
+    }
 
-  for (const provider of order) {
-    if (tried.has(provider)) continue;
-    tried.add(provider);
-    try {
-      if (provider === 'puter') {
-        const signedIn = await isPuterSignedIn();
-        if (!signedIn) continue;
-        return await fetchFromPuter(promptText + jsonHint, [parsed]);
-      }
-      if (provider === 'groq') {
-        return await fetchFromGroq(promptText + jsonHint, [parsed]);
-      }
-      if (provider === 'firebase') {
-        const model = getVertexModel(settings.geminiModel);
-        const result = await model.generateContent([
-          { inlineData: { data: parsed.base64, mimeType: parsed.mimeType } },
-          { text: promptText + jsonHint },
-        ]);
-        return (await result.response).text();
-      }
-      if (provider === 'gemini') {
-        if (!isGeminiKeyAvailable()) await fetchServerConfig();
-        const ai = getAi();
-        const response = await ai.models.generateContent({
-          model: settings.geminiModel || 'gemini-2.5-flash',
-          contents: {
-            parts: [
-              { inlineData: { data: parsed.base64, mimeType: parsed.mimeType } },
-              { text: promptText + jsonHint },
-            ],
+    if (settings.preferredProvider === 'firebase') {
+      const model = getVertexModel(settings.geminiModel);
+      const result = await model.generateContent([
+        { inlineData: { data: base64Data, mimeType } },
+        { text: promptText }
+      ]);
+      const response = await result.response;
+      return JSON.parse(response.text() || '{}');
+    }
+
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: settings.geminiModel,
+      contents: {
+        parts: [
+          { inlineData: { data: base64Data, mimeType } },
+          { text: promptText }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            brief: { type: Type.STRING },
+            caption: { type: Type.STRING },
+            hashtags: { type: Type.STRING },
+            type: { type: Type.STRING },
+            outlet: { type: Type.STRING }
           },
-          config: { responseMimeType: 'application/json', temperature: 0.6 },
-        });
-        return response.text || null;
+          required: ["title", "brief", "caption", "hashtags", "type", "outlet"]
+        }
       }
-    } catch (err) {
-      console.warn(`[Vision] ${provider} failed:`, err);
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    console.warn("Primary provider failed, falling back:", error);
+    if (settings.preferredProvider !== 'groq' && settings.preferredProvider !== 'auto' && settings.preferredProvider !== 'puter') {
+      const groqResponse = await fetchFromGroq(
+        promptText + " You MUST return ONLY a valid JSON object.",
+        [{ base64: base64Data, mimeType }]
+      );
+      return JSON.parse(groqResponse || '{}');
     }
+    throw error;
   }
-  return null;
-}
-
-/** Generate inbox ideas from uploaded reference image(s). Uses vision when available; text fallback for local-only. */
-export async function generateIdeasFromImages(
-  userPrompt: string,
-  imageDataUrls: string[],
-  business?: Business,
-  mode: IdeasFromImagesMode = 'strategy',
-  extraContext?: string
-): Promise<Record<string, unknown>[]> {
-  const businessName = business?.name || 'the brand';
-  const industry = business?.industry || 'their industry';
-  const contextLine = extraContext ? `\nExtra context: ${extraContext}` : '';
-  const userLine = userPrompt.trim()
-    ? `User request: "${userPrompt}"`
-    : 'Infer strong content ideas from what you see in the image(s).';
-
-  let promptText = '';
-  if (mode === 'postcard') {
-    promptText = `Analyze the attached image(s) for ${businessName} (${industry}). ${userLine}${contextLine}
-Return a JSON array (3 items) with: title, front, back, imagePrompt.`;
-  } else if (mode === 'visual' || mode === 'strategy') {
-    promptText = `You are a creative strategist for ${businessName} (${industry}). Study the attached image(s) carefully—products, UI, mood, text, and audience signals.
-${userLine}${contextLine}
-Return a JSON array of 3–6 ideas. Each object must include: title, brief (designer notes), caption, hashtags, feasibility (1-10), impact (1-10), format (Post, Reel, Story, or Carousel).
-If the user asks for features, angles, or campaigns, tailor each idea to what is actually visible.`;
-  } else {
-    promptText = `Analyze the image(s) for ${businessName}. ${userLine}${contextLine}
-Return a JSON array of quick social post ideas with: title, caption, brief, hashtags, format.`;
-  }
-
-  const visionText = await withImageAnalysisTimeout(
-    runVisionTextPrompt(promptText, imageDataUrls),
-    'Vision idea generation'
-  );
-  if (visionText) {
-    const parsed = safeParseJSONArray(visionText) || safeParseJSON(visionText);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed as Record<string, unknown>[];
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      const arr = (parsed as { ideas?: unknown[] }).ideas;
-      if (Array.isArray(arr)) return arr as Record<string, unknown>[];
-    }
-  }
-
-  const textFallback = await generateAppText(
-    `${promptText}\n\nLocal AI cannot see pixels—draft ideas based on the user request and brand context only. Return a JSON array.`,
-    true,
-    business?.id
-  );
-  const fallbackParsed = safeParseJSONArray(textFallback) || [];
-  return fallbackParsed as Record<string, unknown>[];
 }
 
 export async function analyzeDesignImages(images: string[], business?: Business): Promise<string> {
@@ -2338,7 +1572,7 @@ Schema: [${fields}, ...]<|end_of_turn|><|start_of_turn|>user
 Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|start_of_turn|>assistant
 [`;
       
-      const localText = await (await getBuiltInAi()).generate(localPrompt);
+      const localText = await builtInAi.generate(localPrompt);
       
       // Scavenge JSON array from potential conversation
       const scavenged = localText.trim();
@@ -2572,7 +1806,7 @@ export async function getCategoryProductCounts(targetUrlParam?: string): Promise
   if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GetCategoryProductCounts] Strict Local AI Mode active.");
-      const localText = await (await getBuiltInAi()).generate(`Estimate categories/counts for URL: ${targetUrlParam || settings.targetUrl}. Return ONLY valid JSON array.`);
+      const localText = await builtInAi.generate(`Estimate categories/counts for URL: ${targetUrlParam || settings.targetUrl}. Return ONLY valid JSON array.`);
       return safeParseJSON(localText || '[]');
     } catch (e) {
       console.error("Local AI failed:", e);
@@ -2634,46 +1868,244 @@ export async function getCategoryProductCounts(targetUrlParam?: string): Promise
   return JSON.parse(text);
 }
 
-export type CatalogueExtractMeta = {
-  pageUrl?: string;
-  pageTitle?: string;
-  brandCategories?: string[];
-  outlet?: string;
-  businessId?: string;
-};
+export async function extractInfoFromMarkdown(markdown: string): Promise<HighStockProduct[]> {
+  const settings = getAiSettings();
 
-export async function extractInfoFromMarkdown(
-  markdown: string,
-  meta?: CatalogueExtractMeta
-): Promise<HighStockProduct[]> {
-  const { extractCatalogueFromMarkdown } = await import('./catalogueExtract');
-  const { items } = await extractCatalogueFromMarkdown({
-    markdown,
-    mode: 'info',
-    pageUrl: meta?.pageUrl,
-    pageTitle: meta?.pageTitle,
-    brandCategories: meta?.brandCategories,
-    outlet: meta?.outlet,
-    businessId: meta?.businessId,
+  if (settings.preferredProvider === 'builtin') {
+    try {
+      console.log("[ExtractInfoFromMarkdown] Strict Local AI Mode active.");
+      const localText = await builtInAi.generate(`Extract key info as JSON from this text: ${markdown.substring(0, 1000)}`);
+      return safeParseJSON(localText || '[]');
+    } catch (e) {
+      console.error("Local AI failed:", e);
+      throw e;
+    }
+  }
+
+  const safeMarkdown = typeof markdown === 'string' ? markdown : JSON.stringify(markdown);
+  const prompt = `You are an information extraction expert. Your task is to extract key knowledge, facts, or insights from the following markdown content of a website.
+    The website is likely a documentation page, a blog post, or a research article.
+    
+    For each key piece of information, identify:
+    - title: A short, descriptive title for this insight or fact.
+    - type: The topic or category it belongs to (e.g., Technical, Strategy, Research, Case Study).
+    - stockInfo: A concise 1-2 sentence summary of the key takeaway or fact.
+    - link: The direct URL to the source (if available in the markdown).
+
+    Rules:
+    1. Return ONLY a valid JSON array of objects.
+    2. If no significant information is found, return an empty array [].
+    3. Do not include any explanations or markdown formatting in your response.
+    4. Be thorough and capture the most valuable insights.
+    
+    Markdown content:
+    ${safeMarkdown.substring(0, 25000)}`;
+
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
+      let parsed = safeParseJSON(puterResponse || '[]');
+      if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
+      if (!Array.isArray(parsed) && parsed.items) parsed = parsed.items;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn("Puter failed, falling back to AI:", error);
+    }
+  }
+
+  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
+    try {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
+          const parsed = safeParseJSON(puterResponse || '[]');
+          if (Array.isArray(parsed)) return parsed;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
+      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
+      let parsed = JSON.parse(groqResponse || '[]');
+      if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
+      if (!Array.isArray(parsed) && parsed.items) parsed = parsed.items;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn("Groq failed, falling back to AI:", error);
+    }
+  }
+
+  if (settings.preferredProvider === 'firebase') {
+    const model = getVertexModel(settings.geminiModel);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text() || '[]';
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']');
+    if (start !== -1 && end !== -1) {
+      text = text.substring(start, end + 1);
+    }
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+
+  const ai = getAi();
+  const response = await ai.models.generateContent({
+    model: settings.geminiModel,
+    contents: prompt,
+    config: {
+      temperature: 0.1,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            type: { type: Type.STRING },
+            stockInfo: { type: Type.STRING },
+            link: { type: Type.STRING }
+          },
+          required: ["title", "type", "stockInfo"]
+        }
+      }
+    }
   });
-  return items;
+
+  let text = response.text || '[]';
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start !== -1 && end !== -1) {
+    text = text.substring(start, end + 1);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return [];
+  }
 }
 
-export async function extractProductsFromMarkdown(
-  markdown: string,
-  meta?: CatalogueExtractMeta
-): Promise<HighStockProduct[]> {
-  const { extractCatalogueFromMarkdown } = await import('./catalogueExtract');
-  const { items } = await extractCatalogueFromMarkdown({
-    markdown,
-    mode: 'product',
-    pageUrl: meta?.pageUrl,
-    pageTitle: meta?.pageTitle,
-    brandCategories: meta?.brandCategories,
-    outlet: meta?.outlet,
-    businessId: meta?.businessId,
+export async function extractProductsFromMarkdown(markdown: string): Promise<HighStockProduct[]> {
+  const settings = getAiSettings();
+  const safeMarkdown = typeof markdown === 'string' ? markdown : JSON.stringify(markdown);
+  const prompt = `You are a product extraction expert. Your task is to extract all products listed in the following markdown content of a website.
+    The website is likely an e-commerce shop. Products are often listed in grids, lists, or tables.
+    
+    For each product, identify:
+    - title: The full name of the product.
+    - type: The category it belongs to (e.g., Furniture, Sofa, Bed Frame, Appliances). If not explicitly stated, infer it from the context or the page title.
+    - price: The price including currency (e.g., MVR 5,000).
+    - stockInfo: Any mention of availability (e.g., "In Stock", "Out of Stock", "High Stock", "Only 2 left").
+    - link: The direct URL to the product page (if available in the markdown).
+
+    Rules:
+    1. Return ONLY a valid JSON array of objects.
+    2. If no products are found, return an empty array [].
+    3. Do not include any explanations or markdown formatting in your response.
+    4. Be thorough and capture every product mentioned in the main list.
+    
+    Markdown content:
+    ${safeMarkdown.substring(0, 25000)}`; // Increased limit to 25k chars
+
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"price\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
+      let parsed = safeParseJSON(puterResponse || '[]');
+      if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
+      if (!Array.isArray(parsed) && parsed.items) parsed = parsed.items;
+      if (!Array.isArray(parsed) && parsed.products) parsed = parsed.products;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn("Puter failed, falling back to AI:", error);
+    }
+  }
+
+  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
+    try {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"price\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
+          const parsed = safeParseJSON(puterResponse || '[]');
+          if (Array.isArray(parsed)) return parsed;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
+      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON array of objects. Example: [{\"title\": \"...\", \"type\": \"...\", \"price\": \"...\", \"stockInfo\": \"...\", \"link\": \"...\"}]");
+      let parsed = JSON.parse(groqResponse || '[]');
+      if (!Array.isArray(parsed) && parsed.data) parsed = parsed.data;
+      if (!Array.isArray(parsed) && parsed.items) parsed = parsed.items;
+      if (!Array.isArray(parsed) && parsed.products) parsed = parsed.products;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn("Groq failed, falling back to AI:", error);
+    }
+  }
+
+  if (settings.preferredProvider === 'firebase') {
+    const model = getVertexModel(settings.geminiModel);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text() || '[]';
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']');
+    if (start !== -1 && end !== -1) {
+      text = text.substring(start, end + 1);
+    }
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("Failed to parse AI product extraction:", e);
+      return [];
+    }
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+
+  const ai = getAi();
+  const response = await ai.models.generateContent({
+    model: settings.geminiModel,
+    contents: prompt,
+    config: {
+      temperature: 0.1,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            type: { type: Type.STRING },
+            price: { type: Type.STRING },
+            stockInfo: { type: Type.STRING },
+            link: { type: Type.STRING }
+          },
+          required: ["title", "type"]
+        }
+      }
+    }
   });
-  return items;
+
+  let text = response.text || '[]';
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start !== -1 && end !== -1) {
+    text = text.substring(start, end + 1);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("Failed to parse AI product extraction:", e);
+    return [];
+  }
 }
 
 export async function generateBrandProfile(url: string, business?: Business): Promise<string> {
@@ -2682,7 +2114,7 @@ export async function generateBrandProfile(url: string, business?: Business): Pr
   if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateBrandProfile] Strict Local AI Mode active.");
-      return await (await getBuiltInAi()).generate(`Analyze this brand website and create a brief profile: ${url}. Return ONLY the profile text.`);
+      return await builtInAi.generate(`Analyze this brand website and create a brief profile: ${url}. Return ONLY the profile text.`);
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
@@ -2758,12 +2190,7 @@ export async function scrapeWooCommerce(
 
     if (firecrawlRes.ok && firecrawlData.success && firecrawlData.data?.markdown) {
       logs.push(`✅ Firecrawl Scrape successful. Extracting products with AI...`);
-      const extracted = await extractProductsFromMarkdown(firecrawlData.data.markdown, {
-        pageUrl: targetUrl,
-        pageTitle: firecrawlData.data?.metadata?.title,
-        outlet: business?.name || 'Store',
-        businessId: business?.id,
-      });
+      const extracted = await extractProductsFromMarkdown(firecrawlData.data.markdown);
 
       if (extracted.length > 0) {
         logs.push(`✅ AI found ${extracted.length} products`);
@@ -3149,114 +2576,185 @@ export async function searchImages(query: string): Promise<any[]> {
   }
 }
 
-/** Widgets tab: always routes through on-device WebLLM (Settings can still use cloud). */
-export async function generateWidgetText(
-  prompt: string,
-  systemInstruction?: string,
-  image?: string
-): Promise<string> {
-  return generateGenericText(prompt, systemInstruction, image, { forceLocal: true });
-}
-
-export async function generateWidgetImage(
-  prompt: string,
-  style: string = 'photorealistic',
-  business?: Business,
-  image?: string
-): Promise<{ url: string; provider: string }> {
-  return generateAiImage(prompt, style, business, image, { forceLocal: true });
-}
-
-export async function generateWidgetJson(
-  prompt: string,
-  options?: { businessId?: string; expectArray?: boolean }
-): Promise<any> {
-  const jsonHint = options?.expectArray
-    ? '\n\nYou MUST return ONLY a valid JSON array.'
-    : '\n\nYou MUST return ONLY a valid JSON object or array.';
-  const text = await generateAppText(
-    withBusinessKnowledge(prompt) + jsonHint,
-    true,
-    options?.businessId,
-    { forceLocal: true }
-  );
-  return options?.expectArray ? safeParseJSONArray(text) : safeParseJSON(text);
-}
-
-export async function generateWidgetBulkPosts(
-  category: string,
-  count: number = 5,
-  business?: Business,
-  systemInstruction?: string
-): Promise<Partial<Post>[]> {
-  return generateBulkPosts(category, count, business, systemInstruction, { forceLocal: true });
-}
-
-export async function generateWidgetCampaignFromUrl(
-  url: string,
-  systemInstruction?: string
-): Promise<any> {
-  return generateCampaignFromUrl(url, systemInstruction, { forceLocal: true });
-}
-
-export async function generateGenericText(
-  prompt: string,
-  systemInstruction?: string,
-  image?: string,
-  options?: AiRouteOptions
-): Promise<string> {
+export async function generateGenericText(prompt: string, systemInstruction?: string, image?: string): Promise<string> {
   const settings = getAiSettings();
   const basePrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
-  const fullPrompt = withBusinessKnowledge(basePrompt, { forLocal: options?.forceLocal || isLocalTextProvider(settings) });
+  const fullPrompt = withBusinessKnowledge(basePrompt);
 
-  if (options?.forceLocal) {
-    return generateAppText(fullPrompt, false, undefined, { forceLocal: true });
+  if (settings.preferredProvider === 'builtin') {
+    console.log("[GenerateGenericText] Strict Local AI mode active.");
+    return await builtInAi.generate(fullPrompt);
   }
 
-  if (image && (settings.preferredProvider === 'firebase' || settings.preferredProvider === 'gemini')) {
-    if (!isGeminiKeyAvailable()) {
-      await fetchServerConfig();
-    }
+  if (settings.preferredProvider === 'puter') {
     try {
-      const ai = getAi();
+      const puterResponse = await fetchFromPuter(fullPrompt);
+      return puterResponse || '';
+    } catch (error) {
+      console.error("Puter failed:", error);
+      notifyFallback('Provider fallback', 'Puter failed while generating text.');
+      if (settings.preferredProvider === 'puter') throw error;
+    }
+  }
+
+  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
+    try {
+      const groqResponse = await fetchFromGroq(fullPrompt);
+      return groqResponse || '';
+    } catch (error) {
+      console.error("Groq failed:", error);
+      notifyFallback('Provider fallback', 'Groq failed while generating text.');
+      if (settings.preferredProvider === 'groq') throw error;
+    }
+  }
+
+  if (settings.preferredProvider === 'firebase') {
+    const model = getVertexModel(settings.geminiModel);
+
+    let content: any = fullPrompt;
+    if (image) {
       const base64Data = image.split(',')[1];
       const mimeType = image.split(';')[0].split(':')[1];
-      const response = await ai.models.generateContent({
-        model: settings.geminiModel,
-        contents: [
-          fullPrompt,
-          { inlineData: { data: base64Data, mimeType } },
-        ],
-      });
-      const text = response.text || '';
-      if (text) return text;
-    } catch (error) {
-      console.warn('generateGenericText: vision request failed, falling back to text-only routing.', error);
+      content = [
+        fullPrompt,
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType
+          }
+        }
+      ];
     }
+
+    const result = await model.generateContent(content);
+    const response = await result.response;
+    return response.text() || '';
   }
 
-  if (image && isLocalTextProvider(settings)) {
-    console.warn('[GenerateGenericText] Image input skipped for local providers (use Gemini for vision).');
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
   }
 
-  return generateAppText(fullPrompt, false);
+  try {
+    const ai = getAi();
+
+    let contents: any = fullPrompt;
+    if (image) {
+      const base64Data = image.split(',')[1];
+      const mimeType = image.split(';')[0].split(':')[1];
+      contents = [
+        fullPrompt,
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType
+          }
+        }
+      ];
+    }
+
+    const response = await ai.models.generateContent({
+      model: settings.geminiModel,
+      contents,
+    });
+  const text = response.text || '';
+  
+  if (!text && settings.preferredProvider === 'auto') {
+    console.warn("Gemini result empty, trying Local AI...");
+    return await builtInAi.generate(fullPrompt);
+  }
+
+  return text;
+} catch (error) {
+  console.warn("generateGenericText: Gemini failed, trying fallback...");
+  notifyFallback('Provider fallback', 'Gemini failed while generating text.');
+  if (settings.preferredProvider === 'auto') {
+    try {
+      return await builtInAi.generate(fullPrompt);
+    } catch (e) {}
+  }
+  return '';
+}
 }
 
 export async function generateGenericJson(prompt: string, systemInstruction?: string): Promise<any> {
+  const settings = getAiSettings();
   const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
-  return generateAppJson(withBusinessKnowledge(fullPrompt));
+
+  if (settings.preferredProvider === 'builtin') {
+    try {
+      console.log("[GenerateGenericJson] Strict Local AI Mode active.");
+      const localText = await builtInAi.generate(fullPrompt + " You MUST return ONLY a valid JSON object.");
+      return safeParseJSON(localText || '{}');
+    } catch (e) {
+      console.error("Local AI failed:", e);
+      throw e;
+    }
+  }
+
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const puterResponse = await fetchFromPuter(fullPrompt + " You MUST return ONLY a valid JSON object.");
+      return safeParseJSON(puterResponse || '{}');
+    } catch (error) {
+      console.error("Puter failed:", error);
+      if (settings.preferredProvider === 'puter') throw error;
+    }
+  }
+
+  if (settings.preferredProvider === 'groq' || (settings.preferredProvider === 'auto')) {
+    try {
+      const groqResponse = await fetchFromGroq(fullPrompt + " You MUST return ONLY a valid JSON object.");
+      return JSON.parse(groqResponse || '{}');
+    } catch (error) {
+      console.error("Groq failed:", error);
+      if (settings.preferredProvider === 'groq') throw error;
+    }
+  }
+
+  if (settings.preferredProvider === 'firebase') {
+    const model = getVertexModel(settings.geminiModel);
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    return JSON.parse(response.text() || '{}');
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+
+  try {
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: settings.geminiModel,
+      contents: fullPrompt,
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    if (settings.preferredProvider === 'auto' || settings.preferredProvider === 'builtin') {
+      try {
+        const localText = await builtInAi.generate(fullPrompt + " You MUST return ONLY a valid JSON object.");
+        return safeParseJSON(localText || '{}');
+      } catch (e) {}
+    }
+    throw error;
+  }
 }
 
 export async function generateAnalyticsReport(prompt: string): Promise<any> {
   const settings = getAiSettings();
 
-  if (isLocalTextProvider(settings) || settings.preferredProvider === 'auto') {
+  if (settings.preferredProvider === 'builtin') {
     try {
-      const parsed = await generateAppJson(`Analyze this data and return a JSON analytics report.\n\n${prompt}`);
-      if (parsed && typeof parsed === 'object') return parsed;
+      console.log("[GenerateAnalyticsReport] Strict Local AI Mode active.");
+      const localText = await builtInAi.generate("Analyze this data and return a JSON analytics report: " + prompt);
+      return safeParseJSON(localText || '{}');
     } catch (e) {
-      console.warn('[GenerateAnalyticsReport] Local/auto JSON route failed, trying Gemini schema.', e);
-      if (isLocalTextProvider(settings) && settings.preferredProvider !== 'auto') throw e;
+      console.error("Local AI failed:", e);
+      throw e;
     }
   }
 
@@ -3359,24 +2857,17 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
   return JSON.parse(response.text || '{}');
 }
 
-export async function generateCampaignFromUrl(
-  url: string,
-  systemInstruction?: string,
-  options?: AiRouteOptions
-): Promise<any> {
+export async function generateCampaignFromUrl(url: string, systemInstruction?: string): Promise<any> {
   const settings = getAiSettings();
 
-  if (options?.forceLocal || settings.preferredProvider === 'builtin') {
+  if (settings.preferredProvider === 'builtin') {
     try {
-      console.log('[GenerateCampaignFromUrl] Local AI mode active.');
-      await ensureLocalTextEngineReady();
-      const localText = await (await getBuiltInAi()).generate(
-        `Generate a JSON social media campaign for this URL: ${url}. ${systemInstruction || ''}\n\nReturn ONLY valid JSON.`
-      );
+      console.log("[GenerateCampaignFromUrl] Strict Local AI Mode active.");
+      const localText = await builtInAi.generate(`Generate a JSON social media campaign for this URL: ${url}. ${systemInstruction || ''}`);
       return safeParseJSON(localText || '{}');
     } catch (e) {
-      console.error('Local AI failed:', e);
-      if (options?.forceLocal) throw e;
+      console.error("Local AI failed:", e);
+      throw e;
     }
   }
 
@@ -3440,14 +2931,64 @@ export async function generateCampaignFromUrl(
 }
 
 export async function generateCaption(topic: string, business?: Business): Promise<string> {
+  const settings = getAiSettings();
   const businessName = business?.name || 'our business';
   const basePrompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". Include relevant emojis and a call to action. Do not include hashtags.`;
   const prompt = withBusinessKnowledge(basePrompt);
-  const text = await generateAppText(`${prompt}\n\nReturn ONLY the caption text.`, false, business?.id);
-  return text.trim();
+
+  if (settings.preferredProvider === 'builtin') {
+    try {
+      console.log("[GenerateCaption] Strict Local AI Mode active.");
+      return await builtInAi.generate(prompt + " You MUST return ONLY the caption text.");
+    } catch (e) {
+      console.error("Local AI failed:", e);
+      throw e;
+    }
+  }
+
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
+      return puterResponse || '';
+    } catch (error) {
+      console.warn("Puter failed, falling back to AI:", error);
+    }
+  }
+
+  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
+    try {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
+          if (puterResponse) return puterResponse;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
+      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY the caption text.");
+      return groqResponse || '';
+    } catch (error) {
+      console.warn("Groq failed, falling back to AI:", error);
+    }
+  }
+
+  if (settings.preferredProvider === 'firebase') {
+    const model = getVertexModel(settings.geminiModel);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text() || '';
+  }
+
+  const ai = getAi();
+  const response = await ai.models.generateContent({
+    model: settings.geminiModel,
+    contents: prompt,
+  });
+  return response.text || '';
 }
 
 export async function generatePostWithFramework(topic: string, framework: 'AIDA' | 'PAS' | 'BAB', business?: Business, lengthValue?: number): Promise<string> {
+  const settings = getAiSettings();
   const frameworkPrompts = {
     AIDA: "Attention, Interest, Desire, Action",
     PAS: "Problem, Agitate, Solution",
@@ -3472,8 +3013,60 @@ export async function generatePostWithFramework(topic: string, framework: 'AIDA'
   Include relevant emojis and a clear call to action. Do not include hashtags.`;
 
   const prompt = withBusinessKnowledge(basePrompt);
-  const text = await generateAppText(`${prompt}\n\nReturn ONLY the caption text.`, false, business?.id);
-  return text.trim();
+
+  if (settings.preferredProvider === 'builtin') {
+    try {
+      console.log("[GeneratePostWithFramework] Strict Local AI Mode active.");
+      return await builtInAi.generate(prompt + " You MUST return ONLY the caption text.");
+    } catch (e) {
+      console.error("Local AI failed:", e);
+      throw e;
+    }
+  }
+
+  if (settings.preferredProvider === 'puter') {
+    try {
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
+      return puterResponse || '';
+    } catch (error) {
+      console.warn("Puter failed, falling back to AI:", error);
+    }
+  }
+
+  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
+    try {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY the caption text.");
+          if (puterResponse) return puterResponse;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
+      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY the caption text.");
+      return groqResponse || '';
+    } catch (error) {
+      console.warn("Groq failed, falling back to AI:", error);
+    }
+  }
+
+  if (settings.preferredProvider === 'firebase') {
+    const model = getVertexModel(settings.geminiModel);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text() || '';
+  }
+
+  if (!isGeminiKeyAvailable()) {
+    await fetchServerConfig();
+  }
+
+  const ai = getAi();
+  const response = await ai.models.generateContent({
+    model: settings.geminiModel,
+    contents: prompt,
+  });
+  return response.text || '';
 }
 
 export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<string, string>> {
@@ -3508,21 +3101,65 @@ export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<str
   `;
 
   try {
-    const result = await generateAppJson(prompt);
-    return result?.mapping || result?.posts || result?.data || result || {};
+    if (settings.preferredProvider === 'builtin') {
+      try {
+        console.log("[GetExcelMappingWithAi] Strict Local AI Mode active.");
+        const localText = await builtInAi.generate(prompt + " You MUST return ONLY a valid JSON object.");
+        const result = safeParseJSON(localText || '{}');
+        return result.mapping || result.posts || result.data || result;
+      } catch (e) {
+        console.error("Local AI failed:", e);
+        throw e;
+      }
+    }
+
+    let result: any;
+    if (settings.preferredProvider === 'puter') {
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
+      result = safeParseJSON(puterResponse || '{}');
+    } else if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
+          if (puterResponse) {
+            result = safeParseJSON(puterResponse);
+          }
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
+      if (!result) {
+        const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object.");
+        result = JSON.parse(groqResponse || '{}');
+      }
+    } else if (settings.preferredProvider === 'firebase') {
+      const model = getVertexModel(settings.geminiModel);
+      const res = await model.generateContent(prompt);
+      const response = await res.response;
+      result = JSON.parse(response.text() || '{}');
+    } else {
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
+      const ai = getAi();
+      const response = await ai.models.generateContent({
+        model: settings.geminiModel,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+      result = JSON.parse(response.text || '{}');
+    }
+
+    return result.mapping || result.posts || result.data || result;
   } catch (error) {
     console.error("AI Mapping failed:", error);
     return {};
   }
 }
 
-export async function generateBulkPosts(
-  category: string,
-  count: number = 5,
-  business?: Business,
-  systemInstruction?: string,
-  options?: AiRouteOptions
-): Promise<Partial<Post>[]> {
+export async function generateBulkPosts(category: string, count: number = 5, business?: Business, systemInstruction?: string): Promise<Partial<Post>[]> {
   const settings = getAiSettings();
   const industryConfig = getIndustryConfig(business?.industry);
   const businessContext = business ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || 'General'}.` : 'Business: Forge Enterprises (Professional Services)';
@@ -3550,64 +3187,80 @@ export async function generateBulkPosts(
     - outlet: (e.g., 'Buildware', 'Living Mall', 'Office system')`;
 
   try {
-    const parsed = await generateAppJson(
-      `${withBusinessKnowledge(promptText, { forLocal: options?.forceLocal })}\n\nReturn a JSON array of ${count} post objects.`,
-      { businessId: business?.id, expectArray: true, forceLocal: options?.forceLocal }
-    );
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed?.posts && Array.isArray(parsed.posts)) return parsed.posts;
-    return [];
+    if (settings.preferredProvider === 'builtin') {
+      try {
+        console.log("[GenerateBulkPosts] Strict Local AI Mode active.");
+        const localText = await builtInAi.generate(promptText + " You MUST return ONLY a valid JSON array of objects.");
+        return safeParseJSON(localText || '[]');
+      } catch (e) {
+        console.error("Local AI failed:", e);
+        throw e;
+      }
+    }
+
+    if (settings.preferredProvider === 'puter') {
+      const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array.");
+      const parsed = safeParseJSON(puterResponse || '{}');
+      return parsed.posts || parsed || [];
+    }
+
+    if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+        try {
+          const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array.");
+          const parsed = safeParseJSON(puterResponse || '{}');
+          if (parsed.posts || Array.isArray(parsed)) return parsed.posts || parsed;
+        } catch (pe) {
+          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+        }
+      }
+      const groqResponse = await fetchFromGroq(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array.");
+      const parsed = JSON.parse(groqResponse || '{}');
+      return parsed.posts || parsed || [];
+    }
+
+    if (settings.preferredProvider === 'firebase') {
+      const model = getVertexModel(settings.geminiModel);
+      const result = await model.generateContent(promptText);
+      const response = await result.response;
+      return JSON.parse(response.text() || '[]');
+    }
+
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: settings.geminiModel,
+      contents: promptText,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              brief: { type: Type.STRING },
+              caption: { type: Type.STRING },
+              hashtags: { type: Type.STRING },
+              type: { type: Type.STRING },
+              outlet: { type: Type.STRING }
+            },
+            required: ["title", "brief", "caption", "hashtags", "type", "outlet"]
+          }
+        }
+      }
+    });
+    return JSON.parse(response.text || '[]');
   } catch (error) {
     console.error("Bulk generation failed:", error);
     return [];
   }
 }
 
-async function generateBuiltinOrchestratedImage(
-  prompt: string,
-  fullPrompt: string,
-  businessName: string,
-  style: string
-): Promise<{ url: string; provider: string }> {
-  await ensureLocalTextEngineReady();
-  console.log('[BuiltInAI] Orchestrating image prompt locally...');
-  const orchestrationPrompt = `You are a professional Creative Director. 
-Enhance the following image request into a high-quality, descriptive photorealistic stable diffusion prompt.
-Request: "${prompt}"
-Context: Business ${businessName}, Style: ${style}.
-Return ONLY the final prompt text. No quotes, no intro.`;
-
-  const localPrompt = await (await getBuiltInAi()).generate(orchestrationPrompt);
-  const finalPrompt = localPrompt || fullPrompt;
-  const settings = getAiSettings();
-  const model = settings.pollinationModel || 'flux';
-  const encodedPrompt = encodeURIComponent(finalPrompt);
-  const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=${model}`;
-
-  const headers: Record<string, string> = {};
-  if (settings.pollinationApiKey) {
-    headers['Authorization'] = `Bearer ${settings.pollinationApiKey}`;
-  }
-
-  const response = await fetch(url, { headers });
-  if (!response.ok) throw new Error('Local AI image generation failed');
-  const blob = await response.blob();
-  const base64 = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-  return { url: base64, provider: 'Local AI' };
-}
-
-export async function generateAiImage(
-  prompt: string,
-  style: string = 'photorealistic',
-  business?: Business,
-  image?: string,
-  options?: AiRouteOptions
-): Promise<{ url: string; provider: string }> {
+export async function generateAiImage(prompt: string, style: string = 'photorealistic', business?: Business, image?: string): Promise<{ url: string, provider: string }> {
   const businessName = business?.name || 'Forge';
   let designGuide = '';
   if (business?.id) {
@@ -3620,28 +3273,56 @@ export async function generateAiImage(
   High quality, professional social media content for ${businessName}.`;
 
   const settings = getAiSettings();
-  let imageProvider = options?.forceLocal ? 'builtin' : settings.imageProvider;
 
-  if (imageProvider === 'auto') {
+  if (settings.imageProvider === 'auto') {
+    const puterInstance = (window as any).puter;
+    let puterSignedIn = false;
     try {
-      return await generateBuiltinOrchestratedImage(prompt, fullPrompt, businessName, style);
-    } catch (e) {
-      console.warn('[GenerateAiImage] Auto: local orchestration failed, trying Pollination.', e);
-      imageProvider = 'pollination';
+      if (puterInstance) {
+        puterSignedIn = await puterInstance.auth.isSignedIn();
+      }
+    } catch(e) {}
+    
+    if (puterSignedIn && !(window as any).isPuterDisabledForSession) {
+      settings.imageProvider = 'puter';
+    } else {
+      settings.imageProvider = 'gemini';
     }
   }
 
-  if (imageProvider === 'builtin') {
+  if (settings.imageProvider === 'builtin') {
     try {
-      return await generateBuiltinOrchestratedImage(prompt, fullPrompt, businessName, style);
+      console.log("[BuiltInAI] Orchestrating image prompt locally...");
+      const orchestrationPrompt = `You are a professional Creative Director. 
+Enhance the following image request into a high-quality, descriptive photorealistic stable diffusion prompt.
+Request: "${prompt}"
+Context: Business ${businessName}, Style: ${style}.
+Return ONLY the final prompt text. No quotes, no intro.`;
+      
+      const localPrompt = await builtInAi.generate(orchestrationPrompt);
+      const finalPrompt = localPrompt || fullPrompt;
+      
+      // Use pollination as the backend renderer for Local AI orchestration
+      const encodedPrompt = encodeURIComponent(finalPrompt);
+      const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=flux`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Local AI Orchestration fetch failed");
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      return { url: base64, provider: 'Local AI (Orchestrated)' };
     } catch (e) {
-      console.error('Local AI image orchestration failed', e);
-      if (options?.forceLocal) throw e;
-      imageProvider = 'pollination';
+      console.error("Local AI image orchestration failed, falling back to Gemini", e);
+      settings.imageProvider = 'gemini';
     }
   }
 
-  if (imageProvider === 'pollination') {
+  if (settings.imageProvider === 'pollination') {
     const encodedPrompt = encodeURIComponent(fullPrompt);
     const model = settings.pollinationModel || 'flux';
     const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&model=${model}`;
@@ -3664,7 +3345,7 @@ export async function generateAiImage(
     return { url: base64, provider: 'Pollination.ai' };
   }
 
-  if (imageProvider === 'puter') {
+  if (settings.imageProvider === 'puter') {
     const puterInstance = (window as any).puter;
     if (!puterInstance) {
       throw new Error("Puter.js is not loaded yet. Please refresh the page.");
@@ -3759,16 +3440,63 @@ export async function generateAiImage(
 }
 
 export async function generateHashtagSuggestions(content: string, business?: Business): Promise<string[]> {
+  const settings = getAiSettings();
   const industry = business?.industry || 'general';
   const prompt = `Generate 15 relevant and trending hashtags for a social media post with this content: "${content}". 
-  Focus on the "${industry}" industry context.`;
+  Focus on the "${industry}" industry context. 
+  Return ONLY a JSON array of strings.`;
+
+  if (settings.preferredProvider === 'builtin') {
+    try {
+      console.log("[GenerateHashtagSuggestions] Strict Local AI Mode active.");
+      const resp = await builtInAi.generate(prompt + " You MUST return ONLY a JSON array of strings.");
+      const parsed = safeParseJSON(resp || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error("Local AI failed:", e);
+      throw e;
+    }
+  }
 
   try {
-    const parsed = await generateAppJson(
-      `${withBusinessKnowledge(prompt)}\n\nReturn ONLY a JSON array of hashtag strings.`,
-      { businessId: business?.id, expectArray: true }
-    );
-    return Array.isArray(parsed) ? parsed : [];
+    if (settings.preferredProvider === 'puter') {
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a JSON array of strings.");
+      const parsed = safeParseJSON(puterResponse || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    }
+
+    if (settings.preferredProvider === 'firebase') {
+      const model = getVertexModel(settings.geminiModel);
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text() || '[]';
+      const start = text.indexOf('[');
+      const end = text.lastIndexOf(']');
+      if (start !== -1 && end !== -1) {
+        text = text.substring(start, end + 1);
+      }
+      return JSON.parse(text);
+    }
+
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: settings.geminiModel,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+
+    const text = response.text || '[]';
+    return JSON.parse(text);
   } catch (e) {
     console.error("Hashtag generation failed:", e);
     return [];
@@ -3776,14 +3504,42 @@ export async function generateHashtagSuggestions(content: string, business?: Bus
 }
 
 export async function generateGreeting(userName: string, timeOfDay: string): Promise<string> {
+  const settings = getAiSettings();
   const prompt = `Generate a highly creative, unique, and energetic greeting for a user named "${userName}". 
   The current time of day is "${timeOfDay}". 
   CRITICAL: DO NOT use standard phrases like "Good morning", "Good afternoon", "Good evening", or "Hello". 
   Be imaginative, inspiring, or slightly playful. Keep it under 12 words. Do not include quotes.`;
 
+  if (settings.preferredProvider === 'builtin') {
+    try {
+      console.log("[GenerateGreeting] Strict Local AI Mode active.");
+      const resp = await builtInAi.generate(prompt);
+      return resp.replace(/["']/g, '').trim() || `Ready to conquer the ${timeOfDay}, ${userName}?`;
+    } catch (e) {
+      console.error("Local AI failed:", e);
+      throw e;
+    }
+  }
+
   try {
-    const text = await generateAppText(`${prompt}\n\nReturn ONLY the greeting text.`);
-    return text.replace(/["']/g, '').trim() || `Ready to conquer the ${timeOfDay}, ${userName}?`;
+    if (settings.preferredProvider === 'puter') {
+      const puterResponse = await fetchFromPuter(prompt);
+      if (puterResponse) return puterResponse.replace(/["']/g, '').trim();
+    }
+
+    if (!isGeminiKeyAvailable()) {
+      await fetchServerConfig();
+    }
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        temperature: 0.9,
+      }
+    });
+    return response.text?.replace(/["']/g, '').trim() || `Ready to conquer the ${timeOfDay}, ${userName}?`;
   } catch (error) {
     console.error("Failed to generate greeting:", error);
     return `Ready to conquer the ${timeOfDay}, ${userName}?`;
@@ -3791,6 +3547,8 @@ export async function generateGreeting(userName: string, timeOfDay: string): Pro
 }
 
 export async function generateDailyGreetings(userName: string): Promise<{ morning: string, evening: string, night: string, midnight: string }> {
+  const settings = getAiSettings();
+  
   const prompt = `Generate 4 unique, creative, and energetic greetings for a user named "${userName}".
   One for each time of day: morning, evening, night, and midnight.
   
@@ -3799,9 +3557,42 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
   
   Return ONLY a valid JSON object with keys: morning, evening, night, midnight.`;
 
+  if (settings.preferredProvider === 'builtin') {
+    try {
+      console.log("[GenerateDailyGreetings] Strict Local AI Mode active.");
+      const text = await builtInAi.generate(prompt + " You MUST return ONLY a valid JSON object.");
+      const parsed = safeParseJSON(text);
+      if (parsed && parsed.morning) return parsed;
+      throw new Error("Invalid local greeting format");
+    } catch (e) {
+      console.warn("[GenerateDailyGreetings] Local AI failed, falling back to Gemini:", e);
+      // Continue to Gemini fallback
+    }
+  }
+
   try {
-    const parsed = await generateAppJson(prompt);
+    let text = '';
+    if (settings.preferredProvider === 'puter') {
+      text = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object.");
+    } else {
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
+      const ai = getAi();
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.9,
+        }
+      });
+      text = response.text || '{}';
+    }
+
+    const parsed = safeParseJSON(text);
     if (parsed && parsed.morning) return parsed;
+
     throw new Error("Invalid greeting format");
   } catch (error) {
     console.error("Failed to generate daily greetings:", error);
@@ -3897,54 +3688,14 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
 
     const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
     const lastUserMessage = messages[messages.length - 1]?.content || "";
-    const lastUserImages = messages[messages.length - 1]?.images || [];
-    const hasImages = messages.some((m) => m.images && m.images.length > 0);
-    const isSmallTask =
-      !hasImages &&
-      lastUserMessage.length < 200 &&
-      !lastUserMessage.toLowerCase().includes('search') &&
-      !lastUserMessage.toLowerCase().includes('research') &&
-      !lastUserMessage.toLowerCase().includes('read') &&
-      !lastUserMessage.toLowerCase().includes('analyze');
-
-    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
-    const effectiveProvider = getEffectiveTextProvider(settings);
-    const isAuto = effectiveProvider === 'auto';
-    const forceBuiltin = effectiveProvider === 'builtin';
-    const forcePuter = effectiveProvider === 'puter';
-    const forceGroq = effectiveProvider === 'groq';
-    const forceLocalProxy = effectiveProvider === 'local_proxy';
-
-    if (hasImages && lastUserImages.length > 0) {
-      const visionPrompt = `${systemInstruction}\n\nConversation:\n${conversation}\n\nRespond to the latest user message. If they attached images, describe what you see and answer their request.`;
-      try {
-        const visionRaw = await withImageAnalysisTimeout(
-          runVisionTextPrompt(visionPrompt, lastUserImages, settings),
-          'Chat vision'
-        );
-        if (visionRaw) {
-          const visionParsed = safeParseJSON(visionRaw);
-          if (visionParsed?.message) {
-            visionParsed.provider =
-              isGeminiKeyAvailable() || settings.groqApiKey
-                ? 'Vision AI'
-                : 'Vision AI (cloud)';
-            if (visionParsed.imagePrompt) {
-              try {
-                const imgRes = await generateAiImage(visionParsed.imagePrompt, 'photorealistic');
-                visionParsed.generatedImage = imgRes.url;
-                visionParsed.generatedImageProvider = imgRes.provider;
-              } catch {
-                /* ignore */
-              }
-            }
-            return visionParsed as ChatResponse;
-          }
-        }
-      } catch (err) {
-        console.warn('[chatWithAi] Vision path failed, falling back to text:', err);
-      }
-    }
+    const isSmallTask = lastUserMessage.length < 200 && !lastUserMessage.toLowerCase().includes('search') && !lastUserMessage.toLowerCase().includes('research') && !lastUserMessage.toLowerCase().includes('read') && !lastUserMessage.toLowerCase().includes('analyze');
+    
+    const allowed = settings.allowedAutoProviders || ['builtin', 'puter', 'groq', 'gemini'];
+    const isAuto = settings.preferredProvider === 'auto';
+    const forceBuiltin = settings.preferredProvider === 'builtin';
+    const forcePuter = settings.preferredProvider === 'puter';
+    const forceGroq = settings.preferredProvider === 'groq';
+    const forceLocalProxy = settings.preferredProvider === 'local_proxy';
 
     let finalSystemInstruction = systemInstruction;
 
@@ -3972,8 +3723,7 @@ Rules:
     }
 
     let flatPrompt = `Instruction: ${finalSystemInstruction}\nHistory: ${conversation}\nJSON Response:`;
-    const shouldUseLocalFirst =
-      !hasImages && (forceBuiltin || (isAuto && isSmallTask && allowed.includes('builtin')));
+    const shouldUseLocalFirst = forceBuiltin || (isAuto && isSmallTask && allowed.includes('builtin'));
 
     if (shouldUseLocalFirst) {
        // Llama 3.2 1B usually likes this specific prompt style
@@ -3982,7 +3732,7 @@ Rules:
 
     if (shouldUseLocalFirst) {
       try {
-        const localResponse = await (await getBuiltInAi()).generate(flatPrompt);
+        const localResponse = await builtInAi.generate(flatPrompt);
         
         // Find the start of JSON
         const startIndex = localResponse.indexOf('{');
@@ -4137,27 +3887,6 @@ Rules:
         console.error("Forced Groq chat failed:", e);
       }
     }
-
-    if (fallbackToGemini && isAuto && allowed.includes('local_proxy')) {
-      try {
-        console.log("[AI] Auto mode: trying Local Proxy (Ollama/LM Studio)...");
-        const localHistory = [...messages];
-        if (localHistory.length > 0 && localHistory[0].role === 'user') {
-          localHistory[0].content = `System Instruction:\n${finalSystemInstruction}\n\nUser Message: ${localHistory[0].content}`;
-        }
-        const text = await fetchFromLocalServer(lastUserMessage, localHistory.slice(0, -1));
-        parsed = safeParseJSON(text);
-        if (!parsed || !parsed.message) {
-          parsed = { message: text || "I received an empty response from the local server." };
-        }
-        if (parsed && parsed.message) {
-          fallbackToGemini = false;
-          parsed.provider = 'Local Server';
-        }
-      } catch (e) {
-        console.warn("Auto mode: Local Proxy failed, trying next...");
-      }
-    }
     // -------------------------------------
 
     if (fallbackToGemini && isAuto && allowed.includes('puter')) {
@@ -4234,23 +3963,10 @@ Rules:
       }
     }
 
-    // Final SAFETY Fallback: If cloud failed, try local providers if not tried yet
-    if (fallbackToGemini && isAuto && allowed.includes('local_proxy')) {
-      try {
-        const text = await fetchFromLocalServer(flatPrompt + "\n\nYou MUST return ONLY a valid JSON object with a \"message\" field.");
-        const parsedLocal = safeParseJSON(text);
-        if (parsedLocal && parsedLocal.message) {
-          parsed = parsedLocal;
-          parsed.provider = 'Local Server (Quota Fallback)';
-          fallbackToGemini = false;
-        }
-      } catch (e) {}
-    }
-
+    // Final SAFETY Fallback: If EVERYTHING cloud failed, use Local AI as last resort if not tried yet and allowed
     if (fallbackToGemini && isAuto && allowed.includes('builtin')) {
       try {
-        await ensureLocalTextEngineReady();
-        const localResponse = await (await getBuiltInAi()).generate(flatPrompt);
+        const localResponse = await builtInAi.generate(flatPrompt);
         const parsedLocal = safeParseJSON(localResponse);
         if (parsedLocal && parsedLocal.message) {
             parsed = parsedLocal;
@@ -4411,7 +4127,7 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
         // Define flatPrompt locally if not available
         const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
         const flatPromptFallback = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
-        const localText = await (await getBuiltInAi()).generate(flatPromptFallback);
+        const localText = await builtInAi.generate(flatPromptFallback);
         const localParsed = safeParseJSON(localText || '{}');
         if (localParsed && localParsed.reply) return localParsed as WidgetBuilderChatResponse;
       } catch (e) {}
@@ -4537,7 +4253,7 @@ Prioritize one focused widget per request.`
         console.warn("Cloud providers failed for Applet. Using Local AI Engine...");
         const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
         const flatPromptFallback = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
-        const localText = await (await getBuiltInAi()).generate(flatPromptFallback);
+        const localText = await builtInAi.generate(flatPromptFallback);
         const localParsed = safeParseJSON(localText || '{}');
         if (localParsed && localParsed.reply) parsed = localParsed;
       } catch (e) {}

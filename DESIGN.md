@@ -27,12 +27,6 @@ and surface color variation (surface, surface-container, surface-bright).
 - **Inputs**: 1px border, surface-variant background, 12px padding
 - **Cards**: No elevation, 1px outline border, 12px corner radius
 
-## Mobile UX priorities
-- Keep primary navigation labels visible with 44px+ touch targets and safe-area spacing.
-- Prefer single-column CTAs on small screens so key actions do not wrap awkwardly.
-- Route idea-generation entry points to the Notebook / Idea Lab until a dedicated Ideas tab exists.
-- Keep calendar month controls and the selected-day summary easy to scan without relying on hover states.
-
 ## Do's and Don'ts
 - Do use the primary color only for the single most important action per screen
 - Don't mix rounded and sharp corners in the same view

@@ -50,35 +50,12 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        // Use prebuilt font bundle so Vite does not break tegaki's import attributes
-        'tegaki/fonts/caveat': path.resolve(
-          __dirname,
-          'node_modules/tegaki/dist/fonts/caveat/bundle.mjs'
-        ),
-      },
-    },
-    optimizeDeps: {
-      include: ['tegaki/react', 'tegaki/fonts/caveat'],
-    },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('@mlc-ai/web-llm')) return 'webllm';
-          },
-        },
       },
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: false,
-      proxy: {
-        '/api': {
-          target: 'http://localhost:3000',
-          changeOrigin: true,
-        },
-      },
     },
   };
 });

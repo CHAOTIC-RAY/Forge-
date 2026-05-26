@@ -1,23 +1,5 @@
 import { toast } from 'sonner';
-import {
-  buildProxiedWebLlmAppConfig,
-  normalizeBuiltinModelId,
-  rewriteHuggingFaceModelUrl,
-} from './webLlmAppConfig';
-import {
-  getContextBudget,
-  truncateMessagesForLocalAi,
-  truncatePromptText,
-} from './localAiContext';
-import {
-  BUILTIN_MODELS,
-  BUILTIN_VISION_MODELS,
-  DEFAULT_BUILTIN_VISION_MODEL_ID,
-  type BuiltInModel,
-} from './builtinModels';
-
-export type { BuiltInModel };
-export { BUILTIN_MODELS, BUILTIN_VISION_MODELS, DEFAULT_BUILTIN_VISION_MODEL_ID };
+import * as webllm from '@mlc-ai/web-llm';
 
 /**
  * Built-in AI Service (Modernized with WebLLM)
@@ -32,12 +14,83 @@ export interface BuiltInAiStatus {
   message: string;
   error: string | null;
   modelId: string | null;
-  contextWindow?: number;
-  maxInputChars?: number;
-  visionModelId?: string | null;
-  visionIsLoaded?: boolean;
-  visionIsLoading?: boolean;
 }
+
+export interface BuiltInModel {
+  id: string;
+  name: string;
+  size: string;
+  description: string;
+  recommendedRamGb: number;
+  estimatedVramGb: number;
+  recommendedDatasetMin: number;
+  recommendedDatasetMax: number;
+  expectedTuneMinutes: string;
+  supportsAdvancedTuning?: boolean;
+}
+
+export const BUILTIN_MODELS: BuiltInModel[] = [
+  { 
+    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', 
+    name: 'Llama 3.2 1B Instruct', 
+    size: '0.8GB',
+    description: 'Meta\'s small but capable model. Best for fast responses on low-end hardware.',
+    recommendedRamGb: 8,
+    estimatedVramGb: 2,
+    recommendedDatasetMin: 30,
+    recommendedDatasetMax: 250,
+    expectedTuneMinutes: '5-12',
+    supportsAdvancedTuning: false
+  },
+  { 
+    id: 'Phi-3-mini-4k-instruct-q4f16_1-MLC', 
+    name: 'Phi-3 Mini Instruct', 
+    size: '2.3GB',
+    description: 'Microsoft\'s powerful 3.8B model. Highly optimized with strong reasoning.',
+    recommendedRamGb: 12,
+    estimatedVramGb: 4,
+    recommendedDatasetMin: 80,
+    recommendedDatasetMax: 600,
+    expectedTuneMinutes: '12-30',
+    supportsAdvancedTuning: true
+  },
+  { 
+    id: 'Gemma-2-2b-it-q4f16_1-MLC', 
+    name: 'Gemma 2 2B IT', 
+    size: '1.6GB',
+    description: 'Latest Google lightweight model. Excellent for writing and creativity.',
+    recommendedRamGb: 10,
+    estimatedVramGb: 3,
+    recommendedDatasetMin: 60,
+    recommendedDatasetMax: 450,
+    expectedTuneMinutes: '10-24',
+    supportsAdvancedTuning: true
+  },
+  { 
+    id: 'Llama-3.1-8B-Instruct-q4f32_1-MLC', 
+    name: 'Llama 3.1 8B Instruct', 
+    size: '5.2GB',
+    description: 'Meta\'s industry-standard 8B model. Requires strong hardware and 8GB+ RAM.',
+    recommendedRamGb: 16,
+    estimatedVramGb: 8,
+    recommendedDatasetMin: 150,
+    recommendedDatasetMax: 1200,
+    expectedTuneMinutes: '25-60',
+    supportsAdvancedTuning: true
+  },
+  { 
+    id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC', 
+    name: 'Mistral 7B v0.3', 
+    size: '4.8GB',
+    description: 'The community favorite for high-quality instruction following.',
+    recommendedRamGb: 16,
+    estimatedVramGb: 7,
+    recommendedDatasetMin: 120,
+    recommendedDatasetMax: 1000,
+    expectedTuneMinutes: '22-55',
+    supportsAdvancedTuning: true
+  }
+];
 
 // ─── Chrome Built-in AI (Prompt API) ────────────────────────────────────────
 async function tryWindowAi(prompt: string): Promise<string | null> {
@@ -66,25 +119,9 @@ Your core capabilities include:
 Always follow user instructions strictly. Be helpful, concise, and professional. 
 If an instructions file context is provided, prioritize it above all else.`;
 
-type WebLlmModule = typeof import('@mlc-ai/web-llm');
-
 class BuiltInAiService {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private engine: any = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private visionEngine: any = null;
-  private webllmModule: WebLlmModule | null = null;
-
-  private async loadWebLlm(): Promise<WebLlmModule> {
-    if (!this.webllmModule) {
-      this.webllmModule = await import('@mlc-ai/web-llm');
-    }
-    return this.webllmModule;
-  }
+  private engine: webllm.MLCEngineInterface | null = null;
   private currentModelId: string | null = null;
-  private visionModelId: string | null = null;
-  private visionIsLoading = false;
-  private visionIsLoaded = false;
   private isLoading = false;
   private isProcessing = false;
   private isLoaded = false;
@@ -97,20 +134,14 @@ class BuiltInAiService {
   private corsBlocked = false;
 
   getStatus(): BuiltInAiStatus {
-    const budget = getContextBudget(this.currentModelId);
     return {
       isLoaded: this.isLoaded,
-      isLoading: this.isLoading || this.visionIsLoading,
+      isLoading: this.isLoading,
       isProcessing: this.isProcessing,
       progress: this.progress,
       message: this.message,
       error: this.error,
-      modelId: this.currentModelId,
-      contextWindow: budget.contextWindow,
-      maxInputChars: budget.maxInputChars,
-      visionModelId: this.visionModelId,
-      visionIsLoaded: this.visionIsLoaded,
-      visionIsLoading: this.visionIsLoading,
+      modelId: this.currentModelId
     };
   }
 
@@ -164,13 +195,6 @@ class BuiltInAiService {
       this.engine.unload();
       this.engine = null;
     }
-    if (this.visionEngine) {
-      this.visionEngine.unload();
-      this.visionEngine = null;
-    }
-    this.visionModelId = null;
-    this.visionIsLoaded = false;
-    this.visionIsLoading = false;
     this.isLoading = false;
     this.isLoaded = false;
     this.progress = 0;
@@ -180,114 +204,16 @@ class BuiltInAiService {
     this.notify();
   }
 
-  async initVision(modelId: string = DEFAULT_BUILTIN_VISION_MODEL_ID) {
-    const normalizedId = normalizeBuiltinModelId(modelId);
-    if (this.visionIsLoading) return;
-    if (this.visionIsLoaded && this.visionModelId === normalizedId) return;
-
-    if (this.visionEngine && this.visionModelId !== normalizedId) {
-      this.visionEngine.unload();
-      this.visionEngine = null;
-      this.visionIsLoaded = false;
-    }
-
-    this.visionIsLoading = true;
-    this.message = `Loading vision model (${normalizedId})…`;
-    this.notify();
-
-    try {
-      if (!(navigator as Navigator & { gpu?: unknown }).gpu) {
-        throw new Error('WebGPU is required for local vision. Enable hardware acceleration in your browser.');
-      }
-
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const engineConfig: Record<string, unknown> = {
-        initProgressCallback: (report: { text?: string; progress?: number }) => {
-          this.message = report.text ? `Vision: ${report.text}` : 'Loading vision model…';
-          this.progress = Math.round((report.progress ?? 0) * 100);
-          this.notify();
-        },
-        appConfig: await buildProxiedWebLlmAppConfig(origin),
-      };
-
-      const webllm = await this.loadWebLlm();
-      this.visionEngine = await webllm.CreateMLCEngine(normalizedId, engineConfig);
-      this.visionModelId = normalizedId;
-      this.visionIsLoaded = true;
-      this.message = 'Local vision model ready';
-      console.log(`[BuiltInAI] Vision model ${normalizedId} loaded.`);
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to load local vision model.';
-      this.error = errorMsg;
-      console.error('[BuiltInAI] Vision init failed:', err);
-      throw new Error(errorMsg);
-    } finally {
-      this.visionIsLoading = false;
-      this.notify();
-    }
-  }
-
-  /**
-   * Multimodal inference (Phi-3.5 Vision). Pass one or more data:image URLs or https image URLs.
-   */
-  async generateWithVision(prompt: string, imageUrls: string[]): Promise<string> {
-    if (!imageUrls.length) {
-      throw new Error('At least one image URL is required for vision.');
-    }
-
-    const previous = this.pendingRequest;
-    let resolveLock: (val: unknown) => void;
-    this.pendingRequest = new Promise((resolve) => {
-      resolveLock = resolve;
-    });
-
-    try {
-      await previous;
-      this.isProcessing = true;
-      this.notify();
-
-      const visionId = this.visionModelId || DEFAULT_BUILTIN_VISION_MODEL_ID;
-      if (!this.visionIsLoaded || !this.visionEngine) {
-        await this.initVision(visionId);
-      }
-      if (!this.visionEngine) {
-        throw new Error(this.error || 'Local vision engine not ready.');
-      }
-
-      const budget = getContextBudget(visionId);
-      const textPrompt = truncatePromptText(prompt, Math.floor(budget.maxInputChars * 0.65));
-
-      const imageParts = imageUrls.slice(0, 4).map((url) => ({
-        type: 'image_url' as const,
-        image_url: { url },
-      }));
-
-      const response = await this.visionEngine.chat.completions.create({
-        messages: [
-          { role: 'system', content: BUILTIN_SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: [...imageParts, { type: 'text' as const, text: textPrompt }],
-          },
-        ],
-        stream: false,
-        temperature: 0.35,
-        max_tokens: Math.min(1536, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
-      });
-
-      const content = response?.choices?.[0]?.message?.content;
-      if (typeof content === 'string') return content;
-      return '';
-    } finally {
-      this.isProcessing = false;
-      this.notify();
-      resolveLock!(null);
-    }
-  }
-
   async init(modelId: string = 'Phi-3-mini-4k-instruct-q4f16_1-MLC', customConfig?: any) {
     if (this.isLoading) return;
-    const normalizedId = normalizeBuiltinModelId(modelId);
+    if (this.corsBlocked && !customConfig?.model_list) {
+      this.error = "Local AI download blocked by CORS on this hosted domain. Use Auto/Cloud providers, or run Forge from localhost/new tab for WebLLM.";
+      this.notify();
+      return;
+    }
+    
+    // WebLLM internal prebuilt IDs
+    const normalizedId = modelId;
 
     if (this.isLoaded && this.currentModelId === normalizedId && !customConfig) return;
 
@@ -313,23 +239,13 @@ class BuiltInAiService {
         }
       };
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-
-      if (customConfig?.model_list) {
-        engineConfig.appConfig = {
-          ...customConfig,
-          model_list: customConfig.model_list.map((rec: any) => ({
-            ...rec,
-            model: rewriteHuggingFaceModelUrl(rec.model, origin),
-          })),
-        };
-        console.log('[BuiltInAI] Using custom appConfig (HF URLs proxied).');
-      } else {
-        engineConfig.appConfig = await buildProxiedWebLlmAppConfig(origin);
-        console.log('[BuiltInAI] Using proxied WebLLM appConfig for HuggingFace weights.');
+      if (customConfig) {
+        engineConfig.appConfig = customConfig;
+        console.log("[BuiltInAI] Using custom appConfig for local loading/CORS mitigation.");
       }
 
-      const webllm = await this.loadWebLlm();
+      // Use internal prebuilt patterns. In v0.2.82, passing appConfig is only needed for custom models.
+      // Forcing WebLLM to resolve libraries itself avoids common 404 logic errors.
       this.engine = await webllm.CreateMLCEngine(normalizedId, engineConfig);
 
       this.isLoaded = true;
@@ -343,10 +259,9 @@ class BuiltInAiService {
         errorMsg = "Browser Cache Restriction: Google AI Studio iframes block local storage. You MUST open this app in a NEW TAB to use local AI models.";
         console.warn("[BuiltInAI] Detected iframe cache restriction. User must open app in new tab.");
       }
-      if (raw.includes('cors') || raw.includes('access-control-allow-origin')) {
+      if (raw.includes("cors") || raw.includes("access-control-allow-origin") || raw.includes("huggingface.co")) {
         this.corsBlocked = true;
-        errorMsg =
-          'Local AI model download failed (network/CORS). Ensure /api/hf-proxy is deployed, or use Auto/Ollama/Groq in Settings.';
+        errorMsg = "Local AI model download is blocked by CORS (HuggingFace) on this domain. Switch to Auto/Gemini/Groq, or run locally on localhost to use WebLLM models.";
       }
 
       this.error = errorMsg;
@@ -401,25 +316,15 @@ class BuiltInAiService {
         messages.push({ role: "system", content: BUILTIN_SYSTEM_PROMPT });
       }
 
-      const budget = getContextBudget(this.currentModelId);
-
       if (typeof input === 'string') {
-        messages.push({
-          role: 'user',
-          content: truncatePromptText(input, budget.maxInputChars),
-        });
+        messages.push({ role: "user", content: input });
       } else {
-        messages.push(
-          ...truncateMessagesForLocalAi(
-            input.map((m) => ({ role: m.role, content: m.content })),
-            budget.maxInputChars
-          )
-        );
+        messages.push(...input);
       }
-
+      
       const flatPrompt = typeof input === 'string'
-        ? `${BUILTIN_SYSTEM_PROMPT}\n\nUSER: ${messages.find((m) => m.role === 'user')?.content || input}`
-        : messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+        ? `${BUILTIN_SYSTEM_PROMPT}\n\nUSER: ${input}`
+        : input.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
       // ── 1. Try Chrome's built-in Gemini Nano first ──
       // Note: window.ai currently only takes a string prompt
@@ -439,10 +344,10 @@ class BuiltInAiService {
       const chunks = await this.engine!.chat.completions.create({
         messages,
         stream: true,
+        // High quality sampling to avoid repetition and loops
         temperature: 0.7,
         top_p: 0.9,
         repetition_penalty: 1.2,
-        max_tokens: Math.min(1024, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
       });
 
       for await (const chunk of chunks) {

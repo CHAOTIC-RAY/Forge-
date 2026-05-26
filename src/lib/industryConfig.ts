@@ -26,10 +26,10 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
     id: 'retail',
     name: 'Retail & E-commerce',
     terminology: {
-      products: 'Catalogue',
+      products: 'Workspace Inventory',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand & AI Guide',
+      assets: 'Brand Kit',
       chat: 'AI Assistant',
     },
     aiContext: {
@@ -46,10 +46,10 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
     id: 'real_estate',
     name: 'Real Estate',
     terminology: {
-      products: 'Catalogue',
+      products: 'Workspace Inventory',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand & AI Guide',
+      assets: 'Brand Kit',
       chat: 'AI Agent',
     },
     aiContext: {
@@ -66,10 +66,10 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
     id: 'restaurant',
     name: 'Food & Beverage',
     terminology: {
-      products: 'Catalogue',
+      products: 'Workspace Inventory',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand & AI Guide',
+      assets: 'Brand Kit',
       chat: 'Culinary AI',
     },
     aiContext: {
@@ -86,10 +86,10 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
     id: 'software',
     name: 'Software & Tech',
     terminology: {
-      products: 'Catalogue',
+      products: 'Workspace Inventory',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand & AI Guide',
+      assets: 'Brand Kit',
       chat: 'Tech Copilot',
     },
     aiContext: {
@@ -106,10 +106,10 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
     id: 'agency',
     name: 'Marketing Agency',
     terminology: {
-      products: 'Catalogue',
+      products: 'Workspace Inventory',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand & AI Guide',
+      assets: 'Brand Kit',
       chat: 'Strategy AI',
     },
     aiContext: {
@@ -126,10 +126,10 @@ export const INDUSTRY_CONFIGS: Record<IndustryType, IndustryConfig> = {
     id: 'default',
     name: 'General Business',
     terminology: {
-      products: 'Catalogue',
+      products: 'Workspace Inventory',
       ideas: 'Ideas',
       calendar: 'Calendar',
-      assets: 'Brand & AI Guide',
+      assets: 'Brand Kit',
       chat: 'AI Assistant',
     },
     aiContext: {

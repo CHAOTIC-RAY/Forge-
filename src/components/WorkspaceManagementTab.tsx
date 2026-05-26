@@ -5,7 +5,6 @@ import { db } from '../lib/firebase';
 import { toast } from 'sonner';
 import { Users, Shield, UserPlus, Check, XCircle, Clock, Trash2, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 
 interface AccessRequest {
   id: string;
@@ -109,27 +108,26 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
   }
 
   return (
-    <TabPageShell className="relative">
-      <TabPageHeader
-        icon={Users}
-        iconBgClassName="bg-emerald-500/10"
-        iconClassName="text-emerald-500"
-        title={activeBusiness.name}
-        subtitle="Manage team members, roles, and access requests."
-        actions={
-          <button
-            type="button"
+    <div className="flex flex-col bg-transparent relative">
+      <div className="p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
+        <div className="flex items-center gap-4">
+          <button 
             onClick={() => setActiveTab('settings')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681] hover:text-brand min-h-[36px]"
-            title="Back to Settings"
+            className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] transition-all"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back
+            <ArrowLeft className="w-5 h-5 text-[#757681]" />
           </button>
-        }
-      />
+          <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-[16px] flex items-center justify-center">
+            <Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] tracking-tight hover:underline cursor-pointer" onClick={() => setActiveTab('settings')}>{activeBusiness.name}</h1>
+            <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">Manage team members, roles, and access requests.</p>
+          </div>
+        </div>
+      </div>
 
-      <TabPageContent className="max-w-4xl mx-auto space-y-8 pb-20 w-full">
+      <div className="space-y-8 max-w-4xl mx-auto pb-20 w-full">
         {/* Access Requests */}
         <section className="space-y-4">
           <div className="flex items-center justify-between mb-2">
@@ -246,7 +244,7 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
             </div>
           </div>
         </section>
-      </TabPageContent>
-    </TabPageShell>
+      </div>
+    </div>
   );
 }

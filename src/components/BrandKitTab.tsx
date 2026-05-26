@@ -5,9 +5,8 @@ import {
   Palette, Type, Image as ImageIcon, Upload, Save, Trash2, 
   Plus, Download, LayoutTemplate, Tag, Globe, Settings2,
   ChevronDown, ChevronUp, X, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Search as SearchIcon,
-  PenTool, Copy, Layers, Target, MessageSquareText, ArrowDownAZ, ToggleLeft, ToggleRight
+  PenTool, Copy, Layers, Target
 } from 'lucide-react';
-import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { scrapeWooCommerce, HighStockProduct } from '../lib/gemini';
@@ -24,7 +23,6 @@ import {
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { Post, Business, OUTLETS, PRODUCT_CATEGORIES } from '../data';
-import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 
 interface BrandKit {
   colors: { name: string; hex: string }[];
@@ -59,10 +57,9 @@ interface BrandKitTabProps {
   activeBusiness: Business | null;
   posts: Post[];
   aiSettings: any;
-  onAiSettingsChange?: (key: string, value: string) => void;
 }
 
-export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsChange }: BrandKitTabProps) {
+export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabProps) {
   const [brandKit, setBrandKit] = useState<BrandKit>(defaultBrandKit);
   const [categories, setCategories] = useState<Category[]>([]);
   const [targetPlatforms, setTargetPlatforms] = useState<string[]>([]);
@@ -258,24 +255,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     }
   };
 
-  const [activeSection, setActiveSection] = useState<'identity' | 'knowledge' | 'workspace' | 'designs'>('identity');
-  const [brandVoiceText, setBrandVoiceText] = useState(aiSettings?.brandVoice || '');
-  const [businessRulesText, setBusinessRulesText] = useState(aiSettings?.businessRules || '');
-  const [instructionText, setInstructionText] = useState(aiSettings?.systemInstructions || '');
-
-  useEffect(() => {
-    setBrandVoiceText(aiSettings?.brandVoice || '');
-    setBusinessRulesText(aiSettings?.businessRules || '');
-    setInstructionText(aiSettings?.systemInstructions || '');
-  }, [aiSettings?.brandVoice, aiSettings?.businessRules, aiSettings?.systemInstructions]);
-
-  useEffect(() => {
-    const open = sessionStorage.getItem('forge_brand_open_section');
-    if (open === 'knowledge' || open === 'workspace' || open === 'identity' || open === 'designs') {
-      setActiveSection(open);
-      sessionStorage.removeItem('forge_brand_open_section');
-    }
-  }, []);
+  const [activeSection, setActiveSection] = useState<'identity' | 'workspace' | 'designs'>('identity');
   const [uploadedPostImages, setUploadedPostImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -399,17 +379,6 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
           customFonts: data.customFonts || [],
           fonts: data.fonts || defaultBrandKit.fonts
         } as BrandKit);
-        try {
-          localStorage.setItem(
-            'forge_brand_kit_snapshot',
-            JSON.stringify({
-              brandProfile: data.brandProfile || '',
-              designGuide: data.designGuide || '',
-            })
-          );
-        } catch {
-          /* ignore */
-        }
       } else {
         setBrandKit(defaultBrandKit);
       }
@@ -479,52 +448,6 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     }
   };
 
-  const handleSaveKnowledge = async () => {
-    if (!activeBusiness) return;
-    setIsSaving(true);
-    try {
-      persistBrandKnowledgeToAiSettings({
-        brandVoice: brandVoiceText,
-        businessRules: businessRulesText,
-        systemInstructions: instructionText,
-        brandProfile: brandKit.brandProfile,
-        designGuide: brandKit.designGuide,
-      });
-      onAiSettingsChange?.('brandVoice', brandVoiceText);
-      onAiSettingsChange?.('businessRules', businessRulesText);
-      onAiSettingsChange?.('systemInstructions', instructionText);
-      await setDoc(doc(db, 'brand_kits', activeBusiness.id), brandKit, { merge: true });
-      toast.success('AI knowledge saved — local and cloud models will use these rules.');
-    } catch {
-      toast.error('Failed to save AI knowledge');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const sortCategoriesForType = () => {
-    const sorted = [...categories]
-      .filter((c) => c.type === selectedCategoryType)
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const rest = categories.filter((c) => c.type !== selectedCategoryType);
-    setCategories([...rest, ...sorted]);
-    if (activeBusiness?.id) {
-      setDoc(doc(db, 'categories', activeBusiness.id), { categories: [...rest, ...sorted] }, { merge: true });
-    }
-    toast.success('Sorted A–Z');
-  };
-
-  const setAllInTypeEnabled = (enabled: boolean) => {
-    const updated = categories.map((c) =>
-      c.type === selectedCategoryType ? { ...c, enabled } : c
-    );
-    setCategories(updated);
-    if (activeBusiness?.id) {
-      setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
-    }
-    toast.success(enabled ? 'All enabled for this type' : 'All disabled for this type');
-  };
-
   const handleSaveBrandKit = async () => {
     if (!activeBusiness) return;
     setIsSaving(true);
@@ -546,28 +469,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
       }
 
       await setDoc(doc(db, 'brand_kits', activeBusiness.id), brandKit);
-      try {
-        localStorage.setItem(
-          'forge_brand_kit_snapshot',
-          JSON.stringify({
-            brandProfile: brandKit.brandProfile || '',
-            designGuide: brandKit.designGuide || '',
-          })
-        );
-      } catch {
-        /* ignore quota */
-      }
-      persistBrandKnowledgeToAiSettings({
-        brandVoice: brandVoiceText,
-        businessRules: businessRulesText,
-        systemInstructions: instructionText,
-        brandProfile: brandKit.brandProfile,
-        designGuide: brandKit.designGuide,
-      });
-      onAiSettingsChange?.('brandVoice', brandVoiceText);
-      onAiSettingsChange?.('businessRules', businessRulesText);
-      onAiSettingsChange?.('systemInstructions', instructionText);
-      toast.success('Brand & AI guide saved — synced to all AI providers.');
+      toast.success('Brand Identity saved!');
     } catch (error) {
       toast.error('Failed to save Brand Identity');
     } finally {
@@ -811,26 +713,38 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   };
 
   return (
-    <TabPageShell>
-      <TabPageHeader
-        icon={Palette}
-        iconBgClassName="bg-brand/10"
-        iconClassName="text-brand"
-        title="Brand & AI Guide"
-        subtitle="Visual identity, AI instructions, workspace categories, and design rules in one place."
-        actions={
-          (activeSection === 'identity' || activeSection === 'knowledge') ? (
-            <button
-              onClick={activeSection === 'knowledge' ? handleSaveKnowledge : handleSaveBrandKit}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-xs font-bold hover:bg-brand-hover transition-all active:scale-95 disabled:opacity-50 min-h-[36px]"
-            >
-              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {activeSection === 'knowledge' ? 'Save AI Knowledge' : 'Save Identity'}
-            </button>
-          ) : undefined
-        }
-      >
+    <div className="flex flex-col h-full bg-[#F7F7F5] dark:bg-[#191919]">
+      {/* Header */}
+      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-\[#2665fd\]/10 rounded-[16px] flex items-center justify-center">
+              <Palette className="w-6 h-6 text-\[#2665fd\]" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
+                Brand Kit & Workspace Settings
+              </h2>
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
+                Manage your brand identity and workspace configuration.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {activeSection === 'identity' && (
+              <button
+                onClick={handleSaveBrandKit}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-[12px] text-sm font-bold hover:bg-\[#1e52d0\] transition-all active:scale-95 disabled:opacity-50  "
+              >
+                {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Identity
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tab Navigation (Desktop) */}
         <div className="flex items-center gap-1 p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] w-fit border border-[#E9E9E7] dark:border-[#2E2E2E]">
           <button
             onClick={() => setActiveSection('identity')}
@@ -843,18 +757,6 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
           >
             <Palette className="w-3.5 h-3.5" />
             Brand Identity
-          </button>
-          <button
-            onClick={() => setActiveSection('knowledge')}
-            className={cn(
-              "px-4 py-2 rounded-[8px] text-xs font-bold transition-all flex items-center gap-2",
-              activeSection === 'knowledge' 
-                ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]  border border-[#E9E9E7] dark:border-[#3E3E3E]" 
-                : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-            )}
-          >
-            <MessageSquareText className="w-3.5 h-3.5" />
-            AI Knowledge
           </button>
           <button
             onClick={() => setActiveSection('workspace')}
@@ -881,9 +783,8 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
             Design Intelligence
           </button>
         </div>
-      </TabPageHeader>
+      </div>
 
-      <TabPageContent>
       {/* Mobile Controls */}
       <div className="md:hidden flex flex-col gap-4 mb-6">
         <div className="flex items-center justify-between">
@@ -898,17 +799,6 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
               )}
             >
               Identity
-            </button>
-            <button
-              onClick={() => setActiveSection('knowledge')}
-              className={cn(
-                "px-3 py-1.5 rounded-[8px] text-[10px] font-bold transition-all",
-                activeSection === 'knowledge' 
-                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] " 
-                  : "text-[#757681]"
-              )}
-            >
-              AI
             </button>
             <button
               onClick={() => setActiveSection('workspace')}
@@ -1240,62 +1130,6 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
             </motion.div>
           )}
 
-          {activeSection === 'knowledge' && (
-            <motion.div
-              key="knowledge"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="max-w-4xl mx-auto space-y-6 w-full"
-            >
-              <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-[12px] flex items-center justify-center text-purple-600 dark:text-purple-400">
-                    <MessageSquareText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold">AI Knowledge Center</h3>
-                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">
-                      Voice, rules, and instructions—merged with brand.md and design.md for every AI call (local WebLLM and cloud).
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Brand voice</label>
-                    <textarea
-                      value={brandVoiceText}
-                      onChange={(e) => setBrandVoiceText(e.target.value)}
-                      placeholder="Tone, audience, and writing style."
-                      className="mt-2 w-full h-[100px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Business rules</label>
-                    <textarea
-                      value={businessRulesText}
-                      onChange={(e) => setBusinessRulesText(e.target.value)}
-                      placeholder="Mandatory CTAs, banned phrases, compliance notes."
-                      className="mt-2 w-full h-[100px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">AI system instructions</label>
-                    <textarea
-                      value={instructionText}
-                      onChange={(e) => setInstructionText(e.target.value)}
-                      placeholder="Custom directives for captions, hashtags, and post structure."
-                      className="mt-2 w-full h-[220px] p-4 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm font-mono outline-none focus:border-brand resize-none"
-                    />
-                  </div>
-                </div>
-                <p className="mt-4 text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed">
-                  Brand Profile and Design Guide tabs feed the same knowledge bundle. Save here after editing voice or rules.
-                </p>
-              </div>
-            </motion.div>
-          )}
-
           {activeSection === 'workspace' && (
             <motion.div
               key="workspace"
@@ -1488,43 +1322,6 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
                   <div className="flex-1 flex flex-col bg-white dark:bg-[#1A1A1A]">
                     {/* Search and Add Bar */}
                     <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] space-y-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={sortCategoriesForType}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand text-[#757681] hover:text-brand"
-                        >
-                          <ArrowDownAZ className="w-3.5 h-3.5" />
-                          Sort A–Z
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAllInTypeEnabled(true)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand text-[#757681]"
-                        >
-                          <ToggleRight className="w-3.5 h-3.5" />
-                          Enable all
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAllInTypeEnabled(false)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681]"
-                        >
-                          <ToggleLeft className="w-3.5 h-3.5" />
-                          Disable all
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => populateDefaultCategories(false)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-bg text-brand border border-brand/20"
-                        >
-                          Add defaults
-                        </button>
-                        <span className="text-[10px] font-bold text-[#757681] ml-auto tabular-nums">
-                          {categories.filter((c) => c.type === selectedCategoryType && c.enabled).length}/
-                          {categories.filter((c) => c.type === selectedCategoryType).length} enabled
-                        </span>
-                      </div>
                       <div className="flex flex-col sm:flex-row items-center gap-3">
                         <div className="relative flex-1 w-full">
                           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#757681]" />
@@ -1823,7 +1620,6 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
           </div>
         )}
       </div>
-      </TabPageContent>
-    </TabPageShell>
+    </div>
   );
 }

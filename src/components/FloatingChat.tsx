@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3, AlertCircle, Globe, Plus, Settings, History, Zap, Brain, Shield, ImagePlus } from 'lucide-react';
+import { MessageSquare, Send, X, Minimize2, Maximize2, Sparkles, Paperclip, Trash2, Check, Copy, Edit3, AlertCircle, Globe, Plus, Settings, History, Zap, Brain, Shield } from 'lucide-react';
 import { Post } from '../data';
 import { cn } from '../lib/utils';
 import { chatWithAi, GEMINI_MODELS, GROQ_MODELS, PUTER_MODELS, LOCAL_MODELS, getAiSettings, setAiSettings } from '../lib/gemini';
@@ -477,7 +477,7 @@ export function FloatingChat({
     <div className={cn(
       "fixed z-50 flex flex-col items-end gap-4 transition-all duration-300",
       isFullPage 
-        ? "inset-x-0 top-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:inset-0 bg-white dark:bg-[#191919] p-0 pointer-events-auto" 
+        ? "inset-0 bottom-[64px] md:bottom-0 bg-white dark:bg-[#191919] p-0 pointer-events-auto" 
         : "bottom-6 right-6 pointer-events-none"
     )}>
       <AnimatePresence>
@@ -727,18 +727,10 @@ export function FloatingChat({
                 <div 
                   key={msg.id} 
                   className={cn(
-                    "relative flex flex-col max-w-[min(85%,42rem)] animate-in fade-in slide-in-from-bottom-2 duration-300",
+                    "relative flex flex-col max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300",
                     msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start"
                   )}
                 >
-                  <span
-                    className={cn(
-                      'text-[10px] font-bold uppercase tracking-widest mb-1.5 px-1',
-                      msg.role === 'user' ? 'text-[#757681]' : 'text-indigo-500'
-                    )}
-                  >
-                    {msg.role === 'user' ? 'You' : 'Forge'}
-                  </span>
                   {msg.role === 'assistant' && isFullPage && (
                     <div className="absolute -left-6 top-6 w-3 h-3 bg-indigo-500 rounded-full blur-[8px] opacity-40 animate-pulse" />
                   )}
@@ -933,7 +925,7 @@ export function FloatingChat({
             <div className={cn(
               "z-30 transition-all duration-300",
               isFullPage 
-                ? "fixed bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-4 left-0 right-0 p-4 pb-4 md:p-6 pointer-events-none lg:pl-[260px]" 
+                ? "fixed bottom-4 left-0 right-0 p-4 pb-8 md:p-6 pointer-events-none lg:pl-[260px]" 
                 : "p-4 border-t bg-white/90 dark:bg-[#1A1A1A]/90 backdrop-blur-xl border-[#E9E9E7] dark:border-[#2E2E2E] rounded-b-[24px]"
             )}>
               <div className="max-w-3xl mx-auto w-full pointer-events-auto flex flex-col gap-3">
@@ -982,14 +974,7 @@ export function FloatingChat({
                   !isFullPage && "relative flex flex-col gap-2"
                 )}>
                 {(attachedItem || attachedImages.length > 0) && (
-                <div className="mb-3 p-3 rounded-2xl bg-white/90 dark:bg-[#252525]/90 border border-[#E9E9E7] dark:border-[#333] shadow-sm">
-                  {attachedImages.length > 0 && (
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2 flex items-center gap-1.5">
-                      <ImagePlus className="w-3.5 h-3.5" />
-                      {attachedImages.length} image{attachedImages.length === 1 ? '' : 's'} — vision analysis when cloud keys are set
-                    </p>
-                  )}
-                <div className="flex flex-wrap gap-2">
+                <div className="mb-4 flex flex-wrap gap-2">
                   {attachedItem && (
                     <div className="px-3 py-2 bg-white dark:bg-[#252525] rounded-xl border border-[#E9E9E7] dark:border-[#333] flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300 w-full shadow-sm hover:border-indigo-500/30 transition-colors group">
                       <div className="flex items-center gap-2">
@@ -1022,10 +1007,9 @@ export function FloatingChat({
                     </div>
                   ))}
                 </div>
-                </div>
               )}
               
-              <div className="relative flex items-end gap-2 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px] shadow-lg shadow-black/5 focus-within:ring-4 focus-within:ring-indigo-500/15 focus-within:border-indigo-500/40 transition-all p-2">
+              <div className="relative flex items-end gap-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[20px] shadow-sm focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500/30 transition-all p-1.5">
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -1036,25 +1020,11 @@ export function FloatingChat({
                 />
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className={cn(
-                    'p-2.5 mb-0.5 rounded-[14px] transition-all shrink-0',
-                    attachedImages.length > 0
-                      ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-500/15'
-                      : 'text-[#757681] dark:text-[#9B9A97] hover:text-indigo-600 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E]'
-                  )}
-                  title="Attach images for vision analysis"
+                  className="p-2.5 mb-0.5 text-[#757681] dark:text-[#9B9A97] hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-[#2E2E2E] rounded-[14px] transition-all shrink-0"
+                  title="Attach images"
                 >
-                  <ImagePlus className="w-5 h-5" />
+                  <Paperclip className="w-4.5 h-4.5" />
                 </button>
-                {attachedItem && (
-                  <button
-                    type="button"
-                    className="p-2.5 mb-0.5 text-[#757681] hover:text-indigo-600 rounded-[14px] shrink-0"
-                    title="Attached item"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                  </button>
-                )}
                 
                 <textarea 
                   value={input}
@@ -1066,15 +1036,7 @@ export function FloatingChat({
                     }
                   }}
                   disabled={isTyping}
-                  placeholder={
-                    isTyping
-                      ? 'Forge is thinking…'
-                      : attachedImages.length > 0
-                        ? 'What should Forge notice in these images? (features, captions, ideas…)'
-                        : isFullPage
-                          ? 'Ask Forge to plan campaigns, analyze images, or draft posts…'
-                          : 'Message Forge…'
-                  }
+                  placeholder={isTyping ? "Forge is thinking..." : isFullPage ? "Ask Forge to generate campaigns, analyze data, or write content..." : "Ask Forge anything..."}
                   className="w-full px-2 py-3.5 bg-transparent text-sm focus:outline-none resize-none min-h-[48px] max-h-[160px] text-[#37352F] dark:text-[#EBE9ED] placeholder-[#A0A0A0] dark:placeholder-[#666] disabled:opacity-50"
                   style={{ height: input ? 'auto' : '48px', overflowY: input.length > 50 ? 'auto' : 'hidden' }}
                 />

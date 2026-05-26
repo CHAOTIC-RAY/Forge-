@@ -5,7 +5,7 @@ import {
   Download, Save, Upload, RefreshCw, FileSpreadsheet, 
   Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
   Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2,
-  FileText, MessageSquareText, Box, Wand2, ExternalLink, Boxes
+  FileText, MessageSquareText, Box, Wand2, ExternalLink
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
@@ -16,12 +16,9 @@ import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
-import { BuiltInAiStatus, BUILTIN_MODELS, BUILTIN_VISION_MODELS } from '../lib/builtinAi';
-import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
+import { builtInAi, BuiltInAiStatus, BUILTIN_MODELS } from '../lib/builtinAi';
 import { Cpu, Info } from 'lucide-react';
-import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
-import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
-import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
+import { testLocalServerConnection } from '../lib/gemini';
 
 const GEMINI_MODELS = [
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)' },
@@ -90,7 +87,7 @@ const BentoCard = ({
         className={cn("p-5 sm:p-6 flex items-center justify-between group", !isDesktop && "cursor-pointer select-none")}
       >
         <div className="flex items-center gap-4">
-          <div className={cn("w-12 h-12 sm:w-14 sm:h-14 rounded-[12px] flex items-center justify-center shrink-0 transition-colors group-hover:opacity-90", iconBg, iconColor)}>
+          <div className={cn("w-12 h-12 sm:w-14 sm:h-14 rounded-[12px] flex items-center justify-center shrink-0 transition-transform group-hover:scale-105", iconBg, iconColor)}>
             {customIcon ? customIcon : <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
           </div>
           <div>
@@ -195,32 +192,11 @@ export function SettingsView({
   const [newName, setNewName] = useState(user?.displayName || '');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
-  const [builtInStatus, setBuiltInStatus] = useState<BuiltInAiStatus>({
-    isLoaded: false,
-    isLoading: false,
-    isProcessing: false,
-    progress: 0,
-    message: '',
-    error: null,
-    modelId: null,
-  });
-  type BuiltInAiApi = typeof import('../lib/builtinAi')['builtInAi'];
-  const builtInAiRef = React.useRef<BuiltInAiApi | null>(null);
-
-  const getBuiltInAi = React.useCallback(async (): Promise<BuiltInAiApi> => {
-    if (!builtInAiRef.current) {
-      builtInAiRef.current = (await import('../lib/builtinAi')).builtInAi;
-    }
-    return builtInAiRef.current;
-  }, []);
+  const [builtInStatus, setBuiltInStatus] = useState<any>(builtInAi.getStatus());
 
   useEffect(() => {
-    let unsubBuiltin: (() => void) | undefined;
-    void getBuiltInAi().then((ai) => {
-      setBuiltInStatus(ai.getStatus());
-      unsubBuiltin = ai.onStatusChange(setBuiltInStatus);
-    });
-
+    const unsubBuiltin = builtInAi.onStatusChange(setBuiltInStatus);
+    
     const checkPuter = async () => {
       if (typeof window !== 'undefined' && (window as any).puter) {
         try {
@@ -235,10 +211,10 @@ export function SettingsView({
     const interval = setInterval(checkPuter, 5000);
     
     return () => {
-      unsubBuiltin?.();
+      unsubBuiltin();
       clearInterval(interval);
     };
-  }, [getBuiltInAi]);
+  }, []);
 
   const handlePuterSignIn = async () => {
     if (typeof window !== 'undefined' && (window as any).puter) {
@@ -488,7 +464,6 @@ export function SettingsView({
   const [localAiDebug, setLocalAiDebug] = useState(!!aiSettings.localAiDebug);
   const [tunePreset, setTunePreset] = useState<'fast' | 'balanced' | 'quality'>('balanced');
   const [showAdvancedTune, setShowAdvancedTune] = useState(false);
-  const [showCloudAiOptions, setShowCloudAiOptions] = useState(false);
 
   useEffect(() => {
     setInstructionText(aiSettings.systemInstructions || '');
@@ -498,17 +473,19 @@ export function SettingsView({
   }, [aiSettings.systemInstructions, aiSettings.brandVoice, aiSettings.businessRules, aiSettings.localAiDebug]);
 
   const handleSaveInstructions = () => {
-    persistBrandKnowledgeToAiSettings({
-      brandVoice: brandVoiceText,
-      businessRules: businessRulesText,
-      systemInstructions: instructionText,
-    });
+    const mergedKnowledge = [
+      `## Brand Voice\n${brandVoiceText || 'Not set'}`,
+      `## Business Rules\n${businessRulesText || 'Not set'}`,
+      `## AI System Instructions\n${instructionText || 'Not set'}`
+    ].join('\n\n');
+
     handleAiSettingChange('brandVoice', brandVoiceText);
     handleAiSettingChange('businessRules', businessRulesText);
     handleAiSettingChange('systemInstructions', instructionText);
+    handleAiSettingChange('brandKnowledge', mergedKnowledge);
     handleAiSettingChange('localAiDebug', localAiDebug);
     setIsAiInstructionModalOpen(false);
-    toast.success('Knowledge saved — open Brand & AI Guide tab for full editing.');
+    toast.success("Knowledge center updated and synced to Local AI.");
   };
 
   const downloadExtensionFile = async (filename: string) => {
@@ -531,47 +508,37 @@ export function SettingsView({
   };
 
   return (
-    <TabPageShell className="relative">
-      <TabPageHeader
-        icon={Settings}
-        title="Settings"
-        subtitle="Manage your workspace, integrations, and preferences."
-        actions={
-          <>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-[#757681] hover:text-brand min-h-[36px]"
-            >
-              <Printer className="w-3.5 h-3.5" /> Print PDF
+    <div className="flex flex-col bg-transparent relative">
+      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
+              <Settings className="w-6 h-6 text-brand" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] tracking-tight">Settings</h1>
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">Manage your workspace, integrations, and preferences.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] mr-2">Data Actions:</span>
+            <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
+              <Printer className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Print PDF
             </button>
-            <button
-              type="button"
-              onClick={() => setDataAction({ type: 'restore' })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-[#757681] hover:text-brand min-h-[36px]"
-            >
-              <Upload className="w-3.5 h-3.5" /> Restore JSON
+            <button onClick={() => setDataAction({ type: 'restore' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
+              <Upload className="w-3.5 h-3.5 text-[#757681] dark:text-[#9B9A97]" /> Restore JSON
             </button>
-            <button
-              type="button"
-              onClick={() => setDataAction({ type: 'export' })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-[#757681] hover:text-brand min-h-[36px]"
-            >
-              <Download className="w-3.5 h-3.5" /> Export Excel
+            <button onClick={() => setDataAction({ type: 'export' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
+              <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Export Excel
             </button>
-            <button
-              type="button"
-              onClick={() => setDataAction({ type: 'backup' })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-[#757681] hover:text-brand min-h-[36px]"
-            >
-              <Save className="w-3.5 h-3.5" /> Backup JSON
+            <button onClick={() => setDataAction({ type: 'backup' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors">
+              <Save className="w-3.5 h-3.5 text-[#757681] dark:text-[#9B9A97]" /> Backup JSON
             </button>
             <input type="file" accept=".json" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
-          </>
-        }
-      />
+          </div>
+        </div>
+      </div>
 
-      <TabPageContent className="overflow-visible">
       {/* AI Instruction Modal */}
       <AnimatePresence>
         {isAiInstructionModalOpen && (
@@ -678,17 +645,17 @@ export function SettingsView({
           <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-[16px] flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-2">
             <Palette className="w-5 h-5" />
           </div>
-          <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] text-center line-clamp-1">{industryConfig?.terminology?.assets || 'Brand & AI Guide'}</span>
+          <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] text-center line-clamp-1">{industryConfig?.terminology?.assets || 'Brand Kit'}</span>
         </button>
 
         <button 
-          onClick={() => setActiveTab?.('widgets')}
+          onClick={() => setActiveTab?.('creative')}
           className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
           <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-[12px] flex items-center justify-center text-purple-600 dark:text-purple-400 mb-1.5">
-            <Boxes className="w-4 h-4" />
+            <Sparkles className="w-4 h-4" />
           </div>
-          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</span>
+          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">AI Studio</span>
         </button>
 
         <button 
@@ -702,13 +669,13 @@ export function SettingsView({
         </button>
 
         <button 
-          onClick={() => setActiveTab?.('notebook')}
+          onClick={() => setActiveTab?.('ideas')}
           className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
           <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-[12px] flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1.5">
             <Lightbulb className="w-4 h-4" />
           </div>
-          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Idea Lab</span>
+          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Ideas</span>
         </button>
 
         <button 
@@ -719,7 +686,7 @@ export function SettingsView({
             <Database className="w-5 h-5" />
           </div>
           <div className="flex flex-col items-start">
-            <span className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Catalogue</span>
+            <span className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Workspace Inventory</span>
             <span className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Manage your product database</span>
           </div>
         </button>
@@ -738,15 +705,13 @@ export function SettingsView({
         ))}
       </div>
 
-      <div className="max-w-[1600px] mx-auto w-full px-4 md:px-6 lg:px-8 space-y-10 pb-24">
-        {/* Profile & workspace */}
-        <section className="space-y-4">
-          <div className="px-1">
-            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Profile & workspace</h2>
-            <p className="text-sm text-secondary-safe mt-1">Account, theme, and active business</p>
-          </div>
-          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-stretch">
-        <div className="min-h-0 h-full">
+      <div className="mb-6">
+        <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest px-1">Global Configuration</h2>
+      </div>
+
+      <motion.div layout className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start pb-24">
+        
+        {/* Account & App Card */}
         <BentoCard
           id="account"
           title="Account & App"
@@ -855,9 +820,8 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        </div>
 
-        <div className="min-h-0 h-full">
+        {/* Appearance & Theme Card */}
         <BentoCard
           id="appearance"
           title="Appearance & Theme"
@@ -933,9 +897,8 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        </div>
 
-        <div className="md:col-span-2 xl:col-span-1 min-h-0 h-full">
+        {/* Workspaces Card */}
         <BentoCard
           id="workspaces"
           title="Workspaces"
@@ -959,18 +922,8 @@ export function SettingsView({
             />
           </div>
         </BentoCard>
-        </div>
-          </motion.div>
-        </section>
 
-        {/* Integrations */}
-        <section className="space-y-4">
-          <div className="px-1">
-            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Integrations</h2>
-            <p className="text-sm text-secondary-safe mt-1">Cloud storage, media, and connected services</p>
-          </div>
-          <motion.div layout className="grid grid-cols-1 gap-4 sm:gap-6 items-stretch">
-        <div className="min-h-0 h-full">
+        {/* Integrations Card */}
         <BentoCard
           id="integrations"
           title="Integrations"
@@ -1118,22 +1071,12 @@ export function SettingsView({
             />
           </div>
         </BentoCard>
-        </div>
-          </motion.div>
-        </section>
 
-        {/* Local AI */}
-        <section className="space-y-4">
-          <div className="px-1">
-            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Local AI</h2>
-            <p className="text-sm text-secondary-safe mt-1">On-device models for widgets and creative tools</p>
-          </div>
-          <motion.div layout className="grid grid-cols-1 gap-4 sm:gap-6 items-stretch">
-        <div className="min-h-0 h-full">
+        {/* AI Engine Card */}
         <BentoCard
           id="ai"
-          title="Local AI"
-          subtitle="Widgets and creative tools run on-device by default"
+          title="AI & Smart Engine"
+          subtitle={`Provider: ${aiSettings.preferredProvider}`}
           icon={Sparkles}
           iconBg="bg-purple-100 dark:bg-purple-900/30"
           iconColor="text-purple-600 dark:text-purple-400"
@@ -1143,84 +1086,35 @@ export function SettingsView({
           <div className="relative space-y-6 pt-4">
             <div className="absolute -top-12 right-0">
               <button 
-                onClick={() => {
-                  sessionStorage.setItem('forge_brand_open_section', 'knowledge');
-                  setActiveTab?.('brandkit');
-                }}
+                onClick={() => setIsAiInstructionModalOpen(true)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] text-xs font-bold transition-colors border border-[#E9E9E7] dark:border-[#2E2E2E]"
               >
                 <MessageSquareText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                Brand & AI Guide
+                Knowledge Center
               </button>
             </div>
-            <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-              <div>
-                <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Fallback to cloud AI services</p>
-                <p className="text-[10px] text-secondary-safe mt-0.5">
-                  When local WebLLM fails, try Gemini, Groq, and other cloud providers (off by default)
-                </p>
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Preferred AI Provider</label>
+              <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-x-auto scrollbar-hide">
+                {['builtin', 'gemini', 'groq', 'puter', 'local_proxy', 'auto'].map((provider) => (
+                  <button
+                    key={provider}
+                    onClick={() => handleAiSettingChange('preferredProvider', provider)}
+                    className={cn(
+                      "flex-1 min-w-[70px] py-2 text-sm font-bold rounded-[8px] transition-all capitalize whitespace-nowrap",
+                      aiSettings.preferredProvider === provider 
+                        ? "bg-white dark:bg-[#2E2E2E]  text-[#2383E2]" 
+                        : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                    )}
+                  >
+                    {provider === 'local_proxy' ? 'Ollama' : provider}
+                  </button>
+                ))}
               </div>
-              <button
-                type="button"
-                onClick={() => handleAiSettingChange('fallbackToCloudAi', !aiSettings.fallbackToCloudAi)}
-                className={cn(
-                  'w-10 h-6 rounded-full relative transition-colors shrink-0',
-                  aiSettings.fallbackToCloudAi === true ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'
-                )}
-                aria-pressed={aiSettings.fallbackToCloudAi === true}
-              >
-                <span
-                  className={cn(
-                    'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
-                    aiSettings.fallbackToCloudAi === true ? 'left-5' : 'left-1'
-                  )}
-                />
-              </button>
             </div>
-
-            <div className="p-4 rounded-[16px] bg-indigo-50/80 dark:bg-indigo-900/15 border border-indigo-100 dark:border-indigo-900/30 space-y-2">
-              <p className="text-xs text-[#37352F] dark:text-[#EBE9ED] leading-relaxed">
-                Text runs in your browser via WebLLM. Images use your local model to refine prompts, then render through a free Flux endpoint—no Puter or Gemini sign-in required for widgets.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!showCloudAiOptions) {
-                    handleAiSettingChange('preferredProvider', 'builtin');
-                    handleAiSettingChange('imageProvider', 'builtin');
-                  }
-                  setShowCloudAiOptions(!showCloudAiOptions);
-                }}
-                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                {showCloudAiOptions ? 'Hide cloud providers' : 'Optional: use Gemini, Groq, Puter, or Ollama'}
-              </button>
-            </div>
-
-            {showCloudAiOptions && (
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Cloud & hybrid providers</label>
-                <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-x-auto scrollbar-hide">
-                  {['builtin', 'gemini', 'groq', 'puter', 'local_proxy', 'auto'].map((provider) => (
-                    <button
-                      key={provider}
-                      onClick={() => handleAiSettingChange('preferredProvider', provider)}
-                      className={cn(
-                        "flex-1 min-w-[70px] py-2 text-sm font-bold rounded-[8px] transition-all capitalize whitespace-nowrap",
-                        aiSettings.preferredProvider === provider 
-                          ? "bg-white dark:bg-[#2E2E2E]  text-[#2383E2]" 
-                          : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                      )}
-                    >
-                      {provider === 'local_proxy' ? 'Ollama' : provider}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="p-4 sm:p-5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[16px]">
-              {showCloudAiOptions && aiSettings.preferredProvider === 'gemini' ? (
+              {aiSettings.preferredProvider === 'gemini' ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Gemini API Key</label>
@@ -1243,7 +1137,7 @@ export function SettingsView({
                     </select>
                   </div>
                 </div>
-              ) : showCloudAiOptions && aiSettings.preferredProvider === 'groq' ? (
+              ) : aiSettings.preferredProvider === 'groq' ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Custom Groq API Key</label>
@@ -1268,7 +1162,7 @@ export function SettingsView({
                     </select>
                   </div>
                 </div>
-              ) : (!showCloudAiOptions || aiSettings.preferredProvider === 'builtin') ? (
+              ) : aiSettings.preferredProvider === 'builtin' ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 rounded-[16px] space-y-4">
                     {(() => {
@@ -1318,62 +1212,6 @@ export function SettingsView({
                               : BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'))?.description}
                           </p>
                         </div>
-                        {(() => {
-                          const modelId =
-                            aiSettings.builtinModelId === 'custom'
-                              ? null
-                              : aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-                          const budget = getContextBudget(modelId);
-                          const inputK = Math.round(budget.maxInputChars / 1000);
-                          const loadedBudget =
-                            builtInStatus.isLoaded && builtInStatus.maxInputChars
-                              ? builtInStatus.maxInputChars
-                              : budget.maxInputChars;
-                          return (
-                            <div className="p-3 rounded-[10px] bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-1">
-                              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wide">
-                                Context budget
-                              </p>
-                              <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] leading-relaxed">
-                                ~{inputK}k input chars ({budget.contextWindow.toLocaleString()} token window).
-                                Brand knowledge capped at {LOCAL_KNOWLEDGE_MAX_CHARS.toLocaleString()} chars for local AI.
-                              </p>
-                              {builtInStatus.isLoaded && (
-                                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                                  Engine ready — up to ~{Math.round(loadedBudget / 1000)}k chars per request.
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-
-                      <div className="space-y-2 pt-2 border-t border-indigo-200/60 dark:border-indigo-900/40">
-                        <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">
-                          Local vision model (image analysis)
-                        </label>
-                        <select
-                          value={aiSettings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC'}
-                          onChange={(e) => handleAiSettingChange('builtinVisionModelId', e.target.value)}
-                          className="w-full p-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
-                        >
-                          {BUILTIN_VISION_MODELS.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.name} ({m.size})
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-[10px] text-[#757681] dark:text-[#9B9A97] leading-relaxed">
-                          {BUILTIN_VISION_MODELS.find(
-                            (m) => m.id === (aiSettings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC')
-                          )?.description}{' '}
-                          Used when you drop images on the calendar, analyse posts, or brainstorm from photos—runs in-browser via WebGPU (Phi-3.5 Vision).
-                        </p>
-                        {builtInStatus.visionIsLoaded && (
-                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                            Vision engine ready ({builtInStatus.visionModelId})
-                          </p>
-                        )}
                       </div>
 
                       {aiSettings.builtinModelId === 'custom' && (
@@ -1466,7 +1304,6 @@ export function SettingsView({
                       )}
                     </div>
 
-                    {showAdvancedTune && (
                     <div className="flex flex-col gap-4 p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -1582,15 +1419,6 @@ export function SettingsView({
                         </div>
                       )}
                     </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setShowAdvancedTune((v) => !v)}
-                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline w-fit"
-                    >
-                      {showAdvancedTune ? 'Hide fine-tuning' : 'Advanced: model fine-tuning'}
-                    </button>
                     
                     {(() => {
                       const selectedModelId = aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
@@ -1603,29 +1431,27 @@ export function SettingsView({
                       return !isModelSelectedLoaded && !builtInStatus.isLoading && (
                         <button 
                           onClick={() => {
-                            void (async () => {
-                              const ai = await getBuiltInAi();
-                              if (selectedModelId === 'custom') {
-                                if (!aiSettings.customModelUrl && !aiSettings.customModelConfig) {
-                                  toast.error("Please provide a Custom Model URL or Config first.");
-                                  return;
-                                }
-                                const customConfig = aiSettings.customModelConfig || {
-                                  model_list: [
-                                    {
-                                      model: aiSettings.customModelUrl,
-                                      model_id: "custom-local-model",
-                                      model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Phi3-mini-4k-instruct/Phi3-mini-4k-instruct-q4f16_1-ctx4k-webgpu.wasm",
-                                      vram_required_MB: 3000,
-                                      low_resource_required: true,
-                                    }
-                                  ]
-                                };
-                                await ai.init(selectedModelId === 'custom' ? (customConfig.model_list?.[0]?.model_id || 'custom-model') : selectedModelId, customConfig);
-                              } else {
-                                await ai.init(selectedModelId);
+                            if (selectedModelId === 'custom') {
+                              if (!aiSettings.customModelUrl && !aiSettings.customModelConfig) {
+                                toast.error("Please provide a Custom Model URL or Config first.");
+                                return;
                               }
-                            })();
+                              // If they have a URL, we can attempt to use it as a custom AppConfig
+                              const customConfig = aiSettings.customModelConfig || {
+                                model_list: [
+                                  {
+                                    model: aiSettings.customModelUrl,
+                                    model_id: "custom-local-model",
+                                    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Phi3-mini-4k-instruct/Phi3-mini-4k-instruct-q4f16_1-ctx4k-webgpu.wasm",
+                                    vram_required_MB: 3000,
+                                    low_resource_required: true,
+                                  }
+                                ]
+                              };
+                              builtInAi.init(selectedModelId === 'custom' ? (customConfig.model_list?.[0]?.model_id || 'custom-model') : selectedModelId, customConfig);
+                            } else {
+                              builtInAi.init(selectedModelId);
+                            }
                           }}
                           className="w-full py-2.5 bg-brand text-white text-xs font-bold rounded-[8px] hover:bg-brand-hover transition-colors shadow-sm"
                         >
@@ -1647,13 +1473,13 @@ export function SettingsView({
                         </div>
                         <p className="text-[9px] text-center text-[#9B9A97]">This may take a few minutes. Weights are saved to browser cache.</p>
                         <button 
-                          onClick={() => void getBuiltInAi().then((ai) => ai.reset())}
+                          onClick={() => builtInAi.reset()}
                           className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-brand/10 hover:text-brand transition-colors"
                         >
                           Restart Initialization
                         </button>
                         <button 
-                          onClick={() => void getBuiltInAi().then((ai) => ai.clearCache())}
+                          onClick={() => builtInAi.clearCache()}
                           className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-[6px] hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                         >
                           Clear Local AI Cache
@@ -1679,13 +1505,13 @@ export function SettingsView({
 
                         <div className="flex gap-2">
                            <button 
-                            onClick={() => void getBuiltInAi().then((ai) => ai.clearCache())}
+                            onClick={() => builtInAi.clearCache()}
                             className="flex-1 py-1.5 bg-white dark:bg-gray-900 border border-red-200 dark:border-red-900/40 text-red-600 text-[10px] font-bold rounded-[6px] hover:bg-red-50 transition-all"
                           >
                             Wipe Cache
                           </button>
                           <button 
-                            onClick={() => void getBuiltInAi().then((ai) => ai.reset())}
+                            onClick={() => builtInAi.reset()}
                             className="flex-1 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 text-[10px] font-bold rounded-[6px] hover:bg-gray-200 transition-all"
                           >
                             Retry
@@ -1695,7 +1521,7 @@ export function SettingsView({
                     )}
                   </div>
                 </div>
-              ) : showCloudAiOptions && aiSettings.preferredProvider === 'puter' ? (
+              ) : aiSettings.preferredProvider === 'puter' ? (
                 <div className="space-y-4">
                   <div className={cn(
                     "p-4 rounded-[16px] border transition-all",
@@ -1760,7 +1586,7 @@ export function SettingsView({
                     </select>
                   </div>
                 </div>
-              ) : showCloudAiOptions && aiSettings.preferredProvider === 'local_proxy' ? (
+              ) : aiSettings.preferredProvider === 'local_proxy' ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 rounded-[16px] space-y-4">
                     <div className="flex items-center gap-3">
@@ -1850,7 +1676,7 @@ export function SettingsView({
                     </div>
                   </div>
                 </div>
-              ) : showCloudAiOptions && aiSettings.preferredProvider === 'auto' ? (
+              ) : aiSettings.preferredProvider === 'auto' ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 rounded-[16px] space-y-4">
                     <div className="flex items-center gap-2">
@@ -1938,30 +1764,9 @@ export function SettingsView({
             </div>
 
             <div className="space-y-3 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-              <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Local image generation</label>
-              {!showCloudAiOptions ? (
-                <div className="space-y-3 p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px]">
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed">
-                    Your on-device model improves each prompt; images render with Flux (Pollinations). No cloud image API required for widgets.
-                  </p>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Image model (Flux backend)</label>
-                    <select 
-                      value={aiSettings.pollinationModel || 'flux'}
-                      onChange={(e) => {
-                        handleAiSettingChange('pollinationModel', e.target.value);
-                        handleAiSettingChange('imageProvider', 'builtin');
-                      }}
-                      className="w-full p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
-                    >
-                      {POLLINATION_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-              ) : (
-                <>
+              <label className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Image Generation API</label>
               <div className="flex p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                {['builtin', 'pollination', 'auto', 'gemini', 'puter'].map((provider) => (
+                {['auto', 'gemini', 'pollination', 'puter', 'builtin'].map((provider) => (
                   <button
                     key={provider}
                     onClick={() => handleAiSettingChange('imageProvider', provider)}
@@ -1978,19 +1783,17 @@ export function SettingsView({
               </div>
               <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-2 leading-relaxed">
                 {aiSettings.imageProvider === 'pollination' 
-                  ? 'Pollination.ai renders images from your prompt (no local orchestration).' 
+                  ? 'Using Pollination.ai for fast, free image generation.' 
                   : aiSettings.imageProvider === 'puter' 
                     ? 'Using Puter.js for image generation.' 
                     : aiSettings.imageProvider === 'builtin'
-                      ? 'Phi-3.5 Vision (WebLLM) understands images locally; generation still uses your image provider below when creating assets.'
+                      ? 'Local AI will act as a creative director to orchestrate free image APIs.'
                       : aiSettings.imageProvider === 'auto'
-                        ? 'Tries local orchestration first, then Pollination, then cloud.'
+                        ? 'Auto mode will try Puter.js if signed in, otherwise use Gemini Flash.'
                         : 'Using Gemini Flash Image for high-quality, prompt-aligned images.'}
               </p>
-                </>
-              )}
 
-              {showCloudAiOptions && aiSettings.imageProvider === 'pollination' && (
+              {aiSettings.imageProvider === 'pollination' && (
                 <div className="mt-4 space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Pollination.ai API Key (Optional)</label>
@@ -2015,7 +1818,7 @@ export function SettingsView({
                 </div>
               )}
 
-              {showCloudAiOptions && aiSettings.imageProvider === 'puter' && (
+              {aiSettings.imageProvider === 'puter' && (
                 <div className="mt-4 space-y-4">
                   {!isPuterSignedIn && (
                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-[12px]">
@@ -2044,11 +1847,16 @@ export function SettingsView({
 
             <button
               onClick={() => {
-                const defaults = getDefaultAiSettings();
+                const defaults = { 
+                  geminiModel: 'gemini-2.5-flash', 
+                  groqModel: 'llama-3.1-8b-instant', 
+                  groqVisionModel: 'llama-3.2-11b-vision-preview',
+                  firecrawlApiKey: '',
+                  targetUrl: ''
+                };
                 setAiSettingsState(defaults);
                 setAiSettings(defaults);
-                setShowCloudAiOptions(false);
-                toast.success('Reset to local-first AI defaults');
+                toast.success('AI settings reset to defaults');
               }}
               className="w-full py-3 px-4 border border-[#6074b9] text-[#6074b9] hover:bg-[#6074b9]/10 rounded-[12px] text-sm font-bold transition-colors"
             >
@@ -2056,18 +1864,8 @@ export function SettingsView({
             </button>
           </div>
         </BentoCard>
-        </div>
-          </motion.div>
-        </section>
 
-        {/* Automation & data */}
-        <section className="space-y-4">
-          <div className="px-1">
-            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Automation & data</h2>
-            <p className="text-sm text-secondary-safe mt-1">Crawl, analytics, backups, and exports</p>
-          </div>
-          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-stretch">
-        <div className="min-h-0 h-full">
+        {/* Crawl Options Card */}
         <BentoCard
           id="crawl"
           title="Crawl Options"
@@ -2089,62 +1887,7 @@ export function SettingsView({
                   placeholder="Leave empty to use server default"
                   className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
                 />
-                <p className="text-[10px] text-secondary-safe">
-                  Fetches page markdown from websites (map, crawl, scrape). Catalogue conversion uses your local AI model separately.
-                </p>
-              </div>
-              <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                <div>
-                  <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Catalogue import: local AI only</p>
-                  <p className="text-[10px] text-secondary-safe mt-0.5">Markdown → catalogue uses browser AI first</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleAiSettingChange('catalogueImportLocalOnly', !(aiSettings.catalogueImportLocalOnly !== false))}
-                  className={cn(
-                    'w-10 h-6 rounded-full relative transition-colors shrink-0',
-                    aiSettings.catalogueImportLocalOnly !== false ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
-                      aiSettings.catalogueImportLocalOnly !== false ? 'left-5' : 'left-1'
-                    )}
-                  />
-                </button>
-              </div>
-              <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                <div>
-                  <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Allow cloud fallback</p>
-                  <p className="text-[10px] text-secondary-safe mt-0.5">If local extraction fails, try cloud providers</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleAiSettingChange('catalogueImportCloudFallback', aiSettings.catalogueImportCloudFallback === false)}
-                  className={cn(
-                    'w-10 h-6 rounded-full relative transition-colors shrink-0',
-                    aiSettings.catalogueImportCloudFallback !== false ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
-                      aiSettings.catalogueImportCloudFallback !== false ? 'left-5' : 'left-1'
-                    )}
-                  />
-                </button>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Crawl page limit</label>
-                <input
-                  type="number"
-                  min={10}
-                  max={200}
-                  value={aiSettings.catalogueCrawlLimit || 100}
-                  onChange={(e) => handleAiSettingChange('catalogueCrawlLimit', Number(e.target.value) || 100)}
-                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
-                />
+                <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Used for extracting products and content from websites.</p>
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Global Target URL</label>
@@ -2160,13 +1903,11 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        </div>
 
-        <div className="min-h-0 h-full">
         <BentoCard
           id="analytics"
           title="Analytics"
-          subtitle="Optional profile links · insights use your calendar"
+          subtitle={`${analyticsSettings.targetPlatforms?.length || 0} platforms tracked`}
           icon={BarChart3}
           iconBg="bg-pink-100 dark:bg-pink-900/30"
           iconColor="text-pink-600 dark:text-pink-400"
@@ -2176,7 +1917,7 @@ export function SettingsView({
           <div className="space-y-6 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Instagram profile (optional)</label>
+                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Instagram Account</label>
                 <div className="relative group">
                   <input
                     type="url"
@@ -2191,7 +1932,7 @@ export function SettingsView({
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Facebook profile (optional)</label>
+                <label className="block text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Facebook Account</label>
                 <div className="relative group">
                   <input
                     type="url"
@@ -2213,8 +1954,8 @@ export function SettingsView({
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-blue-700 dark:text-blue-300">AI coach</h3>
-                  <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70">Optional daily summary from calendar stats (Insights tab)</p>
+                  <h3 className="text-sm font-bold text-blue-700 dark:text-blue-300">AI Analysis</h3>
+                  <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70">Enable automatic daily insights</p>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -2229,9 +1970,8 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        </div>
 
-        <div className="md:col-span-2 xl:col-span-1 min-h-0 h-full">
+        {/* Data & Maintenance Card */}
         <BentoCard
           id="maintenance"
           title="Data & Maintenance"
@@ -2328,13 +2068,12 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        </div>
 
-        <div className="min-h-0 h-full">
+        {/* Chrome Extension Card */}
         <BentoCard
           id="extension"
           title="Forge Web Clipper"
-          subtitle="Clip websites and add notes to your Ideas inbox"
+          subtitle="Clip websites and add notes to your notebook"
           icon={Smartphone}
           iconBg="bg-blue-100 dark:bg-blue-900/30"
           iconColor="text-blue-600 dark:text-blue-400"
@@ -2374,18 +2113,8 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        </div>
-          </motion.div>
-        </section>
 
-        {/* System */}
-        <section className="space-y-4">
-          <div className="px-1">
-            <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">System</h2>
-            <p className="text-sm text-secondary-safe mt-1">Sync activity and diagnostics</p>
-          </div>
-          <motion.div layout className="grid grid-cols-1 gap-4 sm:gap-6 items-stretch">
-        <div className="min-h-0 h-full">
+        {/* System Logs Card */}
         <BentoCard
           id="logs"
           title="System Logs"
@@ -2421,10 +2150,8 @@ export function SettingsView({
             </div>
           </div>
         </BentoCard>
-        </div>
-          </motion.div>
-        </section>
-      </div>
+
+      </motion.div>
       <AnimatePresence>
         {dataAction.type && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -2458,7 +2185,6 @@ export function SettingsView({
           </div>
         )}
       </AnimatePresence>
-      </TabPageContent>
-    </TabPageShell>
+    </div>
   );
 }

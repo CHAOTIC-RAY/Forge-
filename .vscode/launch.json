@@ -25,21 +25,6 @@
             }
         },
         {
-            "name": "Forge: Test deployed (workers.dev, no local server)",
-            "type": "pwa-msedge",
-            "request": "launch",
-            "url": "https://forge.chaoticstudio.workers.dev/",
-            "webRoot": "${workspaceFolder}",
-            "sourceMaps": true,
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
-                "!**/node_modules/**"
-            ],
-            "skipFiles": [
-                "**/node_modules/**"
-            ]
-        },
-        {
             "name": "Node.js: Attach to Process",
             "type": "node",
             "request": "attach",
@@ -65,36 +50,8 @@
             ]
         },
         {
-            "name": "Edge: Attach to forge.chaoticstudio.workers.dev",
-            "type": "msedge",
-            "request": "attach",
-            "port": 9222,
-            "urlFilter": "https://forge.chaoticstudio.workers.dev/*",
-            "webRoot": "${workspaceFolder}",
-            "sourceMaps": true,
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
-                "!**/node_modules/**"
-            ],
-            "skipFiles": [
-                "**/node_modules/**"
-            ]
-        },
-        {
             "request": "launch",
-            "name": "Launch Edge (Forge workers.dev)",
-            "type": "msedge",
-            "url": "https://forge.chaoticstudio.workers.dev/",
-            "webRoot": "${workspaceFolder}",
-            "sourceMaps": true,
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
-                "!**/node_modules/**"
-            ]
-        },
-        {
-            "request": "launch",
-            "name": "Launch Edge (localhost)",
+            "name": "Launch Edge",
             "type": "msedge",
             "url": "http://localhost:3000",
             "webRoot": "${workspaceFolder}",
@@ -102,56 +59,6 @@
             "resolveSourceMapLocations": [
                 "${workspaceFolder}/**",
                 "!**/node_modules/**"
-            ]
-        },
-        {
-            "type": "pwa-msedge",
-            "name": "Launch Microsoft Edge",
-            "request": "launch",
-            "runtimeArgs": [
-                "--remote-debugging-port=9222"
-            ],
-            "url": "https://forge.chaoticstudio.workers.dev/",
-            "presentation": {
-                "hidden": true
-            }
-        },
-        {
-            "type": "pwa-msedge",
-            "name": "Launch Microsoft Edge in headless mode",
-            "request": "launch",
-            "runtimeArgs": [
-                "--headless",
-                "--remote-debugging-port=9222"
-            ],
-            "url": "https://forge.chaoticstudio.workers.dev/",
-            "presentation": {
-                "hidden": true
-            }
-        },
-        {
-            "type": "vscode-edge-devtools.debug",
-            "name": "Open Edge DevTools",
-            "request": "attach",
-            "url": "https://forge.chaoticstudio.workers.dev/",
-            "presentation": {
-                "hidden": true
-            }
-        }
-    ],
-    "compounds": [
-        {
-            "name": "Launch Edge Headless and attach DevTools",
-            "configurations": [
-                "Launch Microsoft Edge in headless mode",
-                "Open Edge DevTools"
-            ]
-        },
-        {
-            "name": "Launch Edge and attach DevTools",
-            "configurations": [
-                "Launch Microsoft Edge",
-                "Open Edge DevTools"
             ]
         }
     ]

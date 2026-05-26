@@ -32,12 +32,12 @@ export function DraggableProduct({ product, onClick, isSelected, viewMode = 'gri
       onClick: () => product.link && window.open(product.link, '_blank') 
     },
     { label: 'Auto-categorize', icon: <Tag className="w-3.5 h-3.5" />, onClick: () => toast.info("Categorizing...") },
-    ...(onDelete ? [{
-      label: dbMode === 'info' ? 'Delete entry' : 'Delete item',
-      icon: <Trash2 className="w-3.5 h-3.5" />,
-      variant: 'danger' as const,
-      onClick: () => onDelete(product),
-    }] : []),
+    { 
+      label: 'Delete Product', 
+      icon: <Trash2 className="w-3.5 h-3.5" />, 
+      variant: 'danger',
+      onClick: () => onDelete?.(product)
+    },
   ];
 
   return (
@@ -51,16 +51,16 @@ export function DraggableProduct({ product, onClick, isSelected, viewMode = 'gri
           if (onClick) onClick();
         }}
         className={cn(
-          "glass-card p-2 cursor-grab active:cursor-grabbing hover:border-brand/40 transition-colors",
+          "bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[6px] p-2  cursor-grab active:cursor-grabbing hover:border-[#2383E2] transition-all",
           viewMode === 'grid' ? "flex flex-col gap-2" : "flex flex-row items-center gap-4",
-          isDragging && "opacity-50",
-          isSelected && "border-brand ring-1 ring-brand/30 bg-brand-bg/50"
+          isDragging && "opacity-50  scale-105",
+          isSelected && "border-[#2383E2] ring-1 ring-[#2383E2] bg-blue-50/30 dark:bg-blue-900/10"
         )}
       >
       {viewMode === 'grid' ? (
         <>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-brand uppercase tracking-wider bg-brand-bg px-1.5 rounded">
+            <span className="text-[10px] font-bold text-[#2383E2] uppercase tracking-wider bg-[#2383E2]/10 px-1.5 rounded">
               {product.type}
             </span>
             {(product.price || (dbMode === 'info' && product.stockInfo)) && (
@@ -92,7 +92,7 @@ export function DraggableProduct({ product, onClick, isSelected, viewMode = 'gri
           )}
           <div className="flex-1 flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-brand uppercase tracking-wider bg-brand-bg px-1.5 rounded shrink-0">
+              <span className="text-[10px] font-bold text-[#2383E2] uppercase tracking-wider bg-[#2383E2]/10 px-1.5 rounded shrink-0">
                 {product.type}
               </span>
               {(product.price || (dbMode === 'info' && product.stockInfo)) && (

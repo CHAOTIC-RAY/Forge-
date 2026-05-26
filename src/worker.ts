@@ -16,32 +16,6 @@ export interface Env {
   ASSETS: { fetch: typeof fetch };
 }
 
-/**
- * Static asset `_headers` is not always applied to HTML on Workers + ASSETS.
- * Any COEP `require-corp` / `credentialless` (or cached old deploy) blocks cross-origin
- * images (Cloudinary), Puter (`js.puter.com`), and placeholders — Chrome reports
- * NotSameOriginAfterDefaultedToSameOriginByCoep. Force permissive document headers on HTML.
- */
-function htmlResponseWithoutCoepIsolation(assetResponse: Response): Response {
-  const ct = assetResponse.headers.get('Content-Type') || '';
-  if (!ct.includes('text/html')) {
-    return assetResponse;
-  }
-  const headers = new Headers(assetResponse.headers);
-  // Remove any inherited CORP/COEP/COOP from upstream asset metadata, then set known-safe values.
-  headers.delete('Cross-Origin-Embedder-Policy');
-  headers.delete('Cross-Origin-Opener-Policy');
-  headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  headers.set('Cross-Origin-Opener-Policy', 'unsafe-none');
-  // Avoid long-lived HTML caches carrying an old COEP shell after deploys.
-  headers.set('Cache-Control', 'private, no-cache, must-revalidate');
-  return new Response(assetResponse.body, {
-    status: assetResponse.status,
-    statusText: assetResponse.statusText,
-    headers,
-  });
-}
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -197,50 +171,6 @@ export default {
           });
         }
 
-        // GET|HEAD /api/hf-proxy/mlc-ai/<model>/... — HuggingFace weights for WebLLM (CORS + Range)
-        if (path.startsWith('/api/hf-proxy/')) {
-          const hfSubPath = path.slice('/api/hf-proxy/'.length);
-          if (!hfSubPath.startsWith('mlc-ai/')) {
-            return new Response(JSON.stringify({ error: 'Only mlc-ai HuggingFace repos are allowed' }), {
-              status: 403,
-              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            });
-          }
-
-          const targetUrl = new URL(`https://huggingface.co/${hfSubPath}`);
-          url.searchParams.forEach((value, key) => targetUrl.searchParams.set(key, value));
-
-          const forwardHeaders: Record<string, string> = {
-            'User-Agent': 'Forge-WebLLM-Proxy/1.0 (Cloudflare Worker)',
-          };
-          const range = request.headers.get('Range');
-          if (range) forwardHeaders['Range'] = range;
-
-          const hfRes = await fetch(targetUrl.toString(), {
-            method: request.method === 'HEAD' ? 'HEAD' : 'GET',
-            headers: forwardHeaders,
-          });
-
-          const outHeaders = new Headers();
-          for (const key of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'cache-control']) {
-            const v = hfRes.headers.get(key);
-            if (v) outHeaders.set(key, v);
-          }
-          outHeaders.set('Access-Control-Allow-Origin', '*');
-          outHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-          outHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type');
-          outHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-          outHeaders.set('Cross-Origin-Resource-Policy', 'cross-origin');
-          if (!outHeaders.has('cache-control') && request.method === 'GET') {
-            outHeaders.set('Cache-Control', 'public, max-age=86400');
-          }
-
-          return new Response(request.method === 'HEAD' ? null : hfRes.body, {
-            status: hfRes.status,
-            headers: outHeaders,
-          });
-        }
-
         // GET /api/proxy-image?url=...
         if (path === '/api/proxy-image' && request.method === 'GET') {
           const imageUrl = url.searchParams.get("url");
@@ -253,12 +183,10 @@ export default {
           if (!imgRes.ok) return new Response("Failed to fetch image", { status: imgRes.status });
 
           return new Response(imgRes.body, {
-            headers: {
+            headers: { 
               'Content-Type': imgRes.headers.get('Content-Type') || 'image/png',
-              'Access-Control-Allow-Origin': '*',
-              'Cross-Origin-Resource-Policy': 'cross-origin',
-              'Cache-Control': 'public, max-age=3600',
-            },
+              'Access-Control-Allow-Origin': '*' 
+            }
           });
         }
 
@@ -290,20 +218,20 @@ export default {
         // POST /api/firecrawl-scrape
         if (path === '/api/firecrawl-scrape' && request.method === 'POST') {
           const body: any = await request.json();
-          const { url: targetUrl, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
+          const { url: targetUrl, apiKey } = body;
           
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
           if (!firecrawlKey) {
             return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
           }
 
-          const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
+          const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${firecrawlKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ url: targetUrl, formats: ["markdown"], onlyMainContent, waitFor })
+            body: JSON.stringify({ url: targetUrl, formats: ["markdown"] })
           });
           
           const data = await response.json();
@@ -312,68 +240,23 @@ export default {
           });
         }
 
-        // POST /api/firecrawl-scrape-batch
-        if (path === '/api/firecrawl-scrape-batch' && request.method === 'POST') {
-          const body: any = await request.json();
-          const { urls, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
-          const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
-          if (!firecrawlKey) {
-            return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
-          }
-          const results: any[] = [];
-          for (const targetUrl of (urls || []).slice(0, 40)) {
-            try {
-              const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${firecrawlKey}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ url: targetUrl, formats: ["markdown"], onlyMainContent, waitFor })
-              });
-              const data = await response.json();
-              results.push({
-                url: targetUrl,
-                markdown: data?.data?.markdown,
-                metadata: data?.data?.metadata,
-              });
-            } catch (e: any) {
-              results.push({ url: targetUrl, error: e?.message || 'Scrape failed' });
-            }
-            await new Promise((r) => setTimeout(r, 400));
-          }
-          return new Response(JSON.stringify({ success: true, results }), {
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-          });
-        }
-
         // POST /api/crawl
         if (path === '/api/crawl' && request.method === 'POST') {
           const body: any = await request.json();
-          const { url: targetUrl, limit, apiKey, includePaths, excludePaths } = body;
+          const { url: targetUrl, limit, apiKey } = body;
           
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
           if (!firecrawlKey) {
             return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
           }
 
-          const crawlBody: Record<string, unknown> = {
-            url: targetUrl,
-            sitemap: 'include',
-            crawlEntireDomain: false,
-            limit: limit || 100,
-            scrapeOptions: { formats: ['markdown'], onlyMainContent: true, waitFor: 5000 },
-          };
-          if (Array.isArray(includePaths) && includePaths.length) crawlBody.includePaths = includePaths;
-          if (Array.isArray(excludePaths) && excludePaths.length) crawlBody.excludePaths = excludePaths;
-
-          const response = await fetch('https://api.firecrawl.dev/v2/crawl', {
+          const response = await fetch('https://api.firecrawl.dev/v1/crawl', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${firecrawlKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(crawlBody)
+            body: JSON.stringify({ url: targetUrl, limit: limit || 100, scrapeOptions: { formats: ["markdown"] } })
           });
           
           const data = await response.json();
@@ -392,7 +275,7 @@ export default {
             return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
           }
 
-          const response = await fetch(`https://api.firecrawl.dev/v2/crawl/${id}`, {
+          const response = await fetch(`https://api.firecrawl.dev/v1/crawl/${id}`, {
             headers: {
               'Authorization': `Bearer ${firecrawlKey}`
             }
@@ -758,8 +641,8 @@ export default {
           return new Response(JSON.stringify({ error: "Route not found" }), { status: 404 });
         }
 
-        // Pass everything else to Assets (override HTML COEP/COOP — see htmlResponseWithoutCoepIsolation)
-        return htmlResponseWithoutCoepIsolation(await env.ASSETS.fetch(request));
+        // Pass everything else to Assets
+        return env.ASSETS.fetch(request);
 
       } catch (err: any) {
         return new Response(JSON.stringify({ error: "Internal Server Error", details: err.message }), { 

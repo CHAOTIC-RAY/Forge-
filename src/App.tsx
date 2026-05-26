@@ -31,26 +31,25 @@ import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import {
   Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2, Terminal, Wand2,
-  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box, Boxes
+  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box
 } from 'lucide-react';
 import { Type } from "@google/genai";
 
 import { useParams, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster, toast } from 'sonner';
-import { Post, initialPosts, Business, OUTLETS } from './data';
+import { Post, initialPosts, Business } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
-import { isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
-import type { BuiltInAiStatus } from './lib/builtinAi';
+import { getAi, isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
+import { builtInAi } from './lib/builtinAi';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
 import { LocalDb } from './components/LocalDb';
 import { FloatingChat } from './components/FloatingChat';
 import { CorsImage } from './components/CorsImage';
 import { NetworkStatus } from './components/NetworkStatus';
-import { SkipLink } from './components/SkipLink';
 import type { ExportSettings } from './components/modals/ExportModal';
 
 // React lazy imports for heavy components
@@ -62,12 +61,14 @@ const ExportModal = React.lazy(() => import('./components/modals/ExportModal').t
 const ExcelImportModal = React.lazy(() => import('./components/modals/ExcelImportModal').then(m => ({ default: m.ExcelImportModal })));
 const BusinessModal = React.lazy(() => import('./components/modals/BusinessModal').then(m => ({ default: m.BusinessModal })));
 const AutoFillModal = React.lazy(() => import('./components/modals/AutoFillModal').then(m => ({ default: m.AutoFillModal })));
-const WidgetsTab = React.lazy(() => import('./components/CreativeStudioTab').then(m => ({ default: m.WidgetsTab })));
+const CreativeStudioTab = React.lazy(() => import('./components/CreativeStudioTab').then(m => ({ default: m.CreativeStudioTab })));
 const AnalyticsTab = React.lazy(() => import('./components/AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
 const SettingsView = React.lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
 const BrandKitTab = React.lazy(() => import('./components/BrandKitTab').then(m => ({ default: m.BrandKitTab })));
-const IdeasTab = React.lazy(() => import('./components/IdeasTab').then(m => ({ default: m.IdeasTab })));
+const NotebookTab = React.lazy(() => import('./components/NotebookTab').then(m => ({ default: m.NotebookTab })));
 const WorkspaceManagementTab = React.lazy(() => import('./components/WorkspaceManagementTab').then(m => ({ default: m.WorkspaceManagementTab })));
+const AiStudioTab = React.lazy(() => import('./components/AiStudioTab').then(m => ({ default: m.AiStudioTab })));
+
 function LazyModal({ isOpen, children }: { isOpen: boolean, children: () => React.ReactNode }) {
   const [hasRendered, setHasRendered] = React.useState(isOpen);
   React.useEffect(() => {
@@ -104,11 +105,7 @@ import {
   setAiSettings,
   getExcelMappingWithAi,
   generateBulkPosts,
-  fetchServerConfig,
-  generateAppJson,
-  generateGenericText,
-  ensureLocalAiEnginesReady,
-  getEffectiveTextProvider,
+  fetchServerConfig
 } from './lib/gemini';
 import { db, auth, storage, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
 import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
@@ -324,11 +321,9 @@ export default function App() {
   const aiSettings = useAppStore(state => state.aiSettings) || initialAiSettings;
   const setAiSettingsState = useAppStore(state => state.setAiSettings);
 
-  // Skip server AI config + WebLLM preload on public landing (not signed in)
   useEffect(() => {
-    if (!user) return;
     fetchServerConfig().catch(console.error);
-  }, [user]);
+  }, []);
 
   const analyticsSettings = useAppStore(state => state.analyticsSettings) || initialAnalyticsSettings;
   const setAnalyticsSettingsState = useAppStore(state => state.setAnalyticsSettings);
@@ -378,7 +373,6 @@ export default function App() {
   const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
   const [isCheckingShare, setIsCheckingShare] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [userOnboardingComplete, setUserOnboardingComplete] = useState<boolean | null>(null);
 
   const industryConfig = useMemo(() => getIndustryConfig(activeBusiness?.industry), [activeBusiness?.industry]);
   const brandKit = useAppStore(state => state.brandKit);
@@ -549,7 +543,7 @@ export default function App() {
             updatedAt: serverTimestamp()
           });
 
-          toast.success(event.data.type === 'FORGE_ADD_NOTE' ? "Note clipped to Ideas!" : "Quick idea added!");
+          toast.success(event.data.type === 'FORGE_ADD_NOTE' ? "Note clipped to notebook!" : "Quick note added!");
         } catch (error) {
           console.error("Failed to add note from extension:", error);
           toast.error("Failed to add note from extension.");
@@ -578,34 +572,18 @@ export default function App() {
   }, [activeBusiness, user, businesses]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'widgets' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
-  const isIdeasTabActive = activeTab === 'ideas' || activeTab === 'notebook';
-  const isWidgetsTabActive = activeTab === 'widgets' || activeTab === 'creative';
-  const usesTabPageLayout =
-    isIdeasTabActive ||
-    isWidgetsTabActive ||
-    activeTab === 'analytics' ||
-    activeTab === 'brandkit' ||
-    activeTab === 'search' ||
-    activeTab === 'schedule' ||
-    activeTab === 'more' ||
-    activeTab === 'workspace_management';
+  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
+  const [creativeView, setCreativeView] = useState<'modules' | 'sandbox'>('modules');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     setSyncLogs(prev => [{ id: uuidv4(), time: new Date(), message, type }, ...prev].slice(0, 100));
   };
 
-  const [builtInStatus, setBuiltInStatus] = useState<BuiltInAiStatus>({
-    isLoaded: false,
-    isLoading: false,
-    isProcessing: false,
-    progress: 0,
-    message: '',
-    error: null,
-    modelId: null,
-  });
-  // Do not import builtInAi/WebLLM on mount — that chunk caused startup TDZ crashes.
+  const [builtInStatus, setBuiltInStatus] = useState(builtInAi.getStatus());
+  useEffect(() => {
+    return builtInAi.onStatusChange(setBuiltInStatus);
+  }, []);
 
   // Modal states
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
@@ -688,34 +666,18 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // Preload local text + vision models after sign-in (default provider is built-in)
+  // Auto-initialize Built-in AI if selected
   useEffect(() => {
-    if (!user) return;
-    ensureLocalAiEnginesReady().catch((err) => {
-      console.warn('[App] Local AI preload failed:', err);
-    });
-  }, [user, aiSettings.builtinModelId, aiSettings.builtinVisionModelId]);
-
-  useEffect(() => {
-    if (!user) {
-      setBuiltInStatus({
-        isLoaded: false,
-        isLoading: false,
-        isProcessing: false,
-        progress: 0,
-        message: '',
-        error: null,
-        modelId: null,
-      });
-      return;
+    const status = builtInAi.getStatus();
+    if (aiSettings.preferredProvider === 'builtin' && 
+        aiSettings.builtinModelId && 
+        !status.isLoaded && 
+        !status.isLoading && 
+        !status.error) {
+      console.log("[App] Auto-initializing Built-in AI...");
+      builtInAi.init(aiSettings.builtinModelId);
     }
-    let unsub: (() => void) | undefined;
-    void import('./lib/builtinAi').then(({ builtInAi }) => {
-      setBuiltInStatus(builtInAi.getStatus());
-      unsub = builtInAi.onStatusChange(setBuiltInStatus);
-    });
-    return () => unsub?.();
-  }, [user, aiSettings.builtinModelId, aiSettings.builtinVisionModelId]);
+  }, [aiSettings.preferredProvider, aiSettings.builtinModelId]);
 
   // Migration logic for 2003ray.dark@gmail.com
   // Migration completed. Legacy code removed.
@@ -883,10 +845,9 @@ export default function App() {
       setBusinesses(bizList);
       setLoadingBusinesses(false);
 
-      if (!isViewOnly && !loadingBusinesses) {
-        const shouldOnboard =
-          bizList.length === 0 && userOnboardingComplete !== true;
-        setShowOnboarding(shouldOnboard);
+      // If user has no businesses and we're not in view-only mode, show onboarding
+      if (bizList.length === 0 && !isViewOnly && !loadingBusinesses) {
+        setShowOnboarding(true);
       } else {
         setShowOnboarding(false);
       }
@@ -909,7 +870,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [user, isViewOnly, loading, userOnboardingComplete]);
+  }, [user, isViewOnly, loading]);
 
   useEffect(() => {
     if (activeBusiness && !isViewOnly) {
@@ -1021,17 +982,34 @@ export default function App() {
         return;
       }
 
+      if (!isGeminiKeyAvailable()) {
+        await fetchServerConfig();
+      }
+
+      const ai = getAi();
       const updatedProducts = [...products];
       const batchSize = 15;
 
       for (let i = 0; i < uncategorized.length; i += batchSize) {
         const batch = uncategorized.slice(i, i + batchSize);
-        const categoriesMap = await generateAppJson(`Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: `Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
           
           Products:
           ${batch.map(p => p.title).join(', ')}
           
-          Return a JSON object where keys are product names and values are the categories.`);
+          Return a JSON object where keys are product names and values are the categories.`,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              additionalProperties: { type: Type.STRING }
+            }
+          }
+        });
+
+        const categoriesMap = JSON.parse(response.text || "{}");
 
         batch.forEach(p => {
           const index = updatedProducts.findIndex(up => up.title === p.title);
@@ -1562,15 +1540,10 @@ export default function App() {
 
       // Load AI Settings
       getDoc(userRef).then(docSnap => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.aiSettings) {
-            setAiSettingsState(data.aiSettings);
-            setAiSettings(data.aiSettings);
-          }
-          setUserOnboardingComplete(data.onboardingComplete === true);
-        } else {
-          setUserOnboardingComplete(false);
+        if (docSnap.exists() && docSnap.data().aiSettings) {
+          const syncedSettings = docSnap.data().aiSettings;
+          setAiSettingsState(syncedSettings);
+          setAiSettings(syncedSettings);
         }
       }).catch(err => console.error("Failed to load AI settings", err));
 
@@ -1915,9 +1888,6 @@ export default function App() {
 
   const [droppedImagesForModal, setDroppedImagesForModal] = useState<string[]>([]);
 
-  const getDefaultPostOutlet = () =>
-    activeBusiness?.name?.trim() || OUTLETS[0] || 'Main Store';
-
   const processDroppedFiles = async (dateStr: string, files: File[], mode: 'single' | 'separate') => {
     setDropActionPrompt(null);
 
@@ -1949,57 +1919,46 @@ export default function App() {
       }
 
       const newPostId = uuidv4();
-      const defaultOutlet = getDefaultPostOutlet();
       const placeholderPost: Post = {
         id: newPostId,
         date: dateStr,
-        outlet: defaultOutlet,
+        outlet: 'Forge Enterprises',
         type: '✨ Generating...',
         title: 'Analyzing images...',
         brief: 'Please wait while AI generates content...',
         caption: '',
         hashtags: '',
         images: base64Images,
-        userId: user.uid,
-        businessId: activeBusiness?.id,
+        userId: user.uid
       };
 
-      await handleSavePost(placeholderPost);
+      handleSavePost(placeholderPost);
 
       try {
         const collageBase64 = await createImageCollage(base64Images);
         const match = collageBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        if (!match) {
-          throw new Error('Could not read image data for AI analysis.');
-        }
-        const mimeType = match[1];
-        const base64Data = match[2];
-        const generatedData = await generatePostFromImage(
-          base64Data,
-          mimeType,
-          defaultOutlet,
-          false,
-          activeBusiness || undefined
-        );
+        if (match) {
+          const mimeType = match[1];
+          const base64Data = match[2];
+          const generatedData = await generatePostFromImage(base64Data, mimeType);
 
-        await handleSavePost({
-          ...placeholderPost,
-          title: generatedData.title || 'New Post',
-          brief: generatedData.brief || '',
-          caption: generatedData.caption || '',
-          hashtags: generatedData.hashtags || '',
-          type: generatedData.type || '🔴 General',
-          outlet: generatedData.outlet || defaultOutlet,
-        });
+          handleSavePost({
+            ...placeholderPost,
+            title: generatedData.title || 'New Post',
+            brief: generatedData.brief || '',
+            caption: generatedData.caption || '',
+            hashtags: generatedData.hashtags || '',
+            type: generatedData.type || '🔴 General',
+            outlet: generatedData.outlet || 'Forge Enterprises'
+          });
+        }
       } catch (error) {
-        console.error('Failed to generate post from image:', error);
-        const errMsg = error instanceof Error ? error.message : 'Failed to auto-generate content.';
-        toast.error(errMsg);
-        await handleSavePost({
+        console.error("Failed to generate post from image:", error);
+        handleSavePost({
           ...placeholderPost,
           title: 'New Image Post',
-          brief: errMsg,
-          type: '🔴 General',
+          brief: 'Failed to auto-generate content.',
+          type: '🔴 General'
         });
       }
     } else {
@@ -2008,56 +1967,45 @@ export default function App() {
         if (!dataUrl) continue;
 
         const newPostId = uuidv4();
-        const defaultOutlet = getDefaultPostOutlet();
         const placeholderPost: Post = {
           id: newPostId,
           date: dateStr,
-          outlet: defaultOutlet,
+          outlet: 'Forge Enterprises',
           type: '✨ Generating...',
           title: isVideo ? 'Analyzing video...' : 'Analyzing image...',
           brief: 'Please wait while AI generates content...',
           caption: '',
           hashtags: '',
           images: [dataUrl],
-          userId: user.uid,
-          businessId: activeBusiness?.id,
+          userId: user.uid
         };
 
-        await handleSavePost(placeholderPost);
+        handleSavePost(placeholderPost);
 
         try {
           const match = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-          if (!match) {
-            throw new Error('Could not read image data for AI analysis.');
-          }
-          const mimeType = match[1];
-          const base64Data = match[2];
-          const generatedData = await generatePostFromImage(
-            base64Data,
-            mimeType,
-            defaultOutlet,
-            isVideo,
-            activeBusiness || undefined
-          );
+          if (match) {
+            const mimeType = match[1];
+            const base64Data = match[2];
+            const generatedData = await generatePostFromImage(base64Data, mimeType, undefined, isVideo);
 
-          await handleSavePost({
-            ...placeholderPost,
-            title: generatedData.title || 'New Post',
-            brief: generatedData.brief || '',
-            caption: generatedData.caption || '',
-            hashtags: generatedData.hashtags || '',
-            type: generatedData.type || '🔴 General',
-            outlet: generatedData.outlet || defaultOutlet,
-          });
+            handleSavePost({
+              ...placeholderPost,
+              title: generatedData.title || 'New Post',
+              brief: generatedData.brief || '',
+              caption: generatedData.caption || '',
+              hashtags: generatedData.hashtags || '',
+              type: generatedData.type || '🔴 General',
+              outlet: generatedData.outlet || 'Forge Enterprises'
+            });
+          }
         } catch (error) {
-          console.error('Failed to generate post from image:', error);
-          const errMsg = error instanceof Error ? error.message : 'Failed to auto-generate content.';
-          toast.error(errMsg);
-          await handleSavePost({
+          console.error("Failed to generate post from image:", error);
+          handleSavePost({
             ...placeholderPost,
             title: 'New Post',
-            brief: errMsg,
-            type: '🔴 General',
+            brief: 'Failed to auto-generate content.',
+            type: '🔴 General'
           });
         }
       }
@@ -2121,27 +2069,6 @@ export default function App() {
     setIsPostModalOpen(true);
   };
 
-  const openDraftPostFromWidget = (partial: Partial<Post>) => {
-    const draft: Post = {
-      id: uuidv4(),
-      date: format(new Date(), 'yyyy-MM-dd'),
-      title: partial.title || 'Widget draft',
-      brief: partial.brief || '',
-      caption: partial.caption || '',
-      hashtags: partial.hashtags || '',
-      type: partial.type || '🔴 General',
-      outlet: partial.outlet || activeBusiness?.name || 'All Outlets',
-      status: 'draft',
-      approvalStatus: 'draft',
-      images: partial.images || [],
-      isAiGenerated: true,
-      createdAt: new Date().toISOString(),
-    };
-    setSelectedPost(draft);
-    setSelectedDate(draft.date);
-    setIsPostModalOpen(true);
-  };
-
   const handleAutoFillSubmit = async (prompt: string, count: number) => {
     if (!activeBusiness) {
       toast.error("Please select a workspace first.");
@@ -2158,15 +2085,24 @@ export default function App() {
       const promptText = `Generate ${count} different social media posts based on this campaign prompt: "${prompt}". Make sure they are varied (promotional, educational, engaging). 
       Return them as JSON array of objects with keys: title, brief, type (e.g. 🔴 Promotional, 🟢 Educational).`;
       
-      const generatedPostsRaw = await generateAppJson(
-        `${promptText}\n\nYou are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`,
-        { expectArray: true }
-      );
-      const generatedPosts: any[] = Array.isArray(generatedPostsRaw)
-        ? generatedPostsRaw
-        : generatedPostsRaw?.posts && Array.isArray(generatedPostsRaw.posts)
-          ? generatedPostsRaw.posts
-          : [];
+      const ai = getAi();
+      const res = await ai.models.generateContent({
+        model: aiSettings.model || "gemini-2.5-pro",
+        contents: promptText,
+        config: {
+          responseMimeType: "application/json",
+          systemInstruction: `You are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`
+        }
+      });
+      
+      const text = res.text;
+      let generatedPosts: any[] = [];
+      try {
+        generatedPosts = text ? JSON.parse(text) : [];
+      } catch (e) {
+        console.error("Failed to parse JSON", e);
+        generatedPosts = [];
+      }
       
       if (generatedPosts.length > 0) {
         let currentDate = new Date(); // start today
@@ -3098,14 +3034,7 @@ export default function App() {
     e.target.value = '';
   };
 
-  const handleOnboardingComplete = async (
-    data: Partial<Business> & {
-      targetUrl?: string;
-      theme?: string;
-      geminiApiKey?: string;
-      outletNames?: string;
-    }
-  ) => {
+  const handleOnboardingComplete = async (data: Partial<Business> & { targetUrl?: string; theme?: string; geminiApiKey?: string }) => {
     if (!user) return;
     try {
       const bizId = uuidv4();
@@ -3119,27 +3048,10 @@ export default function App() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         shareToken: uuidv4(),
-        status: 'active',
-        targetUrl: data.targetUrl,
+        status: 'active'
       };
 
       await setDoc(doc(db, 'businesses', bizId), newBiz);
-
-      const outletNames = (data.outletNames || data.name || 'Main Store')
-        .split(/[,;\n]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const uniqueOutlets = [...new Set(outletNames)];
-      await setDoc(doc(db, 'categories', bizId), {
-        businessId: bizId,
-        categories: uniqueOutlets.map((name) => ({
-          id: uuidv4(),
-          name,
-          type: 'outlet',
-          enabled: true,
-        })),
-        updatedAt: new Date().toISOString(),
-      });
 
       // Initialize Brand Kit
       await setDoc(doc(db, 'brand_kits', bizId), {
@@ -3179,20 +3091,8 @@ export default function App() {
         localStorage.setItem('forge_theme_mode', data.theme);
       }
 
-      await setDoc(
-        doc(db, 'users', user.uid),
-        { onboardingComplete: true, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-      setUserOnboardingComplete(true);
-      setActiveBusiness(newBiz);
+      toast.success("Workspace created successfully!");
       setShowOnboarding(false);
-
-      ensureLocalAiEnginesReady()
-        .then(() => toast.success('Workspace ready — local AI models loaded.'))
-        .catch(() => toast.success('Workspace created — open Settings to finish loading local AI.'));
-
-      toast.success('Welcome to Forge!');
     } catch (error) {
       console.error("Failed to complete onboarding", error);
       toast.error("Failed to create workspace.");
@@ -3201,7 +3101,6 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <SkipLink />
       {showOnboarding && user && (
         <OnboardingWizard
           userEmail={user.email || ''}
@@ -3245,14 +3144,14 @@ export default function App() {
                 {
                   label: 'New Post',
                   icon: <Plus className="w-3.5 h-3.5" />,
-                  disabled: isIdeasTabActive || activeTab === 'brandkit' || activeTab === 'analytics',
+                  disabled: activeTab === 'notebook' || activeTab === 'brandkit' || activeTab === 'analytics',
                   onClick: () => openNewPostModal()
                 },
                 { label: 'Refresh Data', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => window.location.reload() },
                 {
                   label: 'Export to Excel',
                   icon: <FileSpreadsheet className="w-3.5 h-3.5" />,
-                  disabled: isIdeasTabActive || activeTab === 'brandkit',
+                  disabled: activeTab === 'notebook' || activeTab === 'brandkit',
                   onClick: () => setIsExportModalOpen(true)
                 },
                 { label: 'Manage Workspaces', icon: <Settings className="w-3.5 h-3.5" />, onClick: () => setIsBusinessModalOpen(true) },
@@ -3260,7 +3159,7 @@ export default function App() {
               ]}>
                 <div className="flex flex-1 w-full relative">
                   {/* Sidebar (Desktop Only) */}
-                  <aside className="hidden md:flex sticky top-0 h-screen w-20 glass-panel border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
+                  <aside className="hidden md:flex sticky top-0 h-screen w-20 bg-[#F7F7F5] dark:bg-[#202020] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
                       {/* Logo */}
                       <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
@@ -3275,7 +3174,7 @@ export default function App() {
                             <button
                               onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
                               title={activeBusiness.name}
-                              className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-colors border-2 shrink-0 bg-brand text-white border-brand-hover interactive focus-ring"
+                              className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-xs transition-all border-2 shrink-0 bg-brand text-white border-brand-hover  hover:scale-105"
                             >
                               {activeBusiness.name.substring(0, 2).toUpperCase()}
                             </button>
@@ -3344,8 +3243,8 @@ export default function App() {
                           onClick={() => setActiveTab('home')}
                           title="Home"
                           className={cn(
-                            "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
-                            activeTab === 'home' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                            "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                            activeTab === 'home' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                           )}
                         >
                           <LayoutGrid className="w-5 h-5 shrink-0" />
@@ -3355,8 +3254,8 @@ export default function App() {
                           onClick={() => setActiveTab('schedule')}
                           title={industryConfig.terminology.calendar}
                           className={cn(
-                            "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
-                            activeTab === 'schedule' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                            "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                            activeTab === 'schedule' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                           )}
                         >
                           <CalendarIcon className="w-5 h-5 shrink-0" />
@@ -3367,48 +3266,51 @@ export default function App() {
                               onClick={() => setActiveTab('search')}
                               title={industryConfig.terminology.products}
                               className={cn(
-                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
-                                activeTab === 'search' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'search' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
                               <Database className="w-5 h-5 shrink-0" />
                             </button>
                             <button
-                              onClick={() => setActiveTab('ideas')}
-                              title="Ideas"
+                              onClick={() => setActiveTab('notebook')}
+                              title="Notebook"
                               className={cn(
-                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
-                                isIdeasTabActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'notebook' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
-                              <Lightbulb className="w-5 h-5 shrink-0" />
+                              <Notebook className="w-5 h-5 shrink-0" />
                             </button>
                             <button
                               onClick={() => setActiveTab('brandkit')}
                               title={industryConfig.terminology.assets}
                               className={cn(
-                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
-                                activeTab === 'brandkit' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'brandkit' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
                               <Palette className="w-5 h-5 shrink-0" />
                             </button>
                             <button
-                              onClick={() => setActiveTab('widgets')}
-                              title="Widgets"
+                              onClick={() => {
+                                setActiveTab('creative');
+                                setCreativeView('modules');
+                              }}
+                              title="AI Studio"
                               className={cn(
-                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
-                                isWidgetsTabActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'creative' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
-                              <Boxes className="w-5 h-5 shrink-0" />
+                              <Sparkles className="w-5 h-5 shrink-0" />
                             </button>
                             <button
                               onClick={() => setActiveTab('analytics')}
                               title="Insights & Analytics"
                               className={cn(
-                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
-                                activeTab === 'analytics' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors",
+                                activeTab === 'analytics' ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
                               )}
                             >
                               <BarChart3 className="w-5 h-5 shrink-0" />
@@ -3445,15 +3347,15 @@ export default function App() {
                             </button>
                             <button
                               onClick={handleRequestAccess}
-                              title="Request Access to Ideas"
+                              title="Request Access to Notebook"
                               className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
                             >
-                              <Lightbulb className="w-5 h-5 shrink-0" />
+                              <Notebook className="w-5 h-5 shrink-0" />
                               <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
                             </button>
                             <button
                               onClick={handleRequestAccess}
-                              title="Request Access to Brand & AI Guide"
+                              title="Request Access to Brand Kit"
                               className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
                             >
                               <Palette className="w-5 h-5 shrink-0" />
@@ -3461,10 +3363,10 @@ export default function App() {
                             </button>
                             <button
                               onClick={handleRequestAccess}
-                              title="Request Access to Widgets"
+                              title="Request Access to AI Studio"
                               className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors text-[#757681]/40 dark:text-[#9B9A97]/40 hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 relative group"
                             >
-                              <Boxes className="w-5 h-5 shrink-0" />
+                              <Sparkles className="w-5 h-5 shrink-0" />
                               <Lock className="w-3 h-3 absolute bottom-1.5 right-1.5 text-brand" />
                             </button>
                             <button
@@ -3492,16 +3394,30 @@ export default function App() {
 
                     {/* Bottom section: User & Sync */}
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center px-2 mt-4 lg:mt-0 pb-4 shrink-0">
+                      {/* Local AI Engine Status */}
                       {builtInStatus.isLoading && (
-                        <div
-                          className="mb-1"
-                          title={builtInStatus.message || 'Downloading local AI models…'}
-                        >
-                          <ForgeLoader
-                            size={26}
-                            variant="monochrome"
-                            progress={builtInStatus.progress}
-                          />
+                        <div className="w-full px-2 mb-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse">AI Engine</span>
+                            <span className="text-[10px] font-bold text-emerald-500/60">{Math.round(builtInStatus.progress)}%</span>
+                          </div>
+                          <div className="h-1 w-full bg-emerald-500/10 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-emerald-500 transition-all duration-300" 
+                              style={{ width: `${builtInStatus.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {builtInStatus.isLoaded && !builtInStatus.isLoading && (
+                        <div className="flex flex-col gap-2 w-full px-2">
+                          <div className="flex items-center justify-center px-2 py-1 rounded-full bg-emerald-500/5 border border-emerald-500/10">
+                            <div className="flex items-center gap-1.5">
+                              <Globe className="w-2.5 h-2.5 text-emerald-500" />
+                              <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter">Local AI Ready</span>
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -3542,23 +3458,14 @@ export default function App() {
 
                   {/* Main Content Area */}
                   <div className={cn("flex-1 flex flex-col min-w-0 relative print:h-auto print:overflow-visible", activeTab === 'chat' && "md:flex")}>
-                    <main
-                      id="main-content"
-                      className={cn(
-                      "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-28 print:p-0 print:overflow-visible",
-                      (activeTab === 'chat' || activeTab === 'home' || usesTabPageLayout) &&
-                        'p-0 sm:p-0 md:p-0 pb-0',
+                    <main className={cn(
+                      "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-32 md:pb-28 print:p-0 print:overflow-visible",
+                      (activeTab === 'chat' || activeTab === 'home' || activeTab === 'notebook') && "p-0 sm:p-0 md:p-0 pb-0",
                       activeTab !== 'search' && "no-scrollbar"
                     )}>
                       <div className={cn("w-full flex-1 flex flex-col print:max-w-none print:h-auto print:block", (activeTab === 'chat' || activeTab === 'home') && "max-w-none h-full")}>
                         {/* Page Title */}
-                        <div
-                          className={cn(
-                            'mb-2 md:mb-4 flex items-center justify-between shrink-0 print:hidden px-2 md:px-0',
-                            (activeTab === 'chat' || activeTab === 'home' || usesTabPageLayout) && 'hidden',
-                            'md:hidden'
-                          )}
-                        >
+                        <div className={cn("mb-2 md:mb-4 flex items-center justify-between shrink-0 print:hidden px-2 md:px-0", (activeTab === 'chat' || activeTab === 'home' || activeTab === 'more') && "hidden", "md:hidden")}>
                           <div className="flex items-center gap-3">
                             {user && !isViewOnly && (
                               <button
@@ -3574,9 +3481,9 @@ export default function App() {
                                 {activeTab === 'schedule' && industryConfig.terminology.calendar}
                                 {activeTab === 'search' && industryConfig.terminology.products}
                                 {activeTab === 'brandkit' && industryConfig.terminology.assets}
-                                {isWidgetsTabActive && 'Widgets'}
+                                {activeTab === 'creative' && 'AI Studio'}
                                 {activeTab === 'analytics' && 'Insights & Analytics'}
-                                {isIdeasTabActive && 'Ideas'}
+                                {activeTab === 'notebook' && 'Notebook'}
                                 {activeTab === 'more' && 'Settings'}
                               </h1>
                               {/* Mobile Sync Indicator */}
@@ -3626,7 +3533,6 @@ export default function App() {
                               isViewer={isViewer}
                               onHandleRequestAccess={handleRequestAccess}
                               user={user}
-                              isSyncing={isSyncing}
                             />
                           )}
                           <div className={cn("flex-1 flex flex-col", activeTab === 'home' && "hidden", activeTab === 'chat' && "hidden md:flex")}>
@@ -3653,7 +3559,6 @@ export default function App() {
                               toggleDarkMode={toggleDarkMode}
                               calendarMode={calendarMode}
                               onCalendarModeChange={setCalendarMode}
-                              isSyncing={isSyncing}
                             />
                           </div>
                         </div>
@@ -3671,25 +3576,23 @@ export default function App() {
 
                         {isAdmin && (
                           <LazyTab active={activeTab === 'brandkit'}>
-                            {() => (
-                              <BrandKitTab
-                                activeBusiness={activeBusiness}
-                                posts={posts}
-                                aiSettings={aiSettings}
-                                onAiSettingsChange={handleAiSettingChange}
-                              />
-                            )}
+                            {() => <BrandKitTab activeBusiness={activeBusiness} posts={posts} aiSettings={aiSettings} />}
                           </LazyTab>
                         )}
 
                         {isAdmin && (
-                          <LazyTab active={isWidgetsTabActive}>
-                            {() => (
-                              <WidgetsTab
+                          <LazyTab active={activeTab === 'creative'}>
+                            {() => creativeView === 'modules' ? (
+                              <CreativeStudioTab
                                 userId={user?.uid}
                                 activeBusiness={activeBusiness}
-                                onSavePost={handleSavePost}
-                                onDraftPost={openDraftPostFromWidget}
+                                onOpenSandbox={() => setCreativeView('sandbox')}
+                              />
+                            ) : (
+                              <AiStudioTab
+                                userId={user?.uid}
+                                activeBusiness={activeBusiness}
+                                onBack={() => setCreativeView('modules')}
                               />
                             )}
                           </LazyTab>
@@ -3697,20 +3600,14 @@ export default function App() {
 
                         {isAdmin && (
                           <LazyTab active={activeTab === 'analytics'}>
-                            {() => (
-                              <AnalyticsTab
-                                posts={posts}
-                                activeBusiness={activeBusiness}
-                                setActiveTab={setActiveTab}
-                              />
-                            )}
+                            {() => <AnalyticsTab setActiveTab={setActiveTab} />}
                           </LazyTab>
                         )}
 
 
                         {isAdmin && (
-                          <LazyTab active={isIdeasTabActive}>
-                            {() => <IdeasTab activeBusiness={activeBusiness} />}
+                          <LazyTab active={activeTab === 'notebook'}>
+                            {() => <NotebookTab activeBusiness={activeBusiness} />}
                           </LazyTab>
                         )}
 
@@ -3923,33 +3820,31 @@ export default function App() {
 
               {/* Mobile Bottom Navigation */}
               <div className={cn(
-                "md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-[#E9E9E7] dark:border-[#2E2E2E] min-h-[72px] pb-[env(safe-area-inset-bottom)] flex items-center px-2"
+                "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all bg-white dark:bg-[#191919] border-t border-[#E9E9E7] dark:border-[#2E2E2E] h-[64px] flex items-center px-2"
               )}>
                 {isAdmin ? (
-                  <nav className="flex-1 flex flex-row justify-between w-full h-[72px] items-stretch" aria-label="Primary mobile navigation">
+                  <nav className="flex-1 flex flex-row justify-between w-full h-full items-center">
                     {[
                       { id: 'home', icon: LayoutGrid, title: 'Home' },
                       { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
                       { id: 'chat', icon: MessageSquare, title: 'Chat' },
-                      { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
+                      { id: 'notebook', icon: Notebook, title: 'Notebook' },
                       { id: 'more', icon: Menu, title: 'More' }
                     ].map(tab => {
                       const Icon = tab.icon;
-                      const isSubTabActive = tab.id === 'more' && (['search', 'workspace_management', 'brandkit', 'widgets', 'creative', 'analytics', 'more'].includes(activeTab) || activeTab.startsWith('applet_'));
+                      const isSubTabActive = tab.id === 'more' && (['search', 'workspace_management', 'brandkit', 'creative', 'analytics', 'more'].includes(activeTab) || activeTab.startsWith('applet_'));
                       const isActive = activeTab === tab.id || isSubTabActive;
                       return (
                         <button
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id as any)}
-                          aria-current={isActive ? 'page' : undefined}
                           className={cn(
-                            "interactive focus-ring flex flex-col items-center justify-center gap-1 relative flex-1 h-full rounded-[14px]",
-                            isActive ? "text-brand nav-pill-active" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                            "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
+                            isActive ? "text-brand" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                           )}
                           title={tab.title}
                         >
-                          <Icon className="w-5 h-5" />
-                          <span className="text-[10px] font-bold leading-none tracking-tight">{tab.title}</span>
+                          <Icon className="w-6 h-6" />
                           {isActive && (
                             <motion.div
                               layoutId="mobileActiveTabIndicator"
@@ -3963,17 +3858,15 @@ export default function App() {
                     })}
                   </nav>
                 ) : (
-                  <div className="flex-1 flex flex-row justify-between w-full h-[72px] items-center px-4">
+                  <div className="flex-1 flex flex-row justify-between w-full h-full items-center px-4">
                     <button
                       onClick={() => setActiveTab('schedule')}
-                      aria-current={activeTab === 'schedule' ? 'page' : undefined}
                       className={cn(
-                        "flex flex-col items-center justify-center gap-1 transition-all duration-200 relative h-full px-4 rounded-[14px]",
-                        activeTab === 'schedule' ? "text-brand bg-brand-bg" : "text-[#757681] dark:text-[#9B9A97]"
+                        "flex flex-col items-center justify-center transition-all duration-200 relative h-full px-4",
+                        activeTab === 'schedule' ? "text-brand" : "text-[#757681] dark:text-[#9B9A97]"
                       )}
                     >
-                      <CalendarIcon className="w-5 h-5" />
-                      <span className="text-[10px] font-bold leading-none">Calendar</span>
+                      <CalendarIcon className="w-6 h-6" />
                       {activeTab === 'schedule' && (
                         <motion.div
                           layoutId="mobileActiveTabIndicatorGuest"
