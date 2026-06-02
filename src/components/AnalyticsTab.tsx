@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateAnalyticsReport } from '../lib/gemini';
 import { getAnalyticsSettings, setAnalyticsSettings, cn } from '../lib/utils';
-
+import { TabPageHeader } from './ui/TabPageHeader';
 
 interface AnalyticsData {
   bestTime: string;
@@ -89,23 +89,14 @@ Ensure the response is a valid JSON object.`;
 
   return (
     <div className="flex flex-col bg-transparent relative">
-      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
-              <BarChart3 className="w-6 h-6 text-brand" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
-                Insights & Analytics
-              </h2>
-              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
-                Deep dive into your social media performance.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <TabPageHeader
+        className="mb-6 md:mb-8"
+        icon={BarChart3}
+        iconBgClassName="bg-emerald-500/10"
+        iconClassName="text-emerald-500"
+        title="Insights & Analytics"
+        subtitle="Deep dive into your social media performance."
+      />
 
       <div className="w-full space-y-8 pb-12">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

@@ -1553,42 +1553,17 @@ export function CreativeStudioTab({ onSavePost, userId, activeBusiness, onOpenSa
 
   return (
     <div className="flex flex-col bg-transparent pb-20 md:pb-0 relative">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative p-6 md:p-12 border border-white/10 dark:border-white/5 bg-gradient-to-br from-brand/20 via-purple-500/10 to-transparent rounded-[24px] md:rounded-[32px] overflow-hidden mb-8 md:mb-12 group"
-      >
-        <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px]" />
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-brand/20 blur-[100px] rounded-full group-hover:bg-brand/30 transition-colors duration-700" />
-        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/10 blur-[100px] rounded-full group-hover:bg-purple-500/20 transition-colors duration-700" />
-        
-        <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-8">
-          <div className="flex items-center gap-4 md:gap-6">
-            <motion.div 
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-              className="w-12 h-12 md:w-16 md:h-16 bg-white dark:bg-white/10 backdrop-blur-xl rounded-[12px] md:rounded-[16px] flex items-center justify-center border border-white/20 shrink-0"
-            >
-              <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-brand" />
-            </motion.div>
-            <div>
-              <h2 className="text-2xl md:text-4xl font-black text-[#37352F] dark:text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand to-purple-500">
-                AI Studio
-              </h2>
-              <p className="text-sm md:text-base text-[#757681] dark:text-white/60 mt-1 md:mt-2 max-w-md leading-relaxed">
-                The ultimate playground for custom AI workflows. Build, pin, and automate your creative process.
-              </p>
-            </div>
-          </div>
-          <button 
-            onClick={openPlayground}
-            className="w-full md:w-auto flex items-center justify-center gap-3 px-6 md:px-8 py-3 md:py-4 bg-brand text-white rounded-[12px] md:rounded-[16px] text-sm md:text-base font-black hover:scale-105 transition-all active:scale-95 group/btn"
-          >
-            <Plus className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:rotate-90 transition-transform" />
-            Create New Widget
-          </button>
-        </div>
-      </motion.div>
+      <TabPageHeader
+        className="mb-6"
+        icon={LayoutGrid}
+        title="Widgets"
+        subtitle="Built-in AI tools for captions, briefs, and campaign copy—more widgets coming soon."
+        actions={
+          <span className="px-3 py-1.5 rounded-full bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wider shrink-0">
+            More coming soon
+          </span>
+        }
+      />
 
       <div className="space-y-12">
         {pinnedWidgetIds.length > 0 && (
