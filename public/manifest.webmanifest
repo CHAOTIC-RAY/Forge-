@@ -1,11 +1,11 @@
 {
   "name": "Forge",
   "short_name": "Forge",
-  "start_url": ".",
-  "display": "standalone",
-  "background_color": "#030712",
+  "description": "Multi-tenant content calendar platform",
   "theme_color": "#030712",
-  "description": "Multi-tenant content calendar and AI platform",
+  "background_color": "#030712",
+  "display": "standalone",
+  "start_url": "/",
   "icons": [
     {
       "src": "logo192x192.png",

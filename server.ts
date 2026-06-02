@@ -868,9 +868,13 @@ app.post("/api/media/delete", async (req, res) => {
     console.log(`[Server] Production mode: Serving from ${distPath}`);
     
     app.use(express.static(distPath, {
-      setHeaders: (res, path) => {
-        if (path.endsWith('.js') || path.endsWith('.mjs')) {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
           res.setHeader('Content-Type', 'application/javascript');
+        } else if (filePath.endsWith('.webmanifest')) {
+          res.setHeader('Content-Type', 'application/manifest+json');
+        } else if (filePath.endsWith('.json')) {
+          res.setHeader('Content-Type', 'application/json');
         }
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       }
@@ -878,7 +882,8 @@ app.post("/api/media/delete", async (req, res) => {
 
     app.get("*", (req, res) => {
       // Ignore asset 404s to avoid serving index.html (which causes syntax errors in manifest/css/js requests)
-      if (req.path.includes('.') && !req.path.endsWith('.html')) {
+      const isAsset = req.path.includes('.') && !req.path.endsWith('.html');
+      if (isAsset) {
         return res.status(404).send('Not Found');
       }
 

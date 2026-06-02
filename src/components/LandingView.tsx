@@ -38,7 +38,7 @@ import {
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
-import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent } from 'motion/react';
+import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent, useSpring } from 'motion/react';
 import { HeroHandwritingTitle } from './HeroHandwritingTitle';
 import { animateScrollTo, easeOutExpo, easeInOutQuint, waitMs } from '../lib/guidedScroll';
 
@@ -1060,7 +1060,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
             })}
           </div>
 
-          {/* Mobile Nav Items - Same as Registered User */}
+          {/* Mobile Nav Items */}
           <div className="md:hidden flex flex-1 flex-row justify-between w-full h-full items-center">
             {[
               ...navSections.slice(0, 3).map((s) => ({
