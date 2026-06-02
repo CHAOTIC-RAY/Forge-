@@ -981,22 +981,8 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
   ) : null;
 
   return (
-    <TabPageShell className="relative">
-      <TabPageHeader
-        icon={Lightbulb}
-        iconBgClassName="bg-amber-500/10"
-        iconClassName="text-amber-500"
-        title="Ideas"
-        subtitle="Capture, organize, and ship content — drag to calendar when ready."
-        actions={
-          <>
-            <TabHeaderBadge className="bg-amber-500/10 text-amber-700 dark:text-amber-400">
-              {inboxCount} inbox
-            </TabHeaderBadge>
-            <TabHeaderBadge className="bg-brand/10 text-brand">{activeCount} ready</TabHeaderBadge>
-          </>
-        }
-      >
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F7F7F5] dark:bg-[#151515]">
+      <div className="flex flex-col gap-5 md:gap-8 pb-12 w-full">
         <div className="w-full flex gap-2">
           <input
             value={quickCapture}
@@ -1167,7 +1153,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
             </motion.div>
           )}
         </AnimatePresence>
-      </TabPageHeader>
+      </div>
 
       <div
         className={cn(
@@ -1303,6 +1289,6 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
         )}
       </AnimatePresence>
 
-    </TabPageShell>
+    </div>
   );
 }

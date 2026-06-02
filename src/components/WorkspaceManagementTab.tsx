@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { toast } from 'sonner';
 import { Users, Shield, UserPlus, Check, XCircle, Clock, Trash2, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 
 interface AccessRequest {
   id: string;
@@ -108,26 +109,29 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
   }
 
   return (
-    <div className="flex flex-col bg-transparent relative">
-      <div className="p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
-        <div className="flex items-center gap-4">
-          <button 
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F7F7F5] dark:bg-[#151515]">
+      <div className="flex flex-col gap-8 pb-12 w-full">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-500/10 rounded-[12px] flex items-center justify-center text-emerald-500">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">{activeBusiness.name}</h2>
+              <p className="text-xs text-[#757681]">Manage team members and access requests.</p>
+            </div>
+          </div>
+          <button
+            type="button"
             onClick={() => setActiveTab('settings')}
-            className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681] hover:text-brand min-h-[36px]"
           >
-            <ArrowLeft className="w-5 h-5 text-[#757681]" />
+            <ArrowLeft className="w-4 h-4" />
+            Back
           </button>
-          <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-[16px] flex items-center justify-center">
-            <Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] tracking-tight hover:underline cursor-pointer" onClick={() => setActiveTab('settings')}>{activeBusiness.name}</h1>
-            <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">Manage team members, roles, and access requests.</p>
-          </div>
         </div>
-      </div>
 
-      <div className="space-y-8 max-w-4xl mx-auto pb-20 w-full">
+        <div className="max-w-4xl mx-auto space-y-8 w-full">
         {/* Access Requests */}
         <section className="space-y-4">
           <div className="flex items-center justify-between mb-2">
@@ -246,5 +250,6 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
         </section>
       </div>
     </div>
+  </div>
   );
 }

@@ -5,12 +5,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
+import { TabPageContent, TabPageHeader, TabHeaderSegments, TabPageShell } from './ui/TabPageHeader';
 import { Post, PRODUCT_CATEGORIES } from '../data';
-import { cn } from '../lib/utils';
+import { cn, getTrustedCdnImageElementProps, getCalendarImageDisplayUrl } from '../lib/utils';
 import { DraggableProduct } from './DraggableProduct';
 import { HighStockProduct } from '../lib/gemini';
 import { CalendarSharing } from './CalendarSharing';
 import { ForgeLoader } from './ForgeLoader';
+import { CalendarGridSkeleton } from './ui/Skeleton';
 import { 
   Image as ImageIcon, RefreshCw, Wand2, LayoutList, Grid, 
   List as ListIcon, ChevronLeft, ChevronRight, Search, 
@@ -70,9 +72,10 @@ interface CalendarProps {
   toggleDarkMode?: () => void;
   calendarMode?: 'work' | 'personal';
   onCalendarModeChange?: (mode: 'work' | 'personal') => void;
+  isSyncing?: boolean;
 }
 
-export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange }: CalendarProps) {
+export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange, isSyncing }: CalendarProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedDate, setSelectedDate] = useState<Date>(currentDate);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; dateStr: string } | null>(null);
@@ -111,14 +114,19 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
 
   // For timeline view, only show days with posts
   const daysWithPosts = days.filter(day => isSameMonth(day, monthStart) && posts.some(p => p.date === format(day, dateFormat)));
+  const selectedDateStr = format(selectedDate, dateFormat);
+  const selectedPosts = posts.filter(p => p.date === selectedDateStr);
+  const selectedTodos = todos.filter(t => t.dueDate === selectedDateStr);
+  const selectedItemCount = selectedPosts.length + selectedTodos.length;
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="flex-1 flex flex-col"
+      className="flex-1 flex flex-col min-h-0"
     >
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F7F7F5] dark:bg-[#151515]">
       <ContextMenu
         isOpen={!!contextMenu}
         x={contextMenu?.x || 0}
@@ -132,55 +140,36 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
         ]}
       />
       {!isGuest && (
-        <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
-                <CalendarIcon className="w-6 h-6 text-brand" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
-                  Content Calendar
-                </h2>
-                <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
-                  Plan and schedule your social media content.
-                </p>
-              </div>
+        <div className="flex items-center justify-between gap-4 mb-4">
+          {isAdmin && onCalendarModeChange && (
+            <div className="flex p-1 bg-[#EFEFED] dark:bg-[#2E2E2E] rounded-lg">
+              <button
+                onClick={() => onCalendarModeChange('work')}
+                className={cn(
+                  "px-4 py-2 rounded-[8px] text-xs font-bold transition-all",
+                  calendarMode === 'work' ? "bg-white dark:bg-[#151515] shadow-sm text-brand" : "text-[#757681]"
+                )}
+              >
+                Work
+              </button>
+              <button
+                onClick={() => onCalendarModeChange('personal')}
+                className={cn(
+                  "px-4 py-2 rounded-[8px] text-xs font-bold transition-all",
+                  calendarMode === 'personal' ? "bg-white dark:bg-[#151515] shadow-sm text-brand" : "text-[#757681]"
+                )}
+              >
+                Personal
+              </button>
             </div>
-
-            {isAdmin && !isGuest && (
-              <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                <button
-                  onClick={() => onCalendarModeChange?.('work')}
-                  className={cn(
-                    "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
-                    calendarMode === 'work' 
-                      ? "bg-white dark:bg-[#2E2E2E] text-brand " 
-                      : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                  )}
-                >
-                  Work
-                </button>
-                <button
-                  onClick={() => onCalendarModeChange?.('personal')}
-                  className={cn(
-                    "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
-                    calendarMode === 'personal' 
-                      ? "bg-white dark:bg-[#2E2E2E] text-brand " 
-                      : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
-                  )}
-                >
-                  Personal
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       )}
-      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] print:border-none print:h-auto print:block">
+      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[12px] md:rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:border-none print:h-auto print:block min-h-0">
         <div className="flex-1 flex flex-col min-w-0">
         {/* Header & View Switcher */}
-        <div className="flex items-center justify-between p-1 md:p-1.5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] shrink-0 print:border-none print:p-0 print:mb-4">
+        <div className="flex items-center justify-between gap-2 p-2 md:p-1.5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] shrink-0 print:border-none print:p-0 print:mb-4">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:bg-transparent print:border-none">
             <button 
@@ -191,7 +180,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <h2 className="px-1.5 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] min-w-[100px] md:min-w-[140px] text-center print:text-2xl print:text-black print:p-0 print:text-left uppercase tracking-tight">
+            <h2 className="px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] min-w-[108px] md:min-w-[140px] text-center print:text-2xl print:text-black print:p-0 print:text-left uppercase tracking-tight">
               {format(currentDate, 'MMM yyyy')}
             </h2>
             <button 
@@ -242,18 +231,20 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           <button 
             onClick={() => setViewMode('grid')} 
             aria-label="Grid View"
-            className={cn("p-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center", viewMode === 'grid' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
+            className={cn("px-2 md:px-1.5 py-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center gap-1.5", viewMode === 'grid' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
             title="Grid View"
           >
             <Grid className="w-4 h-4" />
+            <span className="hidden min-[390px]:inline md:hidden text-[11px] font-bold">Month</span>
           </button>
           <button 
             onClick={() => setViewMode('timeline')} 
             aria-label="Timeline View"
-            className={cn("p-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center", viewMode === 'timeline' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
+            className={cn("px-2 md:px-1.5 py-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center gap-1.5", viewMode === 'timeline' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
             title="Timeline View"
           >
             <ListIcon className="w-4 h-4" />
+            <span className="hidden min-[390px]:inline md:hidden text-[11px] font-bold">List</span>
           </button>
           </div>
         </div>
@@ -271,7 +262,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           {viewMode !== 'timeline' && (
             <div className={cn(
               "border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] shrink-0 print:bg-white print:border-gray-300",
-              "grid grid-cols-7"
+              "grid grid-cols-7 sticky top-0 z-20"
             )}>
               {weekDays.map((day) => (
                 <div key={day} className="py-1.5 md:py-3 text-center text-[9px] md:text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider print:text-black">
@@ -323,6 +314,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                 })
               )}
             </div>
+          ) : isSyncing && posts.length === 0 ? (
+            <CalendarGridSkeleton />
           ) : (
             <div className="flex-1 overflow-y-auto bg-[#E9E9E7] dark:bg-[#2E2E2E]">
               <div 
@@ -368,25 +361,30 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
 
       {/* Selected Date Posts (Mobile Grid View Only) */}
       {viewMode === 'grid' && (
-        <div className="md:hidden border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#121212] p-4 pb-32 print:hidden">
-          <div className="flex items-center justify-between mb-6 px-2">
+        <div className="md:hidden border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#121212] p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] print:hidden">
+          <div className="flex items-center justify-between gap-3 mb-5">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Selected Date</span>
-              <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-xl">
+              <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-lg leading-tight">
                 {format(selectedDate, 'EEEE, MMM d')}
               </h3>
+              <span className="mt-1 text-xs font-medium text-[#757681] dark:text-[#9B9A97]">
+                {selectedItemCount === 0 ? 'No items yet' : `${selectedItemCount} scheduled item${selectedItemCount === 1 ? '' : 's'}`}
+              </span>
             </div>
             {isAdmin && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 shrink-0">
                 <button 
                   onClick={() => onGenerateWithAi?.(format(selectedDate, dateFormat))}
-                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-brand rounded-[16px]  border border-brand-border flex items-center justify-center active:scale-90 transition-transform"
+                  aria-label="Generate post with AI for selected date"
+                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-brand rounded-[14px] border border-brand-border flex items-center justify-center active:scale-90 transition-transform"
                 >
                   <Wand2 className="w-6 h-6" />
                 </button>
                 <button 
                   onClick={() => onAddPost(format(selectedDate, dateFormat))}
-                  className="w-12 h-12 bg-blue-500 text-white rounded-[16px]   flex items-center justify-center active:scale-90 transition-transform"
+                  aria-label="Add post for selected date"
+                  className="w-12 h-12 bg-brand text-white rounded-[14px] flex items-center justify-center active:scale-90 transition-transform"
                 >
                   <Plus className="w-6 h-6" />
                 </button>
@@ -395,11 +393,11 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
           </div>
           
           <div className="flex flex-col gap-4">
-            {posts.filter(p => p.date === format(selectedDate, dateFormat)).length === 0 && todos.filter(t => t.dueDate === format(selectedDate, dateFormat)).length === 0 ? (
+            {selectedPosts.length === 0 && selectedTodos.length === 0 ? (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="py-12 text-center bg-white dark:bg-[#1E1E1E] rounded-[24px] border border-[#E9E9E7] dark:border-[#2E2E2E] "
+                className="py-10 px-5 text-center bg-white dark:bg-[#1E1E1E] rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E]"
               >
                 <div className="w-12 h-12 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-full flex items-center justify-center mx-auto mb-3">
                   <CalendarIcon className="w-6 h-6 text-[#9B9A97]" />
@@ -411,7 +409,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
               </motion.div>
             ) : (
               <div className="space-y-4">
-                {posts.filter(p => p.date === format(selectedDate, dateFormat)).map((post, idx) => (
+                {selectedPosts.map((post, idx) => (
                   <motion.div
                     key={post.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -428,7 +426,7 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                     />
                   </motion.div>
                 ))}
-                {todos.filter(t => t.dueDate === format(selectedDate, dateFormat)).map((todo, idx) => (
+                {selectedTodos.map((todo, idx) => (
                   <motion.div
                     key={todo.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -452,6 +450,8 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
       )}
       </div>
       </div>
+      </div>
+    </div>
     </motion.div>
   );
 }
@@ -469,13 +469,7 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
     zIndex: isDragging ? 100 : 1,
   };
 
-  const getDisplayUrl = (url: string) => {
-    if (!url || url.startsWith('data:') || url.startsWith('blob:') || url.includes('localhost') || url.includes('127.0.0.1')) return url;
-    // Don't proxy trusted storage providers
-    if (url.includes('cloudinary.com') || url.includes('firebasestorage.googleapis.com')) return url;
-    if (url.startsWith('http')) return `/api/proxy-image?url=${encodeURIComponent(url)}`;
-    return url;
-  };
+  const getDisplayUrl = (url: string) => getCalendarImageDisplayUrl(url);
 
   return (
     <div className="relative w-full h-full">
@@ -486,12 +480,19 @@ function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?
         {...attributes}
         src={getDisplayUrl(imageUrl)} 
         alt="" 
-        referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
+        {...getTrustedCdnImageElementProps(imageUrl)}
         className={cn("w-full h-full object-cover", isDragging && "opacity-50")} 
         onError={(e) => {
           const target = e.target as HTMLImageElement;
           if (!target.src.includes('placehold.co')) {
+            if (target.crossOrigin && !target.dataset.forgeImgRetry) {
+              target.dataset.forgeImgRetry = '1';
+              target.removeAttribute('crossorigin');
+              const prev = target.src;
+              target.src = '';
+              target.src = prev;
+              return;
+            }
             target.src = 'https://placehold.co/600x600/f3f4f6/94a3b8?text=Image+Unavailable';
           }
         }}
@@ -603,10 +604,9 @@ function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMod
       {backgroundImage && (
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img 
-            src={backgroundImage}
+            src={getCalendarImageDisplayUrl(backgroundImage)}
             alt=""
-            referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
+            {...getTrustedCdnImageElementProps(backgroundImage)}
             className="absolute inset-0 w-full h-full object-cover opacity-60 dark:opacity-40"
             style={{ 
               display: 'block',
@@ -826,8 +826,8 @@ function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onG
           "text-left bg-white/90 dark:bg-[#1E1E1E]/80 backdrop-blur-md border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing flex flex-col z-10 relative overflow-hidden",
           viewMode === 'grid' ? "py-3 pr-3 pl-3 md:py-1.5 md:pr-1.5 md:pl-1.5 gap-2 md:gap-1" : "py-4 pr-4 pl-4 gap-3",
           (isStory || isReel) && (viewMode === 'grid' ? "pl-[16px] md:pl-[10px]" : "pl-6"),
-          isDragging && "border-brand scale-110 shadow-2xl z-50 ring-4 ring-brand/20 active:scale-110",
-          !isDragging && "active:scale-95",
+          isDragging && "border-brand shadow-2xl z-50 ring-4 ring-brand/20 opacity-90",
+          !isDragging && "hover:border-brand/60",
           "print:border-none print:shadow-none print:p-1 print:bg-transparent print:gap-1 print:break-inside-avoid"
         )}
       >

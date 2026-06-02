@@ -581,15 +581,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'widgets' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
   const isIdeasTabActive = activeTab === 'ideas' || activeTab === 'notebook';
   const isWidgetsTabActive = activeTab === 'widgets' || activeTab === 'creative';
-  const usesTabPageLayout =
-    isIdeasTabActive ||
-    isWidgetsTabActive ||
-    activeTab === 'analytics' ||
-    activeTab === 'brandkit' ||
-    activeTab === 'search' ||
-    activeTab === 'schedule' ||
-    activeTab === 'more' ||
-    activeTab === 'workspace_management';
+  const usesTabPageLayout = false; // Disable new layout shell for all tabs per old UI request
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -3260,12 +3252,12 @@ export default function App() {
               ]}>
                 <div className="flex flex-1 w-full relative">
                   {/* Sidebar (Desktop Only) */}
-                  <aside className="hidden md:flex sticky top-0 h-screen w-20 glass-panel border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
-                    <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
+                  <aside className="hidden md:flex sticky top-0 h-screen w-18 bg-[#F7F7F5] dark:bg-[#1A1A1A] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-6 justify-between print:hidden overflow-y-auto no-scrollbar">
+                    <div className="flex flex-col gap-6 w-full items-center">
                       {/* Logo */}
-                      <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
-                        <ForgeLogo size={28} className="p-1" />
-                      </div>
+                      <button onClick={() => setActiveTab('home')} className="w-10 h-10 hover:opacity-80 transition-opacity">
+                        <ForgeLogo size={32} />
+                      </button>
 
 
                       {/* Business Selector */}
@@ -3547,17 +3539,14 @@ export default function App() {
                       id="main-content"
                       className={cn(
                       "flex-1 flex flex-col px-4 md:px-8 pt-6 md:pt-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-28 print:p-0 print:overflow-visible",
-                      (activeTab === 'chat' || activeTab === 'home' || usesTabPageLayout) &&
-                        'p-0 sm:p-0 md:p-0 pb-0',
                       activeTab !== 'search' && "no-scrollbar"
                     )}>
                       <div className={cn("w-full flex-1 flex flex-col print:max-w-none print:h-auto print:block", (activeTab === 'chat' || activeTab === 'home') && "max-w-none h-full")}>
                         {/* Page Title */}
                         <div
                           className={cn(
-                            'mb-2 md:mb-4 flex items-center justify-between shrink-0 print:hidden px-2 md:px-0',
-                            (activeTab === 'chat' || activeTab === 'home' || usesTabPageLayout) && 'hidden',
-                            'md:hidden'
+                            'mb-6 md:mb-10 flex items-center justify-between shrink-0 print:hidden px-2 md:px-0',
+                            (activeTab === 'chat' || activeTab === 'home') && 'hidden'
                           )}
                         >
                           <div className="flex items-center gap-3">

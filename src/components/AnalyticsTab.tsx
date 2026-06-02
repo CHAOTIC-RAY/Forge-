@@ -1,483 +1,421 @@
-import React, { useState, useEffect } from 'react';
-import { ForgeLoader } from './ForgeLoader';
-import { BarChart3, TrendingUp, Clock, Hash, Link as LinkIcon, Sparkles, Settings, Code, FileText, ChevronRight } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+  BarChart3,
+  TrendingUp,
+  Calendar,
+  Hash,
+  Sparkles,
+  Settings,
+  ChevronRight,
+  Instagram,
+  Facebook,
+  AlertCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
-import { generateAnalyticsReport } from '../lib/gemini';
+import { generateTextWithCascade } from '../lib/gemini';
 import { getAnalyticsSettings, setAnalyticsSettings, cn } from '../lib/utils';
+import {
+  computePostingStats,
+  statsPayloadForCoach,
+  type InsightsRangeDays,
+} from '../lib/insightsMetrics';
+import type { Post } from '../data';
+import type { Business } from '../data';
+import { ForgeLoader } from './ForgeLoader';
+import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 
-interface AnalyticsData {
-  bestTime: string;
-  formatSuggestions: string[];
-  hashtagPerformance: { tag: string; score: number }[];
-  summary: string;
-  engagementRate: string;
-  audienceDemographics: { segment: string; percentage: number }[];
-  competitorInsights: string[];
-  growthTrend: { period: string; value: number }[];
-  followerGrowth: { period: string; count: number }[];
-  topPosts: { title: string; engagement: string; type: string }[];
-  engagementOverTime: { date: string; rate: number }[];
-  contentPillars: { pillar: string; performance: number }[];
+type AnalyticsTabProps = {
+  posts?: Post[];
+  activeBusiness?: Business | null;
+  setActiveTab?: (
+    tab:
+      | 'home'
+      | 'schedule'
+      | 'calendar'
+      | 'search'
+      | 'brandkit'
+      | 'more'
+      | 'chat'
+      | 'widgets'
+      | 'creative'
+      | 'analytics'
+      | 'ideas'
+      | 'notebook'
+  ) => void;
+};
+
+function StatCard({
+  label,
+  value,
+  hint,
+  alert,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  alert?: boolean;
+}) {
+  return (
+    <div className="glass-card p-4 min-w-0">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-secondary-safe">{label}</p>
+      <p
+        className={cn(
+          'text-2xl font-bold mt-1 tabular-nums truncate',
+          alert ? 'text-amber-600 dark:text-amber-400' : 'text-[#37352F] dark:text-[#EBE9ED]'
+        )}
+      >
+        {value}
+      </p>
+      {hint ? <p className="text-[10px] text-[#757681] mt-1">{hint}</p> : null}
+    </div>
+  );
 }
 
-export function AnalyticsTab({ setActiveTab }: { setActiveTab?: (tab: 'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook') => void }) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [viewMode, setViewMode] = useState<'summary' | 'timeline' | 'json'>('summary');
+function BarChart({
+  items,
+  maxCount,
+}: {
+  items: { label: string; count: number }[];
+  maxCount: number;
+}) {
+  if (items.length === 0) {
+    return (
+      <p className="text-xs text-[#757681] py-8 text-center">No posts in this period yet.</p>
+    );
+  }
+  return (
+    <div className="flex items-end justify-between gap-2 h-[140px] pt-2">
+      {items.map((item) => (
+        <div key={item.label} className="flex flex-col items-center gap-1 flex-1 min-w-0 group">
+          <span className="text-[9px] font-bold text-brand opacity-0 group-hover:opacity-100 transition-opacity tabular-nums">
+            {item.count}
+          </span>
+          <div
+            className="w-full bg-brand/20 rounded-t-md overflow-hidden flex flex-col justify-end"
+            style={{ height: `${maxCount > 0 ? Math.max(8, (item.count / maxCount) * 120) : 8}px` }}
+          >
+            <div className="w-full bg-brand rounded-t-md min-h-[4px]" style={{ flex: 1 }} />
+          </div>
+          <span className="text-[8px] text-[#757681] truncate w-full text-center">{item.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  useEffect(() => {
-    const settings = getAnalyticsSettings();
-    if (settings.autoRunAnalytics) {
-      const today = new Date().toISOString().split('T')[0];
-      if (settings.lastRunDate !== today && (settings.instagramUrl || settings.facebookUrl)) {
-        handleAnalyze(settings.instagramUrl, settings.facebookUrl, true);
-      }
-    }
-  }, []);
+function MixList({ items, emptyLabel }: { items: { name: string; percent: number }[]; emptyLabel: string }) {
+  if (items.length === 0) {
+    return <p className="text-xs text-[#757681] py-4">{emptyLabel}</p>;
+  }
+  return (
+    <div className="space-y-3">
+      {items.slice(0, 6).map((item) => (
+        <div key={item.name} className="space-y-1">
+          <div className="flex justify-between text-xs font-bold gap-2">
+            <span className="truncate text-[#37352F] dark:text-[#EBE9ED]">{item.name}</span>
+            <span className="text-brand shrink-0 tabular-nums">{item.percent}%</span>
+          </div>
+          <div className="h-1.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-full overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E]">
+            <div className="h-full bg-brand rounded-full" style={{ width: `${item.percent}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  const handleAnalyze = async (instagramUrl?: string, facebookUrl?: string, isAutoRun = false) => {
-    const settings = getAnalyticsSettings();
-    const insta = instagramUrl ?? settings.instagramUrl;
-    const fb = facebookUrl ?? settings.facebookUrl;
+export function AnalyticsTab({ posts = [], activeBusiness, setActiveTab }: AnalyticsTabProps) {
+  const [rangeDays, setRangeDays] = useState<InsightsRangeDays>(30);
+  const [coachSummary, setCoachSummary] = useState<string | null>(null);
+  const [isCoaching, setIsCoaching] = useState(false);
 
-    if (!insta && !fb) {
-      if (!isAutoRun) toast.error('Please connect at least one social media account in Settings.');
+  const settings = getAnalyticsSettings();
+  const hasProfileLinks = !!(settings.instagramUrl || settings.facebookUrl);
+
+  const stats = useMemo(() => computePostingStats(posts, rangeDays), [posts, rangeDays]);
+
+  const weekdayMax = Math.max(...stats.postsByWeekday.map((d) => d.count), 1);
+  const weekChartItems = stats.postsByWeekday.map((d) => ({
+    label: d.day.slice(0, 3),
+    count: d.count,
+  }));
+
+  const handleCoach = async () => {
+    if (stats.postsCount === 0) {
+      toast.error('Add scheduled posts on the calendar first.');
       return;
     }
-
-    setIsAnalyzing(true);
+    setIsCoaching(true);
     try {
-      const prompt = `Analyze the social media presence for these accounts:
-Instagram: ${insta || 'N/A'}
-Facebook: ${fb || 'N/A'}
+      const payload = statsPayloadForCoach(stats);
+      const prompt = `You are a social media coach. Use ONLY the JSON stats below. Do NOT invent follower counts, engagement rates, or demographics.
 
-Generate a highly detailed analysis with the following metrics:
-- Best time to post
-- Content format suggestions
-- Hashtag performance scores
-- Overall summary
-- Engagement rate
-- Audience demographics
-- Competitor insights
-- Growth trends
-- Follower growth
-- Top performing posts
-- Engagement over time
-- Content pillars performance
+Stats:
+${JSON.stringify(payload, null, 2)}
 
-Ensure the response is a valid JSON object.`;
+Business: ${activeBusiness?.name || 'Workspace'}
 
-      const data = await generateAnalyticsReport(prompt);
-      setAnalytics(data);
-      if (!isAutoRun) toast.success('Analysis complete!');
-      
-      // Update last run date
+Return 4–6 short bullet recommendations (markdown bullets) for what to post next, format/outlet balance, and schedule gaps. If profile URLs are not in the stats, do not claim you analyzed live Instagram/Facebook metrics.`;
+
+      const text = await generateTextWithCascade(prompt, false, activeBusiness?.id);
+      setCoachSummary(text.trim());
       const today = new Date().toISOString().split('T')[0];
       setAnalyticsSettings({ ...settings, lastRunDate: today });
-    } catch (error) {
-      console.error('Analysis failed:', error);
-      if (!isAutoRun) toast.error('Failed to analyze accounts. Please try again.');
+      toast.success('Summary ready');
+    } catch (e) {
+      console.error(e);
+      toast.error('Could not generate summary. Try again or check AI settings.');
     } finally {
-      setIsAnalyzing(false);
+      setIsCoaching(false);
     }
   };
 
-  const settings = getAnalyticsSettings();
-  const hasAccounts = settings.instagramUrl || settings.facebookUrl;
+  const deltaLabel =
+    stats.deltaPercent == null
+      ? '—'
+      : `${stats.deltaPercent >= 0 ? '+' : ''}${stats.deltaPercent}% vs prior`;
 
   return (
-    <div className="flex flex-col bg-transparent relative">
-      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand-bg rounded-[16px] flex items-center justify-center">
-              <BarChart3 className="w-6 h-6 text-brand" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
-                Insights & Analytics
-              </h2>
-              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
-                Deep dive into your social media performance.
-              </p>
-            </div>
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F7F7F5] dark:bg-[#151515]">
+      <div className="flex items-center flex-wrap gap-2 mb-8">
+        {([7, 30, 90] as InsightsRangeDays[]).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setRangeDays(d)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors min-h-[36px]',
+                  rangeDays === d
+                    ? 'bg-brand text-white border-brand'
+                    : 'bg-white dark:bg-[#191919] border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681]'
+                )}
+              >
+                {d}d
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setActiveTab?.('more')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#757681] hover:text-brand min-h-[36px]"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Profile links
+              <ChevronRight className="w-3 h-3" />
+            </button>
+      </div>
+
+      <div className="space-y-6 pb-12">
+        <div className="glass-card p-4 border-amber-200/60 dark:border-amber-900/40 bg-amber-500/5 flex gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-sm text-[#37352F] dark:text-[#EBE9ED]">
+            <p className="font-bold text-amber-800 dark:text-amber-300">Local AI cannot read live social networks</p>
+            <p className="text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+              Built-in and browser models only see your Forge calendar data and saved profile links—they do not fetch Instagram or Facebook metrics.
+              Charts and the AI coach use scheduled posts in this workspace. For live follower, reach, or engagement data, add a{' '}
+              <span className="font-bold">Gemini or Groq API key</span> in Settings → AI (Meta/Graph API integration is planned later).
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveTab?.('more')}
+              className="text-xs font-bold text-brand hover:underline mt-1"
+            >
+              Open AI & API settings
+            </button>
           </div>
         </div>
-      </div>
 
-      <div className="w-full space-y-8 pb-12">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-x-auto no-scrollbar max-w-full">
-          <button 
-            onClick={() => setViewMode('summary')}
-            className={cn(
-              "px-4 md:px-6 py-2 text-xs font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap",
-              viewMode === 'summary' ? "bg-white dark:bg-[#191919]  text-[#2383E2]" : "text-[#757681]"
-            )}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            Summary Report
-          </button>
-          <button 
-            onClick={() => setViewMode('timeline')}
-            className={cn(
-              "px-4 md:px-6 py-2 text-xs font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap",
-              viewMode === 'timeline' ? "bg-white dark:bg-[#191919]  text-[#2383E2]" : "text-[#757681]"
-            )}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            Timeline View
-          </button>
-          <button 
-            onClick={() => setViewMode('json')}
-            className={cn(
-              "px-4 md:px-6 py-2 text-xs font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap",
-              viewMode === 'json' ? "bg-white dark:bg-[#191919]  text-[#2383E2]" : "text-[#757681]"
-            )}
-          >
-            <Code className="w-3.5 h-3.5" />
-            JSON View
-          </button>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <StatCard label={`Posts (${rangeDays}d)`} value={String(stats.postsCount)} hint={deltaLabel} />
+          <StatCard label="Avg / week" value={String(stats.avgPerWeek)} hint="scheduled in range" />
+          <StatCard
+            label="Top outlet"
+            value={stats.topOutlet?.name || '—'}
+            hint={stats.topOutlet ? `${stats.topOutlet.percent}% of posts` : undefined}
+          />
+          <StatCard
+            label="Top format"
+            value={stats.topFormat?.name || '—'}
+            hint={stats.topFormat ? `${stats.topFormat.percent}% of posts` : undefined}
+          />
+          <StatCard
+            label="Upcoming"
+            value={String(stats.upcomingCount)}
+            hint="from today onward"
+            alert={stats.upcomingCount === 0}
+          />
         </div>
 
-        {!hasAccounts && (
-          <button 
-            onClick={() => setActiveTab?.('more')}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-[12px] text-xs font-bold border border-amber-100 dark:border-amber-900/30 hover:bg-amber-100 transition-colors"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            Connect Accounts
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-
-      <div className="bg-white dark:bg-[#191919] rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-        <div className="p-4 md:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-blue-500" />
-            AI Performance Analysis
-          </h3>
-          <p className="text-xs text-[#757681] mt-1">
-            {hasAccounts 
-              ? `Analyzing: ${[settings.instagramUrl, settings.facebookUrl].filter(Boolean).join(', ')}`
-              : 'Connect your accounts in Settings to enable deep AI analysis.'
-            }
-          </p>
-        </div>
-        <div className="p-6">
-          <button
-            onClick={() => handleAnalyze()}
-            disabled={isAnalyzing || !hasAccounts}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#2383E2] hover:bg-blue-600 text-white rounded-[16px] text-sm font-bold transition-all disabled:opacity-50   active:scale-[0.98]"
-          >
-            {isAnalyzing ? <ForgeLoader size={20} /> : <Sparkles className="w-5 h-5" />}
-            {isAnalyzing ? 'Analyzing Profiles...' : 'Run AI Analysis Now'}
-          </button>
-        </div>
-      </div>
-
-      <AnimatePresence mode="wait">
-        {analytics && viewMode === 'summary' && (
-          <motion.div 
-            key="summary"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="grid grid-cols-1 md:grid-cols-12 gap-6"
-          >
-            {/* Summary */}
-            <div className="md:col-span-12 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-[16px] border border-blue-100 dark:border-blue-900/30  relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-8 opacity-10">
-                <TrendingUp className="w-24 h-24 text-blue-600" />
-              </div>
-              <div className="relative z-10">
-                <h3 className="text-base font-bold text-blue-700 dark:text-blue-300 flex items-center gap-2 mb-3">
-                  <TrendingUp className="w-5 h-5" />
-                  Performance Summary
-                </h3>
-                <p className="text-sm leading-relaxed text-blue-900/80 dark:text-blue-100/80 font-medium">{analytics.summary}</p>
-              </div>
-            </div>
-
-            {/* Key Metrics Grid */}
-            <div className="md:col-span-4 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-500" />
-                  Peak Engagement
-                </h3>
-              </div>
-              <div className="p-8 flex flex-col items-center justify-center text-center space-y-2">
-                <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tight">{analytics.bestTime}</div>
-                <p className="text-xs text-[#757681] font-medium uppercase tracking-wider">Best time to post</p>
-              </div>
-            </div>
-
-            <div className="md:col-span-4 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                  Engagement Rate
-                </h3>
-              </div>
-              <div className="p-8 flex flex-col items-center justify-center text-center space-y-2">
-                <div className="text-3xl font-black text-green-600 dark:text-green-400 tracking-tight">{analytics.engagementRate}</div>
-                <p className="text-xs text-[#757681] font-medium uppercase tracking-wider">Avg. Interaction Rate</p>
-              </div>
-            </div>
-
-            <div className="md:col-span-4 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-purple-500" />
-                  Follower Growth
-                </h3>
-              </div>
-              <div className="p-8 flex flex-col items-center justify-center text-center space-y-2">
-                <div className="text-3xl font-black text-purple-600 dark:text-purple-400 tracking-tight">
-                  +{analytics.followerGrowth[analytics.followerGrowth.length - 1].count - analytics.followerGrowth[0].count}
+        {stats.postsCount === 0 ? (
+          <div className="glass-card p-8 text-center">
+            <Calendar className="w-10 h-10 text-brand mx-auto mb-3 opacity-60" />
+            <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2">No posts in this window</h3>
+            <p className="text-sm text-[#757681] max-w-md mx-auto mb-4">
+              Schedule content on the calendar to see posting rhythm, outlet mix, and AI coaching here—free, from your own data.
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveTab?.('calendar')}
+              className="px-5 py-2.5 bg-brand text-white rounded-xl text-sm font-bold"
+            >
+              Open calendar
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="glass-card overflow-hidden">
+                <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-brand" />
+                    Posting rhythm
+                  </h3>
+                  <p className="text-[10px] text-[#757681] mt-0.5">
+                    Busiest day: <span className="font-bold text-[#37352F] dark:text-[#EBE9ED]">{stats.busiestWeekday}</span>
+                  </p>
                 </div>
-                <p className="text-xs text-[#757681] font-medium uppercase tracking-wider">Total Growth Period</p>
+                <div className="p-4">
+                  <BarChart items={weekChartItems} maxCount={weekdayMax} />
+                </div>
+              </div>
+
+              <div className="glass-card overflow-hidden">
+                <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-purple-500" />
+                    Outlet & format mix
+                  </h3>
+                </div>
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase text-[#757681] mb-2">Outlets</p>
+                    <MixList items={stats.outletMix} emptyLabel="No outlets" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase text-[#757681] mb-2">Formats</p>
+                    <MixList items={stats.formatMix} emptyLabel="No formats" />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Charts Row */}
-            <div className="md:col-span-6 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-blue-500" />
-                  Engagement Over Time
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="glass-card p-4">
+                <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                  <Hash className="w-4 h-4 text-brand" />
+                  Top hashtags
                 </h3>
+                {stats.topHashtags.length === 0 ? (
+                  <p className="text-xs text-[#757681]">Add hashtags on post captions to see trends.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {stats.topHashtags.map((h) => (
+                      <span
+                        key={h.tag}
+                        className="px-2.5 py-1 rounded-lg bg-brand/10 text-brand text-xs font-bold"
+                      >
+                        {h.tag} <span className="text-[#757681] font-medium">×{h.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="p-6 flex items-end justify-between gap-2 h-[150px]">
-                {analytics.engagementOverTime.map((t, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2 flex-1 group relative">
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                      {t.rate}%
-                    </div>
-                    <div 
-                      className="w-full bg-blue-500/20 group-hover:bg-blue-500/40 rounded-t-[8px] transition-all" 
-                      style={{ height: `${(t.rate / Math.max(...analytics.engagementOverTime.map(v => v.rate))) * 100}px` }}
+
+              <div className="glass-card p-4">
+                <h3 className="text-sm font-bold mb-3">Recent in range</h3>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {stats.recentPosts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-xs"
                     >
-                      <div 
-                        className="w-full bg-blue-500 rounded-t-[8px]" 
-                        style={{ height: '4px' }}
-                      />
-                    </div>
-                    <span className="text-[8px] text-[#757681] truncate w-full text-center">{t.date}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="md:col-span-6 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-purple-500" />
-                  Content Pillar Performance
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                {analytics.contentPillars.map((pillar, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-bold">
-                      <span>{pillar.pillar}</span>
-                      <span className="text-purple-600">{pillar.performance}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-[#F7F7F5] dark:bg-[#202020] rounded-full overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pillar.performance}%` }}
-                        className="h-full bg-purple-500" 
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Top Posts */}
-            <div className="md:col-span-12 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-yellow-500" />
-                  Top Performing Posts
-                </h3>
-              </div>
-              <div className="p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {analytics.topPosts.map((post, idx) => (
-                    <div key={idx} className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] hover: transition-all">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{post.type}</span>
-                        <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">{post.engagement}</span>
-                      </div>
-                      <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] line-clamp-1">{post.title}</h4>
+                      <span className="font-bold truncate text-[#37352F] dark:text-[#EBE9ED]">{p.title}</span>
+                      <span className="text-[#757681] shrink-0 tabular-nums">{p.date}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Strategy & Insights */}
-            <div className="md:col-span-6 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-blue-500" />
-                  Content Strategy Suggestions
+            {stats.gaps.length > 0 && (
+              <div className="glass-card p-4 border-amber-200/50 dark:border-amber-900/40 bg-amber-500/5">
+                <h3 className="text-sm font-bold flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Schedule gaps
                 </h3>
-              </div>
-              <div className="p-6 space-y-3">
-                {analytics.formatSuggestions.map((suggestion, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-[8px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">
-                      {idx + 1}
-                    </span>
-                    <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] font-medium">{suggestion}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="md:col-span-6 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <LinkIcon className="w-4 h-4 text-orange-500" />
-                  Competitor Insights
-                </h3>
-              </div>
-              <div className="p-6 space-y-3">
-                {analytics.competitorInsights.map((insight, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
-                    <p className="text-sm text-[#37352F] dark:text-[#EBE9ED] font-medium">{insight}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Demographics & Hashtags */}
-            <div className="md:col-span-6 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Hash className="w-4 h-4 text-blue-500" />
-                  Audience Demographics
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                {analytics.audienceDemographics.map((demo, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-bold">
-                      <span>{demo.segment}</span>
-                      <span>{demo.percentage}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-[#F7F7F5] dark:bg-[#202020] rounded-full overflow-hidden border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                      <div 
-                        className="h-full bg-blue-500" 
-                        style={{ width: `${demo.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="md:col-span-6 bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Hash className="w-4 h-4 text-blue-500" />
-                  Top Hashtags
-                </h3>
-              </div>
-              <div className="p-6 grid grid-cols-2 gap-3">
-                {analytics.hashtagPerformance.map((tag, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2.5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                    <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">{tag.tag}</span>
-                    <span className="text-[10px] font-bold text-blue-600">{tag.score}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {analytics && viewMode === 'timeline' && (
-          <motion.div 
-            key="timeline"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-6"
-          >
-            <div className="bg-white dark:bg-[#191919] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden ">
-              <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-500" />
-                  Campaign Roadmap
-                </h3>
-              </div>
-              <div className="p-8">
-                <div className="relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E9E9E7] dark:before:bg-[#2E2E2E]">
-                  {analytics.engagementOverTime.map((item, idx) => (
-                    <div key={idx} className="relative pl-10 pb-10 last:pb-0">
-                      <div className="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-blue-500 border-4 border-white dark:border-[#191919]  z-10" />
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-black text-blue-600 uppercase tracking-widest">{item.date}</span>
-                          <span className="px-2 py-0.5 bg-green-500/10 text-green-600 text-[10px] font-bold rounded-full">
-                            {item.rate}% Engagement
-                          </span>
-                        </div>
-                        <div className="p-4 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
-                          <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] mb-1">
-                            {analytics.topPosts[idx % analytics.topPosts.length].title}
-                          </h4>
-                          <p className="text-xs text-[#757681] dark:text-[#9B9A97]">
-                            Strategic milestone reached. Content performance aligned with content pillar: {analytics.contentPillars[idx % analytics.contentPillars.length].pillar}.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                <ul className="space-y-1 text-xs text-[#37352F] dark:text-[#EBE9ED]">
+                  {stats.gaps.map((g) => (
+                    <li key={g}>• {g}</li>
                   ))}
-                </div>
+                </ul>
               </div>
-            </div>
-          </motion.div>
+            )}
+          </>
         )}
 
-        {analytics && viewMode === 'json' && (
-          <motion.div 
-            key="json"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-[#1E1E1E] rounded-[16px] border border-[#2E2E2E] overflow-hidden "
-          >
-            <div className="p-4 border-b border-[#2E2E2E] bg-[#252525] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Code className="w-4 h-4 text-blue-400" />
-                <span className="text-xs font-bold text-gray-300">Raw Analysis Data (JSON)</span>
-              </div>
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText(JSON.stringify(analytics, null, 2));
-                  toast.success('JSON copied to clipboard');
-                }}
-                className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-colors"
+        {hasProfileLinks && (
+          <div className="flex flex-wrap gap-2 items-center text-xs text-[#757681]">
+            <span className="font-bold uppercase tracking-wider text-[10px]">Profile links (reference)</span>
+            {settings.instagramUrl && (
+              <a
+                href={settings.instagramUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand"
               >
-                Copy JSON
-              </button>
-            </div>
-            <div className="p-6 overflow-x-auto">
-              <pre className="text-[11px] font-mono text-blue-300 leading-relaxed">
-                {JSON.stringify(analytics, null, 2)}
-              </pre>
-            </div>
-          </motion.div>
+                <Instagram className="w-3.5 h-3.5 text-pink-500" />
+                Instagram
+              </a>
+            )}
+            {settings.facebookUrl && (
+              <a
+                href={settings.facebookUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand"
+              >
+                <Facebook className="w-3.5 h-3.5 text-brand" />
+                Facebook
+              </a>
+            )}
+            <span className="text-[10px]">Live reach metrics via API — coming later.</span>
+          </div>
         )}
-      </AnimatePresence>
+
+        <div className="glass-card overflow-hidden">
+          <div className="p-4 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020]">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-brand" />
+              AI coach
+            </h3>
+            <p className="text-xs text-[#757681] mt-1">
+              Summarizes your calendar stats only—does not scrape profiles or invent engagement numbers.
+            </p>
+          </div>
+          <div className="p-4 space-y-4">
+            <button
+              type="button"
+              onClick={handleCoach}
+              disabled={isCoaching || stats.postsCount === 0}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand hover:bg-brand-hover text-white rounded-xl text-sm font-bold disabled:opacity-50 min-h-[44px]"
+            >
+              {isCoaching ? <ForgeLoader size={18} /> : <Sparkles className="w-4 h-4" />}
+              {isCoaching ? 'Summarizing…' : 'Generate summary from my calendar'}
+            </button>
+            <AnimatePresence>
+              {coachSummary && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="p-4 rounded-xl border border-brand/20 bg-brand/5 text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED] whitespace-pre-wrap"
+                >
+                  {coachSummary}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
     </div>
   );
