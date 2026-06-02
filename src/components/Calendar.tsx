@@ -5,14 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
->>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
-=======
-import { TabPageHeader, TabHeaderSegments } from './ui/TabPageHeader';
->>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
 import { Post, PRODUCT_CATEGORIES } from '../data';
 import { cn } from '../lib/utils';
 import { DraggableProduct } from './DraggableProduct';
@@ -140,7 +133,6 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
         ]}
       />
       {!isGuest && (
-<<<<<<< HEAD
         <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -187,31 +179,6 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
         </div>
       )}
       <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] print:border-none print:h-auto print:block">
-=======
-        <TabPageHeader
-          className="mb-6 md:mb-8"
-          icon={CalendarIcon}
-          title="Content Calendar"
-          subtitle="Plan and schedule your social media content."
-          actions={
-            isAdmin && onCalendarModeChange ? (
-              <TabHeaderSegments
-                options={[
-                  { id: 'work', label: 'Work' },
-                  { id: 'personal', label: 'Personal' },
-                ]}
-                value={calendarMode}
-                onChange={(id) => onCalendarModeChange(id)}
-              />
-            ) : undefined
-          }
-        />
-      )}
-      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[12px] md:rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:border-none print:h-auto print:block">
-<<<<<<< HEAD
->>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
-=======
->>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
         <div className="flex-1 flex flex-col min-w-0">
         {/* Header & View Switcher */}
         <div className="flex items-center justify-between p-1 md:p-1.5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] shrink-0 print:border-none print:p-0 print:mb-4">

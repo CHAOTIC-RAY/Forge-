@@ -572,17 +572,10 @@ export default function App() {
   }, [activeBusiness, user, businesses]);
 
 
-<<<<<<< HEAD
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
-  const [creativeView, setCreativeView] = useState<'modules' | 'sandbox'>('modules');
-=======
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'widgets' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
+  const [creativeView, setCreativeView] = useState<'modules' | 'sandbox'>('modules');
   const isIdeasTabActive = activeTab === 'ideas' || activeTab === 'notebook';
   const isWidgetsTabActive = activeTab === 'widgets' || activeTab === 'creative';
-<<<<<<< HEAD
->>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
-=======
->>>>>>> parent of fe70613 (Align all tab headers with Ideas tab layout and sizing)
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
