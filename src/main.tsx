@@ -7,8 +7,10 @@ import { ForgeLoader } from './components/ForgeLoader';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
-// Register service worker
-registerSW();
+// Register service worker (Production only to avoid dev 429s)
+if (import.meta.env.PROD) {
+  registerSW();
+}
 
 // Global Image Error Handler (CORS fallback mechanism)
 window.addEventListener('error', (e) => {

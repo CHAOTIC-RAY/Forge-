@@ -59,7 +59,25 @@ export default defineConfig(({mode}) => {
       },
     },
     optimizeDeps: {
-      include: ['tegaki/react', 'tegaki/fonts/caveat'],
+      include: [
+        'tegaki/react', 
+        'tegaki/fonts/caveat',
+        'lucide-react',
+        'sonner',
+        'axios',
+        'xlsx',
+        'exceljs',
+        'firebase/app',
+        'firebase/auth',
+        'firebase/firestore',
+        'firebase/storage',
+        'react-firebase-hooks/auth',
+        'react-firebase-hooks/firestore',
+        'motion/react',
+        'date-fns',
+        'uuid',
+        'canvas-confetti'
+      ],
     },
     build: {
       rollupOptions: {
