@@ -5,7 +5,6 @@ import { db } from '../lib/firebase';
 import { toast } from 'sonner';
 import { Users, Shield, UserPlus, Check, XCircle, Clock, Trash2, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { TabPageHeader } from './ui/TabPageHeader';
 
 interface AccessRequest {
   id: string;

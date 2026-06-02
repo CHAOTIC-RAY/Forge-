@@ -18,7 +18,7 @@ export type DbMode = 'product' | 'info';
 export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: HighStockProduct[]) => void, activeBusiness?: Business | null }) {
   const [userId, setUserId] = useState<string | null>(null);
   const businessId = activeBusiness?.id;
-
+  
   // Mode detection
   const initialMode = useMemo(() => {
     if (!activeBusiness?.industry) return 'product';
@@ -39,7 +39,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const [isCheckingCounts, setIsCheckingCounts] = useState(false);
   const [categoryCounts, setCategoryCounts] = useState<CategoryCount[]>([]);
   const [hasCheckedCounts, setHasCheckedCounts] = useState(false);
-
+  
   const [products, setProducts] = useState<HighStockProduct[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [liveProducts, setLiveProducts] = useState<HighStockProduct[]>([]);
@@ -159,7 +159,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-
+    
     // Send notification for activity logs
     if ('Notification' in window && Notification.permission === 'granted') {
       // Only notify if it's a significant event or if the user is in overnight mode
@@ -216,7 +216,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       snapshot.forEach((doc) => {
         cloudProducts.push(doc.data() as HighStockProduct);
       });
-
+      
       if (cloudProducts.length > 0) {
         setProducts(cloudProducts);
         setHasSearched(true);
@@ -238,7 +238,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       snapshot.forEach((doc) => {
         cloudCounts.push(doc.data() as CategoryCount);
       });
-
+      
       if (cloudCounts.length > 0) {
         setCategoryCounts(cloudCounts);
         setHasCheckedCounts(true);
@@ -316,7 +316,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     if (!userId || !businessId) {
       const savedProducts = localStorage.getItem(`rainbowStockCheck_${businessId || 'default'}`);
       const savedCounts = localStorage.getItem(`rainbowCategoryCounts_${businessId || 'default'}`);
-
+      
       if (savedProducts) {
         try {
           const parsed = JSON.parse(savedProducts);
@@ -330,7 +330,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
           console.error("Failed to parse saved stock check", e);
         }
       }
-
+      
       if (savedCounts) {
         try {
           const parsed = JSON.parse(savedCounts);
@@ -357,7 +357,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       }
     }
   }, [products, hasSearched, userId, businessId]);
-
+  
   useEffect(() => {
     if (hasCheckedCounts && (!userId || !businessId)) {
       try {
@@ -389,9 +389,9 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlToMap, limit: 5000, apiKey: aiSettings.firecrawlApiKey })
       });
-
+      
       const mapData = await mapRes.json();
-
+      
       if (!mapRes.ok) {
         const errMsg = mapData.error || mapData.details || "Unknown mapping error";
         addLog(`⚠️ Map error: ${errMsg}`);
@@ -468,7 +468,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     }
 
     setIsCrawling(true);
-
+    
     // Check if we need to map first (if categoryCounts is empty or we force it)
     if (categoryCounts.length === 0 && siteMap.length === 0) {
       addLog(`🗺️ Starting map for ${manualUrl}...`);
@@ -476,14 +476,14 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     }
 
     addLog(`🚀 Starting crawl for ${manualUrl}...`);
-
+    
     try {
       const res = await fetch('/api/crawl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: manualUrl, limit: 50, apiKey: aiSettings.firecrawlApiKey })
       });
-
+      
       const data = await res.json();
       if (data.success && data.id) {
         setCrawlJobId(data.id);
@@ -500,15 +500,15 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
   const pollCrawlStatus = async (jobId: string) => {
     if (crawlIntervalRef.current) clearInterval(crawlIntervalRef.current);
-
+    
     let processedCount = 0;
-
+    
     crawlIntervalRef.current = setInterval(async () => {
       try {
         const apiKeyParam = aiSettings.firecrawlApiKey ? `?apiKey=${encodeURIComponent(aiSettings.firecrawlApiKey)}` : '';
         const res = await fetch(`/api/crawl/${jobId}${apiKeyParam}`);
         const data = await res.json();
-
+        
         if (data.data && data.data.length > processedCount + 20) {
           const newPages = data.data.slice(processedCount, processedCount + 20);
           addLog(`📦 Batch ready: Processing ${newPages.length} new pages...`);
@@ -519,7 +519,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         if (data.status === 'completed' || data.status === 'failed') {
           if (crawlIntervalRef.current) clearInterval(crawlIntervalRef.current);
           crawlIntervalRef.current = null;
-
+          
           if (data.status === 'completed') {
             const remainingPages = data.data?.slice(processedCount) || [];
             if (remainingPages.length > 0) {
@@ -531,7 +531,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
           } else {
             addLog(`❌ Crawl job failed: ${data.error || "Unknown error"}`);
           }
-
+          
           setIsCrawling(false);
           setCrawlJobId(null);
         } else {
@@ -560,14 +560,14 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       const page = pages[i];
       setCrawlProgress({ current: i + 1, total: pages.length });
       addLog(`🤖 Extracting products from: ${page.metadata?.title || page.url}...`);
-
+      
       if (page.markdown) {
         addLog(`📄 Markdown length: ${page.markdown.length} characters.`);
         try {
-          const extracted = dbMode === 'product'
+          const extracted = dbMode === 'product' 
             ? await extractProductsFromMarkdown(page.markdown)
             : await extractInfoFromMarkdown(page.markdown);
-
+            
           if (extracted.length > 0) {
             const productsWithOutlet = extracted.map(p => ({
               ...p,
@@ -608,17 +608,17 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
   const handleStopCrawl = async () => {
     if (!crawlJobId) return;
-
+    
     addLog(`🛑 Stopping crawl and processing results found so far...`);
     if (crawlIntervalRef.current) clearInterval(crawlIntervalRef.current);
     crawlIntervalRef.current = null;
-
+    
     try {
       // Fetch current state of the crawl
       const apiKeyParam = aiSettings.firecrawlApiKey ? `?apiKey=${encodeURIComponent(aiSettings.firecrawlApiKey)}` : '';
       const res = await fetch(`/api/crawl/${crawlJobId}${apiKeyParam}`);
       const data = await res.json();
-
+      
       // We don't have processedCount here easily unless we store it in a ref
       // But syncProductsToFirestore handles duplicates by title, so it's safe to process all
       if (data.data && data.data.length > 0) {
@@ -642,34 +642,34 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     setLogs([]);
     setLiveProducts([]);
     addLog(`🚀 Starting single scan for category: "${category}"`);
-
+    
     const startTime = Date.now();
 
     try {
       const existingTitles = products.filter(p => p.type === category || category === 'All Products').map(p => p.title);
       addLog(`🔍 Fetching batch... (Current database: ${existingTitles.length} products)`);
-
+      
       const result = await findProductsByCategory(category, existingTitles, (newProducts) => {
         setLiveProducts(newProducts);
       }, activeBusiness?.targetUrl);
       const { products: newProducts, meta } = result;
       const batchDuration = ((Date.now() - startTime) / 1000).toFixed(1);
-
+      
       if (meta.logs && meta.logs.length > 0) {
         meta.logs.forEach(log => addLog(log));
       }
-
+      
       if (newProducts.length > 0) {
         const existingIds = new Set(products.map(p => p.title));
         const uniqueNew = newProducts.filter(p => !existingIds.has(p.title));
-
+        
         addLog(`📊 Batch Results [${batchDuration}s]: Found ${meta.aiCount} via AI, ${meta.scrapedCount} via Scraper.`);
-
+        
         if (uniqueNew.length > 0) {
           setProducts(prev => [...prev, ...uniqueNew]);
           syncProductsToFirestore(uniqueNew);
           setHasSearched(true);
-
+          
           const sampleNames = uniqueNew.slice(0, 3).map(p => p.title).join(', ');
           addLog(`✅ Added ${uniqueNew.length} new unique products. (e.g., ${sampleNames}${uniqueNew.length > 3 ? '...' : ''})`);
         } else {
@@ -708,7 +708,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       if (!p) return false;
       const matchCategory = filterCategory === 'All' || p.type === filterCategory;
       const matchOutlet = filterOutlet === 'All' || (p.outlet || 'Forge Enterprises') === filterOutlet;
-      const matchSearch = searchQuery === '' ||
+      const matchSearch = searchQuery === '' || 
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (p.stockInfo && p.stockInfo.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -763,20 +763,20 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   // Helper to sync products to Firestore in batches
   const syncProductsToFirestore = async (items: HighStockProduct[], counts?: CategoryCount[]) => {
     if (!userId || !businessId || items.length === 0) return;
-
+    
     try {
       const CHUNK_SIZE = 100; // Smaller chunk size for more reliability
       for (let i = 0; i < items.length; i += CHUNK_SIZE) {
         const batch = writeBatch(db);
         const chunk = items.slice(i, i + CHUNK_SIZE);
-
+        
         chunk.forEach((p) => {
           const title = p.title || 'Untitled';
           const docId = title.replace(/[^a-zA-Z0-9]/g, '_');
           const docRef = doc(db, 'inventory_products', `${businessId}_${docId}`);
           batch.set(docRef, { ...p, title, userId, businessId, updatedAt: new Date().toISOString() });
         });
-
+        
         await batch.commit();
         // Delay to avoid rate limiting and exhaustion
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -801,13 +801,13 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     if (!files || files.length === 0) return;
 
     let allPages: any[] = [];
-
+    
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
         const text = await file.text();
         const parsed = JSON.parse(text);
-
+        
         // Normalize Firecrawl JSON structure
         let pages = [];
         if (Array.isArray(parsed)) {
@@ -817,7 +817,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         } else if (parsed.markdown) {
           pages = [parsed];
         }
-
+        
         allPages = [...allPages, ...pages];
       } catch (error) {
         console.error(`Failed to parse ${file.name}:`, error);
@@ -831,7 +831,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     } else {
       toast.error("No valid crawl data found in the uploaded files.");
     }
-
+    
     // Reset file input
     if (e.target) e.target.value = '';
   };
@@ -844,7 +844,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
     setIsGeneratingOverview(true);
     addLog("🧠 AI is analyzing brand insights and generating identity overview...");
-
+    
     try {
       const insightsText = products
         .filter(p => p.stockInfo)
@@ -865,7 +865,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         model: "gemini-2.5-flash",
         contents: prompt
       });
-
+      
       const overview = result.text;
       if (overview) {
         setBrandOverview(overview);
@@ -896,7 +896,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         // Try direct parse first
         const cleanedPaste = consolePaste.trim();
         data = JSON.parse(cleanedPaste);
-
+        
         // If it's a string, it might be double-stringified (common in browser console output)
         if (typeof data === 'string') {
           try {
@@ -947,7 +947,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
             }
           }
         });
-
+        
         if (response.text) {
           data = JSON.parse(response.text);
         } else {
@@ -966,7 +966,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       const ai = getAi();
       const categorizationResponse = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: dbMode === 'product'
+        contents: dbMode === 'product' 
           ? `Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
           
           Products:
@@ -1032,34 +1032,34 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
 
     setIsAutoCategorizing(true);
     addLog(`🧠 AI: Auto-categorizing ${uncategorized.length} products using Brand Kit categories...`);
-
+    
     try {
       const ai = getAi();
       // Process in batches of 20 to avoid prompt limits
       const batchSize = 20;
       const updatedProducts = [...products];
-      const categoryList = brandKitCategories.length > 0
-        ? brandKitCategories.join(', ')
+      const categoryList = brandKitCategories.length > 0 
+        ? brandKitCategories.join(', ') 
         : 'Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware';
 
       for (let i = 0; i < uncategorized.length; i += batchSize) {
         const batch = uncategorized.slice(i, i + batchSize);
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: dbMode === 'product'
-            ? `Categorize the following products into one of these categories: ${categoryList}.
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: dbMode === 'product'
+          ? `Categorize the following products into one of these categories: ${categoryList}.
           
           Products:
           ${batch.map(p => p.title).join(', ')}
           
           Return a JSON object where keys are product names and values are the categories.`
-            : `Categorize the following information pieces into one of these categories: ${categoryList}.
+          : `Categorize the following information pieces into one of these categories: ${categoryList}.
           
           Items:
           ${batch.map(p => p.title).join(', ')}
           
           Return a JSON object where keys are item names and values are the categories.`,
-          config: {
+        config: {
             responseMimeType: "application/json",
             responseSchema: {
               type: Type.OBJECT,
@@ -1069,7 +1069,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         });
 
         const categoriesMap = JSON.parse(response.text || "{}");
-
+        
         batch.forEach(p => {
           const index = updatedProducts.findIndex(up => up.title === p.title);
           if (index !== -1 && categoriesMap[p.title]) {
@@ -1104,21 +1104,21 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                 {dbMode === 'product' ? 'Product DB' : 'Info DB'}
               </h2>
               <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
-                {dbMode === 'product'
-                  ? 'Manage and analyze your inventory data.'
+                {dbMode === 'product' 
+                  ? 'Manage and analyze your inventory data.' 
                   : 'Manage and analyze your knowledge base and insights.'}
               </p>
             </div>
           </div>
-
+          
           {/* Mode Toggle */}
           <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] p-1 rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
             <button
               onClick={() => setDbMode('product')}
               className={cn(
                 "px-4 py-1.5 rounded-[8px] text-xs font-medium transition-all",
-                dbMode === 'product'
-                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] "
+                dbMode === 'product' 
+                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] " 
                   : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
               )}
             >
@@ -1128,8 +1128,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               onClick={() => setDbMode('info')}
               className={cn(
                 "px-4 py-1.5 rounded-[8px] text-xs font-medium transition-all",
-                dbMode === 'info'
-                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] "
+                dbMode === 'info' 
+                  ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] " 
                   : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
               )}
             >
@@ -1139,6 +1139,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
         </div>
       </div>
 
+      {/* Scroll to Top Button */}
       {showScrollTop && (
         <button
           onClick={scrollToTop}
@@ -1183,10 +1184,11 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
             </button>
             <button
               onClick={() => setIsManualMode(!isManualMode)}
-              className={`flex-1 md:flex-none px-4 py-2.5 rounded-[12px] text-sm font-bold transition-all  ${isManualMode
+              className={`flex-1 md:flex-none px-4 py-2.5 rounded-[12px] text-sm font-bold transition-all  ${
+                isManualMode
                   ? 'bg-[#2383E2] text-white'
                   : 'bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]'
-                }`}
+              }`}
             >
               {isManualMode ? 'Back to Auto-Scrape' : 'Manual Scrape Mode'}
             </button>
@@ -1200,19 +1202,19 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               {selectedProducts.length} products selected
             </span>
             <div className="flex gap-2">
-              <button
+              <button 
                 onClick={handleSelectAll}
                 className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] rounded-[6px]"
               >
                 {selectedProducts.length === filteredProducts.length ? 'Deselect All' : 'Select All Filtered'}
               </button>
-              <button
+              <button 
                 onClick={() => setSelectedProducts([])}
                 className="px-3 py-1.5 text-xs bg-[#EFEFED] dark:bg-[#2E2E2E] text-[#757681] dark:text-[#9B9A97] rounded-[6px]"
               >
                 Clear Selection
               </button>
-              <button
+              <button 
                 onClick={() => onAddPost(selectedProducts)}
                 className="px-3 py-1.5 text-xs bg-[#2383E2] text-white rounded-[6px]"
               >
@@ -1232,7 +1234,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                 </h3>
                 <div className="flex items-center gap-2">
                   {isCrawling ? (
-                    <button
+                    <button 
                       onClick={handleStopCrawl}
                       className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-[8px] text-[10px] font-bold hover:bg-red-100 dark:hover:bg-red-900/20 transition-all"
                     >
@@ -1240,7 +1242,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                       Stop Crawl
                     </button>
                   ) : (
-                    <button
+                    <button 
                       onClick={handleStartCrawl}
                       disabled={isCrawling}
                       className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 rounded-[8px] text-[10px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all disabled:opacity-50"
@@ -1249,7 +1251,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                       Crawl Website
                     </button>
                   )}
-                  <button
+                  <button 
                     onClick={async () => {
                       setIsCheckingCounts(true);
                       try {
@@ -1261,32 +1263,32 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                         toast.error("Failed to refresh all categories.");
                       } finally {
                         setIsCheckingCounts(false);
-                      }
-                    }}
-                    disabled={isCheckingCounts}
-                    className="text-[10px] font-bold text-[#2383E2] hover:underline disabled:opacity-50"
-                  >
-                  </button>
-                  <button
-                    onClick={() => handleCheckCounts(true)}
-                    disabled={isCheckingCounts}
-                    title="Force Re-Map Site"
-                    className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
-                  {siteMap.length > 0 && (
-                    <button
-                      onClick={() => setIsSiteMapOpen(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-[8px] text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-all"
+                  }
+                }}
+                disabled={isCheckingCounts}
+                className="text-[10px] font-bold text-[#2383E2] hover:underline disabled:opacity-50"
+              >
+              </button>
+                    <button 
+                      onClick={() => handleCheckCounts(true)}
+                      disabled={isCheckingCounts}
+                      title="Force Re-Map Site"
+                      className="p-2 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded-[8px] text-[#757681] dark:text-[#9B9A97] transition-colors disabled:opacity-50"
                     >
-                      <Globe className="w-3 h-3" />
-                      View Map
+                      <RefreshCw className="w-4 h-4" />
                     </button>
-                  )}
+                    {siteMap.length > 0 && (
+                      <button 
+                        onClick={() => setIsSiteMapOpen(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-[8px] text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-all"
+                      >
+                        <Globe className="w-3 h-3" />
+                        View Map
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-
+              
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-[12px] border border-blue-100 dark:border-blue-900/30">
                   <div className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
@@ -1312,7 +1314,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">{cat.count} items</span>
-                        <button
+                        <button 
                           onClick={() => handleFetchCategory(cat.category)}
                           disabled={fetchingCategory === cat.category}
                           className="px-3 py-1 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-[10px] font-bold rounded-[6px] transition-colors disabled:opacity-50"
@@ -1329,11 +1331,11 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                     <Filter className="w-6 h-6 text-[#757681] dark:text-[#9B9A97]" />
                   </div>
                   <p className="text-sm text-[#757681] dark:text-[#9B9A97] mb-4">
-                    {dbMode === 'product'
-                      ? 'Check inventory counts to see what\'s available.'
+                    {dbMode === 'product' 
+                      ? 'Check inventory counts to see what\'s available.' 
                       : 'Check knowledge counts to see what\'s available.'}
                   </p>
-                  <button
+                  <button 
                     onClick={() => handleCheckCounts()}
                     className="px-4 py-2 bg-[#2383E2] hover:bg-[#2383E2]/90 text-white text-sm font-bold rounded-[12px] transition-all  "
                   >
@@ -1350,7 +1352,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                   <div className="flex items-center gap-1.5 px-2 py-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                     <Moon className="w-3 h-3 text-[#757681]" />
                     <span className="text-[10px] font-bold text-[#757681]">Overnight</span>
-                    <button
+                    <button 
                       onClick={() => setIsOvernightMode(!isOvernightMode)}
                       className={cn(
                         "w-6 h-3.5 rounded-full relative transition-colors",
@@ -1363,7 +1365,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
                       )} />
                     </button>
                   </div>
-                  <button
+                  <button 
                     onClick={() => setLogs([])}
                     className="p-1 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] rounded text-[#757681] dark:text-[#9B9A97]"
                   >
@@ -1424,9 +1426,9 @@ JSON.stringify(products);` : `const items = [...document.querySelectorAll('artic
 JSON.stringify(items);`}
                       </code>
                     </div>
-                    <button
+                    <button 
                       onClick={() => {
-                        const snippet = dbMode === 'product'
+                        const snippet = dbMode === 'product' 
                           ? "const products = [...document.querySelectorAll('.product')].map(item => ({ name: item.querySelector('.woocommerce-loop-product__title')?.innerText, price: item.querySelector('.price')?.innerText, link: item.querySelector('a')?.href, image: item.querySelector('img')?.src })); JSON.stringify(products);"
                           : "const items = [...document.querySelectorAll('article, .post, .item, .card')].map(item => ({ title: item.querySelector('h1, h2, h3')?.innerText, content: item.innerText, link: item.querySelector('a')?.href })); JSON.stringify(items);";
                         navigator.clipboard.writeText(snippet);
@@ -1447,28 +1449,28 @@ JSON.stringify(items);`}
                       <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">AI will auto-detect categories for these {dbMode === 'product' ? 'products' : 'items'}.</p>
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <textarea
-                      value={consolePaste}
-                      onChange={(e) => setConsolePaste(e.target.value)}
-                      placeholder={dbMode === 'product' ? 'Paste the JSON array here (e.g., [{"name": "Product Name", ...}])' : 'Paste the JSON array here (e.g., [{"title": "Item Title", ...}])'}
-                      className="flex-1 h-24 px-4 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none "
-                    />
-                    <button
-                      onClick={handleConsolePaste}
-                      disabled={isProcessingPaste || !consolePaste.trim()}
-                      className="w-full sm:w-auto px-6 py-4 sm:py-2 bg-[#2383E2] hover:bg-blue-600 text-white text-sm font-bold rounded-[12px] transition-all disabled:opacity-50 flex flex-row sm:flex-col items-center justify-center gap-2 min-w-[120px]  "
-                    >
-                      {isProcessingPaste ? (
-                        <ForgeLoader size={20} />
-                      ) : (
-                        <>
-                          <Upload className="w-5 h-5" />
-                          <span>Import Data</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <textarea
+                    value={consolePaste}
+                    onChange={(e) => setConsolePaste(e.target.value)}
+                    placeholder={dbMode === 'product' ? 'Paste the JSON array here (e.g., [{"name": "Product Name", ...}])' : 'Paste the JSON array here (e.g., [{"title": "Item Title", ...}])'}
+                    className="flex-1 h-24 px-4 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none "
+                  />
+                  <button
+                    onClick={handleConsolePaste}
+                    disabled={isProcessingPaste || !consolePaste.trim()}
+                    className="w-full sm:w-auto px-6 py-4 sm:py-2 bg-[#2383E2] hover:bg-blue-600 text-white text-sm font-bold rounded-[12px] transition-all disabled:opacity-50 flex flex-row sm:flex-col items-center justify-center gap-2 min-w-[120px]  "
+                  >
+                    {isProcessingPaste ? (
+                      <ForgeLoader size={20} />
+                    ) : (
+                      <>
+                        <Upload className="w-5 h-5" />
+                        <span>Import Data</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 </div>
               </div>
 
@@ -1520,7 +1522,7 @@ JSON.stringify(items);`}
                     <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] tracking-wider uppercase">Forge AI Insights Engine</p>
                   </div>
                 </div>
-                <button
+                <button 
                   onClick={handleGenerateBrandOverview}
                   disabled={isGeneratingOverview || products.length === 0}
                   className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[16px] text-sm font-bold shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50"
@@ -1550,7 +1552,7 @@ JSON.stringify(items);`}
             </div>
           </div>
         )}
-
+        
         {/* Products List Section */}
         {hasSearched && (
           <div className="mt-6">
@@ -1586,8 +1588,8 @@ JSON.stringify(items);`}
                 </div>
               </div>
             </div>
-
-            <div
+            
+            <div 
               ref={listRef}
               style={{
                 height: `${virtualizer.getTotalSize()}px`,
@@ -1598,7 +1600,7 @@ JSON.stringify(items);`}
               {virtualizer.getVirtualItems().map((virtualRow) => {
                 const startIndex = virtualRow.index * columns;
                 const rowProducts = filteredProducts.slice(startIndex, startIndex + columns);
-
+                
                 return (
                   <div
                     key={virtualRow.index}
@@ -1616,9 +1618,9 @@ JSON.stringify(items);`}
                       const isSelected = selectedProducts.find(p => p.title === product.title);
                       return (
                         <div key={idx} className="relative group h-full">
-                          <DraggableProduct
-                            product={product}
-                            onClick={() => toggleProductSelection(product)}
+                          <DraggableProduct 
+                            product={product} 
+                            onClick={() => toggleProductSelection(product)} 
                             isSelected={!!isSelected}
                             viewMode="grid"
                             dbMode={dbMode}
@@ -1656,7 +1658,7 @@ JSON.stringify(items);`}
                   <X className="w-5 h-5 text-[#757681]" />
                 </button>
               </div>
-
+              
               <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {siteMap.map((link, i) => (
@@ -1668,9 +1670,9 @@ JSON.stringify(items);`}
                         </div>
                         <span className="text-sm text-[#37352F] dark:text-[#EBE9ED] truncate pr-4 font-mono">{link.url}</span>
                       </div>
-                      <a
-                        href={link.url}
-                        target="_blank"
+                      <a 
+                        href={link.url} 
+                        target="_blank" 
                         rel="noopener noreferrer"
                         className="p-2 text-[#757681] hover:text-emerald-500 transition-colors opacity-0 group-hover:opacity-100"
                       >
@@ -1683,7 +1685,7 @@ JSON.stringify(items);`}
 
               <div className="p-6 bg-[#F7F7F5] dark:bg-[#202020] border-t border-[#E9E9E7] dark:border-[#2E2E2E] flex justify-between items-center">
                 <p className="text-xs text-[#757681]">These links were mapped using the initial crawl of {activeBusiness?.targetUrl}.</p>
-                <button
+                <button 
                   onClick={() => setIsSiteMapOpen(false)}
                   className="px-6 py-2 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-[12px] font-bold hover:opacity-90 transition-opacity"
                 >

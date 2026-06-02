@@ -14,6 +14,7 @@
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
+    "@crawlee/cheerio": "^3.16.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
@@ -35,12 +36,14 @@
     "cloudinary": "^2.9.0",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
+    "crawlee": "^3.16.0",
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^11.10.0",
     "glob": "^13.0.6",
+    "harfbuzzjs": "^0.10.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",

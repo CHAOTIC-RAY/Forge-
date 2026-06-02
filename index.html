@@ -12,6 +12,7 @@
   <body class="bg-gray-950 text-gray-100">
     <script>
       // Force unregister service workers to clear potential COEP/COOP blockage from PWA
+      // This helps resolve "MIME type text/html" issues caused by stale service workers intercepting script requests
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
           for(let registration of registrations) {

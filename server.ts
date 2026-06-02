@@ -167,6 +167,54 @@ export async function startServer(forcePort?: number) {
   });
   // ----------------------------------
 
+  // HuggingFace proxy for WebLLM model weights (browser CORS)
+  app.use('/api/hf-proxy', async (req, res) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      return res.status(405).send('Method not allowed');
+    }
+    const hfSubPath = req.path.replace(/^\//, '');
+    if (!hfSubPath?.startsWith('mlc-ai/')) {
+      return res.status(403).json({ error: 'Only mlc-ai HuggingFace repos are allowed' });
+    }
+
+    try {
+      const targetUrl = `https://huggingface.co/${hfSubPath}`;
+      const response = await axios.get(targetUrl, {
+        responseType: 'stream',
+        timeout: 120000,
+        headers: {
+          'User-Agent': 'Forge-WebLLM-Proxy/1.0',
+          ...(req.headers.range ? { Range: req.headers.range as string } : {}),
+        },
+        validateStatus: (status) => status < 500,
+      });
+
+      if (response.status >= 400) {
+        return res.status(response.status).send(response.statusText);
+      }
+
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      if (response.headers['content-type']) {
+        res.setHeader('Content-Type', response.headers['content-type']);
+      }
+      if (response.headers['content-length']) {
+        res.setHeader('Content-Length', response.headers['content-length']);
+      }
+      if (response.headers['content-range']) {
+        res.setHeader('Content-Range', response.headers['content-range']);
+      }
+      if (response.headers['accept-ranges']) {
+        res.setHeader('Accept-Ranges', response.headers['accept-ranges']);
+      }
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      response.data.pipe(res);
+    } catch (error: any) {
+      console.error('[HF Proxy] failed:', error.message);
+      res.status(502).json({ error: 'HuggingFace proxy failed', details: error.message });
+    }
+  });
+
   // Proxy image endpoint to bypass CORS
   app.get("/api/proxy-image", async (req, res) => {
     const { url } = req.query;
@@ -200,6 +248,7 @@ export async function startServer(forcePort?: number) {
       const contentType = response.headers["content-type"] || "image/png";
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.send(response.data);
     } catch (error: any) {
       console.error("Proxy image failed:", error.message);
@@ -246,7 +295,7 @@ export async function startServer(forcePort?: number) {
   });
 
   app.post("/api/crawl", async (req, res) => {
-    const { url, limit = 10, apiKey } = req.body;
+    const { url, limit = 10, apiKey, includePaths, excludePaths, scrapeOptions: clientScrapeOptions } = req.body;
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
@@ -258,21 +307,29 @@ export async function startServer(forcePort?: number) {
     }
 
     try {
+      const crawlBody: Record<string, unknown> = {
+        url: url,
+        sitemap: "include",
+        crawlEntireDomain: false,
+        limit: limit,
+        scrapeOptions: {
+          onlyMainContent: clientScrapeOptions?.onlyMainContent ?? true,
+          maxAge: 172800000,
+          waitFor: clientScrapeOptions?.waitFor ?? 5000,
+          parsers: ["pdf"],
+          formats: ["markdown"],
+        },
+      };
+      if (Array.isArray(includePaths) && includePaths.length > 0) {
+        crawlBody.includePaths = includePaths;
+      }
+      if (Array.isArray(excludePaths) && excludePaths.length > 0) {
+        crawlBody.excludePaths = excludePaths;
+      }
+
       const response = await axios.post(
         "https://api.firecrawl.dev/v2/crawl",
-        {
-          url: url,
-          sitemap: "include",
-          crawlEntireDomain: false,
-          limit: limit,
-          scrapeOptions: {
-            onlyMainContent: true,
-            maxAge: 172800000,
-            waitFor: 5000, // Wait for dynamic content
-            parsers: ["pdf"],
-            formats: ["markdown"]
-          }
-        },
+        crawlBody,
         {
           headers: {
             Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
@@ -317,41 +374,89 @@ export async function startServer(forcePort?: number) {
   });
 
   app.post("/api/firecrawl-scrape", async (req, res) => {
-    const { url, apiKey } = req.body;
+    const { url, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
 
-    const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
-    const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
-    if (!FIRECRAWL_API_KEY) {
-      return res.status(500).json({ error: "Firecrawl API key is not configured" });
-    }
-
     try {
-      const response = await axios.post(
-        "https://api.firecrawl.dev/v2/scrape",
-        {
-          url: url,
-          formats: ["markdown"],
-          waitFor: 5000
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      res.json(response.data);
+      const { scrapeWithProviders } = await import("./server/scrapers/unifiedScrape.js");
+      const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+      if (result.markdown) {
+        return res.json({
+          success: true,
+          data: { markdown: result.markdown, metadata: result.metadata },
+          provider: result.provider,
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        error: result.error || "Scrape failed",
+        provider: result.provider,
+      });
     } catch (error: any) {
-      console.error("Firecrawl scrape failed:", error.response?.data || error.message);
-      res.status(500).json({ 
-        error: "Firecrawl scrape failed", 
-        details: error.response?.data || error.message,
-        success: false
+      console.error("Unified scrape failed:", error.message);
+      res.status(500).json({
+        error: "Scrape failed",
+        details: error.message,
+        success: false,
       });
     }
+  });
+
+  app.post("/api/catalogue-scrape", async (req, res) => {
+    const { url, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: "URL is required" });
+    }
+    const { scrapeWithProviders } = await import("./server/scrapers/unifiedScrape.js");
+    const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+    if (result.markdown) {
+      return res.json({
+        success: true,
+        data: { markdown: result.markdown, metadata: result.metadata },
+        provider: result.provider,
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: result.error || "Scrape failed",
+      provider: result.provider,
+    });
+  });
+
+  app.post("/api/firecrawl-scrape-batch", async (req, res) => {
+    const { urls, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
+    if (!Array.isArray(urls) || urls.length === 0) {
+      return res.status(400).json({ error: "urls array is required" });
+    }
+
+    const { scrapeWithProviders } = await import("./server/scrapers/unifiedScrape.js");
+    const results: Array<{
+      url: string;
+      markdown?: string;
+      metadata?: unknown;
+      provider?: string;
+      error?: string;
+    }> = [];
+    const batch = urls.slice(0, 40);
+
+    for (const url of batch) {
+      const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+      if (result.markdown) {
+        results.push({
+          url,
+          markdown: result.markdown,
+          metadata: result.metadata,
+          provider: result.provider,
+        });
+      } else {
+        results.push({ url, error: result.error || "Scrape failed", provider: result.provider });
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+
+    res.json({ success: true, results });
   });
 
 
@@ -755,14 +860,35 @@ app.post("/api/media/delete", async (req, res) => {
     app.use(vite.middlewares);
   } else {
     // Robust pathing for both dev and production
-    const isPackaged = process.argv[1] && process.argv[1].endsWith('server.js');
+    const isPackaged = process.argv[1] && (process.argv[1].endsWith('server.js') || process.argv[1].endsWith('server.cjs'));
     const distPath = isPackaged 
       ? path.dirname(fileURLToPath(import.meta.url)) 
       : path.join(process.cwd(), "dist");
-      
-    app.use(express.static(distPath));
+    
+    console.log(`[Server] Production mode: Serving from ${distPath}`);
+    
+    app.use(express.static(distPath, {
+      setHeaders: (res, path) => {
+        if (path.endsWith('.js') || path.endsWith('.mjs')) {
+          res.setHeader('Content-Type', 'application/javascript');
+        }
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      }
+    }));
+
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      // Ignore asset 404s to avoid serving index.html (which causes syntax errors in manifest/css/js requests)
+      if (req.path.includes('.') && !req.path.endsWith('.html')) {
+        return res.status(404).send('Not Found');
+      }
+
+      const indexPath = path.join(distPath, "index.html");
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error(`[Server] Failed to send index.html from ${indexPath}:`, err);
+          res.status(500).send("Application not built. Please run 'npm run build' first.");
+        }
+      });
     });
   }
 

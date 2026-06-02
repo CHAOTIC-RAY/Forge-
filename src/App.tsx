@@ -74,7 +74,7 @@ function LazyModal({ isOpen, children }: { isOpen: boolean, children: () => Reac
   React.useEffect(() => {
     if (isOpen) setHasRendered(true);
   }, [isOpen]);
-
+  
   if (!hasRendered) return null;
   return <React.Suspense fallback={null}>{children()}</React.Suspense>;
 }
@@ -84,7 +84,7 @@ function LazyTab({ active, children, className }: { active: boolean, children: (
   React.useEffect(() => {
     if (active) setHasRendered(true);
   }, [active]);
-
+  
   if (!hasRendered) return null;
   return (
     <div className={className || `flex-1 ${active ? 'block' : 'hidden'}`}>
@@ -197,11 +197,11 @@ export default function App() {
         try {
           const q = query(collection(db, 'short_links'), where('shortCode', '==', shortCode), limit(1));
           const snapshot = await getDocs(q);
-
+          
           if (!snapshot.empty) {
             const data = snapshot.docs[0].data();
             console.log("[App] Short link found. Original URL:", data.originalUrl);
-
+            
             if (data.originalUrl) {
               // Increment click count (fire and forget)
               updateDoc(doc(db, 'short_links', snapshot.docs[0].id), {
@@ -235,7 +235,7 @@ export default function App() {
           toast.error("Failed to resolve short link");
         }
       };
-
+      
       resolveShortCode();
     }
   }, [shortCode, navigate]);
@@ -247,7 +247,7 @@ export default function App() {
   useEffect(() => {
     // Explicitly log auth state changes for debugging
     console.log("[Auth] Current state:", { user: !!user, loading, authError });
-
+    
     // Check for redirect results on mount to clear any pending redirect states
     getRedirectResult(auth).then((result) => {
       if (result?.user) {
@@ -440,12 +440,12 @@ export default function App() {
 
   const posts = useAppStore(state => state.posts);
   const setPosts = useAppStore(state => state.setPosts);
-
+  
   // --- HYBRID INTELLIGENCE: Data Sync (Phase 4) ---
   useEffect(() => {
     if (activeBusiness) {
       import('./lib/rag').then(({ syncDatabase }) => {
-        syncDatabase(activeBusiness, products, posts, brandKit);
+         syncDatabase(activeBusiness, products, posts, brandKit);
       });
     }
   }, [activeBusiness, products, posts, brandKit]);
@@ -572,10 +572,8 @@ export default function App() {
   }, [activeBusiness, user, businesses]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'widgets' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'calendar' | 'search' | 'brandkit' | 'more' | 'chat' | 'creative' | 'analytics' | 'ideas' | 'notebook' | 'workspace_management' | 'aistudio'>('home');
   const [creativeView, setCreativeView] = useState<'modules' | 'sandbox'>('modules');
-  const isIdeasTabActive = activeTab === 'ideas' || activeTab === 'notebook';
-  const isWidgetsTabActive = activeTab === 'widgets' || activeTab === 'creative';
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
 
   const addSyncLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -671,11 +669,11 @@ export default function App() {
   // Auto-initialize Built-in AI if selected
   useEffect(() => {
     const status = builtInAi.getStatus();
-    if (aiSettings.preferredProvider === 'builtin' &&
-      aiSettings.builtinModelId &&
-      !status.isLoaded &&
-      !status.isLoading &&
-      !status.error) {
+    if (aiSettings.preferredProvider === 'builtin' && 
+        aiSettings.builtinModelId && 
+        !status.isLoaded && 
+        !status.isLoading && 
+        !status.error) {
       console.log("[App] Auto-initializing Built-in AI...");
       builtInAi.init(aiSettings.builtinModelId);
     }
@@ -2076,17 +2074,17 @@ export default function App() {
       toast.error("Please select a workspace first.");
       return;
     }
-
+    
     setIsAutoFilling(true);
     const loadingToast = toast.loading(`AI is brainstorming ${count} posts for the month... This might take a minute or two.`);
-
+    
     try {
       // First generate the ideas
       addSyncLog(`Requesting ${count} posts from AI for campaign: ${prompt}`, 'info');
       // Re-use smart post generation logic or similar
       const promptText = `Generate ${count} different social media posts based on this campaign prompt: "${prompt}". Make sure they are varied (promotional, educational, engaging). 
       Return them as JSON array of objects with keys: title, brief, type (e.g. 🔴 Promotional, 🟢 Educational).`;
-
+      
       const ai = getAi();
       const res = await ai.models.generateContent({
         model: aiSettings.model || "gemini-2.5-pro",
@@ -2096,7 +2094,7 @@ export default function App() {
           systemInstruction: `You are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`
         }
       });
-
+      
       const text = res.text;
       let generatedPosts: any[] = [];
       try {
@@ -2105,16 +2103,16 @@ export default function App() {
         console.error("Failed to parse JSON", e);
         generatedPosts = [];
       }
-
+      
       if (generatedPosts.length > 0) {
         let currentDate = new Date(); // start today
-
+        
         for (let i = 0; i < Math.min(generatedPosts.length, count); i++) {
           const gp = generatedPosts[i];
           const newPost: Post = {
             id: uuidv4(),
             date: format(currentDate, 'yyyy-MM-dd'),
-            title: gp.title || `Post ${i + 1}`,
+            title: gp.title || `Post ${i+1}`,
             brief: gp.brief || "",
             caption: "",
             hashtags: "",
@@ -2126,13 +2124,13 @@ export default function App() {
             isAiGenerated: true,
             createdAt: new Date().toISOString()
           };
-
+          
           await setDoc(doc(db, 'posts', newPost.id), newPost);
-
+          
           // Increment date for the next post
           currentDate.setDate(currentDate.getDate() + 1);
         }
-
+        
         toast.dismiss(loadingToast);
         toast.success(`Successfully auto-filled ${Math.min(generatedPosts.length, count)} posts!`);
         setIsAutoFillModalOpen(false);
@@ -3404,14 +3402,14 @@ export default function App() {
                             <span className="text-[10px] font-bold text-emerald-500/60">{Math.round(builtInStatus.progress)}%</span>
                           </div>
                           <div className="h-1 w-full bg-emerald-500/10 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-emerald-500 transition-all duration-300"
+                            <div 
+                              className="h-full bg-emerald-500 transition-all duration-300" 
                               style={{ width: `${builtInStatus.progress}%` }}
                             />
                           </div>
                         </div>
                       )}
-
+                      
                       {builtInStatus.isLoaded && !builtInStatus.isLoading && (
                         <div className="flex flex-col gap-2 w-full px-2">
                           <div className="flex items-center justify-center px-2 py-1 rounded-full bg-emerald-500/5 border border-emerald-500/10">
@@ -3632,58 +3630,58 @@ export default function App() {
                                 user={user}
                                 settingsTab={settingsTab}
                                 setSettingsTab={setSettingsTab}
-                                isDarkMode={isDarkMode}
-                                toggleDarkMode={toggleDarkMode}
-                                isInstallable={isInstallable}
-                                handleInstallClick={handleInstallClick}
-                                setIsAddToHomeModalOpen={setIsAddToHomeModalOpen}
-                                businesses={businesses}
-                                activeBusiness={activeBusiness}
-                                setBusinesses={setBusinesses}
-                                setActiveBusiness={setActiveBusiness}
-                                aiSettings={aiSettings}
-                                handleAiSettingChange={handleAiSettingChange}
-                                setAiSettingsState={setAiSettingsState}
-                                setAiSettings={setAiSettings}
-                                analyticsSettings={analyticsSettings}
-                                handleAnalyticsSettingChange={handleAnalyticsSettingChange}
-                                setIsExportModalOpen={setIsExportModalOpen}
-                                exportScheduleJson={exportScheduleJson}
-                                importScheduleJson={importScheduleJson}
-                                importScheduleExcel={importScheduleExcel}
-                                initialPosts={initialPosts}
-                                handleSavePost={handleSavePost}
-                                setIsSyncing={setIsSyncing}
-                                addSyncLog={addSyncLog}
-                                setIsExcelImportModalOpen={setIsExcelImportModalOpen}
-                                exportProductExcel={exportProductExcel}
-                                handleAutoCategorizeAll={handleAutoCategorizeAll}
-                                isAutoCategorizing={isAutoCategorizing}
-                                exportProductJson={exportProductJson}
-                                exportExtensionZip={handleExportExtensionZip}
-                                importProductJson={importProductJson}
-                                onThemePresetChange={setThemePreset}
-                                finetuneStatus={finetuneStatus}
-                                handleStartFinetune={handleStartFinetune}
-                                showFinetunePanel={showFinetunePanel}
-                                setShowFinetunePanel={setShowFinetunePanel}
-                                googleTokens={googleTokens}
-                                handleDisconnectGoogleDrive={handleDisconnectGoogleDrive}
-                                handleConnectGoogleDrive={handleConnectGoogleDrive}
-                                setConfirmAction={setConfirmAction}
-                                syncLogs={syncLogs}
-                                signOut={signOut}
-                                auth={auth}
-                                db={db}
-                                setPosts={setPosts}
-                                query={query}
-                                collection={collection}
-                                where={where}
-                                getDocs={getDocs}
-                                writeBatch={writeBatch}
-                                industryConfig={industryConfig}
-                                setActiveTab={setActiveTab}
-                              />
+                              isDarkMode={isDarkMode}
+                              toggleDarkMode={toggleDarkMode}
+                              isInstallable={isInstallable}
+                              handleInstallClick={handleInstallClick}
+                              setIsAddToHomeModalOpen={setIsAddToHomeModalOpen}
+                              businesses={businesses}
+                              activeBusiness={activeBusiness}
+                              setBusinesses={setBusinesses}
+                              setActiveBusiness={setActiveBusiness}
+                              aiSettings={aiSettings}
+                              handleAiSettingChange={handleAiSettingChange}
+                              setAiSettingsState={setAiSettingsState}
+                              setAiSettings={setAiSettings}
+                              analyticsSettings={analyticsSettings}
+                              handleAnalyticsSettingChange={handleAnalyticsSettingChange}
+                              setIsExportModalOpen={setIsExportModalOpen}
+                              exportScheduleJson={exportScheduleJson}
+                              importScheduleJson={importScheduleJson}
+                              importScheduleExcel={importScheduleExcel}
+                              initialPosts={initialPosts}
+                              handleSavePost={handleSavePost}
+                              setIsSyncing={setIsSyncing}
+                              addSyncLog={addSyncLog}
+                              setIsExcelImportModalOpen={setIsExcelImportModalOpen}
+                              exportProductExcel={exportProductExcel}
+                              handleAutoCategorizeAll={handleAutoCategorizeAll}
+                              isAutoCategorizing={isAutoCategorizing}
+                              exportProductJson={exportProductJson}
+                              exportExtensionZip={handleExportExtensionZip}
+                              importProductJson={importProductJson}
+                              onThemePresetChange={setThemePreset}
+                              finetuneStatus={finetuneStatus}
+                              handleStartFinetune={handleStartFinetune}
+                              showFinetunePanel={showFinetunePanel}
+                              setShowFinetunePanel={setShowFinetunePanel}
+                              googleTokens={googleTokens}
+                              handleDisconnectGoogleDrive={handleDisconnectGoogleDrive}
+                              handleConnectGoogleDrive={handleConnectGoogleDrive}
+                              setConfirmAction={setConfirmAction}
+                              syncLogs={syncLogs}
+                              signOut={signOut}
+                              auth={auth}
+                              db={db}
+                              setPosts={setPosts}
+                              query={query}
+                              collection={collection}
+                              where={where}
+                              getDocs={getDocs}
+                              writeBatch={writeBatch}
+                              industryConfig={industryConfig}
+                              setActiveTab={setActiveTab}
+                            />
                             )}
                           </LazyTab>
                         )}
@@ -3697,11 +3695,11 @@ export default function App() {
                                 </h2>
                                 <button
                                   onClick={async () => {
-                                    if (confirm(`Delete the applet ${applet.name}?`)) {
+                                    if(confirm(`Delete the applet ${applet.name}?`)) {
                                       await updateDoc(doc(db, 'businesses', activeBusiness.id), {
                                         applets: activeBusiness.applets?.filter(a => a.id !== applet.id)
                                       });
-                                      if (activeTab === `applet_${applet.id}`) setActiveTab('home');
+                                      if(activeTab === `applet_${applet.id}`) setActiveTab('home');
                                     }
                                   }}
                                   className="text-[#757681] hover:text-red-500 transition-colors pointer-events-auto relative z-10 p-2"
@@ -3714,11 +3712,11 @@ export default function App() {
                                 title={applet.name}
                                 className="w-full flex-1 border-none bg-white"
                                 sandbox="allow-scripts allow-forms allow-popups allow-modals"
-                                srcDoc={
-                                  applet.code.includes('<head>')
-                                    ? applet.code.replace('<head>', `<head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>window.FORGE_CONTEXT = ${JSON.stringify(activeBusiness || {})};</script>`)
-                                    : `<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>window.FORGE_CONTEXT = ${JSON.stringify(activeBusiness || {})};</script></head><body>${applet.code.replace(/```[a-z]*|```/g, '')}</body></html>`
-                                }
+                                 srcDoc={
+                                   applet.code.includes('<head>')
+                                     ? applet.code.replace('<head>', `<head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>window.FORGE_CONTEXT = ${JSON.stringify(activeBusiness || {})};</script>`)
+                                     : `<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script>window.FORGE_CONTEXT = ${JSON.stringify(activeBusiness || {})};</script></head><body>${applet.code.replace(/```[a-z]*|```/g, '')}</body></html>`
+                                 }
                               />
                             </div>
                           </div>

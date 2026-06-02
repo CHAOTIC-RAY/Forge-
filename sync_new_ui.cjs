@@ -1,15 +1,17 @@
 const fs = require('fs');
 const { execSync } = require('child_process');
 
+// Files to keep regardless of what's in the repo
 const keepFiles = new Set([
   'firebase-applet-config.json',
   'metadata.json',
   'node_modules',
   '.env',
   '.npmrc',
-  'exact_sync.cjs'
+  'sync_new_ui.cjs'
 ]);
 
+console.log('Cleaning workspace...');
 const files = fs.readdirSync('.');
 for (const file of files) {
   if (!keepFiles.has(file)) {
@@ -18,6 +20,6 @@ for (const file of files) {
   }
 }
 
-console.log('Running degit...');
-execSync('npx -y degit CHAOTIC-RAY/Forge- --force', { stdio: 'inherit' });
-console.log('Degit complete.');
+console.log('Fetching New-Ui branch...');
+execSync('npx -y degit CHAOTIC-RAY/Forge-#New-Ui --force', { stdio: 'inherit' });
+console.log('Sync complete.');

@@ -1,231 +1,619 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Sparkles, Palette, BarChart3, ListTodo, LogIn, ChevronDown, CheckCircle2, MessageSquare, Lightbulb, Pause, Square, Database, Image as ImageIcon, Users } from 'lucide-react';
-import { ForgeLogo, GlowingScribbleLogo, ScribbleFlame } from './ForgeLogo';
+import {
+  Calendar as CalendarIcon,
+  Sparkles,
+  Palette,
+  BarChart3,
+  LogIn,
+  ChevronDown,
+  CheckCircle2,
+  MessageSquare,
+  Lightbulb,
+  Pause,
+  Square,
+  Database,
+  Image as ImageIcon,
+  Globe,
+  Search,
+  LayoutGrid,
+  Download,
+  ClipboardPaste,
+  List,
+  Share2,
+  ImagePlus,
+  GripVertical,
+  Wand2,
+  Cpu,
+  Link2,
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Hash,
+  PenTool,
+  Tag,
+  Instagram,
+  RefreshCw,
+} from 'lucide-react';
+import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
-import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
-import Spline from '@splinetool/react-spline';
+import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
+import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent } from 'motion/react';
+import { HeroHandwritingTitle } from './HeroHandwritingTitle';
+import { animateScrollTo, easeOutExpo, easeInOutQuint, waitMs } from '../lib/guidedScroll';
 
-const TypewriterText = ({ text, delay = 0, onComplete, className }: { text: string, delay?: number, onComplete?: () => void, className?: string }) => {
-  const [displayedText, setDisplayedText] = useState("");
-  
-  useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    let currentIndex = 0;
-    
-    const startTyping = () => {
-      timeout = setInterval(() => {
-        if (currentIndex < text.length) {
-          setDisplayedText(text.slice(0, currentIndex + 1));
-          currentIndex++;
-        } else {
-          clearInterval(timeout);
-          if (onComplete) onComplete();
-        }
-      }, 100); // typing speed
-    };
+const landingTerms = INDUSTRY_CONFIGS.default.terminology;
 
-    const initialDelay = setTimeout(startTyping, delay);
-    
-    return () => {
-      clearTimeout(initialDelay);
-      clearInterval(timeout);
-    };
-  }, [text, delay]);
+const IMPORT_TABS = ['Discover', 'Fetch', 'Convert', 'Review', 'Advanced'] as const;
 
-  return <span className={className}>{displayedText}</span>;
-};
+function FooterCtaGrid({ className }: { className?: string }) {
+  return (
+    <svg
+      className={cn('absolute inset-0 w-full h-full pointer-events-none', className)}
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <defs>
+        <pattern id="footer-cta-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#footer-cta-grid)" />
+    </svg>
+  );
+}
 
-function FeaturePreview({ id }: { id: string }) {
-  switch (id) {
-    case 'calendar':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-4 flex flex-col gap-2 overflow-hidden relative">
-          <div className="flex justify-between items-center mb-2">
-            <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded-full" />
-            <div className="flex gap-2">
-              <div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30" />
-              <div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30" />
-            </div>
+function CatalogueImportLandingPreview() {
+  const [activeTab, setActiveTab] = useState<(typeof IMPORT_TABS)[number]>('Discover');
+
+  return (
+    <div className="w-full min-h-[320px] md:min-h-[360px] bg-white dark:bg-[#191919] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-3 md:p-4 flex flex-col gap-3 overflow-hidden">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
+            <Database className="w-4 h-4 text-brand" />
           </div>
-          <div className="grid grid-cols-7 gap-2 flex-1">
-            {Array.from({ length: 28 }).map((_, i) => (
-              <div key={i} className={cn("rounded-lg border border-gray-100 dark:border-gray-700 p-1.5", i === 12 ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200" : "bg-gray-50 dark:bg-[#202020]")}>
-                <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600 mb-1.5" />
-                {i % 5 === 0 && <div className="w-full h-2 bg-blue-400 rounded-sm mb-1" />}
-                {i % 8 === 0 && <div className="w-full h-2 bg-purple-400 rounded-sm" />}
-              </div>
-            ))}
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">Catalogue</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97] truncate">Import & sync</p>
           </div>
         </div>
-      );
-    case 'localdb':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-4 flex flex-col gap-4 overflow-hidden">
-          <div className="w-full h-10 bg-gray-100 dark:bg-[#202020] rounded-xl flex items-center px-4 gap-3 border border-gray-200 dark:border-gray-700">
-            <Database className="w-4 h-4 text-gray-400" />
-            <div className="w-32 h-3 bg-gray-300 dark:bg-gray-600 rounded-full" />
-          </div>
-          <div className="grid grid-cols-3 gap-3 flex-1">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-gray-50 dark:bg-[#202020] rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
-                <div className="flex-1 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                  <ImageIcon className="w-6 h-6 text-gray-400" />
-                </div>
-                <div className="p-2 space-y-1.5">
-                  <div className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                  <div className="w-2/3 h-2 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="hidden sm:flex p-0.5 rounded-lg bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+          <span className="px-2 py-1 text-[10px] font-bold rounded-md bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED]">Catalogue</span>
+          <span className="px-2 py-1 text-[10px] font-medium text-[#787774]">Knowledge</span>
         </div>
-      );
-    case 'ai':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-4 flex flex-col overflow-hidden">
-          <div className="flex-1 flex flex-col gap-3 p-2">
-            <div className="self-end bg-blue-500 text-white p-3 rounded-2xl rounded-tr-sm max-w-[80%]">
-              <div className="w-24 h-2 bg-blue-200 rounded-full mb-2" />
-              <div className="w-32 h-2 bg-blue-200 rounded-full" />
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          { label: 'Total items', value: '248' },
+          { label: 'Categories', value: '12' },
+          { label: 'Showing', value: '64' },
+          { label: 'Needs category', value: '3', accent: true },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-2"
+          >
+            <p className="text-[9px] font-bold uppercase tracking-wide text-[#787774] dark:text-[#9B9A97]">{stat.label}</p>
+            <p className={cn('text-lg font-bold mt-0.5', stat.accent ? 'text-orange-500' : 'text-[#37352F] dark:text-[#EBE9ED]')}>
+              {stat.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto no-scrollbar pb-0.5">
+        {IMPORT_TABS.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              'px-2.5 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition-colors shrink-0',
+              activeTab === tab
+                ? 'bg-brand text-white'
+                : 'text-[#787774] dark:text-[#9B9A97] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E]'
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 min-h-[140px]">
+        {activeTab === 'Discover' && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1">
+                <Globe className="w-3 h-3" /> Map site
+              </button>
+              <span className="text-[10px] text-[#787774] self-center">1,240 URLs · 186 listing pages</span>
             </div>
-            <div className="self-start bg-gray-100 dark:bg-[#202020] p-3 rounded-2xl rounded-tl-sm max-w-[80%] border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <div className="w-16 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-              </div>
-              <div className="space-y-2">
-                <div className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                <div className="w-5/6 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                <div className="w-4/6 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-              </div>
-            </div>
-          </div>
-          <div className="h-12 bg-gray-50 dark:bg-[#202020] rounded-xl border border-gray-200 dark:border-gray-700 flex items-center px-4 gap-3 mt-2">
-            <MessageSquare className="w-4 h-4 text-gray-400" />
-            <div className="w-40 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-          </div>
-        </div>
-      );
-    case 'studio':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] flex overflow-hidden">
-          <div className="w-16 border-r border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-[#202020] flex flex-col items-center py-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700" />
-            ))}
-          </div>
-          <div className="flex-1 p-6 flex items-center justify-center bg-gray-100/50 dark:bg-[#191919]">
-            <div className="w-full max-w-xs aspect-[4/5] bg-white dark:bg-[#2E2E2E] rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
-              <div className="flex-1 bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/20 dark:to-purple-900/20 flex items-center justify-center">
-                <Palette className="w-12 h-12 text-pink-400 opacity-50" />
-              </div>
-              <div className="p-3 space-y-2 bg-white dark:bg-[#2E2E2E]">
-                <div className="w-3/4 h-3 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                <div className="w-1/2 h-2 bg-gray-100 dark:bg-gray-600 rounded-full" />
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    case 'analytics':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-6 overflow-hidden">
-          <div className="flex gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex-1 bg-gray-50 dark:bg-[#202020] rounded-xl p-3 border border-gray-100 dark:border-gray-700">
-                <div className="w-12 h-2 bg-gray-300 dark:bg-gray-600 rounded-full mb-3" />
-                <div className="w-20 h-4 bg-gray-800 dark:bg-gray-200 rounded-full" />
-              </div>
-            ))}
-          </div>
-          <div className="flex-1 flex items-end gap-2 px-2">
-            {[40, 70, 45, 90, 65, 80, 55, 100, 75, 85].map((h, i) => (
-              <div key={i} className="flex-1 bg-green-100 dark:bg-green-900/30 rounded-t-md relative group">
-                <div 
-                  className="absolute bottom-0 left-0 w-full bg-green-500 rounded-t-md transition-all duration-1000"
-                  style={{ height: `${h}%` }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    case 'tasks':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-4 overflow-hidden">
-          <div className="flex justify-between items-center mb-2">
-            <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded-full" />
-            <div className="w-20 h-6 bg-orange-100 dark:bg-orange-900/30 rounded-lg" />
-          </div>
-          <div className="space-y-3 flex-1">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-[#202020] rounded-xl border border-gray-100 dark:border-gray-700">
-                <CheckCircle2 className={cn("w-5 h-5", i === 0 ? "text-green-500" : "text-gray-300 dark:text-gray-600")} />
-                <div className="flex-1 space-y-2">
-                  <div className={cn("w-2/3 h-2.5 rounded-full", i === 0 ? "bg-gray-300 dark:bg-gray-600" : "bg-gray-800 dark:bg-gray-200")} />
-                  <div className="w-1/3 h-2 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                </div>
-                <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700" />
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    case 'ideas':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-4 overflow-hidden">
-          <div className="flex justify-between items-center mb-4">
-            <div className="w-40 h-5 bg-gray-200 dark:bg-gray-700 rounded-full" />
-            <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-              <Lightbulb className="w-4 h-4 text-yellow-500" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 flex-1">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-yellow-50/50 dark:bg-yellow-900/10 rounded-xl p-4 border border-yellow-100 dark:border-yellow-900/20 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="w-full h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
-                  <div className="w-3/4 h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
-                  <div className="w-1/2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                </div>
-                <div className="w-16 h-4 bg-yellow-200 dark:bg-yellow-800/50 rounded-md mt-4" />
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    case 'workspace':
-      return (
-        <div className="w-full aspect-video bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-5 flex flex-col gap-6 overflow-hidden">
-          <div className="flex items-center gap-4 p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-900/30">
-            <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-              F
-            </div>
-            <div className="flex-1 space-y-2">
-              <div className="w-32 h-3 bg-indigo-900/80 dark:bg-indigo-100/80 rounded-full" />
-              <div className="w-20 h-2 bg-indigo-900/40 dark:bg-indigo-100/40 rounded-full" />
-            </div>
-            <div className="flex -space-x-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-[#2E2E2E] bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                  <Users className="w-4 h-4 text-white" />
+            <div className="space-y-1.5 max-h-[88px] overflow-hidden">
+              {[
+                { kind: 'Listing', url: '/shop/sofas' },
+                { kind: 'Product', url: '/product/rio-sofa' },
+                { kind: 'Listing', url: '/collections/outdoor' },
+              ].map((row) => (
+                <div key={row.url} className="flex items-center gap-2 p-1.5 rounded-lg bg-white dark:bg-[#191919] border border-[#E9E9E7]/80 dark:border-[#2E2E2E]">
+                  <div className="w-3 h-3 rounded border-2 border-brand bg-brand/20 shrink-0" />
+                  <span className="text-[9px] font-bold uppercase text-brand bg-brand/10 px-1 rounded shrink-0">{row.kind}</span>
+                  <span className="text-[10px] font-mono text-[#787774] truncate">{row.url}</span>
                 </div>
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 flex-1">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="bg-gray-50 dark:bg-[#202020] rounded-xl p-4 border border-gray-100 dark:border-gray-700 flex flex-col justify-between">
-                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4" />
-                <div className="space-y-2">
-                  <div className="w-full h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
-                  <div className="w-1/2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
+        )}
+        {activeTab === 'Fetch' && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <span className="px-2 py-1 rounded-lg border border-brand/30 text-brand text-[10px] font-bold flex items-center gap-1">
+                <Download className="w-3 h-3" /> Scrape selected (42)
+              </span>
+              <span className="px-2 py-1 rounded-lg bg-[#EFEFED] dark:bg-[#2E2E2E] text-[10px] font-bold">Crawl · limit 100</span>
+            </div>
+            <div className="h-2 rounded-full bg-[#E9E9E7] dark:bg-[#3E3E3E] overflow-hidden">
+              <div className="h-full w-[68%] bg-brand rounded-full" />
+            </div>
+            <p className="text-[10px] text-[#787774]">Fetching markdown (Firecrawl → Crawlee → cloudscraper)… 29/42</p>
+          </div>
+        )}
+        {activeTab === 'Convert' && (
+          <div className="space-y-2">
+            <button type="button" className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1 w-fit">
+              <Sparkles className="w-3 h-3" /> Convert with local AI
+            </button>
+            <p className="text-[10px] text-[#787774]">Chunking page markdown → structured catalogue JSON</p>
+            <div className="flex items-center gap-2 text-[10px] text-brand font-bold">
+              <Sparkles className="w-3.5 h-3.5" />
+              18 items extracted · 3 chunks/page avg
+            </div>
+          </div>
+        )}
+        {activeTab === 'Review' && (
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1.5">
+              {['Rio Corner Sofa', 'Teak Dining Set', 'LED Pendant'].map((title) => (
+                <div key={title} className="flex justify-between gap-2 p-1.5 rounded-lg bg-white dark:bg-[#191919] border border-[#E9E9E7]/80 dark:border-[#2E2E2E] text-[10px]">
+                  <span className="font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">{title}</span>
+                  <span className="text-[#787774] shrink-0">Furniture</span>
                 </div>
+              ))}
+            </div>
+            <div className="w-[38%] rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] p-2 space-y-1.5">
+              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight">Rio Corner Sofa</p>
+              <p className="text-[9px] text-[#787774]">MVR 12,500 · In stock</p>
+              <div className="h-6 rounded bg-brand/90" />
+              <p className="text-[8px] text-center text-white font-bold">Save to catalogue</p>
+            </div>
+          </div>
+        )}
+        {activeTab === 'Advanced' && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-[#191919] border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E]">
+              <ClipboardPaste className="w-4 h-4 text-brand shrink-0" />
+              <div className="flex-1 space-y-1">
+                <div className="h-2 w-full bg-[#E9E9E7] dark:bg-[#3E3E3E] rounded" />
+                <div className="h-2 w-4/5 bg-[#E9E9E7] dark:bg-[#3E3E3E] rounded" />
               </div>
+            </div>
+            <p className="text-[10px] text-[#787774]">Paste JSON or upload Firecrawl exports</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 pt-0.5">
+        <div className="flex-1 relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9B9A97]" />
+          <div className="h-8 pl-7 pr-2 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] flex items-center">
+            <span className="text-[10px] text-[#9B9A97]">Search catalogue…</span>
+          </div>
+        </div>
+        <div className="flex rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden shrink-0">
+          <div className="p-2 bg-brand text-white">
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </div>
+          <div className="p-2 bg-white dark:bg-[#191919] text-[#787774]">
+            <List className="w-3.5 h-3.5" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const LANDING_PREVIEW_SHELL =
+  'w-full min-h-[320px] md:min-h-[360px] bg-white dark:bg-[#191919] rounded-2xl shadow-xl border border-[#E9E9E7] dark:border-[#3E3E3E] p-3 md:p-4 flex flex-col gap-3 overflow-hidden';
+
+function CalendarLandingPreview() {
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const postsByDay: Record<number, { title: string; color: string }[]> = {
+    3: [{ title: 'Summer drop', color: 'bg-brand' }],
+    8: [{ title: 'Reel hook', color: 'bg-amber-400' }],
+    12: [
+      { title: 'Carousel', color: 'bg-brand' },
+      { title: 'Story', color: 'bg-purple-400' },
+    ],
+    17: [{ title: 'Client review', color: 'bg-emerald-500' }],
+    22: [{ title: 'UGC repost', color: 'bg-pink-400' }],
+  };
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
+            <CalendarIcon className="w-4 h-4 text-brand" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">{landingTerms.calendar}</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">May 2026 · Work mode</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="hidden sm:flex p-0.5 rounded-lg bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+            <span className="px-2 py-1 text-[10px] font-bold rounded-md bg-white dark:bg-[#2E2E2E] text-brand">Grid</span>
+            <span className="px-2 py-1 text-[10px] font-medium text-[#787774]">Timeline</span>
+          </div>
+          <button type="button" className="p-1.5 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774]" aria-hidden>
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <button type="button" className="p-1.5 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774]" aria-hidden>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+          <span className="px-2 py-1 rounded-lg bg-brand/10 text-brand text-[10px] font-bold flex items-center gap-1">
+            <Share2 className="w-3 h-3" /> Share
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-[9px] font-bold text-[#787774] dark:text-[#9B9A97] px-0.5">
+        {weekDays.map((d) => (
+          <div key={d} className="text-center py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex-1 grid grid-cols-7 gap-1 min-h-[180px]">
+        {Array.from({ length: 28 }).map((_, i) => {
+          const dayPosts = postsByDay[i] ?? [];
+          const isToday = i === 12;
+          return (
+            <div
+              key={i}
+              className={cn(
+                'rounded-lg border p-1 min-h-[52px] flex flex-col gap-0.5',
+                isToday
+                  ? 'bg-brand/5 border-brand/40 dark:border-brand/30'
+                  : 'bg-[#FAFAF9] dark:bg-[#202020] border-[#E9E9E7]/80 dark:border-[#2E2E2E]'
+              )}
+            >
+              <span
+                className={cn(
+                  'text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full',
+                  isToday ? 'bg-brand text-white' : 'text-[#787774]'
+                )}
+              >
+                {i + 1}
+              </span>
+              <div className="space-y-0.5 flex-1 overflow-hidden">
+                {dayPosts.map((post) => (
+                  <div
+                    key={post.title}
+                    className={cn('h-1.5 rounded-sm truncate opacity-90', post.color)}
+                    title={post.title}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 pt-0.5 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+        <span className="text-[10px] text-[#787774]">12 posts this month</span>
+        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+          3 scheduled today
+        </span>
+        <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[10px] font-bold flex items-center gap-1">
+          <ImagePlus className="w-3 h-3" /> Drop images on a day
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function IdeasLandingPreview() {
+  const columns = [
+    {
+      title: 'Inbox',
+      count: 4,
+      cards: [
+        { title: 'Behind-the-scenes reel', tag: 'Campaign' },
+        { title: 'Product comparison carousel', tag: 'Evergreen' },
+      ],
+    },
+    {
+      title: 'Ready',
+      count: 2,
+      cards: [{ title: 'Friday flash sale hook', tag: 'Promo' }],
+    },
+    {
+      title: 'Archive',
+      count: 8,
+      cards: [{ title: 'Q1 testimonial post', tag: 'Social proof' }],
+    },
+  ] as const;
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+            <Lightbulb className="w-4 h-4 text-yellow-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">{landingTerms.ideas}</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Board · Collections</p>
+          </div>
+        </div>
+        <span className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1">
+          <Sparkles className="w-3 h-3" /> AI brainstorm
+        </span>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex-1 h-8 pl-3 pr-2 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] flex items-center text-[10px] text-[#9B9A97]">
+          Quick capture — press Enter…
+        </div>
+        <div className="p-2 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774]">
+          <Search className="w-3.5 h-3.5" />
+        </div>
+      </div>
+
+      <div className="flex-1 grid grid-cols-3 gap-2 min-h-[160px]">
+        {columns.map((col) => (
+          <div
+            key={col.title}
+            className="flex flex-col rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] overflow-hidden min-h-0"
+          >
+            <div className="px-2.5 py-2 border-b border-[#E9E9E7] dark:border-[#2E2E2E] flex items-center justify-between shrink-0">
+              <div>
+                <p className="text-[10px] font-black text-[#37352F] dark:text-[#EBE9ED]">{col.title}</p>
+                <p className="text-[8px] text-[#787774]">{col.count} ideas</p>
+              </div>
+              <Plus className="w-3.5 h-3.5 text-[#787774]" />
+            </div>
+            <div className="p-2 space-y-1.5 flex-1 overflow-hidden">
+              {col.cards.map((card) => (
+                <div
+                  key={card.title}
+                  className="p-2 rounded-lg bg-white dark:bg-[#191919] border border-[#E9E9E7]/80 dark:border-[#2E2E2E] shadow-sm"
+                >
+                  <p className="text-[9px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-snug line-clamp-2">
+                    {card.title}
+                  </p>
+                  <span className="mt-1 inline-block text-[8px] font-bold uppercase tracking-wide text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 px-1 rounded">
+                    {card.tag}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[10px] text-[#787774] flex items-center gap-1.5">
+        <GripVertical className="w-3 h-3 text-brand" />
+        Drag ready ideas onto the calendar to schedule
+      </p>
+    </div>
+  );
+}
+
+function WidgetsLandingPreview() {
+  const widgets = [
+    { label: 'Caption writer', icon: PenTool },
+    { label: 'Hashtag pack', icon: Hash },
+    { label: 'Designer brief', icon: Wand2 },
+    { label: 'Hook generator', icon: Sparkles },
+  ];
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Built-in tools · more coming soon</p>
+          </div>
+        </div>
+        <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+          <Cpu className="w-3 h-3" /> Local AI
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {widgets.map((w) => {
+          const Icon = w.icon;
+          return (
+            <button
+              key={w.label}
+              type="button"
+              className="p-2.5 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] text-left hover:border-brand/40 transition-colors"
+            >
+              <Icon className="w-3.5 h-3.5 text-brand mb-1.5" />
+              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight">{w.label}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 flex flex-col gap-2 min-h-[120px]">
+        <div className="self-end max-w-[85%] px-3 py-2 rounded-2xl rounded-tr-sm bg-brand text-white text-[10px] leading-relaxed">
+          Write a caption for our new outdoor collection — warm, premium tone.
+        </div>
+        <div className="self-start max-w-[90%] px-3 py-2 rounded-2xl rounded-tl-sm bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[10px] text-[#37352F] dark:text-[#EBE9ED] leading-relaxed">
+          <span className="font-bold text-amber-500 flex items-center gap-1 mb-1">
+            <Sparkles className="w-3 h-3" /> Forge · Caption widget
+          </span>
+          Golden hour on the terrace. Built for slow evenings and open-air dining — discover the Outdoor ’26 line.
+        </div>
+        <div className="mt-auto flex items-center gap-2 p-2 rounded-lg border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919]">
+          <MessageSquare className="w-3.5 h-3.5 text-[#9B9A97] shrink-0" />
+          <span className="text-[10px] text-[#9B9A97]">Refine tone or paste into calendar…</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BrandKitLandingPreview() {
+  const colors = [
+    { name: 'Forge Blue', hex: '#2383E2' },
+    { name: 'Ink', hex: '#37352F' },
+    { name: 'Sand', hex: '#F7F7F5' },
+  ];
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
+            <Palette className="w-4 h-4 text-pink-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">{landingTerms.assets}</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">Brand, AI knowledge & rules</p>
+          </div>
+        </div>
+        <button type="button" className="px-2 py-1 rounded-lg bg-brand text-white text-[10px] font-bold flex items-center gap-1">
+          <Sparkles className="w-3 h-3" /> Sync guide
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {colors.map((c) => (
+          <div key={c.name} className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden">
+            <div className="h-10" style={{ backgroundColor: c.hex }} />
+            <div className="p-2 bg-white dark:bg-[#191919]">
+              <p className="text-[9px] font-bold text-[#37352F] dark:text-[#EBE9ED]">{c.name}</p>
+              <p className="text-[8px] font-mono text-[#787774]">{c.hex}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex-1 grid grid-cols-[1fr_42%] gap-2 min-h-[120px]">
+        <div className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] p-3 bg-[#FAFAF9] dark:bg-[#202020] space-y-2">
+          <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Typography</p>
+          <p className="text-lg font-bold tracking-tight text-[#37352F] dark:text-[#EBE9ED]">Display · Cal Sans</p>
+          <p className="text-sm text-[#787774]">Body · Inter — friendly, clear, product-led</p>
+          <div className="flex gap-1.5 pt-1">
+            {['Logo lockup', 'Wordmark'].map((label) => (
+              <span key={label} className="px-2 py-1 rounded-md bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] text-[9px] font-bold text-[#787774]">
+                {label}
+              </span>
             ))}
           </div>
         </div>
-      );
+        <div className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden flex flex-col">
+          <div className="h-14 bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/20 flex items-center justify-center">
+            <ImageIcon className="w-6 h-6 text-pink-400" />
+          </div>
+          <div className="p-2 bg-white dark:bg-[#191919] flex-1">
+            <p className="text-[9px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Reference post</p>
+            <p className="text-[8px] text-[#787774] mt-0.5">Carousel · high engagement</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsLandingPreview() {
+  const bars = [42, 68, 55, 88, 72, 95, 61];
+  const stats = [
+    { label: 'Posts / 30d', value: '24', delta: 'scheduled' },
+    { label: 'Top day', value: 'Tuesday', delta: '6 posts' },
+    { label: 'Top format', value: 'Carousel', delta: '42%' },
+  ];
+
+  return (
+    <div className={LANDING_PREVIEW_SHELL}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <BarChart3 className="w-4 h-4 text-green-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Insights</p>
+            <p className="text-[10px] text-[#787774] dark:text-[#9B9A97]">From your calendar — no API keys</p>
+          </div>
+        </div>
+        <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+          Free
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-2.5"
+          >
+            <p className="text-[9px] font-bold uppercase tracking-wide text-[#787774]">{s.label}</p>
+            <p className="text-base font-black text-[#37352F] dark:text-[#EBE9ED] mt-0.5">{s.value}</p>
+            <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">{s.delta}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex-1 flex gap-2 min-h-[100px]">
+        <div className="flex-[1.2] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 flex items-end gap-1.5">
+          {bars.map((h, i) => (
+            <div key={i} className="flex-1 flex flex-col justify-end gap-1 min-w-0">
+              <div className="w-full bg-emerald-500/80 rounded-t-md" style={{ height: `${h}%`, minHeight: 4 }} />
+              <span className="text-[7px] text-center text-[#787774] font-bold">{['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex-1 rounded-xl border border-brand/20 bg-brand/5 dark:bg-brand/10 p-2.5 flex flex-col gap-1">
+          <p className="text-[9px] font-bold text-brand flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> AI summary
+          </p>
+          <p className="text-[9px] text-[#37352F] dark:text-[#EBE9ED] leading-relaxed flex-1">
+            You post most on Tue/Thu. Carousels lead your mix—consider one reel this week to balance formats.
+          </p>
+          <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" /> From your calendar
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeaturePreview({ id }: { id: string }) {
+  switch (id) {
+    case 'calendar':
+      return <CalendarLandingPreview />;
+    case 'localdb':
+      return <CatalogueImportLandingPreview />;
+    case 'ai':
+      return <WidgetsLandingPreview />;
+    case 'studio':
+      return <BrandKitLandingPreview />;
+    case 'analytics':
+      return <AnalyticsLandingPreview />;
+    case 'ideas':
+      return <IdeasLandingPreview />;
     default:
       return null;
   }
@@ -245,7 +633,17 @@ interface LandingViewProps {
   onLogin: () => void;
 }
 
-const SECTIONS = [
+type LandingSection = {
+  id: string;
+  icon: React.ComponentType<{ className?: string }> | null;
+  title: string;
+  description: string;
+  color: string;
+  bg: string;
+  bullets?: { icon: React.ComponentType<{ className?: string }>; label: string; text: string }[];
+};
+
+const SECTIONS: LandingSection[] = [
   {
     id: 'hero',
     icon: null,
@@ -257,51 +655,204 @@ const SECTIONS = [
   {
     id: 'calendar',
     icon: CalendarIcon,
-    title: 'Content Calendar',
-    description: 'Master your schedule with a high-performance drag-and-drop calendar. Plan, coordinate, and execute your entire social media strategy in one place.',
+    title: landingTerms.calendar,
+    description:
+      'Your publishing command center: plan every post on a visual month grid, attach creative, drag to reschedule, and share a live read-only view with clients or stakeholders.',
     color: 'text-blue-500',
-    bg: 'bg-blue-500/10'
+    bg: 'bg-blue-500/10',
+    bullets: [
+      {
+        icon: GripVertical,
+        label: 'Plan & reschedule',
+        text: 'Drag posts between days, duplicate winning formats, and see your whole month at a glance—no spreadsheet juggling.',
+      },
+      {
+        icon: ImagePlus,
+        label: 'Media on every post',
+        text: 'Drop images onto days for AI-assisted captions, collages for multi-image posts, and Cloudinary-backed hosting.',
+      },
+      {
+        icon: Share2,
+        label: 'Client-ready sharing',
+        text: 'Generate a password-protected share link so clients approve content without logging into your workspace.',
+      },
+      {
+        icon: CalendarIcon,
+        label: 'Team alignment',
+        text: 'One schedule for editors, designers, and approvers—status, outlets, and categories stay visible on every card.',
+      },
+    ],
   },
   {
     id: 'ideas',
     icon: Lightbulb,
-    title: 'Creative Hub',
-    description: 'A centralized bank for your raw inspiration. Capture ideas, organize them by category, and seamlessly transition them into scheduled content.',
+    title: landingTerms.ideas,
+    description:
+      'A creative inbox before anything hits the calendar: capture lines in seconds, sort on a board, group by collection, then promote the best ideas into scheduled posts.',
     color: 'text-yellow-500',
-    bg: 'bg-yellow-500/10'
-  },
-  {
-    id: 'ai',
-    icon: Sparkles,
-    title: 'AI Studio',
-    description: 'Harness the power of Gemini to generate high-engagement captions, brainstorm creative angles, and refine your brand voice with intelligent assistance.',
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/10'
-  },
-  {
-    id: 'studio',
-    icon: Palette,
-    title: 'Brand Kit',
-    description: 'Maintain absolute brand consistency. Store and manage your logos, color palettes, and visual assets for instant access during content creation.',
-    color: 'text-pink-500',
-    bg: 'bg-pink-500/10'
-  },
-  {
-    id: 'analytics',
-    icon: BarChart3,
-    title: 'Analytics & Insights',
-    description: 'Turn data into growth. Monitor cross-platform performance with real-time analytics and gain actionable insights to optimize your content strategy.',
-    color: 'text-green-500',
-    bg: 'bg-green-500/10'
+    bg: 'bg-yellow-500/10',
+    bullets: [
+      {
+        icon: Lightbulb,
+        label: 'Quick capture',
+        text: 'Type an idea and press Enter—it lands in Inbox so nothing gets lost in notes or DMs.',
+      },
+      {
+        icon: LayoutGrid,
+        label: 'Board workflow',
+        text: 'Inbox → Ready → Archive columns mirror how real teams triage concepts before production.',
+      },
+      {
+        icon: List,
+        label: 'Collections',
+        text: 'Tag ideas by campaign, product line, or client so you can filter and brainstorm in context.',
+      },
+      {
+        icon: Sparkles,
+        label: 'AI brainstorm',
+        text: 'Expand a theme into multiple post angles, then move winners straight to the calendar.',
+      },
+    ],
   },
   {
     id: 'localdb',
     icon: Database,
-    title: 'Inventory Database',
-    description: 'Manage your product catalog and digital assets with a structured local database. Keep everything you need for your content at your fingertips.',
+    title: landingTerms.products,
+    description:
+      'Turn any website into a searchable product catalogue or knowledge base: map URLs, fetch page markdown (Firecrawl with Crawlee and cloudscraper fallbacks), convert with local AI, review, then drop items into posts and widgets.',
     color: 'text-indigo-500',
-    bg: 'bg-indigo-500/10'
-  }
+    bg: 'bg-indigo-500/10',
+    bullets: [
+      {
+        icon: RefreshCw,
+        label: 'One-click sync',
+        text: 'Hit Sync to refresh from your site URL; open the panel for map, crawl, terminal logs, and advanced import.',
+      },
+      {
+        icon: Globe,
+        label: 'Discover',
+        text: 'Map the site, classify listing vs product vs content pages, and queue URLs to import.',
+      },
+      {
+        icon: Download,
+        label: 'Fetch',
+        text: 'Batch-scrape selected pages or run a filtered crawl (product paths in, cart/checkout out).',
+      },
+      {
+        icon: Sparkles,
+        label: 'Convert',
+        text: 'Local AI turns markdown into structured items with categories, prices, and links.',
+      },
+      {
+        icon: CheckCircle2,
+        label: 'Review',
+        text: 'Preview new entries, skip duplicates, and commit to your workspace catalogue.',
+      },
+      {
+        icon: ClipboardPaste,
+        label: 'Advanced',
+        text: 'Paste console JSON or upload Firecrawl exports when you need a manual path.',
+      },
+    ],
+  },
+  {
+    id: 'studio',
+    icon: Palette,
+    title: landingTerms.assets,
+    description:
+      'One hub for brand visuals and AI knowledge—logos, colors, brand.md, design.md, voice, rules, and system instructions so local WebLLM and cloud models stay on-brand.',
+    color: 'text-pink-500',
+    bg: 'bg-pink-500/10',
+    bullets: [
+      {
+        icon: Palette,
+        label: 'Visual identity',
+        text: 'Store primary/secondary colors, logo marks, and typography rules where writers and designers actually work.',
+      },
+      {
+        icon: PenTool,
+        label: 'AI knowledge center',
+        text: 'Brand voice, business rules, and custom instructions merged with brand.md and design.md for every AI call.',
+      },
+      {
+        icon: Sparkles,
+        label: 'Design guide sync',
+        text: 'Generate or refresh a written style guide from uploads—feeds widgets and post generation automatically.',
+      },
+      {
+        icon: Tag,
+        label: 'Workspace categories',
+        text: 'Outlets, campaigns, and content formats power the calendar and catalogue auto-tagging.',
+      },
+    ],
+  },
+  {
+    id: 'ai',
+    icon: Sparkles,
+    title: 'Widgets',
+    description:
+      'Built-in AI widgets ship with the app—caption writer, hashtag packs, designer briefs, and hooks. Run locally in the browser when you want privacy; optional cloud models when you need more power. More widgets on the way.',
+    color: 'text-amber-500',
+    bg: 'bg-amber-500/10',
+    bullets: [
+      {
+        icon: Cpu,
+        label: 'Local AI (WebLLM)',
+        text: 'Run models in-browser with WebGPU—fast iteration for sensitive brands and offline-friendly drafts.',
+      },
+      {
+        icon: Wand2,
+        label: 'Caption & brief tools',
+        text: 'Ready-made widgets for posts, hooks, hashtags, and designer briefs—paste straight into calendar cards.',
+      },
+      {
+        icon: Sparkles,
+        label: 'More coming soon',
+        text: 'We are expanding the built-in library—no custom builder required; new tools land in your workspace automatically.',
+      },
+      {
+        icon: Sparkles,
+        label: 'Cloud when you need it',
+        text: 'Optional Gemini, Groq, or Puter routes for heavier tasks while keeping local AI as the default.',
+      },
+    ],
+  },
+  {
+    id: 'analytics',
+    icon: BarChart3,
+    title: 'Insights & Analytics',
+    description:
+      'Track how you are really showing up online using the posts already on your calendar—posting rhythm, formats, outlets, and themes—plus optional profile links. Free insights with no Meta API keys required.',
+    color: 'text-green-500',
+    bg: 'bg-green-500/10',
+    bullets: [
+      {
+        icon: CalendarIcon,
+        label: 'Calendar-native metrics',
+        text: 'Scheduled and published posts in your workspace drive charts—no third-party analytics subscription.',
+      },
+      {
+        icon: TrendingUp,
+        label: 'Rhythm & format mix',
+        text: 'See which days, outlets, and post types you use most so planning stays intentional.',
+      },
+      {
+        icon: Sparkles,
+        label: 'Local AI summaries',
+        text: 'Optional narrative insights from your own data—built-in AI when you want a coach, not another dashboard login.',
+      },
+      {
+        icon: Link2,
+        label: 'Live social metrics',
+        text: 'Local AI cannot scrape Instagram or Facebook—add a Gemini/Groq API key in Settings for future live pulls; until then, insights use your calendar only.',
+      },
+      {
+        icon: BarChart3,
+        label: 'Plan with data',
+        text: 'Feed learnings back into the calendar and ideas board so the next month is intentional, not guesswork.',
+      },
+    ],
+  },
 ];
 
 export function LandingView({ onLogin }: LandingViewProps) {
@@ -309,64 +860,107 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
-  const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const tourAbortRef = useRef({ aborted: false });
+  const tourRunningRef = useRef(false);
 
   const { scrollYProgress } = useScroll({
     container: containerRef,
     target: footerRef,
-    offset: ["start end", "end end"]
+    offset: ['start end', 'end end'],
   });
 
-  const calloutScale = useTransform(scrollYProgress, [0, 1], [0.95, 1]);
-  const calloutRadius = useTransform(scrollYProgress, [0, 1], ["24px", "0px"]);
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    mass: 0.8,
+    restDelta: 0.0001
+  });
 
-  const startAutoScroll = () => {
-    setIsAutoScrolling(true);
-    if (autoScrollIntervalRef.current) clearInterval(autoScrollIntervalRef.current);
-    
-    // Find current section index
-    const navSections = SECTIONS.filter(s => s.icon !== null);
-    let currentIdx = navSections.findIndex(s => s.id === activeSection);
-    if (currentIdx === -1) currentIdx = 0;
+  const calloutScale = useTransform(smoothProgress, [0, 0.4, 0.72], [0.92, 0.98, 1]);
+  const calloutRadius = useTransform(smoothProgress, [0, 0.55, 0.82], ['28px', '16px', '0px']);
+  const sectionPadX = useTransform(smoothProgress, [0, 0.72, 0.9], ['1.25rem', '0.75rem', '0px']);
+  const cardOpacity = useTransform(smoothProgress, [0.62, 0.72], [1, 0]);
+  const fullBleedOpacity = useTransform(smoothProgress, [0.7, 0.8], [0, 1]);
+  const headlineSize = useTransform(smoothProgress, [0.7, 0.85, 1], ['1.875rem', '2.5rem', '4rem']);
+  const contentY = useTransform(smoothProgress, [0.75, 1], [40, 0]);
+  const sidebarOpacity = useTransform(smoothProgress, [0.48, 0.72], [1, 0]);
+  const sidebarX = useTransform(smoothProgress, [0.48, 0.72], ['0%', '-110%']);
+  const decorOpacity = useTransform(smoothProgress, [0.45, 0.7], [1, 0]);
+  const [ctaImmersive, setCtaImmersive] = useState(false);
+  const [tourFocusId, setTourFocusId] = useState<string | null>(null);
 
-    autoScrollIntervalRef.current = setInterval(() => {
-      currentIdx++;
-      if (currentIdx < navSections.length) {
-        scrollToSection(navSections[currentIdx].id);
-      } else {
-        // Scroll to footer at the end
-        if (footerRef.current && containerRef.current) {
-          containerRef.current.scrollTo({
-            top: footerRef.current.offsetTop,
-            behavior: 'smooth'
-          });
-        }
-        stopAutoScroll();
-      }
-    }, 4000);
+  const footerImmersive = ctaImmersive || tourFocusId === 'footer-cta';
+  const hideScribbleDecor = isAutoScrolling || !!tourFocusId || footerImmersive;
+
+  useMotionValueEvent(smoothProgress, 'change', (v) => {
+    const immersive = v >= 0.72;
+    setCtaImmersive(immersive);
+    if (immersive) setActiveSection('footer-cta');
+  });
+
+  const stopAutoScroll = () => {
+    tourAbortRef.current.aborted = true;
+    tourRunningRef.current = false;
+    setIsAutoScrolling(false);
   };
 
   const pauseAutoScroll = () => {
-    setIsAutoScrolling(false);
-    if (autoScrollIntervalRef.current) {
-      clearInterval(autoScrollIntervalRef.current);
-      autoScrollIntervalRef.current = null;
-    }
+    stopAutoScroll();
   };
 
-  const stopAutoScroll = () => {
-    setIsAutoScrolling(false);
-    if (autoScrollIntervalRef.current) {
-      clearInterval(autoScrollIntervalRef.current);
-      autoScrollIntervalRef.current = null;
+  const startAutoScroll = async () => {
+    const container = containerRef.current;
+    if (!container || tourRunningRef.current) return;
+
+    stopAutoScroll();
+    tourAbortRef.current = { aborted: false };
+    tourRunningRef.current = true;
+    setIsAutoScrolling(true);
+
+    const sections = SECTIONS.filter((s) => s.icon !== null);
+    const stops: { id: string; dwellMs: number }[] = [
+      ...sections.map((s) => ({
+        id: s.id,
+        dwellMs: 2400,
+      })),
+      { id: 'footer-cta', dwellMs: 3800 },
+    ];
+
+    for (let i = 0; i < stops.length; i++) {
+      const stop = stops[i];
+      if (tourAbortRef.current.aborted) break;
+      const el = document.getElementById(stop.id);
+      if (!el) continue;
+
+      setTourFocusId(stop.id);
+      if (stop.id !== 'footer-cta') setActiveSection(stop.id);
+
+      const isLast = stop.id === 'footer-cta';
+      const targetTop = isLast
+        ? Math.max(0, container.scrollHeight - container.clientHeight)
+        : Math.max(0, el.offsetTop - 32);
+      if (isLast) setCtaImmersive(true);
+      const scrollDelta = Math.abs(targetTop - container.scrollTop);
+      await animateScrollTo(
+        container,
+        targetTop,
+        isLast ? Math.min(3200, 1400 + scrollDelta * 0.55) : undefined,
+        tourAbortRef.current,
+        isLast ? easeInOutQuint : easeOutExpo
+      );
+      await waitMs(isLast ? stop.dwellMs + 600 : stop.dwellMs, tourAbortRef.current);
+    }
+
+    setTourFocusId(null);
+    stopAutoScroll();
+    if (containerRef.current) {
+      const maxTop =
+        containerRef.current.scrollHeight - containerRef.current.clientHeight;
+      if (containerRef.current.scrollTop >= maxTop - 8) {
+        setCtaImmersive(true);
+      }
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (autoScrollIntervalRef.current) clearInterval(autoScrollIntervalRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -378,7 +972,9 @@ export function LandingView({ onLogin }: LandingViewProps) {
         const top = section.offsetTop;
         const height = section.offsetHeight;
         if (scrollPosition >= top && scrollPosition < top + height) {
-          setActiveSection(section.id);
+          if (section.id !== 'footer-cta' || !ctaImmersive) {
+            setActiveSection(section.id);
+          }
         }
       });
     };
@@ -390,7 +986,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
       handleScroll();
       return () => container.removeEventListener('scroll', handleScroll);
     }
-  }, []);
+  }, [ctaImmersive]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -405,9 +1001,29 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const navSections = SECTIONS.filter(s => s.icon !== null);
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white">
+    <div
+      className={cn(
+        'relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white',
+        footerImmersive && 'bg-brand'
+      )}
+    >
+      {/* Full-viewport brand + grid on final scroll (covers entire screen) */}
+      <motion.div
+        className="fixed inset-0 z-[5] bg-brand pointer-events-none"
+        style={{ opacity: footerImmersive ? 1 : fullBleedOpacity }}
+        aria-hidden
+      >
+        <FooterCtaGrid className="opacity-[0.14]" />
+      </motion.div>
+
       {/* Sidebar (Desktop) / Bottom Bar (Mobile) */}
-      <aside className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto w-full md:w-16 h-[64px] md:h-full border-t md:border-t-0 md:border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] md:bg-[#F7F7F5] md:dark:bg-[#202020] flex md:flex-col items-center py-0 md:py-4 shrink-0 z-50 shadow-[0_-8px_24px_rgba(0,0,0,0.05)] md:shadow-none px-2 md:px-0">
+      <motion.aside
+        style={{ opacity: sidebarOpacity, x: sidebarX }}
+        className={cn(
+          'fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto w-full md:w-16 h-[64px] md:h-full border-t md:border-t-0 md:border-r border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] md:bg-[#F7F7F5] md:dark:bg-[#202020] flex md:flex-col items-center py-0 md:py-4 shrink-0 z-50 shadow-[0_-8px_24px_rgba(0,0,0,0.05)] md:shadow-none px-2 md:px-0 transition-[visibility] duration-300',
+          footerImmersive && 'invisible md:w-0 md:min-w-0 md:border-0 md:p-0 md:overflow-hidden pointer-events-none'
+        )}
+      >
         <div className="hidden md:block mb-8">
           <ForgeLogo size={28} className="p-1" />
         </div>
@@ -447,17 +1063,19 @@ export function LandingView({ onLogin }: LandingViewProps) {
           {/* Mobile Nav Items - Same as Registered User */}
           <div className="md:hidden flex flex-1 flex-row justify-between w-full h-full items-center">
             {[
-              { id: 'calendar', icon: CalendarIcon, title: 'Calendar' },
-              { id: 'todos', icon: ListTodo, title: 'Tasks' },
-              { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
-              { id: 'login', icon: LogIn, title: 'Log In', action: onLogin }
+              ...navSections.slice(0, 3).map((s) => ({
+                id: s.id,
+                icon: s.icon!,
+                title: s.title,
+              })),
+              { id: 'login', icon: LogIn, title: 'Log In', action: onLogin },
             ].map((tab) => {
               const Icon = tab.icon;
-              const isActive = activeSection === tab.id;
+              const isActive = 'action' in tab ? false : activeSection === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => tab.action ? tab.action() : scrollToSection(tab.id)}
+                  onClick={() => 'action' in tab && tab.action ? tab.action() : scrollToSection(tab.id)}
                   className={cn(
                     "flex flex-col items-center justify-center transition-all duration-200 relative flex-1 h-full",
                     isActive ? "text-[#2383E2]" : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
@@ -488,17 +1106,28 @@ export function LandingView({ onLogin }: LandingViewProps) {
             <LogIn className="w-5 h-5" />
           </button>
         </div>
-      </aside>
+      </motion.aside>
 
-      {/* Fixed Background Animation for all views */}
-      <div className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[600px] aspect-[210/339] opacity-10 md:opacity-20 dark:opacity-10 md:dark:opacity-20 pointer-events-none z-0">
-        <div className="w-full h-full scale-150 md:scale-100 origin-right">
+      {/* Scribble flame — hero only; hidden during guided tour so it never covers feature copy */}
+      <motion.div
+        style={{ opacity: hideScribbleDecor ? 0 : decorOpacity }}
+        className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[480px] aspect-[210/339] pointer-events-none z-[1] opacity-10 md:opacity-15"
+        aria-hidden
+      >
+        <div className="w-full h-full scale-125 md:scale-90 origin-right translate-x-[8%]">
           <ScribbleFlame />
         </div>
-      </div>
+      </motion.div>
 
       {/* Main Content */}
-      <main ref={containerRef} className="flex-1 overflow-y-auto scroll-smooth pb-24 md:pb-0">
+      <main
+        ref={containerRef}
+        className={cn(
+          'relative z-10 flex-1 overflow-y-auto pb-24 md:pb-0 min-w-0',
+          !isAutoScrolling && 'scroll-smooth snap-y snap-proximity',
+          footerImmersive && 'md:w-full'
+        )}
+      >
         <div className="max-w-5xl mx-auto px-6 md:px-12 py-12 md:py-24 space-y-24 md:space-y-40">
           
           {/* Hero Section */}
@@ -507,32 +1136,58 @@ export function LandingView({ onLogin }: LandingViewProps) {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-8 relative z-10 max-w-2xl lg:w-1/2"
+              className="flex flex-col items-stretch w-full max-w-2xl lg:w-1/2 space-y-8 relative z-10"
             >
-              <div className="flex items-center gap-4 mb-4">
-                <ForgeLogo size={40} className="text-white" />
-                <span className="font-bold text-3xl tracking-tight text-white">Forge</span>
+              <div className="flex items-center gap-4">
+                <ForgeLogo size={40} className="text-white shrink-0" />
+                <span className="font-display font-bold text-3xl tracking-tight text-white">Forge</span>
               </div>
               
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.9] flex flex-wrap items-baseline">
-                <TypewriterText text="Sparks into substance" delay={0} className="text-gray-900 dark:text-white" />
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-                  className="inline-block text-[#2383E2] ml-1"
-                >
-                  |
-                </motion.span>
+              <h1 className="w-full m-0 p-0 text-left">
+                <HeroHandwritingTitle />
               </h1>
-              <p className="text-lg md:text-2xl text-[#787774] dark:text-[#9B9A97] max-w-2xl leading-relaxed">
-                Capture endless ideas in your Creative Hub and transform them into a polished, high-performing social media strategy.
+              <p className="text-lg md:text-2xl text-secondary-safe w-full leading-relaxed m-0 text-left">
+                One workspace for your calendar, {landingTerms.ideas.toLowerCase()}, local AI widgets, a website-to-catalogue importer, {landingTerms.assets}, and analytics—so you can ship consistent social content without tab chaos.
               </p>
-              <div className="pt-4 flex flex-col gap-3">
+              <div className="pt-2 flex flex-col sm:flex-row flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={onLogin}
+                  className="interactive focus-ring px-8 py-4 bg-brand hover:bg-brand-hover text-white rounded-xl font-bold text-lg shadow-lg shadow-brand/25 min-h-[48px]"
+                >
+                  Get started free
+                </button>
+                <motion.button
+                  type="button"
+                  onClick={startAutoScroll}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="interactive focus-ring px-8 py-4 bg-white/90 dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] text-[#37352F] dark:text-[#EBE9ED] rounded-xl font-bold text-lg min-h-[48px]"
+                >
+                  See how it works
+                </motion.button>
+              </div>
+              <div className="flex flex-wrap items-center gap-6 pt-6 text-sm text-secondary-safe">
+                <span className="font-semibold text-[#37352F] dark:text-[#EBE9ED]">Trusted by teams who plan in public</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                {[
+                  { stat: '5-step', label: 'Catalogue import' },
+                  { stat: 'Local AI', label: 'Markdown → items' },
+                  { stat: '10k+', label: 'Posts scheduled' },
+                ].map((item) => (
+                  <div key={item.label} className="glass-card p-4 text-center">
+                    <p className="text-2xl font-black text-brand">{item.stat}</p>
+                    <p className="text-xs text-secondary-safe mt-1">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 flex flex-col gap-3">
                 {window !== window.top && (
                   <button 
+                    type="button"
                     onClick={() => window.open(window.location.href, '_blank')}
-                    className="text-sm text-[#787774] hover:text-[#2383E2] underline text-left w-fit transition-colors"
+                    className="text-sm text-secondary-safe hover:text-brand underline text-left w-fit transition-colors"
                   >
                     Having trouble logging in? Open app in a new tab
                   </button>
@@ -549,6 +1204,10 @@ export function LandingView({ onLogin }: LandingViewProps) {
               transition={{ delay: 2, duration: 1.5, repeat: Infinity }}
               className="absolute bottom-10 left-1/2 -translate-x-1/2 text-[#787774] dark:text-[#9B9A97] cursor-pointer z-20"
               onClick={startAutoScroll}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && startAutoScroll()}
+              aria-label="See how it works — guided scroll tour"
             >
               <ChevronDown className="w-8 h-8" />
             </motion.div>
@@ -560,15 +1219,19 @@ export function LandingView({ onLogin }: LandingViewProps) {
             {navSections.map((section, index) => {
               const Icon = section.icon!;
               return (
-                <section key={section.id} id={section.id} className="min-h-[50vh] flex flex-col justify-center py-10">
+                <section
+                  key={section.id}
+                  id={section.id}
+                  className="relative z-10 min-h-[50vh] flex flex-col justify-center py-10 rounded-3xl"
+                >
                   <motion.div 
                     initial={{ opacity: 0, y: 50 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-20%" }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className={cn("flex flex-col items-center gap-12", index % 2 === 0 ? "lg:flex-row" : "lg:flex-row-reverse")}
+                    transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+                    className={cn("relative z-10 flex flex-col items-center gap-12", index % 2 === 0 ? "lg:flex-row" : "lg:flex-row-reverse")}
                   >
-                    <div className="flex-1 space-y-6 max-w-2xl w-full">
+                    <div className="relative z-10 flex-1 space-y-6 max-w-2xl w-full">
                       <div className="flex items-center gap-4 mb-6">
                         <div className={cn("p-4 rounded-2xl shrink-0 shadow-sm", section.bg, section.color)}>
                           <ScribbleIcon Icon={Icon} className="w-8 h-8 md:w-10 md:h-10" />
@@ -581,6 +1244,24 @@ export function LandingView({ onLogin }: LandingViewProps) {
                       <p className="text-lg md:text-xl text-[#787774] dark:text-[#9B9A97] leading-relaxed">
                         {section.description}
                       </p>
+                      {section.bullets && section.bullets.length > 0 && (
+                        <ul className="space-y-3 pt-2">
+                          {section.bullets.map((bullet) => {
+                            const BulletIcon = bullet.icon;
+                            return (
+                              <li key={bullet.label} className="flex gap-3 items-start">
+                                <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
+                                  <BulletIcon className="w-4 h-4 text-brand" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">{bullet.label}</p>
+                                  <p className="text-sm text-[#787774] dark:text-[#9B9A97] leading-relaxed">{bullet.text}</p>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                     </div>
                     <div className="flex-1 w-full max-w-xl perspective-[1000px]">
                       <motion.div
@@ -595,43 +1276,114 @@ export function LandingView({ onLogin }: LandingViewProps) {
               );
             })}
           </div>
+        </div>
 
-          <section ref={footerRef} className="py-24 md:py-40 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-            <motion.div 
-              style={{ 
-                scale: calloutScale,
-                borderRadius: calloutRadius
-              }}
-              className="bg-[#2383E2] p-8 md:p-16 text-white text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 relative overflow-hidden min-h-[60vh] md:min-h-[80vh]"
-            >
-              <div className="absolute inset-0 opacity-10 pointer-events-none">
-                <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1"/>
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-              </div>
-              
-              <div className="space-y-6 max-w-2xl relative z-10">
-                <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Ready to transform your workflow?</h2>
-                <p className="text-xl text-blue-100">
-                  Join thousands of content creators who are already saving time and growing their audience with Forge.
+        <motion.section
+          id="footer-cta"
+          ref={footerRef}
+          className={cn(
+            'relative z-[100] min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden',
+            footerImmersive ? 'py-0 px-0' : 'py-16 md:py-24'
+          )}
+          style={
+            footerImmersive
+              ? undefined
+              : { paddingLeft: sectionPadX, paddingRight: sectionPadX }
+          }
+        >
+          {/* Bordered card — fades out as you scroll in */}
+          <motion.div
+            style={{
+              scale: calloutScale,
+              borderRadius: calloutRadius,
+              opacity: cardOpacity,
+            }}
+            className={cn(
+              'relative z-[20] w-full max-w-4xl lg:max-w-5xl mx-auto',
+              'bg-brand text-white overflow-hidden',
+              'border border-white/25 shadow-[0_24px_80px_rgba(0,0,0,0.28)]',
+              'ring-1 ring-inset ring-white/10',
+              footerImmersive && 'pointer-events-none'
+            )}
+          >
+            <FooterCtaGrid className="opacity-[0.12]" />
+            <div className="relative z-10 flex flex-col items-center text-center px-8 py-12 sm:px-12 sm:py-14 md:px-16 md:py-16 gap-8 md:gap-10">
+              <div className="space-y-4 md:space-y-5 max-w-2xl">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-[1.08]">
+                  Ready to ship your next month of content?
+                </h2>
+                <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed">
+                  Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the{' '}
+                  {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you
+                  are ready.
                 </p>
               </div>
-              <div className="shrink-0 relative z-10 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
                 <button
+                  type="button"
                   onClick={onLogin}
-                  className="w-full md:w-auto px-10 py-5 bg-white text-[#2383E2] hover:bg-blue-50 rounded-xl font-bold text-xl transition-all hover:scale-105 active:scale-95 shadow-xl"
+                  className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-all shadow-xl min-h-[48px]"
                 >
                   Sign Up Now
                 </button>
+                <button
+                  type="button"
+                  onClick={onLogin}
+                  className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white/10 text-white hover:bg-white/20 border border-white/20 rounded-xl font-bold text-lg md:text-xl transition-all min-h-[48px]"
+                >
+                  Log In
+                </button>
               </div>
-            </motion.div>
-          </section>
-        </div>
+            </div>
+          </motion.div>
+
+          {/* Full-bleed copy (no card) — visible when purple fills the viewport */}
+          <motion.div
+            style={{ opacity: fullBleedOpacity, y: contentY }}
+            className="absolute inset-0 z-[30] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 pointer-events-none text-white"
+          >
+            <div
+              className={cn(
+                'flex flex-col items-center gap-8 md:gap-10 max-w-3xl w-full',
+                footerImmersive ? 'pointer-events-auto' : 'pointer-events-none'
+              )}
+            >
+              <div className="space-y-4 md:space-y-5">
+                <motion.h2
+                  style={{ fontSize: headlineSize }}
+                  className="font-bold tracking-tight leading-[1.08]"
+                >
+                  Ready to ship your next month of content?
+                </motion.h2>
+                <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed">
+                  Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the{' '}
+                  {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you
+                  are ready.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                <motion.button
+                  type="button"
+                  onClick={onLogin}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-colors shadow-xl min-h-[48px]"
+                >
+                  Sign Up Now
+                </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={onLogin}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white/10 text-white hover:bg-white/20 border border-white/20 rounded-xl font-bold text-lg md:text-xl transition-colors min-h-[48px] backdrop-blur-sm"
+                >
+                  Log In
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.section>
       </main>
 
       {/* Auto-scroll Controls */}
@@ -641,7 +1393,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-white dark:bg-[#2E2E2E] shadow-lg rounded-full p-2 border border-[#E9E9E7] dark:border-[#3E3E3E]"
+            className="fixed bottom-6 right-6 z-[110] flex items-center gap-2 bg-white dark:bg-[#2E2E2E] shadow-lg rounded-full p-2 border border-[#E9E9E7] dark:border-[#3E3E3E]"
           >
             <button
               onClick={pauseAutoScroll}

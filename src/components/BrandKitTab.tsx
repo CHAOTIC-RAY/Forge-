@@ -23,7 +23,6 @@ import {
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { Post, Business, OUTLETS, PRODUCT_CATEGORIES } from '../data';
-import { TabPageHeader } from './ui/TabPageHeader';
 
 interface BrandKit {
   colors: { name: string; hex: string }[];
@@ -715,26 +714,37 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings }: BrandKitTabPr
 
   return (
     <div className="flex flex-col h-full bg-[#F7F7F5] dark:bg-[#191919]">
-      <TabPageHeader
-        className="shrink-0 mb-6 md:mb-8"
-        icon={Palette}
-        iconBgClassName="bg-brand/10"
-        iconClassName="text-brand"
-        title="Brand & AI Guide"
-        subtitle="Visual identity, AI instructions, workspace categories, and design rules in one place."
-        actions={
-          (activeSection === 'identity') ? (
-            <button
-              onClick={handleSaveBrandKit}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-xs font-bold hover:bg-brand-hover transition-all active:scale-95 disabled:opacity-50 min-h-[36px]"
-            >
-              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Identity
-            </button>
-          ) : undefined
-        }
-      >
+      {/* Header */}
+      <div className="hidden md:block p-6 md:p-8 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] -mx-4 md:-mx-8 -mt-6 md:-mt-8 mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-\[#2665fd\]/10 rounded-[16px] flex items-center justify-center">
+              <Palette className="w-6 h-6 text-\[#2665fd\]" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-2">
+                Brand Kit & Workspace Settings
+              </h2>
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mt-1">
+                Manage your brand identity and workspace configuration.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {activeSection === 'identity' && (
+              <button
+                onClick={handleSaveBrandKit}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-[12px] text-sm font-bold hover:bg-\[#1e52d0\] transition-all active:scale-95 disabled:opacity-50  "
+              >
+                {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Identity
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tab Navigation (Desktop) */}
         <div className="flex items-center gap-1 p-1 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] w-fit border border-[#E9E9E7] dark:border-[#2E2E2E]">
           <button
             onClick={() => setActiveSection('identity')}
