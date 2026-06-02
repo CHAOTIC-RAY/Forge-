@@ -19,17 +19,20 @@ window.addEventListener('error', (e) => {
       // First fallback: remove crossOrigin flag which might be blocking load
       imgElement.dataset.corsFallback = '1';
       imgElement.removeAttribute('crossOrigin');
+      // Instead of immediate reload, we just set the src again once
       const oldSrc = imgElement.src;
-      imgElement.src = '';
-      imgElement.src = oldSrc; // trigger reload
+      if (oldSrc) {
+        imgElement.src = oldSrc; 
+      }
     } else if (imgElement.dataset.corsFallback === '1') {
       // Second fallback: use cors proxy
       imgElement.dataset.corsFallback = '2';
-      // Store original src
       if (!imgElement.dataset.originalSrc) {
         imgElement.dataset.originalSrc = imgElement.src;
       }
-      imgElement.src = `https://corsproxy.io/?url=${encodeURIComponent(imgElement.dataset.originalSrc)}`;
+      if (imgElement.dataset.originalSrc) {
+        imgElement.src = `https://corsproxy.io/?url=${encodeURIComponent(imgElement.dataset.originalSrc)}`;
+      }
     }
   }
 }, true);

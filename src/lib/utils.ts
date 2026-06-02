@@ -5,6 +5,39 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * <img> props for hosted media. Public CDNs (Cloudinary, Firebase) are loaded without
+ * crossOrigin so the browser does not require CORS on GET (which can break thumbnails
+ * and guest/shared calendar views). Referrer is preserved for Cloudinary delivery restrictions.
+ */
+export function getTrustedCdnImageElementProps(url: string): {
+  crossOrigin?: 'anonymous';
+  referrerPolicy?: 'no-referrer' | 'strict-origin-when-cross-origin';
+} {
+  if (!url) return { crossOrigin: 'anonymous', referrerPolicy: 'no-referrer' };
+  if (url.includes('cloudinary.com') || url.includes('firebasestorage.googleapis.com')) {
+    return { referrerPolicy: 'strict-origin-when-cross-origin' };
+  }
+  return { crossOrigin: 'anonymous', referrerPolicy: 'no-referrer' };
+}
+
+/** When the document is crossOriginIsolated, cross-origin CDN <img> URLs are blocked; same-origin proxy works. */
+export function getCalendarImageDisplayUrl(url: string): string {
+  if (!url || typeof url !== 'string' || url.startsWith('data:') || url.startsWith('blob:') || url.includes('localhost') || url.includes('127.0.0.1')) {
+    return url;
+  }
+  const isolated =
+    typeof globalThis !== 'undefined' &&
+    (globalThis as { crossOriginIsolated?: boolean }).crossOriginIsolated === true;
+  const isCdn = url.includes('cloudinary.com') || url.includes('firebasestorage.googleapis.com');
+  if (isolated && isCdn) {
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  if (isCdn) return url;
+  if (url.startsWith('http')) return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  return url;
+}
+
 export interface AnalyticsSettings {
   instagramUrl: string;
   facebookUrl: string;
