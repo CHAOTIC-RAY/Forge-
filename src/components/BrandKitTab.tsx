@@ -77,14 +77,14 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   
   const scrapFromWeb = async () => {
     if (!activeBusiness?.id) return;
-    if (!aiSettings?.targetUrl) {
-      toast.error("Please set a Target Website URL in Settings first.");
+    if (!activeBusiness?.targetUrl) {
+      toast.error("Please set a Target Website URL in Workspace Settings first.");
       return;
     }
 
     setIsScraping(true);
     try {
-      toast.info(`Scraping categories from ${aiSettings.targetUrl}...`);
+      toast.info(`Scraping categories from ${activeBusiness.targetUrl}...`);
       
       // Scrape "All Products" to get a broad range of categories
       const { products, logs } = await scrapeWooCommerce("All Products", undefined, undefined, activeBusiness || undefined);
@@ -281,6 +281,11 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   }, []);
   const [uploadedPostImages, setUploadedPostImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [workspaceTargetUrl, setWorkspaceTargetUrl] = useState(activeBusiness?.targetUrl || '');
+
+  useEffect(() => {
+    setWorkspaceTargetUrl(activeBusiness?.targetUrl || '');
+  }, [activeBusiness?.targetUrl]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1355,6 +1360,35 @@ Please create high-quality, engaging social media content that strictly follows 
               exit={{ opacity: 0, y: -10 }}
               className="space-y-8 w-full"
             >
+              {/* Target URL Section */}
+              <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="w-5 h-5 text-brand" />
+                  <h3 className="text-base font-bold">Target Website URL</h3>
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={workspaceTargetUrl}
+                  onChange={(e) => setWorkspaceTargetUrl(e.target.value)}
+                  onBlur={async () => {
+                    if (!activeBusiness?.id) return;
+                    const newUrl = workspaceTargetUrl.trim();
+                    if (newUrl !== (activeBusiness.targetUrl || '')) {
+                      await setDoc(doc(db, 'businesses', activeBusiness.id), { targetUrl: newUrl }, { merge: true });
+                      toast.success("Workspace Target URL updated");
+                    }
+                  }}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className="w-full max-w-md px-4 py-2 text-sm bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:border-brand transition-all"
+                />
+                <p className="mt-2 text-xs text-[#757681]">Used for product discovery and category scraping. Leave empty if none.</p>
+              </div>
+
               {/* Platforms Section */}
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
                 <div className="flex items-center justify-between mb-6">
