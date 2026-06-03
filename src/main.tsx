@@ -2,7 +2,7 @@ import {StrictMode, Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.tsx';
-import { PublicCalendarView } from './components/PublicCalendarView';
+import { SharedCalendarView } from './components/SharedCalendarView.tsx';
 import { ForgeLoader } from './components/ForgeLoader';
 import './index.css';
 
@@ -44,7 +44,7 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/s/:shortCode" element={<App />} />
-          <Route path="/share/:businessId/:shareToken" element={<PublicCalendarView />} />
+          <Route path="/share/:businessId/:shareToken" element={<SharedCalendarView />} />
         </Routes>
       </BrowserRouter>
     </Suspense>
