@@ -642,19 +642,7 @@ export default {
         }
 
         // Pass everything else to Assets
-        const assetResponse = await env.ASSETS.fetch(request);
-        const contentType = assetResponse.headers.get('Content-Type') || '';
-        if (contentType.includes('text/html')) {
-          const headers = new Headers(assetResponse.headers);
-          headers.set('Cross-Origin-Opener-Policy', 'unsafe-none');
-          headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none');
-          return new Response(assetResponse.body, {
-            status: assetResponse.status,
-            statusText: assetResponse.statusText,
-            headers,
-          });
-        }
-        return assetResponse;
+        return env.ASSETS.fetch(request);
 
       } catch (err: any) {
         return new Response(JSON.stringify({ error: "Internal Server Error", details: err.message }), { 

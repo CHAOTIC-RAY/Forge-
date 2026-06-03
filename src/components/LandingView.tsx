@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { HeroHandwritingTitle } from './HeroHandwritingTitle';
 import {
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react';
 import { ForgeLogo } from './ForgeLogo';
 import { cn } from '../lib/utils';
-import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
 
 const TypewriterText = ({ text, delay = 0, onComplete, className }: { text: string, delay?: number, onComplete?: () => void, className?: string }) => {
   const [displayedText, setDisplayedText] = useState("");
@@ -261,9 +259,7 @@ interface LandingViewProps {
   onLogin: () => void;
 }
 
-const landingTerms = INDUSTRY_CONFIGS.default.terminology;
-
-const FEATURES = [
+const SECTIONS = [
   {
     id: 'hero',
     icon: null,
