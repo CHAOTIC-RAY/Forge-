@@ -18,8 +18,6 @@ import {
 } from 'lucide-react';
 import { ForgeLogo } from './ForgeLogo';
 import { cn } from '../lib/utils';
-import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
-import Spline from '@splinetool/react-spline';
 
 const TypewriterText = ({ text, delay = 0, onComplete, className }: { text: string, delay?: number, onComplete?: () => void, className?: string }) => {
   const [displayedText, setDisplayedText] = useState("");
