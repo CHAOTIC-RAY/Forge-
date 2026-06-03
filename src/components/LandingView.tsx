@@ -259,14 +259,7 @@ interface LandingViewProps {
   onLogin: () => void;
 }
 
-const landingTerms = {
-  calendar: 'Content Calendar',
-  ideas: 'Creative Ideas',
-  products: 'Product Catalogue',
-  assets: 'Brand Assets'
-};
-
-const FEATURES = [
+const SECTIONS = [
   {
     id: 'hero',
     icon: null,
