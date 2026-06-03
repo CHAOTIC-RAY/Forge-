@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.tsx';
 import { SharedCalendarView } from './components/SharedCalendarView.tsx';
-import { ForgeLoader } from './components/ForgeLoader';
+import { ForgeLoader } from './components/ForgeLoader.tsx';
 import './index.css';
 
 // Global Image Error Handler (CORS fallback mechanism)
