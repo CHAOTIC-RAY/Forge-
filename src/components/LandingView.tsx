@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { HeroHandwritingTitle } from './HeroHandwritingTitle';
 import {
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ForgeLogo } from './ForgeLogo';
 import { cn } from '../lib/utils';
+import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
 
 const TypewriterText = ({ text, delay = 0, onComplete, className }: { text: string, delay?: number, onComplete?: () => void, className?: string }) => {
   const [displayedText, setDisplayedText] = useState("");
@@ -259,6 +261,8 @@ interface LandingViewProps {
   onLogin: () => void;
 }
 
+const landingTerms = INDUSTRY_CONFIGS.default.terminology;
+
 const FEATURES = [
   {
     id: 'hero',
@@ -271,7 +275,7 @@ const FEATURES = [
   {
     id: 'calendar',
     icon: CalendarIcon,
-    title: 'Calendar',
+    title: landingTerms.calendar,
     description: 'Plan your content on a visual month grid. Drag, drop, and share with stakeholders.',
     color: 'text-blue-500',
     bg: 'bg-blue-500/10'
@@ -279,7 +283,7 @@ const FEATURES = [
   {
     id: 'ideas',
     icon: Lightbulb,
-    title: 'Ideas',
+    title: landingTerms.ideas,
     description: 'A creative inbox to capture and sort concepts before they hit the schedule.',
     color: 'text-yellow-500',
     bg: 'bg-yellow-500/10'
@@ -287,7 +291,7 @@ const FEATURES = [
   {
     id: 'products',
     icon: Database,
-    title: 'Workspace Inventory',
+    title: landingTerms.products,
     description: 'Turn your website into a searchable catalogue. Sync products and info instantly.',
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/10'
@@ -295,7 +299,7 @@ const FEATURES = [
   {
     id: 'assets',
     icon: Palette,
-    title: 'Brand Kit',
+    title: landingTerms.assets,
     description: 'One hub for brand visuals, voice, and AI rules to keep content on-brand.',
     color: 'text-pink-500',
     bg: 'bg-pink-500/10'
