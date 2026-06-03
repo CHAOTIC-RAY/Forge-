@@ -53,7 +53,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const [liveProducts, setLiveProducts] = useState<HighStockProduct[]>([]);
   const [isManualMode, setIsManualMode] = useState(false);
   const aiSettings = getAiSettings();
-  const [manualUrl, setManualUrl] = useState(activeBusiness?.targetUrl || aiSettings.targetUrl || '');
+  const [manualUrl, setManualUrl] = useState(activeBusiness?.targetUrl || '');
   const [manualUrlInput, setManualUrlInput] = useState(manualUrl);
   const [isScrapingScreenshot, setIsScrapingScreenshot] = useState(false);
   const [manualPreviewMode, setManualPreviewMode] = useState<'live' | 'screenshot'>('live');
@@ -140,7 +140,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     setHasSearched(false);
     setHasCheckedCounts(false);
     setLogs([]);
-    const defaultUrl = activeBusiness?.targetUrl || aiSettings.targetUrl || '';
+    const defaultUrl = activeBusiness?.targetUrl || '';
     setManualUrl(defaultUrl);
     setManualUrlInput(defaultUrl);
   }, [businessId]);
@@ -480,7 +480,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   };
 
   const handleQuickSync = async () => {
-    const url = (manualUrl || activeBusiness?.targetUrl || aiSettings.targetUrl || '').trim();
+    const url = (manualUrl || activeBusiness?.targetUrl || '').trim();
     if (!url) {
       toast.error('Add your website URL in Settings, or open import tools to enter one.');
       setShowImportPanel(true);

@@ -3153,7 +3153,7 @@ export default function App() {
       if (data.targetUrl || data.geminiApiKey) {
         const newSettings = {
           ...aiSettings,
-          targetUrl: data.targetUrl || aiSettings.targetUrl,
+          targetUrl: aiSettings.targetUrl, // Do not globally overwrite from business data
           geminiApiKey: data.geminiApiKey || aiSettings.geminiApiKey
         };
         setAiSettingsState(newSettings);

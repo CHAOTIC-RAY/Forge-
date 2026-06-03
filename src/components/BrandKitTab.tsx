@@ -34,6 +34,9 @@ interface BrandKit {
   customFonts?: { name: string; url: string; format: string }[];
   designGuide?: string; // Markdown content
   brandProfile?: string; // Markdown content (brand.md)
+  brandVoice?: string;
+  businessRules?: string;
+  systemInstructions?: string;
 }
 
 const defaultBrandKit: BrandKit = {
@@ -74,14 +77,14 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   
   const scrapFromWeb = async () => {
     if (!activeBusiness?.id) return;
-    if (!aiSettings?.targetUrl) {
-      toast.error("Please set a Target Website URL in Settings first.");
+    if (!activeBusiness?.targetUrl) {
+      toast.error("Please set a Target Website URL in Workspace Settings first.");
       return;
     }
 
     setIsScraping(true);
     try {
-      toast.info(`Scraping categories from ${aiSettings.targetUrl}...`);
+      toast.info(`Scraping categories from ${activeBusiness.targetUrl}...`);
       
       // Scrape "All Products" to get a broad range of categories
       const { products, logs } = await scrapeWooCommerce("All Products", undefined, undefined, activeBusiness || undefined);
@@ -259,15 +262,15 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   };
 
   const [activeSection, setActiveSection] = useState<'identity' | 'knowledge' | 'workspace' | 'designs'>('identity');
-  const [brandVoiceText, setBrandVoiceText] = useState(aiSettings?.brandVoice || '');
-  const [businessRulesText, setBusinessRulesText] = useState(aiSettings?.businessRules || '');
-  const [instructionText, setInstructionText] = useState(aiSettings?.systemInstructions || '');
+  const [brandVoiceText, setBrandVoiceText] = useState(brandKit.brandVoice || aiSettings?.brandVoice || '');
+  const [businessRulesText, setBusinessRulesText] = useState(brandKit.businessRules || aiSettings?.businessRules || '');
+  const [instructionText, setInstructionText] = useState(brandKit.systemInstructions || aiSettings?.systemInstructions || '');
 
   useEffect(() => {
-    setBrandVoiceText(aiSettings?.brandVoice || '');
-    setBusinessRulesText(aiSettings?.businessRules || '');
-    setInstructionText(aiSettings?.systemInstructions || '');
-  }, [aiSettings?.brandVoice, aiSettings?.businessRules, aiSettings?.systemInstructions]);
+    setBrandVoiceText(brandKit.brandVoice || aiSettings?.brandVoice || '');
+    setBusinessRulesText(brandKit.businessRules || aiSettings?.businessRules || '');
+    setInstructionText(brandKit.systemInstructions || aiSettings?.systemInstructions || '');
+  }, [brandKit.brandVoice, brandKit.businessRules, brandKit.systemInstructions, aiSettings?.brandVoice, aiSettings?.businessRules, aiSettings?.systemInstructions]);
 
   useEffect(() => {
     const open = sessionStorage.getItem('forge_brand_open_section');
@@ -278,6 +281,11 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   }, []);
   const [uploadedPostImages, setUploadedPostImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [workspaceTargetUrl, setWorkspaceTargetUrl] = useState(activeBusiness?.targetUrl || '');
+
+  useEffect(() => {
+    setWorkspaceTargetUrl(activeBusiness?.targetUrl || '');
+  }, [activeBusiness?.targetUrl]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -490,10 +498,16 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
         brandProfile: brandKit.brandProfile,
         designGuide: brandKit.designGuide,
       });
-      onAiSettingsChange?.('brandVoice', brandVoiceText);
-      onAiSettingsChange?.('businessRules', businessRulesText);
-      onAiSettingsChange?.('systemInstructions', instructionText);
-      await setDoc(doc(db, 'brand_kits', activeBusiness.id), brandKit, { merge: true });
+      // We no longer call onAiSettingsChange 3 times synchronously to avoid race conditions.
+      // Instead, we save it directly to the business brand_kits document.
+      const updatedBrandKit = {
+        ...brandKit,
+        brandVoice: brandVoiceText,
+        businessRules: businessRulesText,
+        systemInstructions: instructionText
+      };
+      setBrandKit(updatedBrandKit);
+      await setDoc(doc(db, 'brand_kits', activeBusiness.id), updatedBrandKit, { merge: true });
       toast.success('AI knowledge saved — local and cloud models will use these rules.');
     } catch {
       toast.error('Failed to save AI knowledge');
@@ -564,9 +578,14 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
         brandProfile: brandKit.brandProfile,
         designGuide: brandKit.designGuide,
       });
-      onAiSettingsChange?.('brandVoice', brandVoiceText);
-      onAiSettingsChange?.('businessRules', businessRulesText);
-      onAiSettingsChange?.('systemInstructions', instructionText);
+      
+      const updatedBrandKit = {
+        ...brandKit,
+        brandVoice: brandVoiceText,
+        businessRules: businessRulesText,
+        systemInstructions: instructionText
+      };
+      await setDoc(doc(db, 'brand_kits', activeBusiness.id), updatedBrandKit);
       toast.success('Brand & AI guide saved — synced to all AI providers.');
     } catch (error) {
       toast.error('Failed to save Brand Identity');
@@ -1286,6 +1305,49 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
                 <p className="mt-4 text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed">
                   Brand Profile and Design Guide tabs feed the same knowledge bundle. Save here after editing voice or rules.
                 </p>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-6 p-4 bg-brand-bg/50 border border-brand/20 rounded-[12px]">
+                  <div>
+                    <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">External AI Prompt</h4>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Copy a pre-formatted prompt containing your rules, voice, and recent posts to use in ChatGPT, Claude, etc.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const recentPostsContext = posts
+                        .filter(p => p.businessId === activeBusiness?.id && p.caption && p.caption.length > 20)
+                        .sort((a, b) => b.date.localeCompare(a.date))
+                        .slice(0, 5)
+                        .map(p => `- Type: ${p.type}\nTitle: ${p.title}\nCaption: ${p.caption.replace(/<[^>]*>?/gm, '')}`)
+                        .join('\n\n');
+                      
+                      const prompt = `Act as an expert Brand Strategist and Social Media Manager for my business.
+
+Brand Voice & Tone:
+${brandVoiceText || 'N/A'}
+
+Business Rules (MUST follow):
+${businessRulesText || 'N/A'}
+
+Brand Profile:
+${brandKit.brandProfile || 'N/A'}
+
+Design Guidelines:
+${brandKit.designGuide || 'N/A'}
+
+Here are some of our recent successful social media posts for context:
+${recentPostsContext || 'N/A'}
+
+Please create high-quality, engaging social media content that strictly follows the brand voice and rules above.`;
+
+                      navigator.clipboard.writeText(prompt);
+                      toast.success("External AI prompt copied!");
+                    }}
+                    className="shrink-0 flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-[12px] text-xs font-bold hover:bg-brand-hover transition-all active:scale-95 shadow-lg shadow-brand/20"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy AI Prompt
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1298,6 +1360,35 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
               exit={{ opacity: 0, y: -10 }}
               className="space-y-8 w-full"
             >
+              {/* Target URL Section */}
+              <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="w-5 h-5 text-brand" />
+                  <h3 className="text-base font-bold">Target Website URL</h3>
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={workspaceTargetUrl}
+                  onChange={(e) => setWorkspaceTargetUrl(e.target.value)}
+                  onBlur={async () => {
+                    if (!activeBusiness?.id) return;
+                    const newUrl = workspaceTargetUrl.trim();
+                    if (newUrl !== (activeBusiness.targetUrl || '')) {
+                      await setDoc(doc(db, 'businesses', activeBusiness.id), { targetUrl: newUrl }, { merge: true });
+                      toast.success("Workspace Target URL updated");
+                    }
+                  }}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className="w-full max-w-md px-4 py-2 text-sm bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] outline-none focus:border-brand transition-all"
+                />
+                <p className="mt-2 text-xs text-[#757681]">Used for product discovery and category scraping. Leave empty if none.</p>
+              </div>
+
               {/* Platforms Section */}
               <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-6">
                 <div className="flex items-center justify-between mb-6">

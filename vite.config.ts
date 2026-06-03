@@ -8,7 +8,7 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss(), VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       filename: 'manifest.json',
       includeAssets: ['logo.svg', 'logo192x192.png', 'logo512x512.png'],
       devOptions: {
@@ -51,10 +51,17 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // Use prebuilt font bundle so Vite does not break tegaki's import attributes
+        'tegaki/fonts/caveat': path.resolve(
+          __dirname,
+          'node_modules/tegaki/dist/fonts/caveat/bundle.mjs'
+        ),
       },
     },
     optimizeDeps: {
       include: [
+        'tegaki/react', 
+        'tegaki/fonts/caveat',
         'lucide-react',
         'sonner',
         'axios',
@@ -67,10 +74,6 @@ export default defineConfig(({mode}) => {
         'react-firebase-hooks/auth',
         'react-firebase-hooks/firestore',
         'motion/react',
-        'framer-motion',
-        '@dnd-kit/core',
-        '@dnd-kit/sortable',
-        '@dnd-kit/utilities',
         'date-fns',
         'uuid',
         'canvas-confetti'

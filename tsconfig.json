@@ -10,12 +10,14 @@
       "DOM.Iterable"
     ],
     "skipLibCheck": true,
+    "types": [
+      "node"
+    ],
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
-    "types": ["vite-plugin-pwa/client"],
     "paths": {
       "@/*": [
         "./*"
@@ -23,6 +25,5 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  },
-  "exclude": ["dist", "node_modules"]
+  }
 }
