@@ -10,16 +10,6 @@ export default defineConfig(({mode}) => {
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY),
     },
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-        // Use prebuilt font bundle so Vite does not break tegaki's import attributes
-        'tegaki/fonts/caveat': path.resolve(
-          __dirname,
-          'node_modules/tegaki/dist/fonts/caveat/bundle.mjs'
-        ),
-      },
-    },
     optimizeDeps: {
       include: [
         'tegaki/react', 
