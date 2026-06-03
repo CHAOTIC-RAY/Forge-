@@ -190,7 +190,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
                     />
                     <input
                       type="text"
-                      placeholder="e.g. Rainbow Enterprises"
+                      placeholder="e.g. Your Business Name"
                       value={formData.name}
                       onChange={(e) =>
                         setFormData({
@@ -215,7 +215,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
                     />
                     <input
                       type="text"
-                      placeholder="e.g. Rainbow Living Mall, Rainbow Office System"
+                      placeholder="e.g. Main Branch, Downtown Location"
                       value={formData.outletNames}
                       onChange={(e) =>
                         setFormData({ ...formData, outletNames: e.target.value })
