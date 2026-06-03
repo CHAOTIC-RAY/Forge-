@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AutoSuggest } from '../AutoSuggest';
 import { ForgeLoader } from '../ForgeLoader';
-import { X, Upload, Image as ImageIcon, Trash2, Wand2, MessageSquare, Send, Share2, CheckCircle2, AlertCircle, Clock, Repeat, BarChart3, Palette, Sparkles, Hash, Copy } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Trash2, Wand2, MessageSquare, Send, Share2, CheckCircle2, AlertCircle, Clock, Repeat, BarChart3, Palette, Sparkles, Hash } from 'lucide-react';
 import { toast } from 'sonner';
 import { Post, OUTLETS, PRODUCT_CATEGORIES } from '../../data';
 import { v4 as uuidv4 } from 'uuid';
@@ -699,25 +699,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
 
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
-                <div className="flex items-center gap-3">
-                  <label className="block text-sm font-medium text-[#757681]">Caption</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!formData.caption) return;
-                      const div = document.createElement('div');
-                      div.innerHTML = formData.caption;
-                      const text = div.innerText || div.textContent || '';
-                      navigator.clipboard.writeText(text);
-                      toast.success("Caption copied to clipboard!");
-                    }}
-                    className="flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-hover active:scale-95 transition-all bg-brand/10 px-2 py-1 rounded"
-                    title="Copy caption"
-                  >
-                    <Copy className="w-3 h-3" />
-                    Copy
-                  </button>
-                </div>
+                <label className="block text-sm font-medium text-[#757681]">Caption</label>
                 {!readOnly && (
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2">

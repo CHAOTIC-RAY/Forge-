@@ -574,12 +574,12 @@ export function LocalDbImportPanel({
         <div className="flex-1 relative">
           <input
             type="url"
-            placeholder={`Source URL (${activeBusiness?.targetUrl || 'https://example.com'})`}
+            placeholder={`Source URL (${aiSettings.targetUrl || 'https://example.com'})`}
             value={manualUrlInput}
             onChange={(e) => setManualUrlInput(e.target.value)}
-            onBlur={() => setManualUrl(manualUrlInput || activeBusiness?.targetUrl || '')}
+            onBlur={() => setManualUrl(manualUrlInput || aiSettings.targetUrl || '')}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') setManualUrl(manualUrlInput || activeBusiness?.targetUrl || '');
+              if (e.key === 'Enter') setManualUrl(manualUrlInput || aiSettings.targetUrl || '');
             }}
             className="w-full pl-4 pr-10 py-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-brand/30 outline-none"
           />
