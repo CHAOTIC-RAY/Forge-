@@ -259,7 +259,7 @@ interface LandingViewProps {
   onLogin: () => void;
 }
 
-const SECTIONS = [
+const FEATURES = [
   {
     id: 'hero',
     icon: null,
@@ -271,7 +271,7 @@ const SECTIONS = [
   {
     id: 'calendar',
     icon: CalendarIcon,
-    title: landingTerms.calendar,
+    title: 'Calendar',
     description: 'Plan your content on a visual month grid. Drag, drop, and share with stakeholders.',
     color: 'text-blue-500',
     bg: 'bg-blue-500/10'
@@ -279,7 +279,7 @@ const SECTIONS = [
   {
     id: 'ideas',
     icon: Lightbulb,
-    title: landingTerms.ideas,
+    title: 'Ideas',
     description: 'A creative inbox to capture and sort concepts before they hit the schedule.',
     color: 'text-yellow-500',
     bg: 'bg-yellow-500/10'
@@ -287,7 +287,7 @@ const SECTIONS = [
   {
     id: 'products',
     icon: Database,
-    title: landingTerms.products,
+    title: 'Workspace Inventory',
     description: 'Turn your website into a searchable catalogue. Sync products and info instantly.',
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/10'
@@ -295,7 +295,7 @@ const SECTIONS = [
   {
     id: 'assets',
     icon: Palette,
-    title: landingTerms.assets,
+    title: 'Brand Kit',
     description: 'One hub for brand visuals, voice, and AI rules to keep content on-brand.',
     color: 'text-pink-500',
     bg: 'bg-pink-500/10'
