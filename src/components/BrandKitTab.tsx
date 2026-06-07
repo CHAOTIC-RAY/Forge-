@@ -322,7 +322,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
       // Get recent high-quality posts
       const recentPosts = [...posts]
         .filter(p => (p.caption && p.caption.length > 20) || p.postcardData)
-        .sort((a, b) => b.date.localeCompare(a.date))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
         .slice(0, 10);
 
       const postContext = recentPosts.map(post => `
@@ -1315,9 +1315,9 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
                     onClick={() => {
                       const recentPostsContext = posts
                         .filter(p => p.businessId === activeBusiness?.id && p.caption && p.caption.length > 20)
-                        .sort((a, b) => b.date.localeCompare(a.date))
+                        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
                         .slice(0, 5)
-                        .map(p => `- Type: ${p.type}\nTitle: ${p.title}\nCaption: ${p.caption.replace(/<[^>]*>?/gm, '')}`)
+                        .map(p => `- Type: ${p.type}\nTitle: ${p.title}\nCaption: ${(p.caption || '').replace(/<[^>]*>?/gm, '')}`)
                         .join('\n\n');
                       
                       const prompt = `Act as an expert Brand Strategist and Social Media Manager for my business.
@@ -1651,7 +1651,7 @@ Please create high-quality, engaging social media content that strictly follows 
                           .filter(c => c.type === selectedCategoryType)
                           .filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
                           .map(cat => {
-                            const contextMenuItems: ContextMenuItem[] = [
+                            const contextMenuItems: any[] = [
                               { 
                                 label: cat.enabled ? 'Disable' : 'Enable', 
                                 icon: <CheckCircle2 className="w-3.5 h-3.5" />, 

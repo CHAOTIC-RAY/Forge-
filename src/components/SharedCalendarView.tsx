@@ -52,7 +52,7 @@ export function SharedCalendarView() {
 
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | Date | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
 
   const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
@@ -235,7 +235,7 @@ export function SharedCalendarView() {
             setSelectedDate(null);
           }}
           post={selectedPost}
-          selectedDate={selectedDate}
+          selectedDate={selectedDate as any}
           readOnly={true}
           user={user}
           posts={posts}

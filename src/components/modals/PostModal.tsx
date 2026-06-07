@@ -522,7 +522,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   name="date"
                   required
                   disabled={readOnly}
-                  value={formData.date || ''}
+                  value={typeof formData.date === 'string' ? formData.date : (formData.date as any)?.toISOString?.().split('T')[0] || ''}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition-colors disabled:opacity-70"
                 />
@@ -609,7 +609,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       onClick={() => {
                         const current = formData.contentFormats || [];
                         const next = current.includes(format as any)
-                          ? current.filter(f => f !== format)
+                          ? current.filter((f: any) => f !== format)
                           : [...current, format as any];
                         setFormData(prev => ({ ...prev, contentFormats: next }));
                       }}
@@ -748,7 +748,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                           if (!formData.title) { toast.warning("Please provide a title first."); return; }
                           setIsGeneratingContent(true);
                           try {
-                            const caption = await generatePostWithFramework(formData.title, formData.framework || 'AIDA', activeBusiness, captionLength);
+                            const caption = await generatePostWithFramework(formData.title, (formData.framework as any) || 'AIDA', activeBusiness, captionLength);
                             setFormData(prev => ({ ...prev, caption }));
                             toast.success("Caption generated!");
                           } catch (e) {
@@ -849,7 +849,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Target Platforms</h3>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    {getAnalyticsSettings().targetPlatforms.map((platform) => (
+                    {getAnalyticsSettings().targetPlatforms.map((platform: any) => (
                       <label key={platform} className="flex items-center gap-2 cursor-pointer group">
                         <input
                           type="checkbox"
@@ -897,15 +897,15 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 <div className={cn(
                   "p-3 rounded-[8px] flex items-center gap-3 text-xs font-medium",
                   formData.publishStatus === 'published' ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                    : formData.publishStatus === 'failed' ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                    : formData.publishStatus === 'error' ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
                     : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
                 )}>
                   {formData.publishStatus === 'published' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                   <div className="flex-1">
                     <p className="capitalize">{formData.publishStatus}: {formData.publishedAt ? `Published on ${new Date(formData.publishedAt).toLocaleString()}` : formData.publishError || 'Waiting for scheduled time'}</p>
                   </div>
-                  {formData.publishStatus === 'failed' && !readOnly && (
-                    <button onClick={handlePublish} className="px-3 py-1 bg-red-600 text-white rounded-[6px] hover:bg-red-700 transition-colors">Retry</button>
+                  {formData.publishStatus === 'error' && !readOnly && (
+                    <button type="button" onClick={handlePublish} className="px-3 py-1 bg-red-600 text-white rounded-[6px] hover:bg-red-700 transition-colors">Retry</button>
                   )}
                 </div>
               )}
@@ -1046,7 +1046,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       </div>
                       <div className="p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
                         <p className="text-[10px] font-bold text-[#757681] uppercase mb-1">Likes</p>
-                        <p className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{formData.analytics.likes?.toLocaleString() || '0'}</p>
+                        <p className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{(formData.analytics as any).likes?.toLocaleString() || '0'}</p>
                       </div>
                     </div>
                   ) : (

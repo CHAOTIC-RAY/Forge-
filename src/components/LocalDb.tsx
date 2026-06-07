@@ -1098,7 +1098,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     const item: HighStockProduct = {
       title,
       type: newEntry.type.trim() || 'Uncategorized',
-      link: newEntry.link.trim() || manualUrl || undefined,
+      link: newEntry.link.trim() || manualUrl || '',
       outlet: 'Forge Enterprises',
       ...(dbMode === 'product'
         ? { price: newEntry.price.trim() || undefined, stockInfo: newEntry.price.trim() || undefined }

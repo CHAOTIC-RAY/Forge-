@@ -3,12 +3,11 @@ import {createRoot} from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
 import { SharedCalendarView } from './components/SharedCalendarView';
-import { ForgeLoader } from './components/ForgeLoader';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
 // Register service worker (Production only to avoid dev 429s)
-if (import.meta.env.PROD) {
+if ((import.meta as any).env?.PROD) {
   registerSW();
 }
 
@@ -43,7 +42,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Suspense fallback={
       <div className="min-h-screen bg-white dark:bg-[#191919] flex items-center justify-center">
-        <ForgeLoader size={48} />
+        <div className="animate-pulse w-12 h-12 rounded-full bg-blue-500/50"></div>
       </div>
     }>
       <BrowserRouter>

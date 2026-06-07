@@ -1499,7 +1499,7 @@ export default function App() {
       const existingPost = posts.find((p) => p.id === post.id);
       if (existingPost?.images) {
         const removedImages = existingPost.images.filter(
-          (img) => !imageUrls.includes(img) && !post.images?.includes(img),
+          (img: string) => !imageUrls.includes(img) && !post.images?.includes(img),
         );
         for (const removedImg of removedImages) {
           await deleteAppStorageFile(removedImg);
@@ -1638,7 +1638,7 @@ export default function App() {
         !data.facebookPostId
       ) {
         // All platforms failed
-        update.publishStatus = "failed";
+        update.publishStatus = "error";
         update.publishError = data.errors.join("; ");
         addSyncLog(`Publish failed: ${update.publishError}`, "error");
         alert(`Failed to publish:\n${update.publishError}`);
@@ -2301,7 +2301,7 @@ export default function App() {
         caption: `Check out our ${product.title}! ${product.price ? `Available now for ${product.price}.` : ""} Visit us today.`,
         hashtags: `#ForgeEnterprises #${product.type.replace(/\s+/g, "")} #Maldives`,
         images: product.link ? [product.link] : [],
-        userId: user.uid,
+        userId: user?.uid || "",
       };
       handleSavePost(newPost);
       return;
@@ -2320,7 +2320,7 @@ export default function App() {
         caption: sourcePost.caption,
         hashtags: sourcePost.hashtags,
         images: [imageUrl],
-        userId: user.uid,
+        userId: user?.uid || "",
       };
       handleSavePost(newPost);
       return;
@@ -2339,7 +2339,7 @@ export default function App() {
         caption: idea.caption,
         hashtags: idea.hashtags,
         images: [],
-        userId: user.uid,
+        userId: user?.uid || "",
       };
       handleSavePost(newPost);
       return;
@@ -2362,7 +2362,7 @@ export default function App() {
         images: block.postcardData?.imageUrl
           ? [block.postcardData.imageUrl]
           : [],
-        userId: user.uid,
+        userId: user?.uid || "",
         businessId: activeBusiness?.id,
       };
 
@@ -2454,7 +2454,7 @@ export default function App() {
       const base64Images: string[] = [];
       for (const file of files) {
         try {
-          const { dataUrl } = await readFileAsDataURL(file);
+          const dataUrl = await readFileAsDataURL(file);
           base64Images.push(dataUrl);
         } catch (e) {
           console.error("Failed to read file", e);
@@ -2473,7 +2473,7 @@ export default function App() {
         caption: "",
         hashtags: "",
         images: base64Images,
-        userId: user.uid,
+        userId: user?.uid || "",
         businessId: activeBusiness?.id,
       };
 
@@ -2522,7 +2522,8 @@ export default function App() {
       }
     } else {
       for (const file of files) {
-        const { dataUrl, isVideo } = await readFileAsDataURL(file);
+        const dataUrl = await readFileAsDataURL(file);
+        const isVideo = file.type.startsWith("video/");
         if (!dataUrl) continue;
 
         const newPostId = uuidv4();
@@ -2537,7 +2538,7 @@ export default function App() {
           caption: "",
           hashtags: "",
           images: [dataUrl],
-          userId: user.uid,
+          userId: user?.uid || "",
           businessId: activeBusiness?.id,
         };
 
@@ -2598,9 +2599,9 @@ export default function App() {
   const handleRegeneratePost = async (post: Post) => {
     try {
       const content = await generatePostContent(
-        post.outlet,
-        post.productCategory,
-        post.title,
+        post.outlet || "",
+        post.productCategory || "",
+        post.title || "",
         activeBusiness || undefined,
       );
       const updatedPost: Post = {
@@ -2668,7 +2669,7 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     setSelectedPost(draft);
-    setSelectedDate(draft.date);
+    setSelectedDate(typeof draft.date === 'string' ? draft.date : (draft.date as Date).toISOString().split('T')[0]);
     setIsPostModalOpen(true);
   };
 
@@ -2804,7 +2805,7 @@ export default function App() {
 
   const openEditPostModal = (post: Post) => {
     setSelectedPost(post);
-    setSelectedDate(post.date);
+    setSelectedDate(typeof post.date === 'string' ? post.date : (post.date as Date).toISOString().split('T')[0]);
     setIsPostModalOpen(true);
   };
 
@@ -2936,8 +2937,8 @@ export default function App() {
       await workbook.xlsx.load(templateBuffer);
 
       const intervalMonths = eachDayOfInterval({
-        start: startOfMonth(startMonth),
-        end: endOfMonth(endMonth),
+        start: startOfMonth(typeof startMonth === "string" ? parseISO(startMonth) : (startMonth || new Date())),
+        end: endOfMonth(typeof endMonth === "string" ? parseISO(endMonth) : (endMonth || new Date())),
       }).filter((d) => d.getDate() === 1);
 
       const requestedMonthKeys = intervalMonths.map((m) =>
@@ -3047,7 +3048,7 @@ export default function App() {
         // 4. Data Extraction & Injection
         const imagePromises: Promise<any>[] = [];
         monthPosts.forEach((post) => {
-          const dateObj = parseISO(post.date);
+          const dateObj = typeof post.date === "string" ? parseISO(post.date) : (post.date as Date);
           const col = 2 + dateObj.getDay();
           const weekIndex = Math.floor(
             (dateObj.getDate() + monthStartDay - 1) / 7,
@@ -3088,7 +3089,7 @@ export default function App() {
             wrapText: true,
           };
 
-          if (post.images?.length && visibleFields.includes("images")) {
+          if (post.images?.length && visibleFields?.includes("images")) {
             const embed = async () => {
               const imgData = await fetchImageAsBase64(post.images![0]);
               if (imgData) {
@@ -4339,7 +4340,7 @@ export default function App() {
                             >
                               <BarChart3 className="w-5 h-5 shrink-0" />
                             </button>
-                            {activeBusiness?.applets?.map((applet) => (
+                            {activeBusiness?.applets?.map((applet: any) => (
                               <button
                                 key={applet.id}
                                 onClick={() =>
@@ -4608,8 +4609,8 @@ export default function App() {
                               onDeletePost={
                                 isAdmin ? handleDeletePost : undefined
                               }
-                              onCopyPost={isAdmin ? handleCopyPost : undefined}
-                              onAddPost={isAdmin ? openNewPostModal : undefined}
+                              onCopyPost={isAdmin ? (post: any, date?: any) => handleCopyPost(post, date || "") : undefined}
+                              onAddPost={isAdmin ? (date: any) => openNewPostModal(typeof date === "string" ? date : format(date, "yyyy-MM-dd")) : undefined}
                               onGenerateWithAi={
                                 isAdmin
                                   ? () => setIsAutoFillModalOpen(true)
@@ -4627,7 +4628,7 @@ export default function App() {
                               }
                               onPrevMonth={handlePrevMonth}
                               onNextMonth={handleNextMonth}
-                              onFileDrop={isAdmin ? handleFileDrop : undefined}
+                              onFileDrop={isAdmin ? (file: any, dateStr: any) => handleFileDrop(dateStr, [file]) : undefined}
                               isAdmin={isAdmin}
                               isGuest={isGuest}
                               activeBusiness={activeBusiness}
@@ -4801,7 +4802,7 @@ export default function App() {
                           </LazyTab>
                         )}
                         {isAdmin &&
-                          activeBusiness?.applets?.map((applet) => (
+                          activeBusiness?.applets?.map((applet: any) => (
                             <div
                               key={applet.id}
                               className={cn(
@@ -4833,7 +4834,7 @@ export default function App() {
                                           {
                                             applets:
                                               activeBusiness.applets?.filter(
-                                                (a) => a.id !== applet.id,
+                                                (a: any) => a.id !== applet.id,
                                               ),
                                           },
                                         );
@@ -4937,17 +4938,17 @@ export default function App() {
                       activeBusiness={activeBusiness}
                       brandKit={brandKit}
                       products={products}
-                      onUpdatePost={(updatedPost) => {
+                      onUpdatePost={(updatedPost: any) => {
                         handleSavePost(updatedPost);
                       }}
-                      onCreatePost={(newPost, date) => {
+                      onCreatePost={(newPost: any, date: any) => {
                         handleSavePost({
                           ...newPost,
                           date: date || newPost.date,
                         });
                       }}
                       onDeletePost={handleDeletePost}
-                      onPreviewPost={(partialPost) => {
+                      onPreviewPost={(partialPost: any) => {
                         setSelectedPost({
                           id: "preview-" + Date.now(),
                           date: new Date().toISOString().split("T")[0],
@@ -5254,7 +5255,7 @@ export default function App() {
                       setInitialProductsForModal([]);
                     }}
                     post={selectedPost}
-                    selectedDate={selectedDate || undefined}
+                    selectedDate={selectedDate}
                     onSave={isAdmin ? handleSavePost : undefined}
                     onDelete={isAdmin ? handleDeletePost : undefined}
                     readOnly={!isAdmin}
@@ -5263,7 +5264,7 @@ export default function App() {
                     initialProducts={initialProductsForModal}
                     activeBusiness={activeBusiness}
                     posts={posts}
-                    dbMode={getDbMode(activeBusiness?.industry)}
+                    dbMode={getDbMode() as any}
                     droppedImages={droppedImagesForModal}
                     onImagesConsumed={() => setDroppedImagesForModal([])}
                   />
@@ -5357,7 +5358,7 @@ export default function App() {
                     isOpen={isImageViewerOpen}
                     images={currentImages}
                     initialIndex={currentImageIndex}
-                    aiProvider={currentAiProvider}
+                    aiProvider={currentAiProvider || undefined}
                     onClose={() => setIsImageViewerOpen(false)}
                   />
                 )}
@@ -5389,7 +5390,7 @@ export default function App() {
                   <ExcelImportModal
                     isOpen={isExcelImportModalOpen}
                     onClose={() => setIsExcelImportModalOpen(false)}
-                    onImport={async (newPosts) => {
+                    onImport={async (newPosts: any) => {
                       for (const post of newPosts) {
                         await handleSavePost(post);
                       }

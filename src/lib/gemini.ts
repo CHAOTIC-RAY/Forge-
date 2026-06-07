@@ -80,7 +80,7 @@ export const isGeminiKeyAvailable = () => {
   const apiKey =
     settings.geminiApiKey ||
     (typeof process !== "undefined" && process.env?.GEMINI_API_KEY) ||
-    (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY);
+    ((import.meta as any).env && (import.meta as any).env.VITE_GEMINI_API_KEY);
 
   return (
     (!!apiKey && apiKey !== "undefined") || !!serverConfig?.hasGeminiApiKey
@@ -104,7 +104,7 @@ export const getAi = () => {
   let apiKey =
     settings.geminiApiKey ||
     (typeof process !== "undefined" && process.env?.GEMINI_API_KEY) ||
-    (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY) ||
+    ((import.meta as any).env && (import.meta as any).env.VITE_GEMINI_API_KEY) ||
     "";
 
   // Handle the case where Vite might have stringified 'undefined' or it's otherwise invalid
@@ -3040,12 +3040,13 @@ Generate 10 ideas for ${business?.industry || "this domain"}.<|end_of_turn|><|st
 export interface HighStockProduct {
   title: string;
   type: string;
-  link: string;
-  stockInfo: string;
-  outlet: string;
+  link?: string;
+  stockInfo?: string;
+  outlet?: string;
   sku?: string;
   price?: string;
   categories?: string[];
+  [key: string]: any;
 }
 
 export interface CategoryCount {
