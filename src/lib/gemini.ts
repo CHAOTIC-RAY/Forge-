@@ -1,34 +1,27 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { getGenerativeModel } from "firebase/vertexai";
-import { vertexAI, auth, db } from "./firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  getDoc,
-  doc,
-} from "firebase/firestore";
-import { Post, Business } from "../data";
-import { getIndustryConfig } from "./industryConfig";
-import { LOCAL_KNOWLEDGE_MAX_CHARS } from "./localAiContext";
-import { createImageCollage } from "./utils";
+import { GoogleGenAI, Type } from '@google/genai';
+import { getGenerativeModel } from 'firebase/vertexai';
+import { vertexAI, auth, db } from './firebase';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { Post, Business } from '../data';
+import { getIndustryConfig } from './industryConfig';
+import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
+import { createImageCollage } from './utils';
 
 declare const puter: any;
 
 /** Lazy-load to keep @mlc-ai/web-llm out of the main bundle init path (avoids TDZ crashes). */
-type BuiltInAiInstance = typeof import("./builtinAi").builtInAi;
+type BuiltInAiInstance = typeof import('./builtinAi').builtInAi;
 let builtInAiCache: BuiltInAiInstance | null = null;
 
 async function getBuiltInAi(): Promise<BuiltInAiInstance> {
   if (!builtInAiCache) {
-    builtInAiCache = (await import("./builtinAi")).builtInAi;
+    builtInAiCache = (await import('./builtinAi')).builtInAi;
   }
   return builtInAiCache;
 }
 
-let serverConfig: {
-  hasGeminiApiKey?: boolean;
+let serverConfig: { 
+  hasGeminiApiKey?: boolean; 
   hasGroqApiKey?: boolean;
   cloudinaryCloudName?: string | null;
 } | null = null;
@@ -42,34 +35,28 @@ export const fetchServerConfig = async () => {
   isFetchingConfig = true;
 
   try {
-    const response = await fetch("/api/config");
+    const response = await fetch('/api/config');
     if (!response.ok) {
       throw new Error(`Server returned ${response.status}`);
     }
 
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
-      if (
-        text.includes("<!doctype html>") ||
-        text.includes("<!DOCTYPE html>")
-      ) {
-        console.warn(
-          "[AI Config] API route returned HTML fallback (truncated):",
-          text.substring(0, 200),
-        );
+      if (text.includes('<!doctype html>') || text.includes('<!DOCTYPE html>')) {
+        console.warn('[AI Config] API route returned HTML fallback (truncated):', text.substring(0, 200));
         return;
       }
       throw new Error(`Unexpected content type: ${contentType}`);
     }
 
     const data = await response.json();
-    if (data && typeof data === "object") {
+    if (data && typeof data === 'object') {
       serverConfig = data;
-      console.log("[AI Config] Server configuration loaded successfully.");
+      console.log('[AI Config] Server configuration loaded successfully.');
     }
   } catch (error) {
-    console.error("[AI Config] Failed to fetch server config:", error);
+    console.error('[AI Config] Failed to fetch server config:', error);
   } finally {
     isFetchingConfig = false;
   }
@@ -77,18 +64,15 @@ export const fetchServerConfig = async () => {
 
 export const isGeminiKeyAvailable = () => {
   const settings = getAiSettings();
-  const apiKey =
-    settings.geminiApiKey ||
-    (typeof process !== "undefined" && process.env?.GEMINI_API_KEY) ||
-    ((import.meta as any).env && (import.meta as any).env.VITE_GEMINI_API_KEY);
+  const apiKey = settings.geminiApiKey ||
+    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
+    (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY);
 
-  return (
-    (!!apiKey && apiKey !== "undefined") || !!serverConfig?.hasGeminiApiKey
-  );
+  return (!!apiKey && apiKey !== 'undefined') || !!serverConfig?.hasGeminiApiKey;
 };
 
 export const isPuterSignedIn = async (): Promise<boolean> => {
-  if (typeof window === "undefined") return false;
+  if (typeof window === 'undefined') return false;
   const puterInstance = (window as any).puter;
   if (!puterInstance) return false;
   try {
@@ -101,25 +85,23 @@ export const isPuterSignedIn = async (): Promise<boolean> => {
 export const getAi = () => {
   const settings = getAiSettings();
   // Prioritize settings, then process.env (Vite defined), then import.meta.env
-  let apiKey =
-    settings.geminiApiKey ||
-    (typeof process !== "undefined" && process.env?.GEMINI_API_KEY) ||
-    ((import.meta as any).env && (import.meta as any).env.VITE_GEMINI_API_KEY) ||
-    "";
+  let apiKey = settings.geminiApiKey ||
+    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
+    (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY) ||
+    '';
 
   // Handle the case where Vite might have stringified 'undefined' or it's otherwise invalid
-  if (apiKey === "undefined" || !apiKey) {
-    apiKey = "missing_api_key";
+  if (apiKey === 'undefined' || !apiKey) {
+    apiKey = 'missing_api_key';
   }
 
   // If the user hasn't provided a custom key but the server has one, use the proxy
-  const useProxy =
-    apiKey === "missing_api_key" && serverConfig?.hasGeminiApiKey;
+  const useProxy = apiKey === 'missing_api_key' && serverConfig?.hasGeminiApiKey;
 
-  const options: any = { apiKey: useProxy ? "proxy-key" : apiKey };
+  const options: any = { apiKey: useProxy ? 'proxy-key' : apiKey };
 
   if (useProxy) {
-    options.httpOptions = { baseUrl: window.location.origin + "/api/gemini" };
+    options.httpOptions = { baseUrl: window.location.origin + '/api/gemini' };
   }
 
   return new GoogleGenAI(options);
@@ -129,48 +111,44 @@ const getVertexModel = (modelName: string) => {
   return getGenerativeModel(vertexAI, { model: modelName });
 };
 
-const GROQ_API_KEY =
-  (typeof process !== "undefined" && process.env?.GROQ_API_KEY) ||
-  "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";
+const GROQ_API_KEY = (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) || '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';
 
 export const GEMINI_MODELS = [
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (Fastest)" },
-  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Brain)" },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
-  { id: "gemini-2.0-pro-exp-02-05", name: "Gemini 2.0 Pro Exp" },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Fastest)' },
+  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Brain)' },
+  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+  { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro Exp' },
 ];
 
 export const GROQ_MODELS = [
-  { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B (Versatile)" },
-  { id: "llama-3.1-70b-versatile", name: "Llama 3.1 70B" },
-  { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B" },
-  { id: "gemma2-9b-it", name: "Gemma 2 9B" },
+  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Versatile)' },
+  { id: 'llama-3.1-70b-versatile', name: 'Llama 3.1 70B' },
+  { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
+  { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
 ];
 
 export const PUTER_MODELS = [
-  { id: "gpt-4o-mini", name: "GPT-4o Mini (Puter)" },
-  { id: "gpt-4o", name: "GPT-4o (Puter)" },
-  { id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet (Puter)" },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Puter)' },
+  { id: 'gpt-4o', name: 'GPT-4o (Puter)' },
+  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet (Puter)' },
 ];
 
 export const LOCAL_MODELS = [
-  { id: "webllm-local", name: "WebLLM / Local (WebGPU)" },
-  { id: "builtin", name: "Browser Built-in AI" },
-  { id: "local_proxy", name: "Local Server (Ollama / LM Studio)" },
+  { id: 'webllm-local', name: 'WebLLM / Local (WebGPU)' },
+  { id: 'builtin', name: 'Browser Built-in AI' },
+  { id: 'local_proxy', name: 'Local Server (Ollama / LM Studio)' },
 ];
+
 
 export const safeParseJSON = (text: string) => {
   if (!text) return null;
   try {
     let cleaned = text.trim();
     // Broad match for markdown code block, handling trailing chars
-    cleaned = cleaned
-      .replace(/^```[a-zA-Z]*\n?/g, "")
-      .replace(/```$/g, "")
-      .trim();
-
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
+    cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/g, '').replace(/```$/g, '').trim();
+    
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
     if (start !== -1 && end !== -1) {
       cleaned = cleaned.substring(start, end + 1);
     }
@@ -182,25 +160,15 @@ export const safeParseJSON = (text: string) => {
       // 1. Replace '=' with ':' only in keys
       cleaned = cleaned.replace(/"([^"]+)"\s*=/g, '"$1":');
       // 2. Remove trailing commas
-      cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
+      cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
       // 3. Fix unquoted keys (common in small models)
       cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
       // 4. Fix single quotes to double quotes
       cleaned = cleaned.replace(/'/g, '"');
-
+      
       // Markdown intercept: If output is likely a markdown title instead of JSON
-      if (
-        cleaned.startsWith("{##") ||
-        cleaned.startsWith("{#") ||
-        (cleaned.includes("###") && cleaned.length > 50) ||
-        (cleaned.startsWith('{"') && !cleaned.includes('":'))
-      ) {
-        return {
-          message: cleaned
-            .replace(/[{}]/g, "")
-            .replace(/^"|"$|"/g, "")
-            .trim(),
-        };
+      if (cleaned.startsWith('{##') || cleaned.startsWith('{#') || (cleaned.includes('###') && cleaned.length > 50) || (cleaned.startsWith('{"') && !cleaned.includes('":'))) {
+         return { message: cleaned.replace(/[{}]/g, '').replace(/^"|"$|"/g, '').trim() };
       }
 
       try {
@@ -211,18 +179,10 @@ export const safeParseJSON = (text: string) => {
         const messageMatch = cleaned.match(/"message"\s*:\s*"([^"]*)"/);
         const titleMatch = cleaned.match(/"title"\s*:\s*"([^"]*)"/);
         const briefMatch = cleaned.match(/"brief"\s*:\s*"([^"]*)"/);
-        const captionMatch =
-          cleaned.match(/"caption"\s*:\s*"([^"]*)"/) ||
-          cleaned.match(/"text"\s*:\s*"([^"]*)"/);
+        const captionMatch = cleaned.match(/"caption"\s*:\s*"([^"]*)"/) || cleaned.match(/"text"\s*:\s*"([^"]*)"/);
         const hashtagsMatch = cleaned.match(/"hashtags"\s*:\s*"([^"]*)"/);
 
-        if (
-          replyMatch ||
-          messageMatch ||
-          titleMatch ||
-          captionMatch ||
-          briefMatch
-        ) {
+        if (replyMatch || messageMatch || titleMatch || captionMatch || briefMatch) {
           return {
             reply: replyMatch ? replyMatch[1] : undefined,
             message: messageMatch ? messageMatch[1] : undefined,
@@ -230,13 +190,11 @@ export const safeParseJSON = (text: string) => {
             brief: briefMatch ? briefMatch[1] : undefined,
             caption: captionMatch ? captionMatch[1] : undefined,
             hashtags: hashtagsMatch ? hashtagsMatch[1] : undefined,
-            suggestedPost: captionMatch
-              ? {
-                  title: titleMatch ? titleMatch[1] : undefined,
-                  caption: captionMatch[1],
-                  brief: briefMatch ? briefMatch[1] : undefined,
-                }
-              : undefined,
+            suggestedPost: captionMatch ? {
+              title: titleMatch ? titleMatch[1] : undefined,
+              caption: captionMatch[1],
+              brief: briefMatch ? briefMatch[1] : undefined,
+            } : undefined,
           };
         }
         throw finalError;
@@ -245,7 +203,7 @@ export const safeParseJSON = (text: string) => {
   } catch (e) {
     console.warn("[safeParseJSON] Failed to parse:", text.substring(0, 200));
     // If it's a completely failed string from Built-in AI, try to return it as a message
-    if (text.length > 5 && !text.includes("{")) {
+    if (text.length > 5 && !text.includes('{')) {
       return { message: text.substring(0, 500) };
     }
     return null;
@@ -256,12 +214,12 @@ export const safeParseJSONArray = (text: string) => {
   try {
     let cleaned = text.trim();
     // Use multi-stage cleaning similar to safeParseJSON
-    const start = cleaned.indexOf("[");
-    const end = cleaned.lastIndexOf("]");
+    const start = cleaned.indexOf('[');
+    const end = cleaned.lastIndexOf(']');
     if (start !== -1 && end !== -1) {
       cleaned = cleaned.substring(start, end + 1);
     } else if (start !== -1) {
-      cleaned = cleaned.substring(start) + "]";
+      cleaned = cleaned.substring(start) + ']';
     }
 
     try {
@@ -269,10 +227,10 @@ export const safeParseJSONArray = (text: string) => {
     } catch (innerError) {
       // Fix structure: commas, quotes, etc.
       cleaned = cleaned.replace(/"([^"]+)"\s*=/g, '"$1":');
-      cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
+      cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
       cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
       cleaned = cleaned.replace(/'/g, '"');
-
+      
       try {
         return JSON.parse(cleaned);
       } catch (finalError) {
@@ -281,8 +239,8 @@ export const safeParseJSONArray = (text: string) => {
         const objectBlocks = cleaned.match(/\{[^}]+\}/g);
         if (objectBlocks) {
           for (const block of objectBlocks) {
-            const parsed = safeParseJSON(block);
-            if (parsed) items.push(parsed);
+             const parsed = safeParseJSON(block);
+             if (parsed) items.push(parsed);
           }
         }
         return items.length > 0 ? items : null;
@@ -295,7 +253,7 @@ export const safeParseJSONArray = (text: string) => {
 
 // --- Simple In-Memory Context Cache ---
 // This caches AI responses based on the prompt/contents to save cost and speed up repeated queries.
-const aiCache = new Map<string, { response: any; timestamp: number }>();
+const aiCache = new Map<string, { response: any, timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
 
 export function getCachedResponse(cacheKey: string) {
@@ -316,59 +274,55 @@ export function generateCacheKey(model: string, contents: any, config?: any) {
 }
 // --------------------------------------
 
-export async function fetchBrandKitDesignGuide(
-  businessId: string,
-): Promise<string> {
+export async function fetchBrandKitDesignGuide(businessId: string): Promise<string> {
   try {
-    const docRef = doc(db, "brand_kits", businessId);
-    const docSnap = await getDocs(
-      query(collection(db, "brand_kits"), where("__name__", "==", businessId)),
-    );
+    const docRef = doc(db, 'brand_kits', businessId);
+    const docSnap = await getDocs(query(collection(db, 'brand_kits'), where('__name__', '==', businessId)));
 
     if (!docSnap.empty) {
       const data = docSnap.docs[0].data();
-      return data.designGuide || "";
+      return data.designGuide || '';
     }
   } catch (error) {
     console.error("Error fetching design guide:", error);
   }
-  return "";
+  return '';
 }
 
 export type AiRouteOptions = { forceLocal?: boolean };
 
 export function getDefaultAiSettings() {
   return {
-    preferredProvider: "builtin",
-    imageProvider: "builtin",
-    geminiModel: "gemini-2.5-flash",
-    groqModel: "llama-3.3-70b-versatile",
-    groqVisionModel: "llama-3.2-11b-vision-preview",
-    pollinationModel: "flux",
-    pollinationApiKey: "",
-    puterTextModel: "gpt-4o-mini",
-    puterImageModel: "dall-e-3",
-    builtinModelId: "Phi-3-mini-4k-instruct-q4f16_1-MLC",
-    builtinVisionModelId: "Phi-3.5-vision-instruct-q4f16_1-MLC",
-    customModelUrl: "",
+    preferredProvider: 'builtin',
+    imageProvider: 'builtin',
+    geminiModel: 'gemini-2.5-flash',
+    groqModel: 'llama-3.3-70b-versatile',
+    groqVisionModel: 'llama-3.2-11b-vision-preview',
+    pollinationModel: 'flux',
+    pollinationApiKey: '',
+    puterTextModel: 'gpt-4o-mini',
+    puterImageModel: 'dall-e-3',
+    builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
+    builtinVisionModelId: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
+    customModelUrl: '',
     customModelConfig: null,
-    allowedAutoProviders: ["builtin", "local_proxy", "groq", "gemini"],
-    targetUrl: "",
-    geminiApiKey: "",
-    groqApiKey: "",
-    firecrawlApiKey: "",
-    systemInstructions: "",
-    brandVoice: "",
-    businessRules: "",
-    brandKnowledge: "",
+    allowedAutoProviders: ['builtin', 'local_proxy', 'groq', 'gemini'],
+    targetUrl: '',
+    geminiApiKey: '',
+    groqApiKey: '',
+    firecrawlApiKey: '',
+    systemInstructions: '',
+    brandVoice: '',
+    businessRules: '',
+    brandKnowledge: '',
     localAiDebug: false,
     localFirstDefaults: true,
-    localProxyUrl: "http://localhost:11434/v1",
-    localProxyModel: "llama3",
-    localProxyApiKey: "",
-    cloudinaryCloudName: "",
-    cloudinaryApiKey: "",
-    cloudinaryApiSecret: "",
+    localProxyUrl: 'http://localhost:11434/v1',
+    localProxyModel: 'llama3',
+    localProxyApiKey: '',
+    cloudinaryCloudName: '',
+    cloudinaryApiKey: '',
+    cloudinaryApiSecret: '',
     catalogueImportLocalOnly: true,
     catalogueImportCloudFallback: true,
     catalogueCrawlLimit: 100,
@@ -383,75 +337,98 @@ export function isCloudAiFallbackEnabled(settings = getAiSettings()): boolean {
 /** Cloud APIs only when explicitly selected, or when user enables fallback. */
 export function canUseCloudAiProviders(
   settings = getAiSettings(),
-  effectiveProvider?: ForgeTextProvider,
+  effectiveProvider?: ForgeTextProvider
 ): boolean {
   const provider = effectiveProvider ?? getEffectiveTextProvider(settings);
-  if (provider === "gemini" || provider === "groq" || provider === "puter")
-    return true;
-  if (provider === "local_proxy") return true;
-  if (provider === "firebase") return true;
+  if (provider === 'gemini' || provider === 'groq' || provider === 'puter') return true;
+  if (provider === 'local_proxy') return true;
+  if (provider === 'firebase') return true;
   return isCloudAiFallbackEnabled(settings);
 }
 
-function migrateToLocalFirstDefaults(parsed: any) {
+function migrateToLocalFirstDefaults(parsed: any): any {
   if (parsed.localFirstDefaults) return parsed;
   const legacyText =
-    !parsed.preferredProvider || parsed.preferredProvider === "auto";
+    !parsed.preferredProvider || parsed.preferredProvider === 'auto';
   const legacyImage =
     !parsed.imageProvider ||
-    parsed.imageProvider === "gemini" ||
-    parsed.imageProvider === "auto" ||
-    parsed.imageProvider === "puter";
-  if (legacyText) parsed.preferredProvider = "builtin";
-  if (legacyImage) parsed.imageProvider = "builtin";
+    parsed.imageProvider === 'gemini' ||
+    parsed.imageProvider === 'auto' ||
+    parsed.imageProvider === 'puter';
+  if (legacyText) parsed.preferredProvider = 'builtin';
+  if (legacyImage) parsed.imageProvider = 'builtin';
   parsed.localFirstDefaults = true;
   try {
-    localStorage.setItem("forge_ai_settings", JSON.stringify(parsed));
+    localStorage.setItem('forge_ai_settings', JSON.stringify(parsed));
   } catch {
     /* ignore quota errors */
   }
   return parsed;
 }
 
-export const getAiSettings = (): ReturnType<typeof getDefaultAiSettings> => {
-  const saved = localStorage.getItem("forge_ai_settings");
+export const getAiSettings = (): any => {
+  const saved = localStorage.getItem('forge_ai_settings');
   if (saved) {
     try {
-      const parsed: any = migrateToLocalFirstDefaults(JSON.parse(saved));
+      const parsed = migrateToLocalFirstDefaults(JSON.parse(saved));
       // Ensure targetUrl exists in saved settings
-      if (!parsed.targetUrl) parsed.targetUrl = "";
-      if (!parsed.imageProvider) parsed.imageProvider = "builtin";
-      if (!parsed.puterImageModel) parsed.puterImageModel = "dall-e-3";
-      if (!parsed.builtinModelId)
-        parsed.builtinModelId = "Phi-3-mini-4k-instruct-q4f16_1-MLC";
-      if (!parsed.builtinVisionModelId)
-        parsed.builtinVisionModelId = "Phi-3.5-vision-instruct-q4f16_1-MLC";
-      if (!parsed.allowedAutoProviders)
-        parsed.allowedAutoProviders = [
-          "builtin",
-          "local_proxy",
-          "groq",
-          "gemini",
-        ];
-      if (!parsed.brandVoice) parsed.brandVoice = "";
-      if (!parsed.businessRules) parsed.businessRules = "";
-      if (!parsed.brandKnowledge) parsed.brandKnowledge = "";
+      if (!parsed.targetUrl) parsed.targetUrl = '';
+      if (!parsed.imageProvider) parsed.imageProvider = 'builtin';
+      if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
+      if (!parsed.builtinModelId) parsed.builtinModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
+      if (!parsed.builtinVisionModelId) parsed.builtinVisionModelId = 'Phi-3.5-vision-instruct-q4f16_1-MLC';
+      if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'local_proxy', 'groq', 'gemini'];
+      if (!parsed.brandVoice) parsed.brandVoice = '';
+      if (!parsed.businessRules) parsed.businessRules = '';
+      if (!parsed.brandKnowledge) parsed.brandKnowledge = '';
       if (!parsed.localAiDebug) parsed.localAiDebug = false;
-      if (parsed.catalogueImportLocalOnly === undefined)
-        parsed.catalogueImportLocalOnly = true;
-      if (parsed.catalogueImportCloudFallback === undefined)
-        parsed.catalogueImportCloudFallback = true;
+      if (parsed.catalogueImportLocalOnly === undefined) parsed.catalogueImportLocalOnly = true;
+      if (parsed.catalogueImportCloudFallback === undefined) parsed.catalogueImportCloudFallback = true;
       if (!parsed.catalogueCrawlLimit) parsed.catalogueCrawlLimit = 100;
-      if (parsed.fallbackToCloudAi === undefined)
-        parsed.fallbackToCloudAi = false;
-      return { ...getDefaultAiSettings(), ...parsed };
+      if (parsed.fallbackToCloudAi === undefined) parsed.fallbackToCloudAi = false;
+      return parsed;
     } catch (e) {}
   }
-  return getDefaultAiSettings();
+  return {
+    preferredProvider: 'builtin',
+    imageProvider: 'builtin',
+    geminiModel: 'gemini-2.5-flash',
+    groqModel: 'llama-3.3-70b-versatile',
+    groqVisionModel: 'llama-3.2-11b-vision-preview',
+    pollinationModel: 'flux',
+    pollinationApiKey: '',
+    puterTextModel: 'gpt-4o-mini',
+    puterImageModel: 'dall-e-3',
+    builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
+    builtinVisionModelId: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
+    customModelUrl: '',
+    customModelConfig: null,
+    allowedAutoProviders: ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'],
+    targetUrl: '',
+    geminiApiKey: '',
+    groqApiKey: '',
+    firecrawlApiKey: '',
+    systemInstructions: '',
+    brandVoice: '',
+    businessRules: '',
+    brandKnowledge: '',
+    localAiDebug: false,
+    localFirstDefaults: true,
+    localProxyUrl: 'http://localhost:11434/v1',
+    localProxyModel: 'llama3',
+    localProxyApiKey: '',
+    cloudinaryCloudName: '',
+    cloudinaryApiKey: '',
+    cloudinaryApiSecret: '',
+    catalogueImportLocalOnly: true,
+    catalogueImportCloudFallback: true,
+    catalogueCrawlLimit: 100,
+    fallbackToCloudAi: false,
+  };
 };
 
 export const setAiSettings = (settings: any) => {
-  localStorage.setItem("forge_ai_settings", JSON.stringify(settings));
+  localStorage.setItem('forge_ai_settings', JSON.stringify(settings));
 };
 
 const fallbackNoticeTimestamps: Record<string, number> = {};
@@ -460,56 +437,41 @@ const FALLBACK_NOTICE_DEBOUNCE_MS = 7000;
 function notifyFallback(reason: string, detail: string) {
   const key = `${reason}:${detail}`;
   const now = Date.now();
-  if (
-    fallbackNoticeTimestamps[key] &&
-    now - fallbackNoticeTimestamps[key] < FALLBACK_NOTICE_DEBOUNCE_MS
-  ) {
+  if (fallbackNoticeTimestamps[key] && now - fallbackNoticeTimestamps[key] < FALLBACK_NOTICE_DEBOUNCE_MS) {
     return;
   }
   fallbackNoticeTimestamps[key] = now;
-  import("sonner").then(({ toast }) => toast.info(`${reason}: ${detail}`));
+  import('sonner').then(({ toast }) => toast.info(`${reason}: ${detail}`));
 }
 
 function getLocalDbContextSnippet(): string {
   try {
-    const saved = localStorage.getItem("forge_local_ai_context");
-    if (!saved) return "";
+    const saved = localStorage.getItem('forge_local_ai_context');
+    if (!saved) return '';
     const parsed = JSON.parse(saved);
-    if (!Array.isArray(parsed?.items) || parsed.items.length === 0) return "";
-    return parsed.items
-      .slice(0, 8)
-      .map(
-        (item: any, index: number) =>
-          `${index + 1}. ${item.title || "Untitled"} | ${item.type || "General"} | ${item.outlet || "Default"}`,
-      )
-      .join("\n");
+    if (!Array.isArray(parsed?.items) || parsed.items.length === 0) return '';
+    return parsed.items.slice(0, 8).map((item: any, index: number) =>
+      `${index + 1}. ${item.title || 'Untitled'} | ${item.type || 'General'} | ${item.outlet || 'Default'}`
+    ).join('\n');
   } catch {
-    return "";
+    return '';
   }
 }
 
-function withBusinessKnowledge(
-  prompt: string,
-  options?: { forLocal?: boolean },
-): string {
+function withBusinessKnowledge(prompt: string, options?: { forLocal?: boolean }): string {
   const settings = getAiSettings();
   const blocks: string[] = [];
   if (settings.brandVoice) blocks.push(`BRAND VOICE:\n${settings.brandVoice}`);
-  if (settings.businessRules)
-    blocks.push(`BUSINESS RULES:\n${settings.businessRules}`);
-  if (settings.systemInstructions)
-    blocks.push(`AI INSTRUCTIONS:\n${settings.systemInstructions}`);
-  if (settings.brandKnowledge)
-    blocks.push(`MERGED KNOWLEDGE:\n${settings.brandKnowledge}`);
+  if (settings.businessRules) blocks.push(`BUSINESS RULES:\n${settings.businessRules}`);
+  if (settings.systemInstructions) blocks.push(`AI INSTRUCTIONS:\n${settings.systemInstructions}`);
+  if (settings.brandKnowledge) blocks.push(`MERGED KNOWLEDGE:\n${settings.brandKnowledge}`);
 
   try {
-    const kitRaw = localStorage.getItem("forge_brand_kit_snapshot");
+    const kitRaw = localStorage.getItem('forge_brand_kit_snapshot');
     if (kitRaw) {
       const kit = JSON.parse(kitRaw);
-      if (kit.brandProfile?.trim())
-        blocks.push(`BRAND PROFILE (brand.md):\n${kit.brandProfile.trim()}`);
-      if (kit.designGuide?.trim())
-        blocks.push(`DESIGN GUIDE (design.md):\n${kit.designGuide.trim()}`);
+      if (kit.brandProfile?.trim()) blocks.push(`BRAND PROFILE (brand.md):\n${kit.brandProfile.trim()}`);
+      if (kit.designGuide?.trim()) blocks.push(`DESIGN GUIDE (design.md):\n${kit.designGuide.trim()}`);
     }
   } catch {
     /* ignore parse errors */
@@ -519,7 +481,7 @@ function withBusinessKnowledge(
   if (localDbContext) blocks.push(`LOCAL DB CONTEXT:\n${localDbContext}`);
 
   const maxChars = options?.forLocal ? LOCAL_KNOWLEDGE_MAX_CHARS : 4000;
-  let knowledge = blocks.join("\n\n");
+  let knowledge = blocks.join('\n\n');
   if (knowledge.length > maxChars) {
     knowledge = `${knowledge.slice(0, maxChars)}\n\n[Knowledge truncated to fit local model context limit]`;
   }
@@ -532,18 +494,13 @@ function withBusinessKnowledge(
 (window as any).isPuterDisabledForSession = false;
 let isGroqDisabledForSession = false;
 
-async function fetchFromPuter(
-  prompt: string,
-  images?: { base64: string; mimeType: string }[],
-) {
+async function fetchFromPuter(prompt: string, images?: { base64: string, mimeType: string }[]) {
   if ((window as any).isPuterDisabledForSession) {
-    throw new Error(
-      "Puter is disabled for this session due to insufficient funds.",
-    );
+    throw new Error("Puter is disabled for this session due to insufficient funds.");
   }
 
   const settings = getAiSettings();
-  const model = settings.puterTextModel || "gpt-4o-mini";
+  const model = settings.puterTextModel || 'gpt-4o-mini';
 
   // Ensure puter is available
   const puterInstance = (window as any).puter;
@@ -557,16 +514,11 @@ async function fetchFromPuter(
     const isSignedIn = await puterInstance.auth.isSignedIn();
     if (!isSignedIn) {
       console.warn("[Puter] User is not signed in to Puter.js");
-      throw new Error(
-        "Please sign in to Puter.js in Settings to use this AI provider.",
-      );
+      throw new Error("Please sign in to Puter.js in Settings to use this AI provider.");
     }
 
     let response: any;
-    console.log(
-      `[Puter] Calling model ${model} with prompt:`,
-      prompt.substring(0, 100) + "...",
-    );
+    console.log(`[Puter] Calling model ${model} with prompt:`, prompt.substring(0, 100) + "...");
 
     const messages: any[] = [];
 
@@ -576,19 +528,19 @@ async function fetchFromPuter(
 
     if (images && images.length > 0) {
       messages.push({
-        role: "user",
+        role: 'user',
         content: [
-          { type: "text", text: fullPrompt },
-          ...images.map((img) => ({
-            type: "image_url",
-            image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
-          })),
-        ],
+          { type: 'text', text: fullPrompt },
+          ...images.map(img => ({
+            type: 'image_url',
+            image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+          }))
+        ]
       });
       console.log("[Puter] Sending messages with images:", messages);
       response = await puterInstance.ai.chat(messages, { model });
     } else {
-      messages.push({ role: "user", content: fullPrompt });
+      messages.push({ role: 'user', content: fullPrompt });
       console.log("[Puter] Sending text-only messages:", messages);
       response = await puterInstance.ai.chat(messages, { model });
     }
@@ -597,24 +549,18 @@ async function fetchFromPuter(
 
     // Puter.js v2 chat response handling
     // Check if response is an error object (some Puter versions return {success: false, error: ...} instead of throwing)
-    if (
-      response &&
-      typeof response === "object" &&
-      (response.success === false || response.error)
-    ) {
-      const pError =
-        response.error?.message || response.error || "Unknown Puter error";
+    if (response && typeof response === 'object' && (response.success === false || response.error)) {
+      const pError = response.error?.message || response.error || "Unknown Puter error";
       throw new Error(pError);
     }
 
-    if (typeof response === "string") return response;
+    if (typeof response === 'string') return response;
 
     // Check for response.message.content (standard OpenAI-like)
     if (response?.message?.content) {
-      if (typeof response.message.content === "string")
-        return response.message.content;
+      if (typeof response.message.content === 'string') return response.message.content;
       if (Array.isArray(response.message.content)) {
-        return response.message.content.map((c: any) => c.text || "").join("");
+        return response.message.content.map((c: any) => c.text || '').join('');
       }
     }
 
@@ -622,44 +568,29 @@ async function fetchFromPuter(
     if (response?.text) return response.text;
 
     // Check for choices (OpenAI style)
-    if (response?.choices?.[0]?.message?.content)
-      return response.choices[0].message.content;
+    if (response?.choices?.[0]?.message?.content) return response.choices[0].message.content;
     if (response?.choices?.[0]?.text) return response.choices[0].text;
 
     // If it's an object with a toString that isn't [object Object]
     const str = String(response);
-    if (str !== "[object Object]") return str;
+    if (str !== '[object Object]') return str;
 
     // Fallback: try to find any string property that looks like content
-    if (typeof response === "object" && response !== null) {
-      return (
-        response.content ||
-        response.result ||
-        response.output ||
-        JSON.stringify(response)
-      );
+    if (typeof response === 'object' && response !== null) {
+      return response.content || response.result || response.output || JSON.stringify(response);
     }
 
     return str;
   } catch (error: any) {
-    const errorMsg =
-      error?.message ||
-      (typeof error === "string" ? error : JSON.stringify(error));
-    const isBalanceError =
-      error?.status === 402 ||
-      error?.code === "insufficient_funds" ||
-      errorMsg.toLowerCase().includes("insufficient funds") ||
-      errorMsg.toLowerCase().includes("low balance") ||
-      errorMsg.toLowerCase().includes("quota");
+    const errorMsg = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
+    const isBalanceError = error?.status === 402 || error?.code === 'insufficient_funds' || errorMsg.toLowerCase().includes('insufficient funds') || errorMsg.toLowerCase().includes('low balance') || errorMsg.toLowerCase().includes('quota');
 
-    if (isBalanceError || errorMsg.toLowerCase().includes("invalid api key")) {
+    if (isBalanceError || errorMsg.toLowerCase().includes('invalid api key')) {
       if (!(window as any).isPuterDisabledForSession) {
         (window as any).isPuterDisabledForSession = true;
         // Use a crisp notification that specifies exactly which AI failed
-        import("sonner").then(({ toast }) => {
-          toast.error(
-            `Puter (${model}) failed: ${isBalanceError ? "Insufficient funds" : "Authentication error"}. Switching to fallbacks.`,
-          );
+        import('sonner').then(({ toast }) => {
+          toast.error(`Puter (${model}) failed: ${isBalanceError ? 'Insufficient funds' : 'Authentication error'}. Switching to fallbacks.`);
         });
       }
       console.warn(`[Puter] ${model} disabled for session:`, errorMsg);
@@ -670,54 +601,40 @@ async function fetchFromPuter(
   }
 }
 
-export type ForgeTextProvider =
-  | "auto"
-  | "builtin"
-  | "local_proxy"
-  | "gemini"
-  | "groq"
-  | "puter"
-  | "firebase";
+export type ForgeTextProvider = 'auto' | 'builtin' | 'local_proxy' | 'gemini' | 'groq' | 'puter' | 'firebase';
 
 /** Resolves UI aliases (e.g. chat selecting WebLLM) to the provider that should run. */
-export function getEffectiveTextProvider(
-  settings = getAiSettings(),
-): ForgeTextProvider {
-  if (settings.geminiModel === "webllm-local") return "builtin";
-  return (settings.preferredProvider || "auto") as ForgeTextProvider;
+export function getEffectiveTextProvider(settings = getAiSettings()): ForgeTextProvider {
+  if (settings.geminiModel === 'webllm-local') return 'builtin';
+  return (settings.preferredProvider || 'auto') as ForgeTextProvider;
 }
 
 export function isLocalTextProvider(settings = getAiSettings()): boolean {
   const provider = getEffectiveTextProvider(settings);
-  return provider === "builtin" || provider === "local_proxy";
+  return provider === 'builtin' || provider === 'local_proxy';
 }
 
 /** Preload WebLLM when Built-in / WebGPU local mode is selected. */
 export async function ensureLocalTextEngineReady(): Promise<void> {
   const settings = getAiSettings();
-  if (getEffectiveTextProvider(settings) !== "builtin") return;
+  if (getEffectiveTextProvider(settings) !== 'builtin') return;
   const builtInAi = await getBuiltInAi();
   const status = builtInAi.getStatus();
   if (!status.isLoaded && !status.isLoading) {
-    await builtInAi.init(
-      settings.builtinModelId || "Phi-3-mini-4k-instruct-q4f16_1-MLC",
-    );
+    await builtInAi.init(settings.builtinModelId || 'Phi-3-mini-4k-instruct-q4f16_1-MLC');
   }
 }
 
 export function isBuiltinVisionPreferred(settings = getAiSettings()): boolean {
   return (
-    settings.imageProvider === "builtin" ||
-    settings.preferredProvider === "builtin" ||
+    settings.imageProvider === 'builtin' ||
+    settings.preferredProvider === 'builtin' ||
     usesLocalTextForImages(settings)
   );
 }
 
 export function canUseBuiltinWebGpuVision(): boolean {
-  return (
-    typeof navigator !== "undefined" &&
-    !!(navigator as Navigator & { gpu?: unknown }).gpu
-  );
+  return typeof navigator !== 'undefined' && !!(navigator as Navigator & { gpu?: unknown }).gpu;
 }
 
 /** Preload WebLLM Phi-3.5 Vision for local image understanding. */
@@ -725,40 +642,17 @@ export async function ensureBuiltinVisionReady(): Promise<void> {
   const settings = getAiSettings();
   if (!canUseBuiltinWebGpuVision()) return;
   const builtInAi = await getBuiltInAi();
-  const visionId =
-    settings.builtinVisionModelId || "Phi-3.5-vision-instruct-q4f16_1-MLC";
+  const visionId = settings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC';
   const status = builtInAi.getStatus();
   if (!status.visionIsLoaded && !status.visionIsLoading) {
     await builtInAi.initVision(visionId);
   }
 }
 
-export type LocalAiBootstrapResult = {
-  textReady: boolean;
-  visionReady: boolean;
-  visionSkipped: boolean;
-};
-
-/** Download and warm both local text and vision WebLLM engines when WebGPU is available. */
-export async function ensureLocalAiEnginesReady(): Promise<LocalAiBootstrapResult> {
-  await ensureLocalTextEngineReady();
-  let visionReady = false;
-  const visionSkipped = !canUseBuiltinWebGpuVision();
-  if (!visionSkipped) {
-    try {
-      await ensureBuiltinVisionReady();
-      visionReady = true;
-    } catch (err) {
-      console.warn("[ensureLocalAiEnginesReady] Vision preload failed:", err);
-    }
-  }
-  return { textReady: true, visionReady, visionSkipped };
-}
+export { ensureLocalAiEnginesReady } from './localAiBootstrap';
 
 /** Outlets / branches for vision matching (brand kit + workspace name). */
-export async function fetchBusinessOutlets(
-  business?: Business | null,
-): Promise<string[]> {
+export async function fetchBusinessOutlets(business?: Business | null): Promise<string[]> {
   const names: string[] = [];
   const add = (n?: string) => {
     const t = n?.trim();
@@ -768,27 +662,26 @@ export async function fetchBusinessOutlets(
   add(business?.name);
   if (business?.id) {
     try {
-      const snap = await getDoc(doc(db, "categories", business.id));
+      const snap = await getDoc(doc(db, 'categories', business.id));
       if (snap.exists()) {
         const cats = snap.data().categories as
           | Array<{ name: string; type?: string; enabled?: boolean }>
           | undefined;
         cats?.forEach((c) => {
-          if (c.enabled !== false && (!c.type || c.type === "outlet"))
-            add(c.name);
+          if (c.enabled !== false && (!c.type || c.type === 'outlet')) add(c.name);
         });
       }
     } catch (e) {
-      console.warn("[fetchBusinessOutlets]", e);
+      console.warn('[fetchBusinessOutlets]', e);
     }
   }
-  return names.length > 0 ? names : [business?.name?.trim() || "Main Store"];
+  return names.length > 0 ? names : [business?.name?.trim() || 'Main Store'];
 }
 
 function resolveDetectedOutlet(
   raw: string | undefined,
   allowedOutlets: string[],
-  preferred?: string,
+  preferred?: string
 ): string {
   const preferredTrim = preferred?.trim();
   const list =
@@ -798,15 +691,12 @@ function resolveDetectedOutlet(
         ? [preferredTrim]
         : [];
 
-  const rawTrim = raw?.trim() || "";
+  const rawTrim = raw?.trim() || '';
   if (!rawTrim) {
-    if (
-      preferredTrim &&
-      list.some((a) => a.toLowerCase() === preferredTrim.toLowerCase())
-    ) {
+    if (preferredTrim && list.some((a) => a.toLowerCase() === preferredTrim.toLowerCase())) {
       return list.find((a) => a.toLowerCase() === preferredTrim.toLowerCase())!;
     }
-    return list[0] || preferredTrim || "";
+    return list[0] || preferredTrim || '';
   }
 
   const lower = rawTrim.toLowerCase();
@@ -814,18 +704,13 @@ function resolveDetectedOutlet(
   if (exact) return exact;
 
   const partial = list.find(
-    (a) => lower.includes(a.toLowerCase()) || a.toLowerCase().includes(lower),
+    (a) => lower.includes(a.toLowerCase()) || a.toLowerCase().includes(lower)
   );
   if (partial) return partial;
 
-  const genericWrong = [
-    "forge enterprises",
-    "forge",
-    "your brand",
-    "main channel",
-  ];
+  const genericWrong = ['forge enterprises', 'forge', 'your brand', 'main channel'];
   if (
-    genericWrong.some((g) => lower === g || lower.startsWith(g + " ")) &&
+    genericWrong.some((g) => lower === g || lower.startsWith(g + ' ')) &&
     !list.some((a) => genericWrong.includes(a.toLowerCase()))
   ) {
     return preferredTrim || list[0] || rawTrim;
@@ -838,11 +723,10 @@ function resolveDetectedOutlet(
 async function generateWithBuiltinVision(
   promptText: string,
   base64Data: string,
-  mimeType: string,
+  mimeType: string
 ): Promise<string> {
   const settings = getAiSettings();
-  const visionId =
-    settings.builtinVisionModelId || "Phi-3.5-vision-instruct-q4f16_1-MLC";
+  const visionId = settings.builtinVisionModelId || 'Phi-3.5-vision-instruct-q4f16_1-MLC';
   const dataUrl = `data:${mimeType};base64,${base64Data}`;
   const builtInAi = await getBuiltInAi();
   await builtInAi.initVision(visionId);
@@ -856,18 +740,14 @@ export async function generateAppText(
   prompt: string,
   expectJson: boolean = false,
   businessId?: string,
-  options?: AiRouteOptions,
+  options?: AiRouteOptions
 ): Promise<string> {
   const settings = getAiSettings();
-  const effectiveProvider = options?.forceLocal
-    ? "builtin"
-    : getEffectiveTextProvider(settings);
-  const cloudAllowed = options?.forceLocal
-    ? false
-    : canUseCloudAiProviders(settings, effectiveProvider);
+  const effectiveProvider = options?.forceLocal ? 'builtin' : getEffectiveTextProvider(settings);
+  const cloudAllowed = options?.forceLocal ? false : canUseCloudAiProviders(settings, effectiveProvider);
   const forLocal = options?.forceLocal || isLocalTextProvider(settings);
 
-  let designContext = "";
+  let designContext = '';
   if (businessId) {
     let guide = await fetchBrandKitDesignGuide(businessId);
     if (guide && forLocal && guide.length > 800) {
@@ -878,120 +758,94 @@ export async function generateAppText(
     }
   }
 
-  const contextualPrompt = withBusinessKnowledge(prompt + designContext, {
-    forLocal,
-  });
-  const fullPrompt = expectJson
-    ? `${contextualPrompt}\n\nYou MUST return ONLY a valid JSON object or array.`
-    : contextualPrompt;
+  const contextualPrompt = withBusinessKnowledge(prompt + designContext, { forLocal });
+  const fullPrompt = expectJson ? `${contextualPrompt}\n\nYou MUST return ONLY a valid JSON object or array.` : contextualPrompt;
 
   // Widgets and explicit built-in mode: local only
   if (options?.forceLocal) {
     await ensureLocalTextEngineReady();
     const resp = await (await getBuiltInAi()).generate(fullPrompt);
     if (resp) return resp;
-    throw new Error(
-      "Local AI failed to generate text. Initialize the model in Settings.",
-    );
+    throw new Error('Local AI failed to generate text. Initialize the model in Settings.');
   }
 
   // Try Built-in AI first for built-in mode and auto (when cloud fallback is off, auto stays local-only)
-  if (effectiveProvider === "builtin" || effectiveProvider === "auto") {
+  if (effectiveProvider === 'builtin' || effectiveProvider === 'auto') {
     try {
       await ensureLocalTextEngineReady();
       const resp = await (await getBuiltInAi()).generate(fullPrompt);
       if (resp) return resp;
     } catch (e) {
-      console.error("Built-in AI failed:", e);
+      console.error('Built-in AI failed:', e);
       if (!cloudAllowed) {
         throw new Error(
-          'Local AI failed. Enable "Fallback to cloud AI services" in Settings to use Gemini, Groq, or other cloud providers.',
+          'Local AI failed. Enable "Fallback to cloud AI services" in Settings to use Gemini, Groq, or other cloud providers.'
         );
       }
-      notifyFallback(
-        "Local AI fallback",
-        "Built-in model failed, trying cloud providers.",
-      );
-      if (effectiveProvider === "builtin") throw e;
-      console.warn("Built-in AI failed, cascading...");
+      notifyFallback('Local AI fallback', 'Built-in model failed, trying cloud providers.');
+      if (effectiveProvider === 'builtin') throw e;
+      console.warn('Built-in AI failed, cascading...');
     }
   }
 
   // Decision logic for providers
-  const isPuterSignedIn =
-    typeof window !== "undefined" &&
-    (window as any).puter &&
-    (await (window as any).puter.auth.isSignedIn());
+  const isPuterSignedIn = typeof window !== 'undefined' && (window as any).puter && await (window as any).puter.auth.isSignedIn();
 
-  if (effectiveProvider === "puter") {
+  if (effectiveProvider === 'puter') {
     try {
       const resp = await fetchFromPuter(fullPrompt);
       if (resp) return resp;
     } catch (e) {
-      console.error("Puter failed:", e);
-      notifyFallback(
-        "Provider fallback",
-        "Puter unavailable, trying next provider.",
-      );
-      if (effectiveProvider === "puter") throw e;
-      console.warn("Puter failed, cascading...");
+      console.error('Puter failed:', e);
+      notifyFallback('Provider fallback', 'Puter unavailable, trying next provider.');
+      if (effectiveProvider === 'puter') throw e;
+      console.warn('Puter failed, cascading...');
     }
-  } else if (effectiveProvider === "groq") {
+  } else if (effectiveProvider === 'groq') {
     try {
       const resp = await fetchFromGroq(fullPrompt);
       if (resp) return resp;
     } catch (e) {
-      console.error("Groq failed:", e);
-      notifyFallback(
-        "Provider fallback",
-        "Groq unavailable, trying next provider.",
-      );
-      if (effectiveProvider === "groq") throw e;
-      console.warn("Groq failed, cascading...");
+      console.error('Groq failed:', e);
+      notifyFallback('Provider fallback', 'Groq unavailable, trying next provider.');
+      if (effectiveProvider === 'groq') throw e;
+      console.warn('Groq failed, cascading...');
     }
-  } else if (effectiveProvider === "local_proxy") {
+  } else if (effectiveProvider === 'local_proxy') {
     try {
       const resp = await fetchFromLocalServer(fullPrompt);
       if (resp) return resp;
     } catch (e) {
-      console.error("Local Proxy failed:", e);
-      notifyFallback(
-        "Provider fallback",
-        "Local Server unavailable. Ensure Ollama/LM Studio is running.",
-      );
+      console.error('Local Proxy failed:', e);
+      notifyFallback('Provider fallback', 'Local Server unavailable. Ensure Ollama/LM Studio is running.');
       throw e;
     }
-  } else if (effectiveProvider === "auto") {
-    const allowed = settings.allowedAutoProviders || [
-      "builtin",
-      "local_proxy",
-      "groq",
-      "gemini",
-    ];
+  } else if (effectiveProvider === 'auto') {
+    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'groq', 'gemini'];
 
-    if (allowed.includes("builtin")) {
+    if (allowed.includes('builtin')) {
       try {
         await ensureLocalTextEngineReady();
         const localResp = await (await getBuiltInAi()).generate(fullPrompt);
         if (localResp) return localResp;
       } catch (e) {
-        console.warn("Auto mode: Built-in WebLLM failed, trying next...");
+        console.warn('Auto mode: Built-in WebLLM failed, trying next...');
       }
     }
 
-    if (allowed.includes("local_proxy")) {
+    if (allowed.includes('local_proxy')) {
       try {
         return await fetchFromLocalServer(fullPrompt);
       } catch (e) {
-        console.warn("Auto mode: Local Proxy (Ollama) failed, trying next...");
+        console.warn('Auto mode: Local Proxy (Ollama) failed, trying next...');
       }
     }
 
-    if (allowed.includes("groq")) {
+    if (allowed.includes('groq')) {
       try {
         return await fetchFromGroq(fullPrompt);
       } catch (e) {
-        console.warn("Auto mode: Groq failed, trying next...");
+        console.warn('Auto mode: Groq failed, trying next...');
       }
     }
   }
@@ -1010,46 +864,32 @@ export async function generateAppText(
     const response = await ai.models.generateContent({
       model: settings.geminiModel || "gemini-2.5-flash",
       contents: fullPrompt,
-      config,
+      config
     });
 
     if (response.text) {
       return response.text;
     } else if (response.candidates?.[0]?.content?.parts) {
-      return response.candidates[0].content.parts
-        .filter((p: any) => p.text)
-        .map((p: any) => p.text)
-        .join("");
+      return response.candidates[0].content.parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
     }
-    return "";
+    return '';
   } catch (error) {
     console.warn("Gemini failed, cascading...");
-    notifyFallback("Provider fallback", "Gemini failed, trying alternates.");
-
-    if (settings.preferredProvider === "auto" && isPuterSignedIn) {
+    notifyFallback('Provider fallback', 'Gemini failed, trying alternates.');
+    
+    if (settings.preferredProvider === 'auto' && isPuterSignedIn) {
       try {
         console.log("Cascading to last resort Puter...");
         return await fetchFromPuter(fullPrompt);
-      } catch (e) {}
+      } catch (e) { }
     }
 
-    if (effectiveProvider === "auto") {
-      const allowed = settings.allowedAutoProviders || [
-        "builtin",
-        "local_proxy",
-        "puter",
-        "groq",
-        "gemini",
-      ];
-      if (allowed.includes("builtin")) {
+    if (effectiveProvider === 'auto') {
+      const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
+      if (allowed.includes('builtin')) {
         try {
-          console.warn(
-            "Cloud AI exhausted. Falling back to WebLLM Local AI Engine...",
-          );
-          notifyFallback(
-            "Auto routing",
-            "Cloud quota exhausted, switching to Local AI (WebGPU).",
-          );
+          console.warn("Cloud AI exhausted. Falling back to WebLLM Local AI Engine...");
+          notifyFallback('Auto routing', 'Cloud quota exhausted, switching to Local AI (WebGPU).');
           await ensureLocalTextEngineReady();
           const localResp = await (await getBuiltInAi()).generate(fullPrompt);
           if (localResp) return localResp;
@@ -1057,7 +897,7 @@ export async function generateAppText(
           console.error("Local AI also failed:", e);
         }
       }
-      if (allowed.includes("local_proxy")) {
+      if (allowed.includes('local_proxy')) {
         try {
           return await fetchFromLocalServer(fullPrompt);
         } catch (e) {
@@ -1066,72 +906,46 @@ export async function generateAppText(
       }
     }
 
-    throw new Error(
-      "All AI providers (Gemini, Groq, Puter, Local) failed or are unavailable.",
-    );
+    throw new Error("All AI providers (Gemini, Groq, Puter, Local) failed or are unavailable.");
   }
 }
 
 /** JSON helper used across the app (posts, ideas, mappings, analytics). */
 export async function generateAppJson(
   prompt: string,
-  options?: {
-    businessId?: string;
-    expectArray?: boolean;
-    forceLocal?: boolean;
-  },
+  options?: { businessId?: string; expectArray?: boolean; forceLocal?: boolean }
 ): Promise<any> {
   const jsonHint = options?.expectArray
-    ? "\n\nYou MUST return ONLY a valid JSON array."
-    : "\n\nYou MUST return ONLY a valid JSON object or array.";
-  const text = await generateAppText(
-    prompt + jsonHint,
-    true,
-    options?.businessId,
-    {
-      forceLocal: options?.forceLocal,
-    },
-  );
+    ? '\n\nYou MUST return ONLY a valid JSON array.'
+    : '\n\nYou MUST return ONLY a valid JSON object or array.';
+  const text = await generateAppText(prompt + jsonHint, true, options?.businessId, {
+    forceLocal: options?.forceLocal,
+  });
   return options?.expectArray ? safeParseJSONArray(text) : safeParseJSON(text);
 }
 
-export async function generateTextWithCascade(
-  prompt: string,
-  expectJson: boolean = false,
-  businessId?: string,
-): Promise<string> {
+export async function generateTextWithCascade(prompt: string, expectJson: boolean = false, businessId?: string): Promise<string> {
   return generateAppText(prompt, expectJson, businessId);
 }
 
-async function fetchFromLocalServer(
-  prompt: string,
-  history: ChatMessage[] = [],
-  images?: { base64: string; mimeType: string }[],
-) {
+async function fetchFromLocalServer(prompt: string, history: ChatMessage[] = [], images?: { base64: string, mimeType: string }[]) {
   const settings = getAiSettings();
-  let baseUrl =
-    settings.localProxyUrl?.replace(/\/+$/, "") || "http://localhost:11434/v1";
+  let baseUrl = settings.localProxyUrl?.replace(/\/+$/, '') || 'http://localhost:11434/v1';
 
   // Auto-correct if user provided root Ollama/LM Studio URL instead of OpenAI-compatible one
-  if (
-    (baseUrl.includes("11434") || baseUrl.includes("1234")) &&
-    !baseUrl.endsWith("/v1") &&
-    !baseUrl.includes("api/")
-  ) {
-    console.log(
-      `[AI] Auto-correcting local AI URL: ${baseUrl} -> ${baseUrl}/v1`,
-    );
-    baseUrl += "/v1";
+  if ((baseUrl.includes('11434') || baseUrl.includes('1234')) && !baseUrl.endsWith('/v1') && !baseUrl.includes('api/')) {
+    console.log(`[AI] Auto-correcting local AI URL: ${baseUrl} -> ${baseUrl}/v1`);
+    baseUrl += '/v1';
   }
-
+  
   const messages: any[] = [];
 
   // Add history
   if (history && history.length > 0) {
-    history.forEach((h) => {
+    history.forEach(h => {
       messages.push({
-        role: h.role === "user" ? "user" : "assistant",
-        content: h.content,
+        role: h.role === 'user' ? 'user' : 'assistant',
+        content: h.content
       });
     });
   }
@@ -1139,33 +953,33 @@ async function fetchFromLocalServer(
   // Add current prompt
   if (images && images.length > 0) {
     messages.push({
-      role: "user",
+      role: 'user',
       content: [
-        { type: "text", text: prompt },
-        ...images.map((img) => ({
-          type: "image_url",
-          image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
-        })),
-      ],
+        { type: 'text', text: prompt },
+        ...images.map(img => ({
+          type: 'image_url',
+          image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+        }))
+      ]
     });
   } else {
-    messages.push({ role: "user", content: prompt });
+    messages.push({ role: 'user', content: prompt });
   }
 
   const model = settings.localProxyModel || "llama3";
   const apiKey = settings.localProxyApiKey;
-
+  
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   };
 
   if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`;
+    headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
+      method: 'POST',
       headers,
       body: JSON.stringify({
         model,
@@ -1180,13 +994,11 @@ async function fetchFromLocalServer(
         status: response.status,
         statusText: response.statusText,
         url: response.url,
-        body: err,
+        body: err
       });
-
+      
       if (response.status === 404) {
-        throw new Error(
-          `Local Server Error: 404 - Model "${model}" not found or endpoint incorrect. Ensure you have run "ollama pull ${model}" and that your URL ends in "/v1" (current: ${baseUrl})`,
-        );
+        throw new Error(`Local Server Error: 404 - Model "${model}" not found or endpoint incorrect. Ensure you have run "ollama pull ${model}" and that your URL ends in "/v1" (current: ${baseUrl})`);
       }
       throw new Error(`Local Server Error: ${response.status} - ${err}`);
     }
@@ -1198,70 +1010,51 @@ async function fetchFromLocalServer(
     return data.choices[0].message.content;
   } catch (err: any) {
     console.error(`[AI] Local Server Fetch failed:`, err);
-    throw new Error(
-      `Local Server Fetch failed: ${err.message}. This is likely a CORS or connection error. Ensure your Ollama server is running and OLLAMA_ORIGINS is set correctly.`,
-    );
+    throw new Error(`Local Server Fetch failed: ${err.message}. This is likely a CORS or connection error. Ensure your Ollama server is running and OLLAMA_ORIGINS is set correctly.`);
   }
 }
 
 export async function testLocalServerConnection() {
   const settings = getAiSettings();
-  const baseUrl =
-    settings.localProxyUrl?.replace(/\/+$/, "") || "http://localhost:11434/v1";
-
+  const baseUrl = settings.localProxyUrl?.replace(/\/+$/, '') || 'http://localhost:11434/v1';
+  
   console.log(`[Test Connection] Probing ${baseUrl}...`);
-
+  
   try {
     // 1. Try to fetch models from Ollama's native API if it looks like Ollama
-    const rootUrl = baseUrl.replace(/\/v1$/, "");
+    const rootUrl = baseUrl.replace(/\/v1$/, '');
     const tagsUrl = `${rootUrl}/api/tags`;
-
+    
     console.log(`[Test Connection] Checking models at ${tagsUrl}...`);
-    const tagsResp = await fetch(tagsUrl).catch((e) => ({
-      ok: false,
-      error: e,
-    }));
-
+    const tagsResp = await fetch(tagsUrl).catch(e => ({ ok: false, error: e }));
+    
     if (tagsResp.ok) {
       const data = await (tagsResp as Response).json();
       console.log(`[Test Connection] Success! Found Ollama models:`, data);
-      return { success: true, type: "ollama", data };
+      return { success: true, type: 'ollama', data };
     }
 
     // 2. Try the OpenAI models endpoint
     const modelsUrl = `${baseUrl}/models`;
     console.log(`[Test Connection] Checking models at ${modelsUrl}...`);
-    const modelsResp = await fetch(modelsUrl).catch((e) => ({
-      ok: false,
-      error: e,
-    }));
+    const modelsResp = await fetch(modelsUrl).catch(e => ({ ok: false, error: e }));
 
     if (modelsResp.ok) {
       const data = await (modelsResp as Response).json();
-      console.log(
-        `[Test Connection] Success! Found OpenAI-compatible models:`,
-        data,
-      );
-      return { success: true, type: "openai", data };
+      console.log(`[Test Connection] Success! Found OpenAI-compatible models:`, data);
+      return { success: true, type: 'openai', data };
     }
 
-    throw new Error(
-      "Could not reach local server on any expected endpoint (/api/tags or /v1/models). Ensure server is running and OLLAMA_ORIGINS is set.",
-    );
+    throw new Error("Could not reach local server on any expected endpoint (/api/tags or /v1/models). Ensure server is running and OLLAMA_ORIGINS is set.");
   } catch (err: any) {
     console.error(`[Test Connection] Failed:`, err);
     throw err;
   }
 }
 
-async function fetchFromGroq(
-  prompt: string,
-  images?: { base64: string; mimeType: string }[],
-) {
+async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType: string }[]) {
   if (isGroqDisabledForSession) {
-    throw new Error(
-      "Groq is disabled for this session due to invalid API key.",
-    );
+    throw new Error("Groq is disabled for this session due to invalid API key.");
   }
 
   const settings = getAiSettings();
@@ -1276,66 +1069,58 @@ async function fetchFromGroq(
   const messages: any[] = [];
 
   if (settings.systemInstructions) {
-    messages.push({ role: "system", content: settings.systemInstructions });
+    messages.push({ role: 'system', content: settings.systemInstructions });
   }
 
   let content: string | any[] = prompt;
 
   if (images && images.length > 0) {
-    content = [{ type: "text", text: prompt }];
+    content = [{ type: 'text', text: prompt }];
     for (const img of images) {
       content.push({
-        type: "image_url",
+        type: 'image_url',
         image_url: {
           url: `data:${img.mimeType};base64,${img.base64}`,
-        },
+        }
       });
     }
   }
 
-  messages.push({ role: "user", content });
+  messages.push({ role: 'user', content });
 
-  const isJsonExpected = prompt.toLowerCase().includes("json");
-  const model =
-    images && images.length > 0 ? settings.groqVisionModel : settings.groqModel;
+  const isJsonExpected = prompt.toLowerCase().includes('json');
+  const model = images && images.length > 0 ? settings.groqVisionModel : settings.groqModel;
   const body: any = {
     model,
     messages,
     temperature: 0.7,
-    apiKey, // Pass key to proxy
+    apiKey // Pass key to proxy
   };
 
   if (isJsonExpected) {
-    body.response_format = { type: "json_object" };
+    body.response_format = { type: 'json_object' };
   }
 
   // Always use local proxy to avoid CORS
-  const fetchUrl = "/api/groq";
-  const headers = { "Content-Type": "application/json" };
+  const fetchUrl = '/api/groq';
+  const headers = { 'Content-Type': 'application/json' };
 
   const response = await fetch(fetchUrl, {
-    method: "POST",
+    method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    const isAuthError =
-      response.status === 401 ||
-      errText.toLowerCase().includes("invalid api key");
-    const isQuotaError =
-      response.status === 429 ||
-      errText.toLowerCase().includes("quota") ||
-      errText.toLowerCase().includes("limit");
+    const isAuthError = response.status === 401 || errText.toLowerCase().includes('invalid api key');
+    const isQuotaError = response.status === 429 || errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('limit');
 
     if (isAuthError || isQuotaError) {
       if (!isGroqDisabledForSession) {
         isGroqDisabledForSession = true;
-        import("sonner").then(({ toast }) => {
-          toast.error(
-            `Groq (${model}) failed: ${isAuthError ? "Invalid API Key" : "Rate limit/Quota"}. Switching to fallbacks.`,
-          );
+        import('sonner').then(({ toast }) => {
+          toast.error(`Groq (${model}) failed: ${isAuthError ? 'Invalid API Key' : 'Rate limit/Quota'}. Switching to fallbacks.`);
         });
       }
     }
@@ -1347,53 +1132,32 @@ async function fetchFromGroq(
   return data.choices[0].message.content;
 }
 
-export async function generatePostContent(
-  outlet: string,
-  productCategory?: string,
-  previousTitle?: string,
-  business?: Business,
-) {
+export async function generatePostContent(outlet: string, productCategory?: string, previousTitle?: string, business?: Business) {
   const settings = getAiSettings();
 
   const category = productCategory || "All Products";
-  const categoryPrompt = productCategory
-    ? ` specifically in the category "${productCategory}"`
-    : "";
-  const avoidPrompt = previousTitle
-    ? `\nCRITICAL: DO NOT generate a post about "${previousTitle}". You MUST choose a completely DIFFERENT brand, product type, or theme.`
-    : "";
+  const categoryPrompt = productCategory ? ` specifically in the category "${productCategory}"` : '';
+  const avoidPrompt = previousTitle ? `\nCRITICAL: DO NOT generate a post about "${previousTitle}". You MUST choose a completely DIFFERENT brand, product type, or theme.` : '';
 
-  if (settings.preferredProvider === "builtin") {
+  if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GeneratePostContent] Strict Local AI Mode active.");
-      const localPrompt = `Generate a high-engagement social media post for ${business?.name || "our brand"} about ${category}. ${categoryPrompt} ${avoidPrompt}`;
-      const localText = await (
-        await getBuiltInAi()
-      ).generate(localPrompt + " You MUST return ONLY a valid JSON object.");
-      return safeParseJSON(localText || "{}");
+      const localPrompt = `Generate a high-engagement social media post for ${business?.name || 'our brand'} about ${category}. ${categoryPrompt} ${avoidPrompt}`;
+      const localText = await (await getBuiltInAi()).generate(localPrompt + " You MUST return ONLY a valid JSON object.");
+      return safeParseJSON(localText || '{}');
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
     }
   }
 
-  const businessContext = business
-    ? `\nBUSINESS CONTEXT: This post is for "${business.name}", which operates in the "${business.industry}" industry.`
-    : "This post is for a professional business.";
+  const businessContext = business ? `\nBUSINESS CONTEXT: This post is for "${business.name}", which operates in the "${business.industry}" industry.` : 'This post is for a professional business.';
 
   // Fetch real products from our Google Search Engine scraper first
-  const { products } = await scrapeWooCommerce(
-    category,
-    undefined,
-    business?.targetUrl,
-  );
-  const productContext =
-    products.length > 0
-      ? `\nHere are some REAL products currently in stock for this category:\n${products
-          .slice(0, 10)
-          .map((p) => `- ${p.title} (${p.stockInfo})`)
-          .join("\n")}`
-      : "";
+  const { products } = await scrapeWooCommerce(category, undefined, business?.targetUrl);
+  const productContext = products.length > 0
+    ? `\nHere are some REAL products currently in stock for this category:\n${products.slice(0, 10).map(p => `- ${p.title} (${p.stockInfo})`).join('\n')}`
+    : '';
 
   const randomSeed = Math.floor(Math.random() * 1000000);
 
@@ -1406,14 +1170,13 @@ export async function generatePostContent(
     "budget-friendly essentials",
     "a specific room or use-case (e.g., kitchen, outdoor, bathroom)",
     "color-coordinated items",
-    "a specific material (e.g., wooden, metallic, glass)",
+    "a specific material (e.g., wooden, metallic, glass)"
   ];
   const randomAngle = angles[Math.floor(Math.random() * angles.length)];
 
-  const safeOutlet =
-    outlet.length > 2000 ? outlet.substring(0, 2000) + "..." : outlet;
+  const safeOutlet = outlet.length > 2000 ? outlet.substring(0, 2000) + "..." : outlet;
 
-  let designContext = "";
+  let designContext = '';
   if (business?.id) {
     const guide = await fetchBrandKitDesignGuide(business.id);
     if (guide) {
@@ -1449,12 +1212,9 @@ export async function generatePostContent(
   const prompt = withBusinessKnowledge(basePrompt);
 
   // Hierarchy 0: Local Server (if preferred)
-  if (settings.preferredProvider === "local_proxy") {
+  if (settings.preferredProvider === 'local_proxy') {
     try {
-      const localResponse = await fetchFromLocalServer(
-        prompt +
-          " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.",
-      );
+      const localResponse = await fetchFromLocalServer(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.");
       const parsed = safeParseJSON(localResponse);
       if (parsed && parsed.title) return parsed;
       // Fallback for non-JSON responses from simple local models
@@ -1463,48 +1223,39 @@ export async function generatePostContent(
           title: "New Carousel Area",
           brief: "Generated locally (non-JSON source)",
           caption: localResponse.substring(0, 1000),
-          hashtags: "#local #ai",
+          hashtags: "#local #ai"
         };
       }
     } catch (error) {
       console.warn("Local server failed. Cascading...");
     }
-  } else if (settings.preferredProvider === "puter") {
+  } else if (settings.preferredProvider === 'puter') {
     try {
-      const puterResponse = await fetchFromPuter(
-        prompt +
-          " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.",
-      );
-      const parsed = safeParseJSON(puterResponse || "{}");
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.");
+      const parsed = safeParseJSON(puterResponse || '{}');
       if (parsed && parsed.title) return parsed;
     } catch (error) {
       console.warn("Puter.js failed. Cascading to Gemini...");
     }
-  } else if (settings.preferredProvider === "groq") {
+  } else if (settings.preferredProvider === 'groq') {
     try {
-      const groqResponse = await fetchFromGroq(
-        prompt +
-          " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.",
-      );
-      const parsed = safeParseJSON(groqResponse || "{}");
+      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags.");
+      const parsed = safeParseJSON(groqResponse || '{}');
       if (parsed && parsed.title) return parsed;
     } catch (error) {
       console.warn("Groq failed. Cascading to Gemini...");
     }
   }
 
-  if (settings.preferredProvider === "auto") {
+  if (settings.preferredProvider === 'auto') {
     try {
       const parsed = await generateAppJson(
         `${prompt}\n\nReturn a JSON object with fields: title, brief, caption, hashtags.`,
-        { businessId: business?.id },
+        { businessId: business?.id }
       );
       if (parsed?.title) return parsed;
     } catch (e) {
-      console.warn(
-        "[GeneratePostContent] Auto provider cascade failed, trying Gemini.",
-        e,
-      );
+      console.warn('[GeneratePostContent] Auto provider cascade failed, trying Gemini.', e);
     }
   }
 
@@ -1527,21 +1278,18 @@ export async function generatePostContent(
             title: { type: Type.STRING },
             brief: { type: Type.STRING },
             caption: { type: Type.STRING },
-            hashtags: { type: Type.STRING },
+            hashtags: { type: Type.STRING }
           },
-          required: ["title", "brief", "caption", "hashtags"],
-        },
-      },
+          required: ["title", "brief", "caption", "hashtags"]
+        }
+      }
     });
 
-    let text = "";
+    let text = '';
     if (response.candidates?.[0]?.content?.parts) {
-      text = response.candidates[0].content.parts
-        .filter((p: any) => p.text)
-        .map((p: any) => p.text)
-        .join("");
+      text = response.candidates[0].content.parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
     } else {
-      text = response.text || "{}";
+      text = response.text || '{}';
     }
     const parsed = safeParseJSON(text);
     if (parsed) return parsed;
@@ -1551,10 +1299,8 @@ export async function generatePostContent(
 
   // Hierarchy 2: Groq Public API
   try {
-    const groqResponse = await fetchFromGroq(
-      prompt + " You MUST return ONLY a valid JSON object.",
-    );
-    const parsed = safeParseJSON(groqResponse || "{}");
+    const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object.");
+    const parsed = safeParseJSON(groqResponse || '{}');
     if (parsed) return parsed;
   } catch (error) {
     console.warn("Groq API failed. Cascading to Firebase Vertex AI...");
@@ -1565,25 +1311,17 @@ export async function generatePostContent(
     const model = getVertexModel(settings.geminiModel);
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const parsed = safeParseJSON(response.text() || "{}");
+    const parsed = safeParseJSON(response.text() || '{}');
     if (parsed) return parsed;
   } catch (error) {
     console.error("Firebase Vertex AI totally failed.", error);
   }
 
   // Hierarchy 4: Graceful UI Rejection
-  throw new Error(
-    "All AI providers (Gemini, Groq, Firebase) failed to generate content or timed out. Please try again later.",
-  );
+  throw new Error("All AI providers (Gemini, Groq, Firebase) failed to generate content or timed out. Please try again later.");
 }
 
-export async function generateMockupImage(
-  title: string,
-  brief: string,
-  caption: string,
-  referenceImageBase64?: string,
-  business?: Business,
-): Promise<{ url: string; provider: string }> {
+export async function generateMockupImage(title: string, brief: string, caption: string, referenceImageBase64?: string, business?: Business): Promise<{ url: string, provider: string }> {
   const settings = getAiSettings();
   if (!isGeminiKeyAvailable()) {
     await fetchServerConfig();
@@ -1593,20 +1331,18 @@ export async function generateMockupImage(
   // Fetch brand kit
   let brandContext = "Use brand colors like orange, blue, and white.";
   let brandDesigns: any[] = [];
-  let designGuide = "";
+  let designGuide = '';
 
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
   }
 
   try {
-    const savedBrandKit = localStorage.getItem("brandKit");
+    const savedBrandKit = localStorage.getItem('brandKit');
     if (savedBrandKit) {
       const brandKit = JSON.parse(savedBrandKit);
       if (brandKit.colors && brandKit.colors.length > 0) {
-        const colors = brandKit.colors
-          .map((c: any) => `${c.name} (${c.hex})`)
-          .join(", ");
+        const colors = brandKit.colors.map((c: any) => `${c.name} (${c.hex})`).join(', ');
         brandContext = `Use these exact brand colors: ${colors}.`;
       }
       if (brandKit.fonts) {
@@ -1618,37 +1354,32 @@ export async function generateMockupImage(
       }
     }
   } catch (e) {
-    console.error("Failed to load brand kit", e);
+    console.error('Failed to load brand kit', e);
   }
 
-  const style = `vibrant promotional graphic, clean product photography on realistic backgrounds, modern layout, high-end professional ad. ${brandContext} ${designGuide ? `\nDESIGN GUIDE:\n${designGuide}` : ""}`;
-  const systemInstruction = settings.systemInstructions
-    ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}`
-    : "";
+  const style = `vibrant promotional graphic, clean product photography on realistic backgrounds, modern layout, high-end professional ad. ${brandContext} ${designGuide ? `\nDESIGN GUIDE:\n${designGuide}` : ''}`;
+  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
 
-  const prompt = `A professional social media promotional graphic for ${business?.name || "Forge Enterprises"}, a leading business in the ${business?.industry || "retail"} industry.
+  const prompt = `A professional social media promotional graphic for ${business?.name || 'Forge Enterprises'}, a leading business in the ${business?.industry || 'retail'} industry.
   Text on image: "${title}".
   Visual instructions: ${brief}.
   Context: ${caption}.
   Style: ${style}. ${systemInstruction}`;
 
-  const isPuterEnabled =
-    settings.imageProvider === "puter" ||
-    (settings.imageProvider === "auto" && (await isPuterSignedIn()));
+  const isPuterEnabled = settings.imageProvider === 'puter' || (settings.imageProvider === 'auto' && await isPuterSignedIn());
 
-  if (settings.imageProvider === "pollination") {
+  if (settings.imageProvider === 'pollination') {
     const encodedPrompt = encodeURIComponent(prompt);
-    const model = settings.pollinationModel || "flux";
+    const model = settings.pollinationModel || 'flux';
     const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&model=${model}`;
 
     const headers: Record<string, string> = {};
     if (settings.pollinationApiKey) {
-      headers["Authorization"] = `Bearer ${settings.pollinationApiKey}`;
+      headers['Authorization'] = `Bearer ${settings.pollinationApiKey}`;
     }
 
     const response = await fetch(url, { headers });
-    if (!response.ok)
-      throw new Error("Failed to generate image with Pollination.ai");
+    if (!response.ok) throw new Error("Failed to generate image with Pollination.ai");
     const blob = await response.blob();
     const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -1656,20 +1387,20 @@ export async function generateMockupImage(
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-    return { url: base64, provider: "Pollination.ai" };
+    return { url: base64, provider: 'Pollination.ai' };
   }
 
   if (isPuterEnabled) {
-    const model = settings.puterImageModel || "dall-e-3";
+    const model = settings.puterImageModel || 'dall-e-3';
     try {
       const puterInstance = (window as any).puter;
       if (puterInstance) {
         const image = await puterInstance.ai.txt2img(prompt, { model });
-        return { url: image.src, provider: "Puter.js" };
+        return { url: image.src, provider: 'Puter.js' };
       }
     } catch (e) {
       console.warn("Puter image generation failed:", e);
-      if (settings.imageProvider !== "auto") throw e;
+      if (settings.imageProvider !== 'auto') throw e;
     }
   }
 
@@ -1677,46 +1408,39 @@ export async function generateMockupImage(
 
   if (referenceImageBase64) {
     // Extract mime type and base64 data from data URL
-    const match = referenceImageBase64.match(
-      /^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/,
-    );
+    const match = referenceImageBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
     if (match) {
       parts.push({
         inlineData: {
           mimeType: match[1],
-          data: match[2],
-        },
+          data: match[2]
+        }
       });
     }
   }
 
   // Add brand designs
   for (const design of brandDesigns) {
-    const match = design.match(
-      /^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/,
-    );
+    const match = design.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
     if (match) {
       parts.push({
         inlineData: {
           mimeType: match[1],
-          data: match[2],
-        },
+          data: match[2]
+        }
       });
     }
   }
 
-  if (getAiSettings().preferredProvider === "firebase") {
-    const model = getVertexModel("gemini-2.5-flash-image");
+  if (getAiSettings().preferredProvider === 'firebase') {
+    const model = getVertexModel('gemini-2.5-flash-image');
     const result = await model.generateContent({
-      contents: [{ role: "user", parts }],
+      contents: [{ role: 'user', parts }],
     });
     const response = await result.response;
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        return {
-          url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-          provider: "Gemini",
-        };
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' };
       }
     }
   } else {
@@ -1725,41 +1449,31 @@ export async function generateMockupImage(
     }
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
+      model: 'gemini-2.5-flash-image',
       contents: {
-        parts: parts,
+        parts: parts
       },
       config: {
         imageConfig: {
-          aspectRatio: "1:1",
-        },
-      },
+          aspectRatio: "1:1"
+        }
+      }
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        return {
-          url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-          provider: "Gemini",
-        };
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' };
       }
     }
   }
   throw new Error("No image generated");
 }
 
-export async function generateSmartBrief(
-  title: string,
-  recentPosts: Post[],
-  business?: Business,
-): Promise<string> {
-  const recentContext = recentPosts
-    .slice(0, 3)
-    .map((p) => `- ${p.title}: ${p.brief}`)
-    .join("\n");
+export async function generateSmartBrief(title: string, recentPosts: Post[], business?: Business): Promise<string> {
+  const recentContext = recentPosts.slice(0, 3).map(p => `- ${p.title}: ${p.brief}`).join('\n');
   const settings = getAiSettings();
-
-  if (settings.preferredProvider === "builtin") {
+  
+  if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateSmartBrief] Strict Local AI Mode active.");
       const localPrompt = `Generate a design brief for post: "${title}". Context: ${recentContext}`;
@@ -1770,18 +1484,16 @@ export async function generateSmartBrief(
     }
   }
 
-  const systemInstruction = settings.systemInstructions
-    ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}`
-    : "";
+  const systemInstruction = settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : '';
 
-  let designGuide = "";
+  let designGuide = '';
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
   }
 
   const prompt = `Generate a detailed graphic design brief for a social media post titled "${title}".
   
-  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ""}
+  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ''}
   
   Context from recent posts:
   ${recentContext}
@@ -1800,7 +1512,7 @@ export async function generateSmartBrief(
   const cached = getCachedResponse(cacheKey);
   if (cached) return cached.text;
 
-  if (settings.preferredProvider === "local_proxy") {
+  if (settings.preferredProvider === 'local_proxy') {
     try {
       const localResponse = await fetchFromLocalServer(prompt);
       if (localResponse) {
@@ -1810,7 +1522,7 @@ export async function generateSmartBrief(
     } catch (error) {
       console.warn("Local server failed for smart brief, falling back:", error);
     }
-  } else if (settings.preferredProvider === "puter") {
+  } else if (settings.preferredProvider === 'puter') {
     try {
       const puterResponse = await fetchFromPuter(prompt);
       if (puterResponse) {
@@ -1820,7 +1532,7 @@ export async function generateSmartBrief(
     } catch (error) {
       console.warn("Puter failed for smart brief, falling back:", error);
     }
-  } else if (settings.preferredProvider === "groq") {
+  } else if (settings.preferredProvider === 'groq') {
     try {
       const groqResponse = await fetchFromGroq(prompt);
       if (groqResponse) {
@@ -1833,35 +1545,20 @@ export async function generateSmartBrief(
   }
 
   const text = await generateTextWithCascade(prompt, false);
-  setCachedResponse(cacheKey, { text: text || "" });
-  return text || "";
+  setCachedResponse(cacheKey, { text: text || '' });
+  return text || '';
 }
 
-export async function generateSmartPost(
-  title: string,
-  category: string,
-  outlet: string,
-  type: string,
-  link: string,
-  localDB: any[],
-  mode: "product" | "info" = "product",
-  business?: Business,
-): Promise<Partial<Post>> {
-  const dbContext = localDB
-    .slice(0, 5)
-    .map(
-      (p) =>
-        `- ${p.title}: ${p.type} (${mode === "product" ? p.price || "N/A" : p.stockInfo || "N/A"})`,
-    )
-    .join("\n");
+export async function generateSmartPost(title: string, category: string, outlet: string, type: string, link: string, localDB: any[], mode: 'product' | 'info' = 'product', business?: Business): Promise<Partial<Post>> {
+  const dbContext = localDB.slice(0, 5).map(p => `- ${p.title}: ${p.type} (${mode === 'product' ? (p.price || 'N/A') : (p.stockInfo || 'N/A')})`).join('\n');
   const settings = getAiSettings();
-
-  if (getEffectiveTextProvider(settings) === "builtin") {
+  
+  if (getEffectiveTextProvider(settings) === 'builtin') {
     try {
       console.log("[GenerateSmartPost] Strict Local AI Mode active.");
       const parsed = await generateAppJson(
-        `Generate a social media post JSON for title: "${title}", category: "${category}". Business: ${business?.name || "Manual"}. Mode: ${mode}.
-        Return fields: title, brief, caption, hashtags, type, outlet.`,
+        `Generate a social media post JSON for title: "${title}", category: "${category}". Business: ${business?.name || 'Manual'}. Mode: ${mode}.
+        Return fields: title, brief, caption, hashtags, type, outlet.`
       );
       if (parsed && parsed.title) return parsed;
     } catch (e) {
@@ -1870,7 +1567,7 @@ export async function generateSmartPost(
     }
   }
 
-  let designGuide = "";
+  let designGuide = '';
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
   }
@@ -1882,12 +1579,12 @@ export async function generateSmartPost(
   Type: ${type}
   Link/Reference: ${link}
   
-  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ""}
+  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ''}
   
-  Local Database Context (Recent/Related ${mode === "product" ? "Products" : "Information Pieces"}):
+  Local Database Context (Recent/Related ${mode === 'product' ? 'Products' : 'Information Pieces'}):
   ${dbContext}
   
-  CRITICAL: This is for a ${mode === "product" ? "Product-based" : "Knowledge-based"} business.
+  CRITICAL: This is for a ${mode === 'product' ? 'Product-based' : 'Knowledge-based'} business.
   - If Product-based: Focus on sales, features, and promotional content.
   - If Knowledge-based: Focus on educational value, thought-leadership, and key insights.
   
@@ -1903,31 +1600,25 @@ export async function generateSmartPost(
 
   const prompt = withBusinessKnowledge(basePrompt);
 
-  if (getEffectiveTextProvider(settings) === "local_proxy") {
+  if (getEffectiveTextProvider(settings) === 'local_proxy') {
     try {
       const parsed = await generateAppJson(prompt);
       if (parsed && parsed.title) return parsed;
     } catch (error) {
       console.warn("Local server failed for smart post, falling back:", error);
     }
-  } else if (settings.preferredProvider === "puter") {
+  } else if (settings.preferredProvider === 'puter') {
     try {
-      const puterResponse = await fetchFromPuter(
-        prompt +
-          " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.",
-      );
-      const parsed = safeParseJSON(puterResponse || "{}");
+      const puterResponse = await fetchFromPuter(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
+      const parsed = safeParseJSON(puterResponse || '{}');
       if (parsed && parsed.title) return parsed;
     } catch (error) {
       console.warn("Puter failed for smart post, falling back:", error);
     }
-  } else if (settings.preferredProvider === "groq") {
+  } else if (settings.preferredProvider === 'groq') {
     try {
-      const groqResponse = await fetchFromGroq(
-        prompt +
-          " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.",
-      );
-      const parsed = safeParseJSON(groqResponse || "{}");
+      const groqResponse = await fetchFromGroq(prompt + " You MUST return ONLY a valid JSON object with fields: title, brief, caption, hashtags, type, outlet.");
+      const parsed = safeParseJSON(groqResponse || '{}');
       if (parsed && parsed.title) return parsed;
     } catch (error) {
       console.warn("Groq failed for smart post, falling back:", error);
@@ -1937,32 +1628,24 @@ export async function generateSmartPost(
   const text = await generateTextWithCascade(prompt, true);
 
   try {
-    return JSON.parse(text || "{}");
+    return JSON.parse(text || '{}');
   } catch (e) {
     console.error("Failed to parse AI response", e);
     return {};
   }
 }
 
-export async function generatePostVisuals(
-  title: string,
-  brief: string,
-  brandKit: any,
-  business?: Business,
-): Promise<{ url: string; provider: string }[]> {
+export async function generatePostVisuals(title: string, brief: string, brandKit: any, business?: Business): Promise<{ url: string, provider: string }[]> {
   const settings = getAiSettings();
 
-  if (settings.imageProvider === "builtin") {
-    const style = brandKit?.style || "photorealistic";
+  if (settings.imageProvider === 'builtin') {
+    const style = brandKit?.style || 'photorealistic';
     const image = await generateAiImage(`${title}. ${brief}`, style, business);
     return [image];
   }
 
-  if (
-    settings.imageProvider === "pollination" ||
-    settings.imageProvider === "puter"
-  ) {
-    const style = brandKit?.style || "photorealistic";
+  if (settings.imageProvider === 'pollination' || settings.imageProvider === 'puter') {
+    const style = brandKit?.style || 'photorealistic';
     const image = await generateAiImage(`${title}. ${brief}`, style, business);
     return [image];
   }
@@ -1973,7 +1656,7 @@ export async function generatePostVisuals(
 
   const ai = getAi();
 
-  let designGuide = brandKit?.designGuide || "";
+  let designGuide = brandKit?.designGuide || '';
   if (!designGuide && business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
   }
@@ -1982,7 +1665,7 @@ export async function generatePostVisuals(
   const prompt = `Generate a high-quality social media post image for: ${title}. 
   Design Brief: ${brief}
   Brand Kit Context: ${JSON.stringify(brandKit)}
-  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ""}
+  ${designGuide ? `\nDESIGN GUIDE & STYLE REFERENCE:\n${designGuide}\n` : ''}
   
   The image should be photorealistic, professional, and follow the brand guidelines.`;
 
@@ -1992,18 +1675,15 @@ export async function generatePostVisuals(
     config: {
       imageConfig: {
         aspectRatio: "1:1",
-        imageSize: "1K",
-      },
-    },
+        imageSize: "1K"
+      }
+    }
   });
 
-  const images: { url: string; provider: string }[] = [];
+  const images: { url: string, provider: string }[] = [];
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) {
-      images.push({
-        url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-        provider: "Gemini",
-      });
+      images.push({ url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' });
     }
   }
 
@@ -2016,21 +1696,13 @@ export async function generatePostVisuals(
 
 const IMAGE_POST_TIMEOUT_MS = 75_000;
 
-function withImageAnalysisTimeout<T>(
-  promise: Promise<T>,
-  label: string,
-): Promise<T> {
+function withImageAnalysisTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => {
       setTimeout(
-        () =>
-          reject(
-            new Error(
-              `${label} timed out. Try Gemini/Groq for vision, or edit the post manually.`,
-            ),
-          ),
-        IMAGE_POST_TIMEOUT_MS,
+        () => reject(new Error(`${label} timed out. Try Gemini/Groq for vision, or edit the post manually.`)),
+        IMAGE_POST_TIMEOUT_MS
       );
     }),
   ]);
@@ -2044,42 +1716,28 @@ type PostFromImageNormalizeOptions = {
 
 function normalizePostFromImageResult(
   parsed: Record<string, unknown> | null,
-  options?: PostFromImageNormalizeOptions,
+  options?: PostFromImageNormalizeOptions
 ): Record<string, string> {
-  const o = (parsed && typeof parsed === "object" ? parsed : {}) as Record<
-    string,
-    unknown
-  >;
-  const rawMessage = typeof o.message === "string" ? o.message.trim() : "";
-  let caption = String(o.caption ?? o.text ?? "").trim();
-  let brief = String(o.brief ?? "").trim();
-  let title = String(o.title ?? "").trim();
-  const hashtags = String(o.hashtags ?? "").trim();
-  const type = String(o.type ?? "🔴 General").trim() || "🔴 General";
-  const allowedOutlets = options?.allowedOutlets?.length
-    ? options.allowedOutlets
-    : ([options?.outlet, options?.businessName].filter(Boolean) as string[]);
-  const preferredOutlet =
-    options?.outlet?.trim() || options?.businessName?.trim() || "";
-  const contactNumber = String(
-    o.contactNumber ?? o.outletPhone ?? o.phone ?? "",
-  ).trim();
-  const outletEvidence = String(
-    o.visibleOutletEvidence ?? o.outletEvidence ?? "",
-  ).trim();
+  const o = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>;
+  const rawMessage = typeof o.message === 'string' ? o.message.trim() : '';
+  let caption = String(o.caption ?? o.text ?? '').trim();
+  let brief = String(o.brief ?? '').trim();
+  let title = String(o.title ?? '').trim();
+  const hashtags = String(o.hashtags ?? '').trim();
+  const type = String(o.type ?? '🔴 General').trim() || '🔴 General';
+  const allowedOutlets =
+    options?.allowedOutlets?.length
+      ? options.allowedOutlets
+      : [options?.outlet, options?.businessName].filter(Boolean) as string[];
+  const preferredOutlet = options?.outlet?.trim() || options?.businessName?.trim() || '';
+  const contactNumber = String(o.contactNumber ?? o.outletPhone ?? o.phone ?? '').trim();
+  const outletEvidence = String(o.visibleOutletEvidence ?? o.outletEvidence ?? '').trim();
 
   if (contactNumber && !brief.includes(contactNumber)) {
-    brief = brief
-      ? `${brief}\nContact shown: ${contactNumber}`
-      : `Contact shown in image: ${contactNumber}`;
+    brief = brief ? `${brief}\nContact shown: ${contactNumber}` : `Contact shown in image: ${contactNumber}`;
   }
-  if (
-    outletEvidence &&
-    !brief.toLowerCase().includes(outletEvidence.toLowerCase().slice(0, 24))
-  ) {
-    brief = brief
-      ? `${brief}\nBranding: ${outletEvidence}`
-      : `Visible branding: ${outletEvidence}`;
+  if (outletEvidence && !brief.toLowerCase().includes(outletEvidence.toLowerCase().slice(0, 24))) {
+    brief = brief ? `${brief}\nBranding: ${outletEvidence}` : `Visible branding: ${outletEvidence}`;
   }
 
   if (!caption && rawMessage) {
@@ -2089,21 +1747,11 @@ function normalizePostFromImageResult(
     brief = rawMessage;
   }
   if (!title && caption) {
-    title =
-      caption
-        .split(/[.!?\n]/)[0]
-        ?.trim()
-        .slice(0, 72) || "";
+    title = caption.split(/[.!?\n]/)[0]?.trim().slice(0, 72) || '';
   }
-  const genericTitles =
-    /^(new post from image|analyzing images?|new image post|image post)$/i;
+  const genericTitles = /^(new post from image|analyzing images?|new image post|image post)$/i;
   if (!title || genericTitles.test(title)) {
-    title = caption
-      ? caption
-          .split(/[.!?\n]/)[0]
-          ?.trim()
-          .slice(0, 72) || "Image post draft"
-      : "Image post draft";
+    title = caption ? caption.split(/[.!?\n]/)[0]?.trim().slice(0, 72) || 'Image post draft' : 'Image post draft';
   }
 
   return {
@@ -2112,20 +1760,13 @@ function normalizePostFromImageResult(
     caption,
     hashtags,
     type,
-    outlet: resolveDetectedOutlet(
-      String(o.outlet ?? "").trim(),
-      allowedOutlets,
-      preferredOutlet,
-    ),
+    outlet: resolveDetectedOutlet(String(o.outlet ?? '').trim(), allowedOutlets, preferredOutlet),
   };
 }
 
-async function hasVisionProviderAvailable(
-  settings = getAiSettings(),
-): Promise<boolean> {
+async function hasVisionProviderAvailable(settings = getAiSettings()): Promise<boolean> {
   if (isGeminiKeyAvailable()) return true;
-  if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY)
-    return true;
+  if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) return true;
   try {
     if (await isPuterSignedIn()) return true;
   } catch {
@@ -2142,18 +1783,18 @@ function buildPostFromImagePrompt(
   isVideo: boolean,
   forLocal: boolean,
   preferredOutlet?: string,
-  allowedOutlets: string[] = [],
+  allowedOutlets: string[] = []
 ): string {
   const mediaIntro = isVideo
-    ? "Analyze this 2x2 collage of video frames. Describe what happens across the sequence, then draft the post."
-    : "Analyze the attached image in detail. Read all visible text, logos, signage, packaging, uniforms, and storefront branding.";
+    ? 'Analyze this 2x2 collage of video frames. Describe what happens across the sequence, then draft the post.'
+    : 'Analyze the attached image in detail. Read all visible text, logos, signage, packaging, uniforms, and storefront branding.';
 
   const outletList =
     allowedOutlets.length > 0
-      ? allowedOutlets.map((n) => `"${n}"`).join(", ")
+      ? allowedOutlets.map((n) => `"${n}"`).join(', ')
       : preferredOutlet
         ? `"${preferredOutlet}"`
-        : "(use brand name only)";
+        : '(use brand name only)';
 
   const core = `${mediaIntro}
 
@@ -2163,7 +1804,7 @@ ${designContext}
 OUTLET IDENTIFICATION (required):
 - Allowed outlet names (pick exactly one for the "outlet" field): ${outletList}
 - Look for outlet logos, branch names on signs, receipts, price tags, social handles, or watermarks in the image.
-- ${preferredOutlet ? `If branding for "${preferredOutlet}" is visible, use that outlet.` : "Choose the outlet that best matches visible branding."}
+- ${preferredOutlet ? `If branding for "${preferredOutlet}" is visible, use that outlet.` : 'Choose the outlet that best matches visible branding.'}
 - Do NOT use generic placeholders like "Forge Enterprises" unless that exact name is in the allowed list.
 - If a phone, WhatsApp, or tel. number is visible on signage or materials, put it in contactNumber and mention it in the brief.
 
@@ -2185,10 +1826,10 @@ You MUST return ONLY a valid JSON object.`;
 function usesLocalTextForImages(settings = getAiSettings()): boolean {
   const effective = getEffectiveTextProvider(settings);
   return (
-    settings.preferredProvider === "builtin" ||
-    settings.preferredProvider === "local_proxy" ||
-    settings.geminiModel === "webllm-local" ||
-    effective === "builtin"
+    settings.preferredProvider === 'builtin' ||
+    settings.preferredProvider === 'local_proxy' ||
+    settings.geminiModel === 'webllm-local' ||
+    effective === 'builtin'
   );
 }
 
@@ -2200,16 +1841,16 @@ async function generatePostFromImageTextFallback(
   isVideo: boolean,
   business?: Business,
   preferredOutlet?: string,
-  allowedOutlets: string[] = [],
+  allowedOutlets: string[] = []
 ): Promise<Record<string, string>> {
   const settings = getAiSettings();
   const forLocal = usesLocalTextForImages(settings);
   const blindNote =
     forLocal && !canUseBuiltinWebGpuVision()
-      ? "\n\nNote: WebGPU is unavailable—local text cannot see the image. Return complete JSON from brand knowledge only."
+      ? '\n\nNote: WebGPU is unavailable—local text cannot see the image. Return complete JSON from brand knowledge only.'
       : forLocal
-        ? "\n\nNote: Local vision was unavailable; infer from brand knowledge and return complete title, brief, and caption JSON."
-        : "";
+        ? '\n\nNote: Local vision was unavailable; infer from brand knowledge and return complete title, brief, and caption JSON.'
+        : '';
 
   const prompt =
     buildPostFromImagePrompt(
@@ -2220,16 +1861,11 @@ async function generatePostFromImageTextFallback(
       isVideo,
       forLocal,
       preferredOutlet,
-      allowedOutlets,
+      allowedOutlets
     ) + blindNote;
 
-  const text = await generateAppText(
-    prompt,
-    true,
-    business?.id,
-    forLocal ? { forceLocal: true } : undefined,
-  );
-  const parsed = safeParseJSON(text || "{}") as Record<string, unknown> | null;
+  const text = await generateAppText(prompt, true, business?.id, forLocal ? { forceLocal: true } : undefined);
+  const parsed = safeParseJSON(text || '{}') as Record<string, unknown> | null;
   return normalizePostFromImageResult(parsed, {
     outlet: preferredOutlet,
     businessName,
@@ -2238,43 +1874,37 @@ async function generatePostFromImageTextFallback(
 }
 
 async function generatePostFromImageWithVision(
-  provider: "puter" | "groq" | "firebase" | "gemini",
+  provider: 'puter' | 'groq' | 'firebase' | 'gemini',
   settings: ReturnType<typeof getAiSettings>,
   promptText: string,
   base64Data: string,
   mimeType: string,
-  normalizeOptions?: PostFromImageNormalizeOptions,
+  normalizeOptions?: PostFromImageNormalizeOptions
 ): Promise<Record<string, string>> {
-  const jsonHint = " You MUST return ONLY a valid JSON object.";
+  const jsonHint = ' You MUST return ONLY a valid JSON object.';
   const imagePart = [{ base64: base64Data, mimeType }];
 
   const normalize = (raw: string) =>
-    normalizePostFromImageResult(
-      safeParseJSON(raw || "{}") as Record<string, unknown> | null,
-      normalizeOptions,
-    );
+    normalizePostFromImageResult(safeParseJSON(raw || '{}') as Record<string, unknown> | null, normalizeOptions);
 
-  if (provider === "puter") {
-    const puterResponse = await fetchFromPuter(
-      promptText + jsonHint,
-      imagePart,
-    );
-    return normalize(puterResponse || "{}");
+  if (provider === 'puter') {
+    const puterResponse = await fetchFromPuter(promptText + jsonHint, imagePart);
+    return normalize(puterResponse || '{}');
   }
 
-  if (provider === "groq") {
+  if (provider === 'groq') {
     const groqResponse = await fetchFromGroq(promptText + jsonHint, imagePart);
-    return normalize(groqResponse || "{}");
+    return normalize(groqResponse || '{}');
   }
 
-  if (provider === "firebase") {
+  if (provider === 'firebase') {
     const model = getVertexModel(settings.geminiModel);
     const result = await model.generateContent([
       { inlineData: { data: base64Data, mimeType } },
       { text: promptText + jsonHint },
     ]);
     const response = await result.response;
-    return normalize(response.text() || "{}");
+    return normalize(response.text() || '{}');
   }
 
   if (!isGeminiKeyAvailable()) {
@@ -2284,13 +1914,10 @@ async function generatePostFromImageWithVision(
   const response = await ai.models.generateContent({
     model: settings.geminiModel,
     contents: {
-      parts: [
-        { inlineData: { data: base64Data, mimeType } },
-        { text: promptText + jsonHint },
-      ],
+      parts: [{ inlineData: { data: base64Data, mimeType } }, { text: promptText + jsonHint }],
     },
     config: {
-      responseMimeType: "application/json",
+      responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -2303,11 +1930,11 @@ async function generatePostFromImageWithVision(
           visibleOutletEvidence: { type: Type.STRING },
           contactNumber: { type: Type.STRING },
         },
-        required: ["title", "brief", "caption", "hashtags", "type", "outlet"],
+        required: ['title', 'brief', 'caption', 'hashtags', 'type', 'outlet'],
       },
     },
   });
-  return normalize(response.text || "{}");
+  return normalize(response.text || '{}');
 }
 
 export async function generatePostFromImage(
@@ -2315,18 +1942,16 @@ export async function generatePostFromImage(
   mimeType: string,
   outlet?: string,
   isVideo?: boolean,
-  business?: Business,
+  business?: Business
 ) {
   const settings = getAiSettings();
   const allowedOutlets = await fetchBusinessOutlets(business);
   const preferredOutlet =
     outlet?.trim() ||
     (allowedOutlets.length === 1 ? allowedOutlets[0] : business?.name?.trim());
-  const outletContext = preferredOutlet
-    ? ` for the outlet "${preferredOutlet}"`
-    : "";
-  const businessName = business?.name?.trim() || "your brand";
-  const businessIndustry = business?.industry || "professional business";
+  const outletContext = preferredOutlet ? ` for the outlet "${preferredOutlet}"` : '';
+  const businessName = business?.name?.trim() || 'your brand';
+  const businessIndustry = business?.industry || 'professional business';
   const forLocal = usesLocalTextForImages(settings);
   const normalizeOptions: PostFromImageNormalizeOptions = {
     outlet: preferredOutlet,
@@ -2334,14 +1959,11 @@ export async function generatePostFromImage(
     allowedOutlets,
   };
 
-  let designContext = "";
+  let designContext = '';
   if (business?.id) {
     const guide = await fetchBrandKitDesignGuide(business.id);
     if (guide) {
-      const trimmed =
-        forLocal && guide.length > 800
-          ? `${guide.slice(0, 800)}\n[Truncated for local AI]`
-          : guide;
+      const trimmed = forLocal && guide.length > 800 ? `${guide.slice(0, 800)}\n[Truncated for local AI]` : guide;
       designContext = `\n\nDESIGN GUIDE & STYLE REFERENCE:\n${trimmed}\n`;
     }
   }
@@ -2354,46 +1976,44 @@ export async function generatePostFromImage(
     !!isVideo,
     forLocal,
     preferredOutlet,
-    allowedOutlets,
+    allowedOutlets
   );
 
-  const jsonHint = " You MUST return ONLY a valid JSON object.";
+  const jsonHint = ' You MUST return ONLY a valid JSON object.';
 
   if (isBuiltinVisionPreferred(settings) && canUseBuiltinWebGpuVision()) {
     try {
       const raw = await withImageAnalysisTimeout(
         generateWithBuiltinVision(promptText + jsonHint, base64Data, mimeType),
-        "WebLLM vision",
+        'WebLLM vision'
       );
       const result = normalizePostFromImageResult(
-        safeParseJSON(raw || "{}") as Record<string, unknown> | null,
-        normalizeOptions,
+        safeParseJSON(raw || '{}') as Record<string, unknown> | null,
+        normalizeOptions
       );
       if (
         result.caption?.trim() ||
-        (result.title &&
-          !/^(image post draft|new post from image)$/i.test(result.title))
+        (result.title && !/^(image post draft|new post from image)$/i.test(result.title))
       ) {
         return result;
       }
     } catch (error) {
-      console.warn("[generatePostFromImage] WebLLM vision failed:", error);
+      console.warn('[generatePostFromImage] WebLLM vision failed:', error);
     }
   }
 
-  const visionOrder: Array<"puter" | "groq" | "firebase" | "gemini"> = [];
+  const visionOrder: Array<'puter' | 'groq' | 'firebase' | 'gemini'> = [];
   const pref = settings.preferredProvider;
 
-  if (pref === "puter") visionOrder.push("puter");
-  else if (pref === "groq") visionOrder.push("groq");
-  else if (pref === "firebase") visionOrder.push("firebase");
-  else if (pref === "gemini") visionOrder.push("gemini");
+  if (pref === 'puter') visionOrder.push('puter');
+  else if (pref === 'groq') visionOrder.push('groq');
+  else if (pref === 'firebase') visionOrder.push('firebase');
+  else if (pref === 'gemini') visionOrder.push('gemini');
   else {
-    if (isGeminiKeyAvailable()) visionOrder.push("gemini");
-    if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY)
-      visionOrder.push("groq");
+    if (isGeminiKeyAvailable()) visionOrder.push('gemini');
+    if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) visionOrder.push('groq');
     try {
-      if (await isPuterSignedIn()) visionOrder.push("puter");
+      if (await isPuterSignedIn()) visionOrder.push('puter');
     } catch {
       /* ignore */
     }
@@ -2416,15 +2036,11 @@ export async function generatePostFromImage(
             promptText,
             base64Data,
             mimeType,
-            normalizeOptions,
+            normalizeOptions
           ),
-          `${provider} vision`,
+          `${provider} vision`
         );
-        if (
-          result.caption?.trim() ||
-          (result.title &&
-            !/^(image post draft|new post from image)$/i.test(result.title))
-        ) {
+        if (result.caption?.trim() || (result.title && !/^(image post draft|new post from image)$/i.test(result.title))) {
           return result;
         }
         lastError = new Error(`${provider} returned empty caption`);
@@ -2438,10 +2054,10 @@ export async function generatePostFromImage(
   const visionAvailable = await hasVisionProviderAvailable(settings);
   if (!visionAttempted && !visionAvailable && forLocal) {
     notifyFallback(
-      "Local AI image draft",
+      'Local AI image draft',
       canUseBuiltinWebGpuVision()
-        ? "Local vision model failed—drafting from Knowledge Center. Retry or add Gemini/Groq as fallback."
-        : "WebGPU required for local vision—drafting from Knowledge Center only, or add Gemini/Groq in Settings.",
+        ? 'Local vision model failed—drafting from Knowledge Center. Retry or add Gemini/Groq as fallback.'
+        : 'WebGPU required for local vision—drafting from Knowledge Center only, or add Gemini/Groq in Settings.'
     );
   }
 
@@ -2455,9 +2071,9 @@ export async function generatePostFromImage(
         !!isVideo,
         business,
         preferredOutlet,
-        allowedOutlets,
+        allowedOutlets
       ),
-      forLocal ? "Local AI post draft" : "Text fallback",
+      forLocal ? 'Local AI post draft' : 'Text fallback'
     );
     const needsVisionNote = forLocal && !visionAvailable;
     return {
@@ -2465,17 +2081,17 @@ export async function generatePostFromImage(
       brief:
         fallback.brief ||
         (needsVisionNote
-          ? "Drafted from Knowledge Center without seeing the image. Add Gemini/Groq for vision, or edit fields manually."
+          ? 'Drafted from Knowledge Center without seeing the image. Add Gemini/Groq for vision, or edit fields manually.'
           : visionAttempted
-            ? "Caption drafted without vision after cloud providers failed. Review and edit before publishing."
-            : ""),
+            ? 'Caption drafted without vision after cloud providers failed. Review and edit before publishing.'
+            : ''),
     };
   } catch (error) {
-    console.warn("[generatePostFromImage] All providers failed:", error);
+    console.warn('[generatePostFromImage] All providers failed:', error);
     const msg =
       lastError instanceof Error
         ? lastError.message
-        : "Could not analyze image. Edit this post manually or add a Gemini/Groq API key in Settings.";
+        : 'Could not analyze image. Edit this post manually or add a Gemini/Groq API key in Settings.';
     return {
       ...normalizePostFromImageResult(null, normalizeOptions),
       brief: msg,
@@ -2483,31 +2099,24 @@ export async function generatePostFromImage(
   }
 }
 
-export type IdeasFromImagesMode = "quick" | "strategy" | "postcard" | "visual";
+export type IdeasFromImagesMode = 'quick' | 'strategy' | 'postcard' | 'visual';
 
-export function parseImageDataUrl(
-  dataUrl: string,
-): { base64: string; mimeType: string } | null {
-  const match = dataUrl.match(
-    /^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/,
-  );
+export function parseImageDataUrl(dataUrl: string): { base64: string; mimeType: string } | null {
+  const match = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
   if (!match) return null;
   return { mimeType: match[1], base64: match[2] };
 }
 
-function buildVisionProviderOrder(
-  settings = getAiSettings(),
-): Array<"puter" | "groq" | "firebase" | "gemini"> {
-  const order: Array<"puter" | "groq" | "firebase" | "gemini"> = [];
+function buildVisionProviderOrder(settings = getAiSettings()): Array<'puter' | 'groq' | 'firebase' | 'gemini'> {
+  const order: Array<'puter' | 'groq' | 'firebase' | 'gemini'> = [];
   const pref = settings.preferredProvider;
-  if (pref === "puter") order.push("puter");
-  else if (pref === "groq") order.push("groq");
-  else if (pref === "firebase") order.push("firebase");
-  else if (pref === "gemini") order.push("gemini");
+  if (pref === 'puter') order.push('puter');
+  else if (pref === 'groq') order.push('groq');
+  else if (pref === 'firebase') order.push('firebase');
+  else if (pref === 'gemini') order.push('gemini');
   else {
-    if (isGeminiKeyAvailable()) order.push("gemini");
-    if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY)
-      order.push("groq");
+    if (isGeminiKeyAvailable()) order.push('gemini');
+    if (settings.groqApiKey || serverConfig?.hasGroqApiKey || GROQ_API_KEY) order.push('groq');
   }
   return order;
 }
@@ -2515,30 +2124,24 @@ function buildVisionProviderOrder(
 async function runVisionTextPrompt(
   promptText: string,
   imageDataUrls: string[],
-  settings = getAiSettings(),
+  settings = getAiSettings()
 ): Promise<string | null> {
   const collage =
-    imageDataUrls.length > 1
-      ? await createImageCollage(imageDataUrls.slice(0, 6))
-      : imageDataUrls[0];
+    imageDataUrls.length > 1 ? await createImageCollage(imageDataUrls.slice(0, 6)) : imageDataUrls[0];
   const parsed = parseImageDataUrl(collage);
   if (!parsed) return null;
 
-  const jsonHint = " You MUST return ONLY valid JSON.";
+  const jsonHint = ' You MUST return ONLY valid JSON.';
 
   if (isBuiltinVisionPreferred(settings) && canUseBuiltinWebGpuVision()) {
     try {
       const raw = await withImageAnalysisTimeout(
-        generateWithBuiltinVision(
-          promptText + jsonHint,
-          parsed.base64,
-          parsed.mimeType,
-        ),
-        "WebLLM vision",
+        generateWithBuiltinVision(promptText + jsonHint, parsed.base64, parsed.mimeType),
+        'WebLLM vision'
       );
       if (raw?.trim()) return raw;
     } catch (err) {
-      console.warn("[runVisionTextPrompt] WebLLM vision failed:", err);
+      console.warn('[runVisionTextPrompt] WebLLM vision failed:', err);
     }
   }
 
@@ -2549,15 +2152,15 @@ async function runVisionTextPrompt(
     if (tried.has(provider)) continue;
     tried.add(provider);
     try {
-      if (provider === "puter") {
+      if (provider === 'puter') {
         const signedIn = await isPuterSignedIn();
         if (!signedIn) continue;
         return await fetchFromPuter(promptText + jsonHint, [parsed]);
       }
-      if (provider === "groq") {
+      if (provider === 'groq') {
         return await fetchFromGroq(promptText + jsonHint, [parsed]);
       }
-      if (provider === "firebase") {
+      if (provider === 'firebase') {
         const model = getVertexModel(settings.geminiModel);
         const result = await model.generateContent([
           { inlineData: { data: parsed.base64, mimeType: parsed.mimeType } },
@@ -2565,20 +2168,18 @@ async function runVisionTextPrompt(
         ]);
         return (await result.response).text();
       }
-      if (provider === "gemini") {
+      if (provider === 'gemini') {
         if (!isGeminiKeyAvailable()) await fetchServerConfig();
         const ai = getAi();
         const response = await ai.models.generateContent({
-          model: settings.geminiModel || "gemini-2.5-flash",
+          model: settings.geminiModel || 'gemini-2.5-flash',
           contents: {
             parts: [
-              {
-                inlineData: { data: parsed.base64, mimeType: parsed.mimeType },
-              },
+              { inlineData: { data: parsed.base64, mimeType: parsed.mimeType } },
               { text: promptText + jsonHint },
             ],
           },
-          config: { responseMimeType: "application/json", temperature: 0.6 },
+          config: { responseMimeType: 'application/json', temperature: 0.6 },
         });
         return response.text || null;
       }
@@ -2594,21 +2195,21 @@ export async function generateIdeasFromImages(
   userPrompt: string,
   imageDataUrls: string[],
   business?: Business,
-  mode: IdeasFromImagesMode = "strategy",
-  extraContext?: string,
+  mode: IdeasFromImagesMode = 'strategy',
+  extraContext?: string
 ): Promise<Record<string, unknown>[]> {
-  const businessName = business?.name || "the brand";
-  const industry = business?.industry || "their industry";
-  const contextLine = extraContext ? `\nExtra context: ${extraContext}` : "";
+  const businessName = business?.name || 'the brand';
+  const industry = business?.industry || 'their industry';
+  const contextLine = extraContext ? `\nExtra context: ${extraContext}` : '';
   const userLine = userPrompt.trim()
     ? `User request: "${userPrompt}"`
-    : "Infer strong content ideas from what you see in the image(s).";
+    : 'Infer strong content ideas from what you see in the image(s).';
 
-  let promptText = "";
-  if (mode === "postcard") {
+  let promptText = '';
+  if (mode === 'postcard') {
     promptText = `Analyze the attached image(s) for ${businessName} (${industry}). ${userLine}${contextLine}
 Return a JSON array (3 items) with: title, front, back, imagePrompt.`;
-  } else if (mode === "visual" || mode === "strategy") {
+  } else if (mode === 'visual' || mode === 'strategy') {
     promptText = `You are a creative strategist for ${businessName} (${industry}). Study the attached image(s) carefully—products, UI, mood, text, and audience signals.
 ${userLine}${contextLine}
 Return a JSON array of 3–6 ideas. Each object must include: title, brief (designer notes), caption, hashtags, feasibility (1-10), impact (1-10), format (Post, Reel, Story, or Carousel).
@@ -2620,13 +2221,12 @@ Return a JSON array of quick social post ideas with: title, caption, brief, hash
 
   const visionText = await withImageAnalysisTimeout(
     runVisionTextPrompt(promptText, imageDataUrls),
-    "Vision idea generation",
+    'Vision idea generation'
   );
   if (visionText) {
     const parsed = safeParseJSONArray(visionText) || safeParseJSON(visionText);
-    if (Array.isArray(parsed) && parsed.length > 0)
-      return parsed as Record<string, unknown>[];
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as Record<string, unknown>[];
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const arr = (parsed as { ideas?: unknown[] }).ideas;
       if (Array.isArray(arr)) return arr as Record<string, unknown>[];
     }
@@ -2635,22 +2235,17 @@ Return a JSON array of quick social post ideas with: title, caption, brief, hash
   const textFallback = await generateAppText(
     `${promptText}\n\nLocal AI cannot see pixels—draft ideas based on the user request and brand context only. Return a JSON array.`,
     true,
-    business?.id,
+    business?.id
   );
   const fallbackParsed = safeParseJSONArray(textFallback) || [];
   return fallbackParsed as Record<string, unknown>[];
 }
 
-export async function analyzeDesignImages(
-  images: string[],
-  business?: Business,
-): Promise<string> {
+export async function analyzeDesignImages(images: string[], business?: Business): Promise<string> {
   const settings = getAiSettings();
 
-  if (settings.preferredProvider === "builtin") {
-    throw new Error(
-      "Local AI does not support image analysis yet. Please switch to Gemini.",
-    );
+  if (settings.preferredProvider === 'builtin') {
+    throw new Error("Local AI does not support image analysis yet. Please switch to Gemini.");
   }
 
   if (!isGeminiKeyAvailable()) {
@@ -2672,22 +2267,22 @@ export async function analyzeDesignImages(
 
     const parts = [
       { text: prompt },
-      ...images.map((img) => ({
+      ...images.map(img => ({
         inlineData: {
           mimeType: "image/jpeg",
-          data: img.split(",")[1] || img,
-        },
-      })),
+          data: img.split(',')[1] || img
+        }
+      }))
     ];
 
     const response = await ai.models.generateContent({
       model: settings.geminiModel || "gemini-2.5-flash",
-      contents: [{ role: "user", parts }],
+      contents: [{ role: 'user', parts }],
     });
 
-    return response.text || "";
+    return response.text || '';
   } catch (error) {
-    console.error("Design image analysis error:", error);
+    console.error('Design image analysis error:', error);
     throw error;
   }
 }
@@ -2697,122 +2292,97 @@ export async function generateTaskIdeas(
   brandKitCategories?: any[],
   brandKitTitles?: { [key: string]: string },
   systemInstruction?: string,
-  extraContext?: string,
+  extraContext?: string
 ) {
   const settings = getAiSettings();
-
-  if (settings.preferredProvider === "local_proxy") {
+  
+  if (settings.preferredProvider === 'local_proxy') {
     try {
       console.log("[GenerateTaskIdeas] Local Server Mode active.");
       const fields = `{"title": "...", "brief": "...", "caption": "...", "hashtags": "...", "type": "...", "outlet": "...", "format": "...", "feasibility": 5, "impact": 5}`;
-      const localPrompt = `Generate 10 high-impact creative social media post ideas for a brand in the ${business?.industry || "general"} industry.
+      const localPrompt = `Generate 10 high-impact creative social media post ideas for a brand in the ${business?.industry || 'general'} industry.
       Return the result as a RAW JSON ARRAY of 10 objects with these fields: ${fields}.
-      Industry: ${business?.industry || "General"}
-      Brand: ${business?.name || "Manual"}`;
-
+      Industry: ${business?.industry || 'General'}
+      Brand: ${business?.name || 'Manual'}`;
+      
       const localText = await fetchFromLocalServer(localPrompt);
       const parsed = safeParseJSONArray(localText);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((item) => ({
+        return parsed.map(item => ({
           ...item,
           title: item.title || item.name || "New Idea",
-          caption:
-            item.caption ||
-            item.description ||
-            item.content ||
-            "Exciting new content...",
-          brief:
-            item.brief ||
-            item.description ||
-            "Visual showing " + (item.title || "the idea"),
+          caption: item.caption || item.description || item.content || "Exciting new content...",
+          brief: item.brief || item.description || "Visual showing " + (item.title || "the idea"),
           hashtags: item.hashtags || "#brand #update",
           type: item.type || "General",
           outlet: item.outlet || business?.name || "Main Channel",
           format: item.format || item.type || "Post",
           feasibility: item.feasibility || 5,
-          impact: item.impact || 5,
+          impact: item.impact || 5
         }));
       }
     } catch (e) {
-      console.warn(
-        "[GenerateTaskIdeas] Local server failed, falling back to alternates:",
-        e,
-      );
+      console.warn("[GenerateTaskIdeas] Local server failed, falling back to alternates:", e);
     }
   }
 
-  if (settings.preferredProvider === "builtin") {
+  if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateTaskIdeas] Strict Local AI Mode active.");
       const fields = `{"title": "...", "brief": "...", "caption": "...", "hashtags": "...", "type": "...", "outlet": "...", "format": "...", "feasibility": 5, "impact": 5}`;
       const localPrompt = `<|begin_of_text|><|start_of_turn|>system
-Role: Creative Strategist for ${business?.name || "this brand"}.
+Role: Creative Strategist for ${business?.name || 'this brand'}.
 Task: Generate 10 high-impact creative post ideas.
 Format: RAW JSON ARRAY ONLY.
 Schema: [${fields}, ...]<|end_of_turn|><|start_of_turn|>user
-Generate 10 ideas for ${business?.industry || "this domain"}.<|end_of_turn|><|start_of_turn|>assistant
+Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|start_of_turn|>assistant
 [`;
-
+      
       const localText = await (await getBuiltInAi()).generate(localPrompt);
-
+      
       // Scavenge JSON array from potential conversation
       const scavenged = localText.trim();
-      const startIndex = scavenged.indexOf("[");
-      let fullResponse =
-        startIndex !== -1 ? scavenged.substring(startIndex) : "[" + scavenged;
-      if (!fullResponse.startsWith("[")) fullResponse = "[" + fullResponse;
-
+      const startIndex = scavenged.indexOf('[');
+      let fullResponse = startIndex !== -1 ? scavenged.substring(startIndex) : '[' + scavenged;
+      if (!fullResponse.startsWith('[')) fullResponse = '[' + fullResponse;
+      
       // Find the last ']' to handle trailing text
-      const endIndex = fullResponse.lastIndexOf("]");
+      const endIndex = fullResponse.lastIndexOf(']');
       if (endIndex !== -1) {
         fullResponse = fullResponse.substring(0, endIndex + 1);
       } else {
-        fullResponse += "]";
+        fullResponse += ']';
       }
 
       const parsed = safeParseJSONArray(fullResponse);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((item) => ({
+        return parsed.map(item => ({
           ...item,
           // Handle model using different keys (hallucination safeguard)
           title: item.title || item.name || "New Idea",
-          caption:
-            item.caption ||
-            item.description ||
-            item.content ||
-            "Exciting new content coming soon!",
-          brief:
-            item.brief ||
-            item.description ||
-            "Visual showing " + (item.title || "the idea"),
+          caption: item.caption || item.description || item.content || "Exciting new content coming soon!",
+          brief: item.brief || item.description || "Visual showing " + (item.title || "the idea"),
           hashtags: item.hashtags || "#brand #update",
           type: item.type || "General",
           outlet: item.outlet || business?.name || "Main Channel",
           format: item.format || item.type || "Post",
           feasibility: item.feasibility || item.score || 5,
-          impact: item.impact || item.score || 5,
+          impact: item.impact || item.score || 5
         }));
       }
       throw new Error("Invalid local ideas format");
     } catch (e) {
-      console.warn(
-        "[GenerateTaskIdeas] Local AI failed, falling back to Gemini:",
-        e,
-      );
+      console.warn("[GenerateTaskIdeas] Local AI failed, falling back to Gemini:", e);
       // Continue to Gemini fallback
     }
   }
 
   const industryConfig = getIndustryConfig(business?.industry);
 
-  let generalContext = "";
-  let businessContext = business
-    ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || "General"}.`
-    : "Business: Forge Enterprises (Professional Services)";
+  let generalContext = '';
+  let businessContext = business ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || 'General'}.` : 'Business: Forge Enterprises (Professional Services)';
 
-  const aiContext =
-    systemInstruction ||
-    `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`;
+  const aiContext = systemInstruction || `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`;
 
   try {
     const userId = auth.currentUser?.uid;
@@ -2820,29 +2390,26 @@ Generate 10 ideas for ${business?.industry || "this domain"}.<|end_of_turn|><|st
 
     if (userId && businessId) {
       // Fetch some general products for variety
-      const qGeneral = query(
-        collection(db, "inventory_products"),
-        where("businessId", "==", businessId),
-      );
+      const qGeneral = query(collection(db, 'inventory_products'), where('businessId', '==', businessId));
       const snapshotGeneral = await getDocs(qGeneral);
-      const productsGeneral = snapshotGeneral.docs.map((doc) => doc.data());
+      const productsGeneral = snapshotGeneral.docs.map(doc => doc.data());
       if (productsGeneral.length > 0) {
         const products = productsGeneral
           .sort(() => 0.5 - Math.random())
           .slice(0, 15);
 
         if (products.length > 0) {
-          generalContext = `\nAVAILABLE PRODUCTS/SERVICES: ${products.map((p) => p.title).join(", ")}.`;
+          generalContext = `\nAVAILABLE PRODUCTS/SERVICES: ${products.map(p => p.title).join(', ')}.`;
         }
       }
     } else {
       // Local storage fallback (Legacy or Guest)
-      const savedGeneral = localStorage.getItem("forge_inventory_cache");
+      const savedGeneral = localStorage.getItem('forge_inventory_cache');
       if (savedGeneral) {
         const productsGeneral = JSON.parse(savedGeneral);
         if (productsGeneral.length > 0) {
           const products = productsGeneral.slice(0, 15);
-          generalContext = `\nAVAILABLE PRODUCTS/SERVICES: ${products.map((p: any) => p.title).join(", ")}.`;
+          generalContext = `\nAVAILABLE PRODUCTS/SERVICES: ${products.map((p: any) => p.title).join(', ')}.`;
         }
       }
     }
@@ -2851,43 +2418,20 @@ Generate 10 ideas for ${business?.industry || "this domain"}.<|end_of_turn|><|st
   }
 
   const titles = brandKitTitles || {
-    category: "Product Category",
-    outlet: "Outlet",
-    campaign: "Campaign Type",
-    type: "Content Format",
+    category: 'Product Category',
+    outlet: 'Outlet',
+    campaign: 'Campaign Type',
+    type: 'Content Format'
   };
 
-  const categoriesContext = brandKitCategories
-    ? `\nBRAND KIT ${titles.category.toUpperCase()} (Use these for variety): ${brandKitCategories
-        .filter((c) => c.type === "category" && c.enabled)
-        .map((c) => c.name)
-        .join(", ")}`
-    : "";
-  const outletsContext = brandKitCategories
-    ? `\nBRAND KIT ${titles.outlet.toUpperCase()}: ${brandKitCategories
-        .filter((c) => c.type === "outlet" && c.enabled)
-        .map((c) => c.name)
-        .join(", ")}`
-    : "";
-  const campaignTypesContext = brandKitCategories
-    ? `\nBRAND KIT ${titles.campaign.toUpperCase()}: ${brandKitCategories
-        .filter((c) => c.type === "campaign" && c.enabled)
-        .map((c) => c.name)
-        .join(", ")}`
-    : "";
-  const contentFormatsContext = brandKitCategories
-    ? `\nBRAND KIT ${titles.type.toUpperCase()}: ${brandKitCategories
-        .filter((c) => c.type === "type" && c.enabled)
-        .map((c) => c.name)
-        .join(", ")}`
-    : "";
+  const categoriesContext = brandKitCategories ? `\nBRAND KIT ${titles.category.toUpperCase()} (Use these for variety): ${brandKitCategories.filter(c => c.type === 'category' && c.enabled).map(c => c.name).join(', ')}` : '';
+  const outletsContext = brandKitCategories ? `\nBRAND KIT ${titles.outlet.toUpperCase()}: ${brandKitCategories.filter(c => c.type === 'outlet' && c.enabled).map(c => c.name).join(', ')}` : '';
+  const campaignTypesContext = brandKitCategories ? `\nBRAND KIT ${titles.campaign.toUpperCase()}: ${brandKitCategories.filter(c => c.type === 'campaign' && c.enabled).map(c => c.name).join(', ')}` : '';
+  const contentFormatsContext = brandKitCategories ? `\nBRAND KIT ${titles.type.toUpperCase()}: ${brandKitCategories.filter(c => c.type === 'type' && c.enabled).map(c => c.name).join(', ')}` : '';
 
-  const linkContext =
-    business?.targetUrl || settings.targetUrl
-      ? `\nCRITICAL: Focus specifically on making posts using the products found on this link: ${business?.targetUrl || settings.targetUrl}`
-      : "";
+  const linkContext = business?.targetUrl || settings.targetUrl ? `\nCRITICAL: Focus specifically on making posts using the products found on this link: ${business?.targetUrl || settings.targetUrl}` : '';
 
-  let designContext = "";
+  let designContext = '';
   if (business?.id) {
     const guide = await fetchBrandKitDesignGuide(business.id);
     if (guide) {
@@ -2896,26 +2440,18 @@ Generate 10 ideas for ${business?.industry || "this domain"}.<|end_of_turn|><|st
   }
 
   const generalCategories = [
-    "Living Room Furniture",
-    "Bedroom Essentials",
-    "Kitchen Systems",
-    "Power Tools",
-    "Building Materials",
-    "Office Furniture",
-    "Lighting & Electrical",
-    "Sanitary & Bathroom",
-    "Tiles & Flooring",
-    "Home Decor",
-    "Outdoor & Garden",
-    "Hardware & Tools",
-  ].join(", ");
+    "Living Room Furniture", "Bedroom Essentials", "Kitchen Systems",
+    "Power Tools", "Building Materials", "Office Furniture",
+    "Lighting & Electrical", "Sanitary & Bathroom", "Tiles & Flooring",
+    "Home Decor", "Outdoor & Garden", "Hardware & Tools"
+  ].join(', ');
 
   const promptText = `Generate 10 unique and creative social media post ideas.
     ${aiContext}
     ${businessContext}
     ${designContext}
     ${linkContext}
-    ${extraContext ? `\nADDITIONAL CONTEXT/PRODUCT LIST: ${extraContext}` : ""}
+    ${extraContext ? `\nADDITIONAL CONTEXT/PRODUCT LIST: ${extraContext}` : ''}
     ${generalContext}
     ${categoriesContext}
     ${outletsContext}
@@ -2943,42 +2479,30 @@ Generate 10 ideas for ${business?.industry || "this domain"}.<|end_of_turn|><|st
     - feasibility: number (1-10)
     - impact: number (1-10)`;
 
-  if (settings.preferredProvider === "puter") {
+  if (settings.preferredProvider === 'puter') {
     try {
-      const puterResponse = await fetchFromPuter(
-        promptText +
-          " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}",
-      );
-      const parsed = safeParseJSON(puterResponse || "{}");
+      const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
+      const parsed = safeParseJSON(puterResponse || '{}');
       return parsed.posts || parsed || [];
     } catch (error) {
       console.warn("Puter failed, falling back to AI:", error);
     }
   }
 
-  if (
-    settings.preferredProvider === "groq" ||
-    settings.preferredProvider === "auto"
-  ) {
+  if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
     try {
       // In auto mode, try Puter first if signed in, otherwise try Groq
-      if (settings.preferredProvider === "auto" && (await isPuterSignedIn())) {
+      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
         try {
-          const puterResponse = await fetchFromPuter(
-            promptText +
-              " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}",
-          );
-          const parsed = safeParseJSON(puterResponse || "{}");
+          const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
+          const parsed = safeParseJSON(puterResponse || '{}');
           if (parsed.posts) return parsed.posts;
         } catch (pe) {
           console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
         }
       }
-      const groqResponse = await fetchFromGroq(
-        promptText +
-          " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}",
-      );
-      const parsed = JSON.parse(groqResponse || "{}");
+      const groqResponse = await fetchFromGroq(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
+      const parsed = JSON.parse(groqResponse || '{}');
       return parsed.posts || parsed || [];
     } catch (error) {
       console.warn("Groq failed, falling back to AI:", error);
@@ -3008,31 +2532,20 @@ Generate 10 ideas for ${business?.industry || "this domain"}.<|end_of_turn|><|st
               outlet: { type: Type.STRING },
               format: { type: Type.STRING },
               feasibility: { type: Type.NUMBER },
-              impact: { type: Type.NUMBER },
+              impact: { type: Type.NUMBER }
             },
-            required: [
-              "title",
-              "brief",
-              "caption",
-              "hashtags",
-              "type",
-              "outlet",
-              "format",
-              "feasibility",
-              "impact",
-            ],
-          },
-        },
-      },
+            required: ["title", "brief", "caption", "hashtags", "type", "outlet", "format", "feasibility", "impact"]
+          }
+        }
+      }
     });
-    return JSON.parse(response.text || "[]");
+    return JSON.parse(response.text || '[]');
   } catch (error) {
     console.warn("Gemini failed, falling back to Groq:", error);
     const groqResponse = await fetchFromGroq(
-      promptText +
-        " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}",
+      promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}"
     );
-    const parsed = JSON.parse(groqResponse || "{}");
+    const parsed = JSON.parse(groqResponse || '{}');
     return parsed.posts || parsed || [];
   }
 }
@@ -3040,13 +2553,12 @@ Generate 10 ideas for ${business?.industry || "this domain"}.<|end_of_turn|><|st
 export interface HighStockProduct {
   title: string;
   type: string;
-  link?: string;
-  stockInfo?: string;
-  outlet?: string;
+  link: string;
+  stockInfo: string;
+  outlet: string;
   sku?: string;
   price?: string;
   categories?: string[];
-  [key: string]: any;
 }
 
 export interface CategoryCount {
@@ -3054,40 +2566,34 @@ export interface CategoryCount {
   count: number;
 }
 
-export async function getCategoryProductCounts(
-  targetUrlParam?: string,
-): Promise<CategoryCount[]> {
+export async function getCategoryProductCounts(targetUrlParam?: string): Promise<CategoryCount[]> {
   const settings = getAiSettings();
-
-  if (settings.preferredProvider === "builtin") {
+  
+  if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GetCategoryProductCounts] Strict Local AI Mode active.");
-      const localText = await (
-        await getBuiltInAi()
-      ).generate(
-        `Estimate categories/counts for URL: ${targetUrlParam || settings.targetUrl}. Return ONLY valid JSON array.`,
-      );
-      return safeParseJSON(localText || "[]");
+      const localText = await (await getBuiltInAi()).generate(`Estimate categories/counts for URL: ${targetUrlParam || settings.targetUrl}. Return ONLY valid JSON array.`);
+      return safeParseJSON(localText || '[]');
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
     }
   }
 
-  const baseUrl = targetUrlParam || settings.targetUrl || "https://example.com";
+  const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
   const prompt = `Estimate the total number of products available on ${baseUrl} based on your knowledge of the site.
     Also, if possible, identify the main product categories on the site and estimate the number of products in each category.
     Return a JSON array of objects with these fields:
     - category: The name of the category (e.g., "All Products", "Furniture", "Electronics")
     - count: The estimated number of products (as a number, e.g., 5000)`;
 
-  if (settings.preferredProvider === "firebase") {
+  if (settings.preferredProvider === 'firebase') {
     const model = getVertexModel(settings.geminiModel);
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    let text = response.text() || "[]";
-    const start = text.indexOf("[");
-    const end = text.lastIndexOf("]");
+    let text = response.text() || '[]';
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']');
     if (start !== -1 && end !== -1) {
       text = text.substring(start, end + 1);
     }
@@ -3111,17 +2617,17 @@ export async function getCategoryProductCounts(
           type: Type.OBJECT,
           properties: {
             category: { type: Type.STRING },
-            count: { type: Type.NUMBER },
+            count: { type: Type.NUMBER }
           },
-          required: ["category", "count"],
-        },
-      },
-    },
+          required: ["category", "count"]
+        }
+      }
+    }
   });
 
-  let text = response.text || "[]";
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
+  let text = response.text || '[]';
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
   if (start !== -1 && end !== -1) {
     text = text.substring(start, end + 1);
   }
@@ -3138,12 +2644,12 @@ export type CatalogueExtractMeta = {
 
 export async function extractInfoFromMarkdown(
   markdown: string,
-  meta?: CatalogueExtractMeta,
+  meta?: CatalogueExtractMeta
 ): Promise<HighStockProduct[]> {
-  const { extractCatalogueFromMarkdown } = await import("./catalogueExtract");
+  const { extractCatalogueFromMarkdown } = await import('./catalogueExtract');
   const { items } = await extractCatalogueFromMarkdown({
     markdown,
-    mode: "info",
+    mode: 'info',
     pageUrl: meta?.pageUrl,
     pageTitle: meta?.pageTitle,
     brandCategories: meta?.brandCategories,
@@ -3155,12 +2661,12 @@ export async function extractInfoFromMarkdown(
 
 export async function extractProductsFromMarkdown(
   markdown: string,
-  meta?: CatalogueExtractMeta,
+  meta?: CatalogueExtractMeta
 ): Promise<HighStockProduct[]> {
-  const { extractCatalogueFromMarkdown } = await import("./catalogueExtract");
+  const { extractCatalogueFromMarkdown } = await import('./catalogueExtract');
   const { items } = await extractCatalogueFromMarkdown({
     markdown,
-    mode: "product",
+    mode: 'product',
     pageUrl: meta?.pageUrl,
     pageTitle: meta?.pageTitle,
     brandCategories: meta?.brandCategories,
@@ -3170,20 +2676,13 @@ export async function extractProductsFromMarkdown(
   return items;
 }
 
-export async function generateBrandProfile(
-  url: string,
-  business?: Business,
-): Promise<string> {
+export async function generateBrandProfile(url: string, business?: Business): Promise<string> {
   const settings = getAiSettings();
 
-  if (settings.preferredProvider === "builtin") {
+  if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateBrandProfile] Strict Local AI Mode active.");
-      return await (
-        await getBuiltInAi()
-      ).generate(
-        `Analyze this brand website and create a brief profile: ${url}. Return ONLY the profile text.`,
-      );
+      return await (await getBuiltInAi()).generate(`Analyze this brand website and create a brief profile: ${url}. Return ONLY the profile text.`);
     } catch (e) {
       console.error("Local AI failed:", e);
       throw e;
@@ -3191,27 +2690,21 @@ export async function generateBrandProfile(
   }
 
   try {
-    const firecrawlRes = await fetch("/api/firecrawl-scrape", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, apiKey: settings.firecrawlApiKey }),
+    const firecrawlRes = await fetch('/api/firecrawl-scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, apiKey: settings.firecrawlApiKey })
     });
 
     const firecrawlData = await firecrawlRes.json();
 
-    if (
-      !firecrawlRes.ok ||
-      !firecrawlData.success ||
-      !firecrawlData.data?.markdown
-    ) {
+    if (!firecrawlRes.ok || !firecrawlData.success || !firecrawlData.data?.markdown) {
       console.error("Firecrawl Backend Details:", firecrawlData.details);
-      throw new Error(
-        `Failed to scrape website. Error: ${firecrawlData.details || firecrawlData.error || "Please ensure the URL is correct and public."}`,
-      );
+      throw new Error(`Failed to scrape website. Error: ${firecrawlData.details || firecrawlData.error || 'Please ensure the URL is correct and public.'}`);
     }
 
     const markdownContent = firecrawlData.data.markdown;
-    const prompt = `You are a Brand Strategist. Based on the following scraped website content for a business named "${business?.name || "this brand"}", create a comprehensive "Brand Profile" (brand.md).
+    const prompt = `You are a Brand Strategist. Based on the following scraped website content for a business named "${business?.name || 'this brand'}", create a comprehensive "Brand Profile" (brand.md).
     
     This profile will be used by AI assistants to understand the brand's identity, target audience, key selling points, and core messaging.
     
@@ -3241,51 +2734,36 @@ export async function scrapeWooCommerce(
   category: string,
   onProgress?: (products: HighStockProduct[]) => void,
   targetUrlParam?: string,
-  business?: Business,
-): Promise<{ products: HighStockProduct[]; logs: string[] }> {
+  business?: Business
+): Promise<{ products: HighStockProduct[], logs: string[] }> {
   const logs: string[] = [];
   const allProducts: HighStockProduct[] = [];
   const settings = getAiSettings();
-  const baseUrl = targetUrlParam || settings.targetUrl || "https://example.com";
+  const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
 
   // Fallback URL structure
-  const targetUrl =
-    category === "All Products"
-      ? `${baseUrl}/shop/`
-      : `${baseUrl}/product-category/${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}/`;
+  const targetUrl = category === "All Products"
+    ? `${baseUrl}/shop/`
+    : `${baseUrl}/product-category/${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}/`;
 
   // 1. Try Firecrawl Scrape first
-  logs.push(
-    `🔍 Attempting Firecrawl scrape for [${category}] at ${targetUrl}...`,
-  );
+  logs.push(`🔍 Attempting Firecrawl scrape for [${category}] at ${targetUrl}...`);
   try {
-    const firecrawlRes = await fetch("/api/firecrawl-scrape", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: targetUrl,
-        apiKey: settings.firecrawlApiKey,
-      }),
+    const firecrawlRes = await fetch('/api/firecrawl-scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: targetUrl, apiKey: settings.firecrawlApiKey })
     });
     const firecrawlData = await firecrawlRes.json();
 
-    if (
-      firecrawlRes.ok &&
-      firecrawlData.success &&
-      firecrawlData.data?.markdown
-    ) {
-      logs.push(
-        `✅ Firecrawl Scrape successful. Extracting products with AI...`,
-      );
-      const extracted = await extractProductsFromMarkdown(
-        firecrawlData.data.markdown,
-        {
-          pageUrl: targetUrl,
-          pageTitle: firecrawlData.data?.metadata?.title,
-          outlet: business?.name || "Store",
-          businessId: business?.id,
-        },
-      );
+    if (firecrawlRes.ok && firecrawlData.success && firecrawlData.data?.markdown) {
+      logs.push(`✅ Firecrawl Scrape successful. Extracting products with AI...`);
+      const extracted = await extractProductsFromMarkdown(firecrawlData.data.markdown, {
+        pageUrl: targetUrl,
+        pageTitle: firecrawlData.data?.metadata?.title,
+        outlet: business?.name || 'Store',
+        businessId: business?.id,
+      });
 
       if (extracted.length > 0) {
         logs.push(`✅ AI found ${extracted.length} products`);
@@ -3296,7 +2774,7 @@ export async function scrapeWooCommerce(
             link: p.link || targetUrl,
             stockInfo: p.stockInfo || "High Stock",
             outlet: business?.name || "Store",
-            price: p.price,
+            price: p.price
           });
         });
         if (onProgress) onProgress([...allProducts]);
@@ -3307,13 +2785,11 @@ export async function scrapeWooCommerce(
       logs.push(`🔍 Firecrawl Scrape: No content found or failed`);
     }
   } catch (e) {
-    logs.push(
-      `⚠️ Firecrawl Scrape failed: ${e instanceof Error ? e.message : String(e)}`,
-    );
+    logs.push(`⚠️ Firecrawl Scrape failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   const unique = Array.from(
-    new Map(allProducts.map((p) => [p.title.toLowerCase(), p])).values(),
+    new Map(allProducts.map(p => [p.title.toLowerCase(), p])).values()
   );
   return { products: unique.slice(0, 100), logs };
 }
@@ -3328,16 +2804,10 @@ export interface FetchResult {
   };
 }
 
-export async function scrapeScreenshot(
-  url: string,
-  category: string,
-  targetUrlParam?: string,
-): Promise<HighStockProduct[]> {
+export async function scrapeScreenshot(url: string, category: string, targetUrlParam?: string): Promise<HighStockProduct[]> {
   try {
     // Fetch screenshot from our native backend
-    const response = await fetch(
-      `/api/screenshot?url=${encodeURIComponent(url)}`,
-    );
+    const response = await fetch(`/api/screenshot?url=${encodeURIComponent(url)}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch screenshot: ${response.statusText}`);
     }
@@ -3348,10 +2818,9 @@ export async function scrapeScreenshot(
     }
 
     const base64String = data.base64;
-    const mimeType = data.mimeType || "image/jpeg";
+    const mimeType = data.mimeType || 'image/jpeg';
     const settings = getAiSettings();
-    const baseUrl =
-      targetUrlParam || settings.targetUrl || "https://example.com";
+    const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
     const prompt = `Extract all products visible in this screenshot from the category "${category}".
             For each product, find:
             1. title: The full product name.
@@ -3368,16 +2837,16 @@ export async function scrapeScreenshot(
 
             Do not include markdown formatting like \`\`\`json, just the raw JSON array.`;
 
-    if (settings.preferredProvider === "firebase") {
+    if (settings.preferredProvider === 'firebase') {
       const model = getVertexModel(settings.geminiModel);
       const result = await model.generateContent([
         { inlineData: { data: base64String, mimeType } },
-        { text: prompt },
+        { text: prompt }
       ]);
       const response = await result.response;
-      let text = response.text() || "[]";
-      const start = text.indexOf("[");
-      const end = text.lastIndexOf("]");
+      let text = response.text() || '[]';
+      const start = text.indexOf('[');
+      const end = text.lastIndexOf(']');
       if (start !== -1 && end !== -1) {
         text = text.substring(start, end + 1);
         return JSON.parse(text);
@@ -3398,18 +2867,18 @@ export async function scrapeScreenshot(
             inlineData: {
               data: base64String,
               mimeType: mimeType,
-            },
+            }
           },
           {
-            text: prompt,
-          },
-        ],
-      },
+            text: prompt
+          }
+        ]
+      }
     });
 
-    let text = aiResponse.text || "[]";
-    const start = text.indexOf("[");
-    const end = text.lastIndexOf("]");
+    let text = aiResponse.text || '[]';
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']');
     if (start !== -1 && end !== -1) {
       text = text.substring(start, end + 1);
       return JSON.parse(text);
@@ -3426,52 +2895,40 @@ export async function findProductsByCategory(
   existingTitles: string[] = [],
   onProgress?: (products: HighStockProduct[]) => void,
   targetUrlParam?: string,
-  business?: Business,
+  business?: Business
 ): Promise<FetchResult> {
   const settings = getAiSettings();
-  const scraperResult = await scrapeWooCommerce(
-    category,
-    onProgress,
-    targetUrlParam,
-    business,
-  );
+  const scraperResult = await scrapeWooCommerce(category, onProgress, targetUrlParam, business);
   const scrapedProducts = scraperResult.products;
   const scraperLogs = scraperResult.logs;
 
   let aiProducts: HighStockProduct[] = [];
 
   if (scrapedProducts.length < 15) {
-    scraperLogs.push(
-      `ℹ️ Firecrawl found few results (${scrapedProducts.length}). Asking AI to supplement...`,
-    );
+    scraperLogs.push(`ℹ️ Firecrawl found few results (${scrapedProducts.length}). Asking AI to supplement...`);
 
     const recentTitles = existingTitles.slice(-50);
-    const excludePrompt =
-      recentTitles.length > 0
-        ? `\nCRITICAL: You MUST NOT return any of these items: ${recentTitles.join(", ")}. Find DIFFERENT products.`
-        : "";
+    const excludePrompt = recentTitles.length > 0
+      ? `\nCRITICAL: You MUST NOT return any of these items: ${recentTitles.join(', ')}. Find DIFFERENT products.`
+      : '';
 
     try {
-      const baseUrl =
-        targetUrlParam || settings.targetUrl || "https://example.com";
-      if (settings.preferredProvider === "firebase") {
+      const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
+      if (settings.preferredProvider === 'firebase') {
         const model = getVertexModel(settings.geminiModel);
-        const result =
-          await model.generateContent(`Generate a list of 15 realistic products for a store like ${baseUrl} in the category "${category}".
+        const result = await model.generateContent(`Generate a list of 15 realistic products for a store like ${baseUrl} in the category "${category}".
         Return a JSON array of products with fields: title, type, link, stockInfo, outlet.
         IMPORTANT: The "stockInfo" field MUST be a simple string (e.g., "In Stock - MVR 1,200").
         Make sure the products sound like real items sold in the Maldives.
         ${excludePrompt}`);
         const response = await result.response;
-        let text = response.text() || "[]";
-        const start = text.indexOf("[");
-        const end = text.lastIndexOf("]");
+        let text = response.text() || '[]';
+        const start = text.indexOf('[');
+        const end = text.lastIndexOf(']');
         if (start !== -1 && end !== -1) {
           text = text.substring(start, end + 1);
           aiProducts = JSON.parse(text);
-          scraperLogs.push(
-            `✅ AI supplemented with ${aiProducts.length} additional products`,
-          );
+          scraperLogs.push(`✅ AI supplemented with ${aiProducts.length} additional products`);
           if (onProgress) onProgress([...scrapedProducts, ...aiProducts]);
         }
       } else {
@@ -3498,88 +2955,45 @@ export async function findProductsByCategory(
                   type: { type: Type.STRING },
                   link: { type: Type.STRING },
                   stockInfo: { type: Type.STRING },
-                  outlet: { type: Type.STRING },
+                  outlet: { type: Type.STRING }
                 },
-                required: ["title", "type", "link", "stockInfo", "outlet"],
-              },
-            },
-          },
+                required: ["title", "type", "link", "stockInfo", "outlet"]
+              }
+            }
+          }
         });
 
-        let text = response.text || "[]";
-        const start = text.indexOf("[");
-        const end = text.lastIndexOf("]");
+        let text = response.text || '[]';
+        const start = text.indexOf('[');
+        const end = text.lastIndexOf(']');
         if (start !== -1 && end !== -1) {
           text = text.substring(start, end + 1);
           aiProducts = JSON.parse(text);
-          scraperLogs.push(
-            `✅ AI supplemented with ${aiProducts.length} additional products`,
-          );
+          scraperLogs.push(`✅ AI supplemented with ${aiProducts.length} additional products`);
           if (onProgress) onProgress([...scrapedProducts, ...aiProducts]);
         }
       }
     } catch (e: any) {
       console.error("AI supplement failed:", e);
-      scraperLogs.push(
-        `⚠️ AI supplement failed: ${e.message || "Unknown error"}`,
-      );
+      scraperLogs.push(`⚠️ AI supplement failed: ${e.message || 'Unknown error'}`);
     }
   }
 
   let allProducts = [...scrapedProducts, ...aiProducts];
 
   if (allProducts.length === 0) {
-    scraperLogs.push(
-      `🚨 CRITICAL: All search methods failed. Providing emergency static fallback.`,
-    );
-    const baseUrl =
-      targetUrlParam || settings.targetUrl || "https://example.com";
+    scraperLogs.push(`🚨 CRITICAL: All search methods failed. Providing emergency static fallback.`);
+    const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
     allProducts = [
-      {
-        title: "Modern Fabric Sofa",
-        type: "Furniture",
-        link: `${baseUrl}/shop/`,
-        stockInfo: "In Stock — MVR 12,500",
-        outlet: "Main Store",
-      },
-      {
-        title: "King Size Bed Frame",
-        type: "Furniture",
-        link: `${baseUrl}/shop/`,
-        stockInfo: "In Stock — MVR 8,900",
-        outlet: "Main Store",
-      },
-      {
-        title: "Office Executive Chair",
-        type: "Furniture",
-        link: `${baseUrl}/shop/`,
-        stockInfo: "In Stock — MVR 3,200",
-        outlet: "Office System",
-      },
-      {
-        title: "Ceramic Floor Tiles (60x60)",
-        type: "Building Materials",
-        link: `${baseUrl}/shop/`,
-        stockInfo: "In Stock — MVR 450/sqm",
-        outlet: "Buildware",
-      },
-      {
-        title: "Emulsion Wall Paint (20L)",
-        type: "Building Materials",
-        link: `${baseUrl}/shop/`,
-        stockInfo: "In Stock — MVR 1,850",
-        outlet: "Buildware",
-      },
-    ].filter(
-      (p) =>
-        category === "All Products" ||
-        p.type === category ||
-        category === "Furniture" ||
-        category === "Building Materials",
-    );
+      { title: "Modern Fabric Sofa", type: "Furniture", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 12,500", outlet: "Main Store" },
+      { title: "King Size Bed Frame", type: "Furniture", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 8,900", outlet: "Main Store" },
+      { title: "Office Executive Chair", type: "Furniture", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 3,200", outlet: "Office System" },
+      { title: "Ceramic Floor Tiles (60x60)", type: "Building Materials", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 450/sqm", outlet: "Buildware" },
+      { title: "Emulsion Wall Paint (20L)", type: "Building Materials", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 1,850", outlet: "Buildware" }
+    ].filter(p => category === "All Products" || p.type === category || category === "Furniture" || category === "Building Materials");
   }
 
-  const uniqueMap = new Map(allProducts.map((p) => [p.title.toLowerCase(), p]));
+  const uniqueMap = new Map(allProducts.map(p => [p.title.toLowerCase(), p]));
   const uniqueProducts = Array.from(uniqueMap.values());
 
   return {
@@ -3588,34 +3002,31 @@ export async function findProductsByCategory(
       aiCount: aiProducts.length,
       scrapedCount: scrapedProducts.length,
       totalUnique: uniqueProducts.length,
-      logs: scraperLogs,
-    },
+      logs: scraperLogs
+    }
   };
 }
 
-export async function findHighStockProducts(
-  category?: string,
-  targetUrlParam?: string,
-): Promise<HighStockProduct[]> {
+export async function findHighStockProducts(category?: string, targetUrlParam?: string): Promise<HighStockProduct[]> {
   const cat = category || "All Products";
   const settings = getAiSettings();
-  const baseUrl = targetUrlParam || settings.targetUrl || "https://example.com";
+  const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
   const prompt = `Search the website ${baseUrl} for products in the category "${cat}" that have high stock availability.
       Find at least 10 real products.
       Return a JSON array of objects with fields: title, type, link, stockInfo (include price if possible), outlet.
       IMPORTANT: The "stockInfo" field MUST be a simple string, NOT an object.`;
 
   try {
-    if (settings.preferredProvider === "firebase") {
+    if (settings.preferredProvider === 'firebase') {
       const model = getVertexModel(settings.geminiModel);
       const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         tools: [{ googleSearchRetrieval: {} } as any], // Vertex AI uses googleSearchRetrieval
       });
       const response = await result.response;
-      let text = response.text() || "[]";
-      const start = text.indexOf("[");
-      const end = text.lastIndexOf("]");
+      let text = response.text() || '[]';
+      const start = text.indexOf('[');
+      const end = text.lastIndexOf(']');
       if (start !== -1 && end !== -1) {
         text = text.substring(start, end + 1);
         return JSON.parse(text);
@@ -3638,25 +3049,25 @@ export async function findHighStockProducts(
                 type: { type: Type.STRING },
                 link: { type: Type.STRING },
                 stockInfo: { type: Type.STRING },
-                outlet: { type: Type.STRING },
+                outlet: { type: Type.STRING }
               },
-              required: ["title", "type", "link", "stockInfo", "outlet"],
-            },
-          },
-        },
+              required: ["title", "type", "link", "stockInfo", "outlet"]
+            }
+          }
+        }
       });
 
-      let text = "";
+      let text = '';
       if (response.candidates?.[0]?.content?.parts) {
         text = response.candidates[0].content.parts
-          .filter((p) => p.text)
-          .map((p) => p.text)
-          .join("");
+          .filter(p => p.text)
+          .map(p => p.text)
+          .join('');
       } else {
-        text = response.text || "[]";
+        text = response.text || '[]';
       }
-      const start = text.indexOf("[");
-      const end = text.lastIndexOf("]");
+      const start = text.indexOf('[');
+      const end = text.lastIndexOf(']');
       if (start !== -1 && end !== -1) {
         text = text.substring(start, end + 1);
         return JSON.parse(text);
@@ -3667,51 +3078,17 @@ export async function findHighStockProducts(
   }
 
   return [
-    {
-      title: "Modern Fabric Sofa",
-      type: "Furniture",
-      link: `${baseUrl}/shop/`,
-      stockInfo: "In Stock — MVR 12,500",
-      outlet: "Rainbow Living Mall",
-    },
-    {
-      title: "King Size Bed Frame",
-      type: "Furniture",
-      link: `${baseUrl}/shop/`,
-      stockInfo: "In Stock — MVR 8,900",
-      outlet: "Rainbow Living Mall",
-    },
-    {
-      title: "Office Executive Chair",
-      type: "Furniture",
-      link: `${baseUrl}/shop/`,
-      stockInfo: "In Stock — MVR 3,200",
-      outlet: "Rainbow Office System",
-    },
-    {
-      title: "Ceramic Floor Tiles (60x60)",
-      type: "Building Materials",
-      link: `${baseUrl}/shop/`,
-      stockInfo: "In Stock — MVR 450/sqm",
-      outlet: "Rainbow Buildware",
-    },
-    {
-      title: "Emulsion Wall Paint (20L)",
-      type: "Building Materials",
-      link: `${baseUrl}/shop/`,
-      stockInfo: "In Stock — MVR 1,850",
-      outlet: "Rainbow Buildware",
-    },
+    { title: "Modern Fabric Sofa", type: "Furniture", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 12,500", outlet: "Rainbow Living Mall" },
+    { title: "King Size Bed Frame", type: "Furniture", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 8,900", outlet: "Rainbow Living Mall" },
+    { title: "Office Executive Chair", type: "Furniture", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 3,200", outlet: "Rainbow Office System" },
+    { title: "Ceramic Floor Tiles (60x60)", type: "Building Materials", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 450/sqm", outlet: "Rainbow Buildware" },
+    { title: "Emulsion Wall Paint (20L)", type: "Building Materials", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 1,850", outlet: "Rainbow Buildware" }
   ];
 }
 
-export async function searchProductsDirectly(
-  query: string,
-): Promise<HighStockProduct[]> {
+export async function searchProductsDirectly(query: string): Promise<HighStockProduct[]> {
   try {
-    const response = await fetch(
-      `/api/direct-scrape?q=${encodeURIComponent(query)}`,
-    );
+    const response = await fetch(`/api/direct-scrape?q=${encodeURIComponent(query)}`);
     const data = await response.json();
 
     if (!response.ok) {
@@ -3724,7 +3101,7 @@ export async function searchProductsDirectly(
       type: p.categories || "Product",
       link: p.link,
       stockInfo: p.stockInfo,
-      outlet: "Rainbow Enterprises",
+      outlet: "Rainbow Enterprises"
     }));
   } catch (e) {
     console.error("Direct search error:", e);
@@ -3732,11 +3109,7 @@ export async function searchProductsDirectly(
   }
 }
 
-export async function searchNews(
-  query: string,
-  lang?: string,
-  region?: string,
-): Promise<any[]> {
+export async function searchNews(query: string, lang?: string, region?: string): Promise<any[]> {
   try {
     let url = `/api/news?q=${encodeURIComponent(query)}`;
     if (lang) url += `&lang=${lang}`;
@@ -3751,10 +3124,7 @@ export async function searchNews(
   }
 }
 
-export async function searchScholar(
-  query: string,
-  yearFrom?: number,
-): Promise<any[]> {
+export async function searchScholar(query: string, yearFrom?: number): Promise<any[]> {
   try {
     let url = `/api/scholar?q=${encodeURIComponent(query)}`;
     if (yearFrom) url += `&year_from=${yearFrom}`;
@@ -3783,34 +3153,32 @@ export async function searchImages(query: string): Promise<any[]> {
 export async function generateWidgetText(
   prompt: string,
   systemInstruction?: string,
-  image?: string,
+  image?: string
 ): Promise<string> {
-  return generateGenericText(prompt, systemInstruction, image, {
-    forceLocal: true,
-  });
+  return generateGenericText(prompt, systemInstruction, image, { forceLocal: true });
 }
 
 export async function generateWidgetImage(
   prompt: string,
-  style: string = "photorealistic",
+  style: string = 'photorealistic',
   business?: Business,
-  image?: string,
+  image?: string
 ): Promise<{ url: string; provider: string }> {
   return generateAiImage(prompt, style, business, image, { forceLocal: true });
 }
 
 export async function generateWidgetJson(
   prompt: string,
-  options?: { businessId?: string; expectArray?: boolean },
+  options?: { businessId?: string; expectArray?: boolean }
 ): Promise<any> {
   const jsonHint = options?.expectArray
-    ? "\n\nYou MUST return ONLY a valid JSON array."
-    : "\n\nYou MUST return ONLY a valid JSON object or array.";
+    ? '\n\nYou MUST return ONLY a valid JSON array.'
+    : '\n\nYou MUST return ONLY a valid JSON object or array.';
   const text = await generateAppText(
     withBusinessKnowledge(prompt) + jsonHint,
     true,
     options?.businessId,
-    { forceLocal: true },
+    { forceLocal: true }
   );
   return options?.expectArray ? safeParseJSONArray(text) : safeParseJSON(text);
 }
@@ -3819,16 +3187,14 @@ export async function generateWidgetBulkPosts(
   category: string,
   count: number = 5,
   business?: Business,
-  systemInstruction?: string,
+  systemInstruction?: string
 ): Promise<Partial<Post>[]> {
-  return generateBulkPosts(category, count, business, systemInstruction, {
-    forceLocal: true,
-  });
+  return generateBulkPosts(category, count, business, systemInstruction, { forceLocal: true });
 }
 
 export async function generateWidgetCampaignFromUrl(
   url: string,
-  systemInstruction?: string,
+  systemInstruction?: string
 ): Promise<any> {
   return generateCampaignFromUrl(url, systemInstruction, { forceLocal: true });
 }
@@ -3837,84 +3203,60 @@ export async function generateGenericText(
   prompt: string,
   systemInstruction?: string,
   image?: string,
-  options?: AiRouteOptions,
+  options?: AiRouteOptions
 ): Promise<string> {
   const settings = getAiSettings();
-  const basePrompt = systemInstruction
-    ? `${systemInstruction}\n\n${prompt}`
-    : prompt;
-  const fullPrompt = withBusinessKnowledge(basePrompt, {
-    forLocal: options?.forceLocal || isLocalTextProvider(settings),
-  });
+  const basePrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
+  const fullPrompt = withBusinessKnowledge(basePrompt, { forLocal: options?.forceLocal || isLocalTextProvider(settings) });
 
   if (options?.forceLocal) {
     return generateAppText(fullPrompt, false, undefined, { forceLocal: true });
   }
 
-  if (
-    image &&
-    (settings.preferredProvider === "firebase" ||
-      settings.preferredProvider === "gemini")
-  ) {
+  if (image && (settings.preferredProvider === 'firebase' || settings.preferredProvider === 'gemini')) {
     if (!isGeminiKeyAvailable()) {
       await fetchServerConfig();
     }
     try {
       const ai = getAi();
-      const base64Data = image.split(",")[1];
-      const mimeType = image.split(";")[0].split(":")[1];
+      const base64Data = image.split(',')[1];
+      const mimeType = image.split(';')[0].split(':')[1];
       const response = await ai.models.generateContent({
         model: settings.geminiModel,
-        contents: [fullPrompt, { inlineData: { data: base64Data, mimeType } }],
+        contents: [
+          fullPrompt,
+          { inlineData: { data: base64Data, mimeType } },
+        ],
       });
-      const text = response.text || "";
+      const text = response.text || '';
       if (text) return text;
     } catch (error) {
-      console.warn(
-        "generateGenericText: vision request failed, falling back to text-only routing.",
-        error,
-      );
+      console.warn('generateGenericText: vision request failed, falling back to text-only routing.', error);
     }
   }
 
   if (image && isLocalTextProvider(settings)) {
-    console.warn(
-      "[GenerateGenericText] Image input skipped for local providers (use Gemini for vision).",
-    );
+    console.warn('[GenerateGenericText] Image input skipped for local providers (use Gemini for vision).');
   }
 
   return generateAppText(fullPrompt, false);
 }
 
-export async function generateGenericJson(
-  prompt: string,
-  systemInstruction?: string,
-): Promise<any> {
-  const fullPrompt = systemInstruction
-    ? `${systemInstruction}\n\n${prompt}`
-    : prompt;
+export async function generateGenericJson(prompt: string, systemInstruction?: string): Promise<any> {
+  const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
   return generateAppJson(withBusinessKnowledge(fullPrompt));
 }
 
 export async function generateAnalyticsReport(prompt: string): Promise<any> {
   const settings = getAiSettings();
 
-  if (isLocalTextProvider(settings) || settings.preferredProvider === "auto") {
+  if (isLocalTextProvider(settings) || settings.preferredProvider === 'auto') {
     try {
-      const parsed = await generateAppJson(
-        `Analyze this data and return a JSON analytics report.\n\n${prompt}`,
-      );
-      if (parsed && typeof parsed === "object") return parsed;
+      const parsed = await generateAppJson(`Analyze this data and return a JSON analytics report.\n\n${prompt}`);
+      if (parsed && typeof parsed === 'object') return parsed;
     } catch (e) {
-      console.warn(
-        "[GenerateAnalyticsReport] Local/auto JSON route failed, trying Gemini schema.",
-        e,
-      );
-      if (
-        isLocalTextProvider(settings) &&
-        settings.preferredProvider !== "auto"
-      )
-        throw e;
+      console.warn('[GenerateAnalyticsReport] Local/auto JSON route failed, trying Gemini schema.', e);
+      if (isLocalTextProvider(settings) && settings.preferredProvider !== 'auto') throw e;
     }
   }
 
@@ -3936,9 +3278,9 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
               type: Type.OBJECT,
               properties: {
                 tag: { type: Type.STRING },
-                score: { type: Type.NUMBER },
-              },
-            },
+                score: { type: Type.NUMBER }
+              }
+            }
           },
           summary: { type: Type.STRING },
           engagementRate: { type: Type.STRING },
@@ -3948,23 +3290,20 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
               type: Type.OBJECT,
               properties: {
                 segment: { type: Type.STRING },
-                percentage: { type: Type.NUMBER },
-              },
-            },
+                percentage: { type: Type.NUMBER }
+              }
+            }
           },
-          competitorInsights: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-          },
+          competitorInsights: { type: Type.ARRAY, items: { type: Type.STRING } },
           growthTrend: {
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
               properties: {
                 period: { type: Type.STRING },
-                value: { type: Type.NUMBER },
-              },
-            },
+                value: { type: Type.NUMBER }
+              }
+            }
           },
           followerGrowth: {
             type: Type.ARRAY,
@@ -3972,9 +3311,9 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
               type: Type.OBJECT,
               properties: {
                 period: { type: Type.STRING },
-                count: { type: Type.NUMBER },
-              },
-            },
+                count: { type: Type.NUMBER }
+              }
+            }
           },
           topPosts: {
             type: Type.ARRAY,
@@ -3983,9 +3322,9 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
               properties: {
                 title: { type: Type.STRING },
                 engagement: { type: Type.STRING },
-                type: { type: Type.STRING },
-              },
-            },
+                type: { type: Type.STRING }
+              }
+            }
           },
           engagementOverTime: {
             type: Type.ARRAY,
@@ -3993,9 +3332,9 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
               type: Type.OBJECT,
               properties: {
                 date: { type: Type.STRING },
-                rate: { type: Type.NUMBER },
-              },
-            },
+                rate: { type: Type.NUMBER }
+              }
+            }
           },
           contentPillars: {
             type: Type.ARRAY,
@@ -4003,78 +3342,54 @@ export async function generateAnalyticsReport(prompt: string): Promise<any> {
               type: Type.OBJECT,
               properties: {
                 pillar: { type: Type.STRING },
-                performance: { type: Type.NUMBER },
-              },
-            },
-          },
+                performance: { type: Type.NUMBER }
+              }
+            }
+          }
         },
         required: [
-          "bestTime",
-          "formatSuggestions",
-          "hashtagPerformance",
-          "summary",
-          "engagementRate",
-          "audienceDemographics",
-          "competitorInsights",
-          "growthTrend",
-          "followerGrowth",
-          "topPosts",
-          "engagementOverTime",
-          "contentPillars",
-        ],
-      },
-    },
+          "bestTime", "formatSuggestions", "hashtagPerformance", "summary",
+          "engagementRate", "audienceDemographics", "competitorInsights",
+          "growthTrend", "followerGrowth", "topPosts", "engagementOverTime", "contentPillars"
+        ]
+      }
+    }
   });
 
-  return JSON.parse(response.text || "{}");
+  return JSON.parse(response.text || '{}');
 }
 
 export async function generateCampaignFromUrl(
   url: string,
   systemInstruction?: string,
-  options?: AiRouteOptions,
+  options?: AiRouteOptions
 ): Promise<any> {
   const settings = getAiSettings();
 
-  if (options?.forceLocal || settings.preferredProvider === "builtin") {
+  if (options?.forceLocal || settings.preferredProvider === 'builtin') {
     try {
-      console.log("[GenerateCampaignFromUrl] Local AI mode active.");
+      console.log('[GenerateCampaignFromUrl] Local AI mode active.');
       await ensureLocalTextEngineReady();
-      const localText = await (
-        await getBuiltInAi()
-      ).generate(
-        `Generate a JSON social media campaign for this URL: ${url}. ${systemInstruction || ""}\n\nReturn ONLY valid JSON.`,
+      const localText = await (await getBuiltInAi()).generate(
+        `Generate a JSON social media campaign for this URL: ${url}. ${systemInstruction || ''}\n\nReturn ONLY valid JSON.`
       );
-      return safeParseJSON(localText || "{}");
+      return safeParseJSON(localText || '{}');
     } catch (e) {
-      console.error("Local AI failed:", e);
+      console.error('Local AI failed:', e);
       if (options?.forceLocal) throw e;
     }
   }
 
-  const selectedModel = settings.geminiModel || "gemini-2.5-flash";
-
-  if (settings.preferredProvider === "firebase") {
+  const selectedModel = settings.geminiModel || 'gemini-2.5-flash';
+  
+  if (settings.preferredProvider === 'firebase') {
     const model = getVertexModel(selectedModel);
     const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `Generate a multi-platform social media campaign based on this URL: ${url}`,
-            },
-          ],
-        },
-      ],
-      systemInstruction: systemInstruction
-        ? { role: "system", parts: [{ text: systemInstruction }] }
-        : undefined,
+      contents: [{ role: 'user', parts: [{ text: `Generate a multi-platform social media campaign based on this URL: ${url}` }] }],
+      systemInstruction: systemInstruction ? { role: 'system', parts: [{ text: systemInstruction }] } : undefined,
     });
     const response = await result.response;
-    return safeParseJSON(
-      response.candidates?.[0]?.content?.parts?.[0]?.text || "{}",
-    );
+    return safeParseJSON(response.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
   } else {
     const ai = getAi();
     try {
@@ -4082,8 +3397,7 @@ export async function generateCampaignFromUrl(
         model: selectedModel,
         contents: `Generate a multi-platform social media campaign based on this URL: ${url}`,
         config: {
-          systemInstruction:
-            systemInstruction || "You are an expert social media manager.",
+          systemInstruction: systemInstruction || "You are an expert social media manager.",
           tools: [{ urlContext: {} }],
           responseMimeType: "application/json",
           responseSchema: {
@@ -4092,22 +3406,20 @@ export async function generateCampaignFromUrl(
               twitterThread: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: "A series of 3-5 tweets forming a thread.",
+                description: "A series of 3-5 tweets forming a thread."
               },
               linkedinPost: {
                 type: Type.STRING,
-                description:
-                  "A professional, thought-leadership post for LinkedIn.",
+                description: "A professional, thought-leadership post for LinkedIn."
               },
               instagramCaption: {
                 type: Type.STRING,
-                description:
-                  "An engaging caption for an Instagram post or carousel.",
-              },
+                description: "An engaging caption for an Instagram post or carousel."
+              }
             },
-            required: ["twitterThread", "linkedinPost", "instagramCaption"],
-          },
-        },
+            required: ["twitterThread", "linkedinPost", "instagramCaption"]
+          }
+        }
       });
       return safeParseJSON(response.text || "{}");
     } catch (error) {
@@ -4117,56 +3429,40 @@ export async function generateCampaignFromUrl(
         model: "gemini-2.5-flash",
         contents: `Generate a multi-platform social media campaign based on this URL: ${url}`,
         config: {
-          systemInstruction:
-            systemInstruction || "You are an expert social media manager.",
+          systemInstruction: systemInstruction || "You are an expert social media manager.",
           tools: [{ urlContext: {} }],
-          responseMimeType: "application/json",
-        },
+          responseMimeType: "application/json"
+        }
       });
       return safeParseJSON(fallbackResponse.text || "{}");
     }
   }
 }
 
-export async function generateCaption(
-  topic: string,
-  business?: Business,
-): Promise<string> {
-  const businessName = business?.name || "our business";
+export async function generateCaption(topic: string, business?: Business): Promise<string> {
+  const businessName = business?.name || 'our business';
   const basePrompt = `Write an engaging, professional social media caption for "${businessName}" about the following topic: "${topic}". Include relevant emojis and a call to action. Do not include hashtags.`;
   const prompt = withBusinessKnowledge(basePrompt);
-  const text = await generateAppText(
-    `${prompt}\n\nReturn ONLY the caption text.`,
-    false,
-    business?.id,
-  );
+  const text = await generateAppText(`${prompt}\n\nReturn ONLY the caption text.`, false, business?.id);
   return text.trim();
 }
 
-export async function generatePostWithFramework(
-  topic: string,
-  framework: "AIDA" | "PAS" | "BAB",
-  business?: Business,
-  lengthValue?: number,
-): Promise<string> {
+export async function generatePostWithFramework(topic: string, framework: 'AIDA' | 'PAS' | 'BAB', business?: Business, lengthValue?: number): Promise<string> {
   const frameworkPrompts = {
     AIDA: "Attention, Interest, Desire, Action",
     PAS: "Problem, Agitate, Solution",
-    BAB: "Before, After, Bridge",
+    BAB: "Before, After, Bridge"
   };
 
-  const businessName = business?.name || "our business";
+  const businessName = business?.name || 'our business';
   let lengthInstruction = "";
   if (lengthValue !== undefined) {
     if (lengthValue <= 33) {
-      lengthInstruction =
-        "Make the caption VERY SHORT and punchy (1-2 short sentences maximum but CRITICAL: you MUST strictly follow ALL Business Rules, Brand Voice, and AI Instructions, such as mandatory end templates even if it makes it slightly longer).";
+      lengthInstruction = "Make the caption VERY SHORT and punchy (1-2 short sentences maximum but CRITICAL: you MUST strictly follow ALL Business Rules, Brand Voice, and AI Instructions, such as mandatory end templates even if it makes it slightly longer).";
     } else if (lengthValue <= 66) {
-      lengthInstruction =
-        "Make the caption MEDIUM length (3-4 sentences; ensure ALL Business Rules and custom templates are included).";
+      lengthInstruction = "Make the caption MEDIUM length (3-4 sentences; ensure ALL Business Rules and custom templates are included).";
     } else {
-      lengthInstruction =
-        "Make the caption DETAILED and long-form (multiple paragraphs with emojis; strictly enforce ALL Business Rules and AI instructions).";
+      lengthInstruction = "Make the caption DETAILED and long-form (multiple paragraphs with emojis; strictly enforce ALL Business Rules and AI instructions).";
     }
   }
 
@@ -4176,17 +3472,11 @@ export async function generatePostWithFramework(
   Include relevant emojis and a clear call to action. Do not include hashtags.`;
 
   const prompt = withBusinessKnowledge(basePrompt);
-  const text = await generateAppText(
-    `${prompt}\n\nReturn ONLY the caption text.`,
-    false,
-    business?.id,
-  );
+  const text = await generateAppText(`${prompt}\n\nReturn ONLY the caption text.`, false, business?.id);
   return text.trim();
 }
 
-export async function getExcelMappingWithAi(
-  jsonData: any[],
-): Promise<Record<string, string>> {
+export async function getExcelMappingWithAi(jsonData: any[]): Promise<Record<string, string>> {
   const settings = getAiSettings();
 
   if (jsonData.length === 0) return {};
@@ -4231,21 +3521,15 @@ export async function generateBulkPosts(
   count: number = 5,
   business?: Business,
   systemInstruction?: string,
-  options?: AiRouteOptions,
+  options?: AiRouteOptions
 ): Promise<Partial<Post>[]> {
   const settings = getAiSettings();
   const industryConfig = getIndustryConfig(business?.industry);
-  const businessContext = business
-    ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || "General"}.`
-    : "Business: Forge Enterprises (Professional Services)";
+  const businessContext = business ? `\nBUSINESS CONTEXT: Name: ${business.name}. Industry: ${business.industry}. Position: ${business.position || 'General'}.` : 'Business: Forge Enterprises (Professional Services)';
 
-  const aiContext =
-    systemInstruction ||
-    (settings.systemInstructions
-      ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}`
-      : `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`);
+  const aiContext = systemInstruction || (settings.systemInstructions ? `\n\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : `\nROLE: You are an ${industryConfig.aiContext.role}.\nFOCUS: ${industryConfig.aiContext.focus}.\nTONE: ${industryConfig.aiContext.tone}.`);
 
-  let designContext = "";
+  let designContext = '';
   if (business?.id) {
     const guide = await fetchBrandKitDesignGuide(business.id);
     if (guide) {
@@ -4253,7 +3537,7 @@ export async function generateBulkPosts(
     }
   }
 
-  const promptText = `Generate ${count} unique and creative social media post ideas for ${business?.name || "Forge Enterprises"} (a ${business?.industry || "professional business"}) in the category "${category}".
+  const promptText = `Generate ${count} unique and creative social media post ideas for ${business?.name || 'Forge Enterprises'} (a ${business?.industry || 'professional business'}) in the category "${category}".
     ${aiContext}
     ${businessContext}
     ${designContext}
@@ -4268,11 +3552,7 @@ export async function generateBulkPosts(
   try {
     const parsed = await generateAppJson(
       `${withBusinessKnowledge(promptText, { forLocal: options?.forceLocal })}\n\nReturn a JSON array of ${count} post objects.`,
-      {
-        businessId: business?.id,
-        expectArray: true,
-        forceLocal: options?.forceLocal,
-      },
+      { businessId: business?.id, expectArray: true, forceLocal: options?.forceLocal }
     );
     if (Array.isArray(parsed)) return parsed;
     if (parsed?.posts && Array.isArray(parsed.posts)) return parsed.posts;
@@ -4287,32 +3567,30 @@ async function generateBuiltinOrchestratedImage(
   prompt: string,
   fullPrompt: string,
   businessName: string,
-  style: string,
+  style: string
 ): Promise<{ url: string; provider: string }> {
   await ensureLocalTextEngineReady();
-  console.log("[BuiltInAI] Orchestrating image prompt locally...");
+  console.log('[BuiltInAI] Orchestrating image prompt locally...');
   const orchestrationPrompt = `You are a professional Creative Director. 
 Enhance the following image request into a high-quality, descriptive photorealistic stable diffusion prompt.
 Request: "${prompt}"
 Context: Business ${businessName}, Style: ${style}.
 Return ONLY the final prompt text. No quotes, no intro.`;
 
-  const localPrompt = await (
-    await getBuiltInAi()
-  ).generate(orchestrationPrompt);
+  const localPrompt = await (await getBuiltInAi()).generate(orchestrationPrompt);
   const finalPrompt = localPrompt || fullPrompt;
   const settings = getAiSettings();
-  const model = settings.pollinationModel || "flux";
+  const model = settings.pollinationModel || 'flux';
   const encodedPrompt = encodeURIComponent(finalPrompt);
   const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=${model}`;
 
   const headers: Record<string, string> = {};
   if (settings.pollinationApiKey) {
-    headers["Authorization"] = `Bearer ${settings.pollinationApiKey}`;
+    headers['Authorization'] = `Bearer ${settings.pollinationApiKey}`;
   }
 
   const response = await fetch(url, { headers });
-  if (!response.ok) throw new Error("Local AI image generation failed");
+  if (!response.ok) throw new Error('Local AI image generation failed');
   const blob = await response.blob();
   const base64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -4320,76 +3598,62 @@ Return ONLY the final prompt text. No quotes, no intro.`;
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
-  return { url: base64, provider: "Local AI" };
+  return { url: base64, provider: 'Local AI' };
 }
 
 export async function generateAiImage(
   prompt: string,
-  style: string = "photorealistic",
+  style: string = 'photorealistic',
   business?: Business,
   image?: string,
-  options?: AiRouteOptions,
+  options?: AiRouteOptions
 ): Promise<{ url: string; provider: string }> {
-  const businessName = business?.name || "Forge";
-  let designGuide = "";
+  const businessName = business?.name || 'Forge';
+  let designGuide = '';
   if (business?.id) {
     designGuide = await fetchBrandKitDesignGuide(business.id);
   }
 
   const fullPrompt = `${prompt}. 
   Style: ${style}. 
-  ${designGuide ? `\nDESIGN GUIDE & BRAND GUIDELINES:\n${designGuide}\n` : ""}
+  ${designGuide ? `\nDESIGN GUIDE & BRAND GUIDELINES:\n${designGuide}\n` : ''}
   High quality, professional social media content for ${businessName}.`;
 
   const settings = getAiSettings();
-  let imageProvider = options?.forceLocal ? "builtin" : settings.imageProvider;
+  let imageProvider = options?.forceLocal ? 'builtin' : settings.imageProvider;
 
-  if (imageProvider === "auto") {
+  if (imageProvider === 'auto') {
     try {
-      return await generateBuiltinOrchestratedImage(
-        prompt,
-        fullPrompt,
-        businessName,
-        style,
-      );
+      return await generateBuiltinOrchestratedImage(prompt, fullPrompt, businessName, style);
     } catch (e) {
-      console.warn(
-        "[GenerateAiImage] Auto: local orchestration failed, trying Pollination.",
-        e,
-      );
-      imageProvider = "pollination";
+      console.warn('[GenerateAiImage] Auto: local orchestration failed, trying Pollination.', e);
+      imageProvider = 'pollination';
     }
   }
 
-  if (imageProvider === "builtin") {
+  if (imageProvider === 'builtin') {
     try {
-      return await generateBuiltinOrchestratedImage(
-        prompt,
-        fullPrompt,
-        businessName,
-        style,
-      );
+      return await generateBuiltinOrchestratedImage(prompt, fullPrompt, businessName, style);
     } catch (e) {
-      console.error("Local AI image orchestration failed", e);
+      console.error('Local AI image orchestration failed', e);
       if (options?.forceLocal) throw e;
-      imageProvider = "pollination";
+      imageProvider = 'pollination';
     }
   }
 
-  if (imageProvider === "pollination") {
+  if (imageProvider === 'pollination') {
     const encodedPrompt = encodeURIComponent(fullPrompt);
-    const model = settings.pollinationModel || "flux";
+    const model = settings.pollinationModel || 'flux';
     const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&model=${model}`;
 
     // Fetch the image and convert to base64
     const headers: Record<string, string> = {};
     if (settings.pollinationApiKey) {
-      headers["Authorization"] = `Bearer ${settings.pollinationApiKey}`;
+      headers['Authorization'] = `Bearer ${settings.pollinationApiKey}`;
     }
 
     const response = await fetch(url, { headers });
-    if (!response.ok)
-      throw new Error("Failed to generate image with Pollination.ai");
+    if (!response.ok) throw new Error("Failed to generate image with Pollination.ai");
     const blob = await response.blob();
     const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -4397,10 +3661,10 @@ export async function generateAiImage(
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-    return { url: base64, provider: "Pollination.ai" };
+    return { url: base64, provider: 'Pollination.ai' };
   }
 
-  if (imageProvider === "puter") {
+  if (imageProvider === 'puter') {
     const puterInstance = (window as any).puter;
     if (!puterInstance) {
       throw new Error("Puter.js is not loaded yet. Please refresh the page.");
@@ -4409,63 +3673,53 @@ export async function generateAiImage(
     // Check if signed in
     const isSignedIn = await puterInstance.auth.isSignedIn();
     if (!isSignedIn) {
-      throw new Error(
-        "Please sign in to Puter.js in Settings to use this image provider.",
-      );
+      throw new Error("Please sign in to Puter.js in Settings to use this image provider.");
     }
 
     if ((window as any).isPuterDisabledForSession) {
-      throw new Error(
-        "Puter is disabled for this session due to insufficient funds.",
-      );
+      throw new Error("Puter is disabled for this session due to insufficient funds.");
     }
 
-    const model = settings.puterImageModel || "dall-e-3";
+    const model = settings.puterImageModel || 'dall-e-3';
     console.log(`[Puter] Generating image with model ${model}...`);
     try {
       const image = await puterInstance.ai.txt2img(fullPrompt, { model });
-
+      
       if (!image || !image.src) {
         throw new Error("Puter.js failed to generate an image.");
       }
-
-      return { url: image.src, provider: "Puter.js" };
+      
+      return { url: image.src, provider: 'Puter.js' };
     } catch (e: any) {
       const errorMsg = e.message || String(e);
-      if (
-        errorMsg.toLowerCase().includes("insufficient funds") ||
-        errorMsg.toLowerCase().includes("balance")
-      ) {
+      if (errorMsg.toLowerCase().includes('insufficient funds') || errorMsg.toLowerCase().includes('balance')) {
         (window as any).isPuterDisabledForSession = true;
       }
       throw e;
     }
   }
 
-  if (settings.preferredProvider === "firebase") {
-    const model = getVertexModel("gemini-2.5-flash-image");
+  if (settings.preferredProvider === 'firebase') {
+    const model = getVertexModel('gemini-2.5-flash-image');
     let content: any = fullPrompt;
     if (image) {
-      const base64Data = image.split(",")[1];
-      const mimeType = image.split(";")[0].split(":")[1];
+      const base64Data = image.split(',')[1];
+      const mimeType = image.split(';')[0].split(':')[1];
       content = [
         fullPrompt,
         {
           inlineData: {
             data: base64Data,
-            mimeType,
-          },
-        },
+            mimeType
+          }
+        }
       ];
     }
     const result = await model.generateContent(content);
     const response = await result.response;
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        return {
-          url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-          provider: "Gemini",
-        };
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' };
       }
     }
   } else {
@@ -4473,52 +3727,46 @@ export async function generateAiImage(
 
     let parts: any[] = [{ text: fullPrompt }];
     if (image) {
-      const base64Data = image.split(",")[1];
-      const mimeType = image.split(";")[0].split(":")[1];
+      const base64Data = image.split(',')[1];
+      const mimeType = image.split(';')[0].split(':')[1];
       parts.push({
         inlineData: {
           data: base64Data,
-          mimeType,
-        },
+          mimeType
+        }
       });
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
+      model: 'gemini-2.5-flash-image',
       contents: {
-        parts,
+        parts
       },
       config: {
         imageConfig: {
-          aspectRatio: "1:1",
-        },
-      },
+          aspectRatio: "1:1"
+        }
+      }
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        return {
-          url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-          provider: "Gemini",
-        };
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: 'Gemini' };
       }
     }
   }
   throw new Error("No image generated");
 }
 
-export async function generateHashtagSuggestions(
-  content: string,
-  business?: Business,
-): Promise<string[]> {
-  const industry = business?.industry || "general";
+export async function generateHashtagSuggestions(content: string, business?: Business): Promise<string[]> {
+  const industry = business?.industry || 'general';
   const prompt = `Generate 15 relevant and trending hashtags for a social media post with this content: "${content}". 
   Focus on the "${industry}" industry context.`;
 
   try {
     const parsed = await generateAppJson(
       `${withBusinessKnowledge(prompt)}\n\nReturn ONLY a JSON array of hashtag strings.`,
-      { businessId: business?.id, expectArray: true },
+      { businessId: business?.id, expectArray: true }
     );
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
@@ -4527,37 +3775,22 @@ export async function generateHashtagSuggestions(
   }
 }
 
-export async function generateGreeting(
-  userName: string,
-  timeOfDay: string,
-): Promise<string> {
+export async function generateGreeting(userName: string, timeOfDay: string): Promise<string> {
   const prompt = `Generate a highly creative, unique, and energetic greeting for a user named "${userName}". 
   The current time of day is "${timeOfDay}". 
   CRITICAL: DO NOT use standard phrases like "Good morning", "Good afternoon", "Good evening", or "Hello". 
   Be imaginative, inspiring, or slightly playful. Keep it under 12 words. Do not include quotes.`;
 
   try {
-    const text = await generateAppText(
-      `${prompt}\n\nReturn ONLY the greeting text.`,
-    );
-    return (
-      text.replace(/["']/g, "").trim() ||
-      `Ready to conquer the ${timeOfDay}, ${userName}?`
-    );
+    const text = await generateAppText(`${prompt}\n\nReturn ONLY the greeting text.`);
+    return text.replace(/["']/g, '').trim() || `Ready to conquer the ${timeOfDay}, ${userName}?`;
   } catch (error) {
     console.error("Failed to generate greeting:", error);
     return `Ready to conquer the ${timeOfDay}, ${userName}?`;
   }
 }
 
-export async function generateDailyGreetings(
-  userName: string,
-): Promise<{
-  morning: string;
-  evening: string;
-  night: string;
-  midnight: string;
-}> {
+export async function generateDailyGreetings(userName: string): Promise<{ morning: string, evening: string, night: string, midnight: string }> {
   const prompt = `Generate 4 unique, creative, and energetic greetings for a user named "${userName}".
   One for each time of day: morning, evening, night, and midnight.
   
@@ -4576,20 +3809,20 @@ export async function generateDailyGreetings(
       morning: `Rise and shine, ${userName}! Let's make today legendary.`,
       evening: `The sun sets, but your momentum doesn't, ${userName}.`,
       night: `Stars are out, and so is your brilliance, ${userName}.`,
-      midnight: `Burning the midnight oil? You're a force of nature, ${userName}.`,
+      midnight: `Burning the midnight oil? You're a force of nature, ${userName}.`
     };
   }
 }
 
 export interface ChatMessage {
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   images?: string[]; // Array of base64 data URIs
 }
 
 export interface ChatResponse {
   message: string;
-  action?: "delete" | "update" | "create";
+  action?: 'delete' | 'update' | 'create';
   tool_call?: { name: string; query?: string; url?: string };
   suggestedPosts?: {
     title?: string;
@@ -4616,7 +3849,7 @@ export interface ChatResponse {
 
 export async function chatWithAi(
   messages: ChatMessage[],
-  contextStr: string,
+  contextStr: string
 ): Promise<ChatResponse> {
   const settings = getAiSettings();
 
@@ -4628,9 +3861,9 @@ You are no longer a generic assistant. Look at the workspace context. You MUST a
 If no brand is set, default to a high-end, creative agency professional.
 
 Context about the workspace and current item:
-${contextStr || "None"}
+${contextStr || 'None'}
 
-${settings.systemInstructions ? `\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : ""}
+${settings.systemInstructions ? `\nCUSTOM SYSTEM INSTRUCTIONS:\n${settings.systemInstructions}` : ''}
 
 You MUST respond with a valid JSON object containing:
 1. "message": Your conversational response to the user. Be helpful, concise, and smart. Use Markdown formatting for better readability (bold, lists, etc.).
@@ -4654,7 +3887,7 @@ You MUST respond with a valid JSON object containing:
 If the user asks to delete the attached item, set "action": "delete" and provide a confirmation message in "message".
 If the user asks to edit/modify, set "action": "update" and provide the changes in "suggestedPost".
 
-Today's date is: ${new Date().toISOString().split("T")[0]}. Use this as a reference for scheduling.
+Today's date is: ${new Date().toISOString().split('T')[0]}. Use this as a reference for scheduling.
 
 Return ONLY valid JSON. No markdown formatting for the JSON block itself, no backticks around the JSON.`;
 
@@ -4662,54 +3895,43 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
     let parsed: any = null;
     let fallbackToGemini = true;
 
-    const conversation = messages
-      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-      .join("\n");
+    const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
     const lastUserMessage = messages[messages.length - 1]?.content || "";
     const lastUserImages = messages[messages.length - 1]?.images || [];
     const hasImages = messages.some((m) => m.images && m.images.length > 0);
     const isSmallTask =
       !hasImages &&
       lastUserMessage.length < 200 &&
-      !lastUserMessage.toLowerCase().includes("search") &&
-      !lastUserMessage.toLowerCase().includes("research") &&
-      !lastUserMessage.toLowerCase().includes("read") &&
-      !lastUserMessage.toLowerCase().includes("analyze");
+      !lastUserMessage.toLowerCase().includes('search') &&
+      !lastUserMessage.toLowerCase().includes('research') &&
+      !lastUserMessage.toLowerCase().includes('read') &&
+      !lastUserMessage.toLowerCase().includes('analyze');
 
-    const allowed = settings.allowedAutoProviders || [
-      "builtin",
-      "local_proxy",
-      "puter",
-      "groq",
-      "gemini",
-    ];
+    const allowed = settings.allowedAutoProviders || ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'];
     const effectiveProvider = getEffectiveTextProvider(settings);
-    const isAuto = effectiveProvider === "auto";
-    const forceBuiltin = effectiveProvider === "builtin";
-    const forcePuter = effectiveProvider === "puter";
-    const forceGroq = effectiveProvider === "groq";
-    const forceLocalProxy = effectiveProvider === "local_proxy";
+    const isAuto = effectiveProvider === 'auto';
+    const forceBuiltin = effectiveProvider === 'builtin';
+    const forcePuter = effectiveProvider === 'puter';
+    const forceGroq = effectiveProvider === 'groq';
+    const forceLocalProxy = effectiveProvider === 'local_proxy';
 
     if (hasImages && lastUserImages.length > 0) {
       const visionPrompt = `${systemInstruction}\n\nConversation:\n${conversation}\n\nRespond to the latest user message. If they attached images, describe what you see and answer their request.`;
       try {
         const visionRaw = await withImageAnalysisTimeout(
           runVisionTextPrompt(visionPrompt, lastUserImages, settings),
-          "Chat vision",
+          'Chat vision'
         );
         if (visionRaw) {
           const visionParsed = safeParseJSON(visionRaw);
           if (visionParsed?.message) {
             visionParsed.provider =
               isGeminiKeyAvailable() || settings.groqApiKey
-                ? "Vision AI"
-                : "Vision AI (cloud)";
+                ? 'Vision AI'
+                : 'Vision AI (cloud)';
             if (visionParsed.imagePrompt) {
               try {
-                const imgRes = await generateAiImage(
-                  visionParsed.imagePrompt,
-                  "photorealistic",
-                );
+                const imgRes = await generateAiImage(visionParsed.imagePrompt, 'photorealistic');
                 visionParsed.generatedImage = imgRes.url;
                 visionParsed.generatedImageProvider = imgRes.provider;
               } catch {
@@ -4720,23 +3942,17 @@ Return ONLY valid JSON. No markdown formatting for the JSON block itself, no bac
           }
         }
       } catch (err) {
-        console.warn(
-          "[chatWithAi] Vision path failed, falling back to text:",
-          err,
-        );
+        console.warn('[chatWithAi] Vision path failed, falling back to text:', err);
       }
     }
 
     let finalSystemInstruction = systemInstruction;
 
-    if (
-      forceBuiltin ||
-      (isAuto && isSmallTask && allowed.includes("builtin"))
-    ) {
-      // Small 1B-3B models struggle with large prompts.
+    if (forceBuiltin || (isAuto && isSmallTask && allowed.includes('builtin'))) {
+      // Small 1B-3B models struggle with large prompts. 
       // Keep it extremely blunt and short.
-      const truncatedContext =
-        contextStr.length > 800 ? contextStr.substring(0, 800) : contextStr;
+      const truncatedContext = contextStr.length > 800 
+        ? contextStr.substring(0, 800) : contextStr;
 
       finalSystemInstruction = `Role: Forge AI Brand Representative.
 Workspace Personality: ${truncatedContext}
@@ -4757,172 +3973,110 @@ Rules:
 
     let flatPrompt = `Instruction: ${finalSystemInstruction}\nHistory: ${conversation}\nJSON Response:`;
     const shouldUseLocalFirst =
-      !hasImages &&
-      (forceBuiltin || (isAuto && isSmallTask && allowed.includes("builtin")));
+      !hasImages && (forceBuiltin || (isAuto && isSmallTask && allowed.includes('builtin')));
 
     if (shouldUseLocalFirst) {
-      // Llama 3.2 1B usually likes this specific prompt style
-      flatPrompt = `<|begin_of_text|><|start_of_turn|>system\n${finalSystemInstruction}<|end_of_turn|><|start_of_turn|>user\n${conversation}\nReply in JSON Format:<|end_of_turn|><|start_of_turn|>assistant\n{`;
+       // Llama 3.2 1B usually likes this specific prompt style
+       flatPrompt = `<|begin_of_text|><|start_of_turn|>system\n${finalSystemInstruction}<|end_of_turn|><|start_of_turn|>user\n${conversation}\nReply in JSON Format:<|end_of_turn|><|start_of_turn|>assistant\n{`;
     }
 
     if (shouldUseLocalFirst) {
       try {
         const localResponse = await (await getBuiltInAi()).generate(flatPrompt);
-
+        
         // Find the start of JSON
-        const startIndex = localResponse.indexOf("{");
-        let fullResponse =
-          startIndex !== -1
-            ? localResponse.substring(startIndex)
-            : "{" + localResponse.trim();
-
+        const startIndex = localResponse.indexOf('{');
+        let fullResponse = startIndex !== -1 ? localResponse.substring(startIndex) : '{' + localResponse.trim();
+        
         // Prepend '{' if it was stripped
-        if (!fullResponse.startsWith("{")) fullResponse = "{" + fullResponse;
-
+        if (!fullResponse.startsWith('{')) fullResponse = '{' + fullResponse;
+        
         // Robust closing: Small models often truncate but safeParseJSON needs a valid-ish start.
         // We'll try to add up to 3 closing braces to fix simple truncation.
         let cleanedLocal = fullResponse;
         let parsedLocal: any = null;
-
+        
         for (let i = 0; i < 4; i++) {
-          try {
-            parsedLocal = safeParseJSON(cleanedLocal);
-            if (parsedLocal) break;
-          } catch (e) {}
-          cleanedLocal += "}";
+           try {
+             parsedLocal = safeParseJSON(cleanedLocal);
+             if (parsedLocal) break;
+           } catch (e) {}
+           cleanedLocal += '}';
         }
 
         if (parsedLocal) {
-          // Mapping hallucinated field names
-          if (
-            parsedLocal.suggestedPost &&
-            parsedLocal.suggestedPost.text &&
-            !parsedLocal.suggestedPost.caption
-          ) {
-            parsedLocal.suggestedPost.caption = parsedLocal.suggestedPost.text;
-          }
+            // Mapping hallucinated field names
+            if (parsedLocal.suggestedPost && parsedLocal.suggestedPost.text && !parsedLocal.suggestedPost.caption) {
+              parsedLocal.suggestedPost.caption = parsedLocal.suggestedPost.text;
+            }
 
-          // Cleanup placeholder values from small model hallucinations
-          if (
-            typeof parsedLocal.message === "string" &&
-            (parsedLocal.message === "reply" ||
-              parsedLocal.message === "Your text reply")
-          ) {
-            parsedLocal.message = "How can I help you today?";
-          }
-          if (
-            parsedLocal.suggestedPost &&
-            (parsedLocal.suggestedPost.title === "..." ||
-              parsedLocal.suggestedPost.title === "")
-          ) {
-            parsedLocal.suggestedPost = null;
-          }
-          if (
-            parsedLocal.imagePrompt === "..." ||
-            parsedLocal.imagePrompt === ""
-          ) {
-            parsedLocal.imagePrompt = null;
-          }
+            // Cleanup placeholder values from small model hallucinations
+            if (typeof parsedLocal.message === 'string' && (parsedLocal.message === 'reply' || parsedLocal.message === 'Your text reply')) {
+              parsedLocal.message = "How can I help you today?";
+            }
+            if (parsedLocal.suggestedPost && (parsedLocal.suggestedPost.title === '...' || parsedLocal.suggestedPost.title === '')) {
+              parsedLocal.suggestedPost = null;
+            }
+            if (parsedLocal.imagePrompt === '...' || parsedLocal.imagePrompt === '') {
+              parsedLocal.imagePrompt = null;
+            }
 
-          // ENSURE MESSAGE IS STRING: Small models sometimes wrap strings in objects
-          if (parsedLocal.message && typeof parsedLocal.message === "object") {
-            const m = parsedLocal.message;
-            parsedLocal.message =
-              m.text || m.content || m.message || JSON.stringify(m);
-          }
+            // ENSURE MESSAGE IS STRING: Small models sometimes wrap strings in objects
+            if (parsedLocal.message && typeof parsedLocal.message === 'object') {
+              const m = parsedLocal.message;
+              parsedLocal.message = m.text || m.content || m.message || JSON.stringify(m);
+            }
 
-          // aggressive flush of suggestedPost for small inputs (unless explicitly asked)
-          if (
-            parsedLocal.suggestedPost &&
-            lastUserMessage.length < 20 &&
-            !lastUserMessage.toLowerCase().includes("post") &&
-            !lastUserMessage.toLowerCase().includes("draft")
-          ) {
-            parsedLocal.suggestedPost = null;
-          }
+            // aggressive flush of suggestedPost for small inputs (unless explicitly asked)
+            if (parsedLocal.suggestedPost && lastUserMessage.length < 20 && !lastUserMessage.toLowerCase().includes('post') && !lastUserMessage.toLowerCase().includes('draft')) {
+              parsedLocal.suggestedPost = null;
+            }
 
-          parsed = parsedLocal;
+            parsed = parsedLocal;
         } else {
-          // Fallback 1: Partial JSON/Regex extraction (More robust multiline support)
-          const getVal = (key: string) => {
-            // Try to find key regardless of whether it's quoted or not, handling some garbage
-            const regex = new RegExp(
-              `"${key}"\\s*:\\s*(?:"([^"]+)"|({[^}]+}))`,
-              "i",
-            );
-            const match = cleanedLocal.match(regex);
-            return match ? match[1] || match[2] : null;
-          };
-
-          const msgMatch = getVal("message");
-          const titleMatch = getVal("title");
-          const captionMatch = getVal("caption") || getVal("text");
-          const hashtagMatch = getVal("hashtags");
-          const promptMatch = getVal("imagePrompt");
-
-          // Fallback 2: Markdown extraction
-          const mdTitleMatch =
-            cleanedLocal.match(/\*\*Post Title:\*\*\s*"([^"]+)"/i) ||
-            cleanedLocal.match(/\*\*Title:\*\*\s*"([^"]+)"/i);
-          const mdCaptionMatch =
-            cleanedLocal.match(/\*\*Caption:\*\*\s*"([^"]+)"/i) ||
-            cleanedLocal.match(/\*\*Post:\*\*\s*"([^"]+)"/i) ||
-            cleanedLocal.match(/\*\*Text:\*\*\s*"([^"]+)"/i);
-          const mdPromptMatch = cleanedLocal.match(
-            /\*\*Image Prompt:\*\*\s*"([^"]+)"/i,
-          );
-
-          if (msgMatch || titleMatch || mdTitleMatch) {
-            parsed = {
-              message:
-                msgMatch ||
-                (cleanedLocal.split("**")[0] || "I've drafted a post for you:")
-                  .replace(/["{}]/g, "")
-                  .trim(),
-              suggestedPost:
-                titleMatch || mdTitleMatch || captionMatch || mdCaptionMatch
-                  ? {
-                      title:
-                        titleMatch ||
-                        (mdTitleMatch ? mdTitleMatch[1] : "New Post"),
-                      caption:
-                        captionMatch ||
-                        (mdCaptionMatch
-                          ? mdCaptionMatch[1]
-                          : "Check this out!"),
-                      hashtags: hashtagMatch || "#brand #update",
-                    }
-                  : undefined,
-              imagePrompt:
-                promptMatch || (mdPromptMatch ? mdPromptMatch[1] : undefined),
+            // Fallback 1: Partial JSON/Regex extraction (More robust multiline support)
+            const getVal = (key: string) => {
+              // Try to find key regardless of whether it's quoted or not, handling some garbage
+              const regex = new RegExp(`"${key}"\\s*:\\s*(?:"([^"]+)"|({[^}]+}))`, 'i');
+              const match = cleanedLocal.match(regex);
+              return match ? (match[1] || match[2]) : null;
             };
-          } else {
-            // Last resort: Clean text
-            parsed = {
-              message: cleanedLocal
-                .replace(/["{}*]/g, "")
-                .replace(
-                  /Post Title:|Caption:|Image Prompt:|JSON|RESPONSE|GENERATE/gi,
-                  "",
-                )
-                .trim(),
-            };
-          }
 
-          // aggressive flush of suggestedPost for small inputs (unless explicitly asked)
-          if (
-            parsed.suggestedPost &&
-            lastUserMessage.length < 20 &&
-            !lastUserMessage.toLowerCase().includes("post") &&
-            !lastUserMessage.toLowerCase().includes("draft")
-          ) {
-            parsed.suggestedPost = undefined;
-          }
+            const msgMatch = getVal('message');
+            const titleMatch = getVal('title');
+            const captionMatch = getVal('caption') || getVal('text');
+            const hashtagMatch = getVal('hashtags');
+            const promptMatch = getVal('imagePrompt');
+            
+            // Fallback 2: Markdown extraction
+            const mdTitleMatch = cleanedLocal.match(/\*\*Post Title:\*\*\s*"([^"]+)"/i) || cleanedLocal.match(/\*\*Title:\*\*\s*"([^"]+)"/i);
+            const mdCaptionMatch = cleanedLocal.match(/\*\*Caption:\*\*\s*"([^"]+)"/i) || cleanedLocal.match(/\*\*Post:\*\*\s*"([^"]+)"/i) || cleanedLocal.match(/\*\*Text:\*\*\s*"([^"]+)"/i);
+            const mdPromptMatch = cleanedLocal.match(/\*\*Image Prompt:\*\*\s*"([^"]+)"/i);
+
+            if (msgMatch || titleMatch || mdTitleMatch) {
+                parsed = {
+                    message: msgMatch || (cleanedLocal.split('**')[0] || "I've drafted a post for you:").replace(/["{}]/g, '').trim(),
+                    suggestedPost: (titleMatch || mdTitleMatch || captionMatch || mdCaptionMatch) ? {
+                        title: titleMatch || (mdTitleMatch ? mdTitleMatch[1] : "New Post"),
+                        caption: captionMatch || (mdCaptionMatch ? mdCaptionMatch[1] : "Check this out!"),
+                        hashtags: hashtagMatch || "#brand #update"
+                    } : undefined,
+                    imagePrompt: promptMatch || (mdPromptMatch ? mdPromptMatch[1] : undefined)
+                };
+            } else {
+                // Last resort: Clean text
+                parsed = { message: cleanedLocal.replace(/["{}*]/g, '').replace(/Post Title:|Caption:|Image Prompt:|JSON|RESPONSE|GENERATE/gi, '').trim() };
+            }
+
+            // aggressive flush of suggestedPost for small inputs (unless explicitly asked)
+            if (parsed.suggestedPost && lastUserMessage.length < 20 && !lastUserMessage.toLowerCase().includes('post') && !lastUserMessage.toLowerCase().includes('draft')) {
+              parsed.suggestedPost = undefined;
+            }
         }
-
+        
         if (parsed && (parsed.message || parsed.suggestedPost)) {
-          parsed.provider = "Local AI";
-          fallbackToGemini = false;
+            parsed.provider = 'Local AI';
+            fallbackToGemini = false;
         }
       } catch (e) {
         console.warn("Local AI optimized chat failed, falling back...");
@@ -4933,39 +4087,30 @@ Rules:
     if (fallbackToGemini && forceLocalProxy) {
       try {
         console.log("[AI] Routing to Local Proxy (Ollama/LM Studio)...");
-
+        
         const localHistory = [...messages];
-        if (localHistory.length > 0 && localHistory[0].role === "user") {
+        if (localHistory.length > 0 && localHistory[0].role === 'user') {
           localHistory[0].content = `System Instruction:\n${finalSystemInstruction}\n\nUser Message: ${localHistory[0].content}`;
         }
-
-        const text = await fetchFromLocalServer(
-          lastUserMessage,
-          localHistory.slice(0, -1),
-        );
+        
+        const text = await fetchFromLocalServer(lastUserMessage, localHistory.slice(0, -1));
         console.log("[AI] Local Server raw response:", text.substring(0, 500));
-
+        
         parsed = safeParseJSON(text);
         if (!parsed || !parsed.message) {
           // If the model didn't output JSON, treat the whole response as the message
           // This is common with smaller models or base Ollama prompts
-          parsed = {
-            message:
-              text || "I received an empty response from the local server.",
-          };
+          parsed = { message: text || "I received an empty response from the local server." };
         }
-
+        
         if (parsed && parsed.message) {
           fallbackToGemini = false;
-          parsed.provider = "Local Server";
+          parsed.provider = 'Local Server';
         }
       } catch (e: any) {
         console.error("Local Proxy chat failed:", e);
         const errorMsg = e.message || String(e);
-        notifyFallback(
-          "Local Server Error",
-          `Failed to reach Ollama: ${errorMsg}. Ensure "ollama serve" is running with OLLAMA_ORIGINS.`,
-        );
+        notifyFallback('Local Server Error', `Failed to reach Ollama: ${errorMsg}. Ensure "ollama serve" is running with OLLAMA_ORIGINS.`);
       }
     }
 
@@ -4973,9 +4118,9 @@ Rules:
       try {
         console.log("[AI] Forcing Puter provider...");
         const text = await fetchFromPuter(flatPrompt);
-        parsed = safeParseJSON(text || "{}");
+        parsed = safeParseJSON(text || '{}');
         if (parsed && parsed.message) fallbackToGemini = false;
-        if (parsed) parsed.provider = "Puter";
+        if (parsed) parsed.provider = 'Puter';
       } catch (e) {
         console.error("Forced Puter chat failed:", e);
       }
@@ -4984,38 +4129,30 @@ Rules:
     if (fallbackToGemini && forceGroq) {
       try {
         console.log("[AI] Forcing Groq provider...");
-        const groqText = await fetchFromGroq(
-          flatPrompt + " You MUST return ONLY a valid JSON object.",
-        );
-        parsed = safeParseJSON(groqText || "{}");
+        const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
+        parsed = safeParseJSON(groqText || '{}');
         if (parsed && parsed.message) fallbackToGemini = false;
-        if (parsed) parsed.provider = "Groq";
+        if (parsed) parsed.provider = 'Groq';
       } catch (e) {
         console.error("Forced Groq chat failed:", e);
       }
     }
 
-    if (fallbackToGemini && isAuto && allowed.includes("local_proxy")) {
+    if (fallbackToGemini && isAuto && allowed.includes('local_proxy')) {
       try {
         console.log("[AI] Auto mode: trying Local Proxy (Ollama/LM Studio)...");
         const localHistory = [...messages];
-        if (localHistory.length > 0 && localHistory[0].role === "user") {
+        if (localHistory.length > 0 && localHistory[0].role === 'user') {
           localHistory[0].content = `System Instruction:\n${finalSystemInstruction}\n\nUser Message: ${localHistory[0].content}`;
         }
-        const text = await fetchFromLocalServer(
-          lastUserMessage,
-          localHistory.slice(0, -1),
-        );
+        const text = await fetchFromLocalServer(lastUserMessage, localHistory.slice(0, -1));
         parsed = safeParseJSON(text);
         if (!parsed || !parsed.message) {
-          parsed = {
-            message:
-              text || "I received an empty response from the local server.",
-          };
+          parsed = { message: text || "I received an empty response from the local server." };
         }
         if (parsed && parsed.message) {
           fallbackToGemini = false;
-          parsed.provider = "Local Server";
+          parsed.provider = 'Local Server';
         }
       } catch (e) {
         console.warn("Auto mode: Local Proxy failed, trying next...");
@@ -5023,43 +4160,35 @@ Rules:
     }
     // -------------------------------------
 
-    if (fallbackToGemini && isAuto && allowed.includes("puter")) {
+    if (fallbackToGemini && isAuto && allowed.includes('puter')) {
       try {
         const text = await fetchFromPuter(flatPrompt);
-        parsed = safeParseJSON(text || "{}");
+        parsed = safeParseJSON(text || '{}');
         if (parsed && parsed.message) fallbackToGemini = false;
-
+        
         if (parsed) {
-          parsed.provider = "Puter";
+          parsed.provider = 'Puter';
         }
       } catch (e) {
         console.warn("Puter chat failed, falling back...");
       }
     }
 
-    if (fallbackToGemini && isAuto && allowed.includes("groq")) {
+    if (fallbackToGemini && isAuto && allowed.includes('groq')) {
       try {
-        const groqText = await fetchFromGroq(
-          flatPrompt + " You MUST return ONLY a valid JSON object.",
-        );
-        parsed = safeParseJSON(groqText || "{}");
+        const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
+        parsed = safeParseJSON(groqText || '{}');
         if (parsed && parsed.message) fallbackToGemini = false;
-
+        
         if (parsed) {
-          parsed.provider = "Groq";
+          parsed.provider = 'Groq';
         }
       } catch (e) {
         console.warn("Groq chat failed, falling back to Gemini...");
       }
     }
 
-    if (
-      fallbackToGemini &&
-      ((isAuto && allowed.includes("gemini")) ||
-        forceBuiltin ||
-        settings.preferredProvider === "gemini" ||
-        settings.preferredProvider === "firebase")
-    ) {
+    if (fallbackToGemini && (isAuto && allowed.includes('gemini') || forceBuiltin || settings.preferredProvider === 'gemini' || settings.preferredProvider === 'firebase')) {
       if (!isGeminiKeyAvailable()) {
         await fetchServerConfig();
       }
@@ -5070,19 +4199,19 @@ Rules:
           parts.push({ text: msg.content });
           if (msg.images && msg.images.length > 0) {
             for (const img of msg.images) {
-              const base64Data = img.split(",")[1] || img;
-              const mimeType = img.split(";")[0].split(":")[1] || "image/jpeg";
+              const base64Data = img.split(',')[1] || img;
+              const mimeType = img.split(';')[0].split(':')[1] || 'image/jpeg';
               parts.push({
                 inlineData: {
                   data: base64Data,
-                  mimeType,
-                },
+                  mimeType
+                }
               });
             }
           }
           return {
-            role: msg.role === "user" ? "user" : "model",
-            parts,
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts
           };
         });
 
@@ -5093,11 +4222,11 @@ Rules:
             systemInstruction: systemInstruction,
             responseMimeType: "application/json",
             temperature: 0.7,
-          },
+          }
         });
-        parsed = safeParseJSON(response.text || "{}");
+        parsed = safeParseJSON(response.text || '{}');
         if (parsed) {
-          parsed.provider = "Gemini";
+          parsed.provider = 'Gemini';
           fallbackToGemini = false;
         }
       } catch (e) {
@@ -5106,30 +4235,27 @@ Rules:
     }
 
     // Final SAFETY Fallback: If cloud failed, try local providers if not tried yet
-    if (fallbackToGemini && isAuto && allowed.includes("local_proxy")) {
+    if (fallbackToGemini && isAuto && allowed.includes('local_proxy')) {
       try {
-        const text = await fetchFromLocalServer(
-          flatPrompt +
-            '\n\nYou MUST return ONLY a valid JSON object with a "message" field.',
-        );
+        const text = await fetchFromLocalServer(flatPrompt + "\n\nYou MUST return ONLY a valid JSON object with a \"message\" field.");
         const parsedLocal = safeParseJSON(text);
         if (parsedLocal && parsedLocal.message) {
           parsed = parsedLocal;
-          parsed.provider = "Local Server (Quota Fallback)";
+          parsed.provider = 'Local Server (Quota Fallback)';
           fallbackToGemini = false;
         }
       } catch (e) {}
     }
 
-    if (fallbackToGemini && isAuto && allowed.includes("builtin")) {
+    if (fallbackToGemini && isAuto && allowed.includes('builtin')) {
       try {
         await ensureLocalTextEngineReady();
         const localResponse = await (await getBuiltInAi()).generate(flatPrompt);
         const parsedLocal = safeParseJSON(localResponse);
         if (parsedLocal && parsedLocal.message) {
-          parsed = parsedLocal;
-          parsed.provider = "Local AI (Quota Fallback)";
-          fallbackToGemini = false;
+            parsed = parsedLocal;
+            parsed.provider = 'Local AI (Quota Fallback)';
+            fallbackToGemini = false;
         }
       } catch (e) {}
     }
@@ -5137,68 +4263,43 @@ Rules:
     if (parsed && parsed.message) {
       // Global sanity check: aggressive flush of suggestedPost for small inputs (unless explicitly asked)
       // This protects all models (especially smaller local ones or quick Llama runs) from over-generating
-      if (
-        parsed.suggestedPost &&
-        lastUserMessage.length < 20 &&
-        !lastUserMessage.toLowerCase().includes("post") &&
-        !lastUserMessage.toLowerCase().includes("draft") &&
-        !lastUserMessage.toLowerCase().includes("caption")
-      ) {
+      if (parsed.suggestedPost && lastUserMessage.length < 20 && !lastUserMessage.toLowerCase().includes('post') && !lastUserMessage.toLowerCase().includes('draft') && !lastUserMessage.toLowerCase().includes('caption')) {
         parsed.suggestedPost = undefined;
       }
 
       if (parsed.imagePrompt) {
         try {
-          const imgRes = await generateAiImage(
-            parsed.imagePrompt,
-            "photorealistic",
-          );
-          parsed.generatedImage = imgRes.url;
-          parsed.generatedImageProvider = imgRes.provider;
+           const imgRes = await generateAiImage(parsed.imagePrompt, 'photorealistic');
+           parsed.generatedImage = imgRes.url;
+           parsed.generatedImageProvider = imgRes.provider;
         } catch (e) {
-          console.error("Failed to generate image from imagePrompt", e);
-          parsed.message +=
-            "\n\n*(Note: I tried to generate an image but it failed. Please check your image generation API settings.)*";
+           console.error("Failed to generate image from imagePrompt", e);
+           parsed.message += "\n\n*(Note: I tried to generate an image but it failed. Please check your image generation API settings.)*";
         }
       }
       return parsed as ChatResponse;
     }
 
-    return {
-      message: "I'm sorry, I couldn't process that request properly.",
-      provider: "System",
-    };
+    return { message: "I'm sorry, I couldn't process that request properly.", provider: 'System' };
   } catch (error: any) {
     console.error("Chat AI error:", error);
-
+    
     // Check for Quota/Rate Limit
-    const errorStr =
-      typeof error === "string"
-        ? error
-        : error.message || JSON.stringify(error);
-    if (
-      errorStr.includes("429") ||
-      errorStr.includes("quota") ||
-      errorStr.includes("RESOURCE_EXHAUSTED")
-    ) {
-      return {
-        message:
-          "⚠️ **Quota Exceeded.** You have hit the rate limit for the free AI service. Please wait a few minutes, or configure your own free API keys in the **Settings -> AI Studio** tab to continue seamlessly.",
-        provider: "System",
-      };
+    const errorStr = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+    if (errorStr.includes('429') || errorStr.includes('quota') || errorStr.includes('RESOURCE_EXHAUSTED')) {
+       return { 
+         message: "⚠️ **Quota Exceeded.** You have hit the rate limit for the free AI service. Please wait a few minutes, or configure your own free API keys in the **Settings -> AI Studio** tab to continue seamlessly.", 
+         provider: 'System' 
+       };
     }
-
-    return {
-      message:
-        "I encountered an error while trying to respond. Please try again.",
-      provider: "System",
-    };
+    
+    return { message: "I encountered an error while trying to respond. Please try again.", provider: 'System' };
   }
 }
 
 export interface WidgetInput {
   name: string;
-  type: "text" | "textarea" | "select" | "image";
+  type: 'text' | 'textarea' | 'select' | 'image';
   label: string;
   options?: string[];
   required?: boolean;
@@ -5210,7 +4311,7 @@ export interface WidgetBuilderChatResponse {
   description?: string;
   promptTemplate?: string;
   systemInstruction?: string;
-  outputType?: "text" | "image" | "html";
+  outputType?: 'text' | 'image' | 'html';
   requiresImage?: boolean;
   inputs?: WidgetInput[];
   code?: string;
@@ -5218,16 +4319,12 @@ export interface WidgetBuilderChatResponse {
 
 export async function chatToBuildWidget(
   messages: ChatMessage[],
-  currentWidgetState: {
-    title: string;
-    description: string;
-    promptTemplate: string;
-  },
-  isLocal: boolean = false,
+  currentWidgetState: { title: string; description: string; promptTemplate: string },
+  isLocal: boolean = false
 ): Promise<WidgetBuilderChatResponse> {
   const settings = getAiSettings();
 
-  const systemInstruction = isLocal
+  const systemInstruction = isLocal 
     ? `You are an AI App Builder. Help the user build a widget.
 Current Widget: "${currentWidgetState.title}".
 Respond ONLY with JSON: {"reply": "conversational text", "title": "...", "description": "...", "promptTemplate": "...", "outputType": "text|image|html"}`
@@ -5239,50 +4336,39 @@ A widget consists of:
 4. Code (OPTIONAL): If the user wants a standalone mini-app, provide HTML/Tailwind/JS.
 
 Current Widget State:
-Title: ${currentWidgetState.title || "None"}
-Description: ${currentWidgetState.description || "None"}
-Prompt Template: ${currentWidgetState.promptTemplate || "None"}
+Title: ${currentWidgetState.title || 'None'}
+Description: ${currentWidgetState.description || 'None'}
+Prompt Template: ${currentWidgetState.promptTemplate || 'None'}
 
 You MUST respond with a valid JSON object containing: "reply", "title", "description", "promptTemplate", "systemInstruction", "outputType", "code", "inputs".
 Always return valid JSON. Do not include markdown code blocks around the JSON.`;
 
   try {
     // If Built-in AI is selected, execute local path directly and skip all cloud attempts
-    if (settings.preferredProvider === "builtin" && !isLocal) {
+    if (settings.preferredProvider === 'builtin' && !isLocal) {
       return await chatToBuildWidget(messages, currentWidgetState, true);
     }
 
     let parsed: any = null;
     let fallbackToGemini = true;
 
-    const conversation = messages
-      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-      .join("\n");
+    const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
     const flatPrompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
 
-    if (
-      settings.preferredProvider === "puter" ||
-      settings.preferredProvider === "auto"
-    ) {
+    if (settings.preferredProvider === 'puter' || settings.preferredProvider === 'auto') {
       try {
         const text = await fetchFromPuter(flatPrompt);
-        parsed = safeParseJSON(text || "{}");
+        parsed = safeParseJSON(text || '{}');
         if (parsed && parsed.reply) fallbackToGemini = false;
       } catch (e) {
         console.warn("Puter widget builder failed, falling back...");
       }
     }
 
-    if (
-      fallbackToGemini &&
-      (settings.preferredProvider === "groq" ||
-        settings.preferredProvider === "auto")
-    ) {
+    if (fallbackToGemini && (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto')) {
       try {
-        const groqText = await fetchFromGroq(
-          flatPrompt + " You MUST return ONLY a valid JSON object.",
-        );
-        parsed = safeParseJSON(groqText || "{}");
+        const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
+        parsed = safeParseJSON(groqText || '{}');
         if (parsed && parsed.reply) fallbackToGemini = false;
       } catch (e) {
         console.warn("Groq widget builder failed, falling back to Gemini...");
@@ -5297,8 +4383,8 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
 
       const contents = messages.map((msg) => {
         return {
-          role: msg.role === "user" ? "user" : "model",
-          parts: [{ text: msg.content }],
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
         };
       });
 
@@ -5309,9 +4395,9 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
           systemInstruction: systemInstruction,
           responseMimeType: "application/json",
           temperature: 0.7,
-        },
+        }
       });
-      parsed = safeParseJSON(response.text || "{}");
+      parsed = safeParseJSON(response.text || '{}');
     }
 
     if (parsed && parsed.reply) {
@@ -5319,50 +4405,34 @@ Always return valid JSON. Do not include markdown code blocks around the JSON.`;
     }
 
     // Absolute last resort: Built-in AI
-    if (settings.preferredProvider === "auto") {
+    if (settings.preferredProvider === 'auto') {
       try {
         console.warn("Cloud AI failed in Chat. Trying Built-in AI...");
         // Define flatPrompt locally if not available
-        const conversation = messages
-          .map(
-            (m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`,
-          )
-          .join("\n");
+        const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
         const flatPromptFallback = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
-        const localText = await (
-          await getBuiltInAi()
-        ).generate(flatPromptFallback);
-        const localParsed = safeParseJSON(localText || "{}");
-        if (localParsed && localParsed.reply)
-          return localParsed as WidgetBuilderChatResponse;
+        const localText = await (await getBuiltInAi()).generate(flatPromptFallback);
+        const localParsed = safeParseJSON(localText || '{}');
+        if (localParsed && localParsed.reply) return localParsed as WidgetBuilderChatResponse;
       } catch (e) {}
     }
 
     return { reply: "I'm sorry, I couldn't process that request properly." };
   } catch (error) {
     console.error("Widget Builder Chat error:", error);
-
+    
     // Absolute final resort fallback if cloud fails (e.g. 429 Quota)
-    if (settings.preferredProvider === "auto") {
+    if (settings.preferredProvider === 'auto') {
       try {
-        console.warn(
-          "Cloud error in Chat, trying Built-in AI with Compact Prompt...",
-        );
-        const localParsed = await chatToBuildWidget(
-          messages,
-          currentWidgetState,
-          true,
-        );
+        console.warn("Cloud error in Chat, trying Built-in AI with Compact Prompt...");
+        const localParsed = await chatToBuildWidget(messages, currentWidgetState, true);
         if (localParsed && localParsed.reply) return localParsed;
       } catch (e) {
         console.error("Local AI also failed in catch:", e);
       }
     }
-
-    return {
-      reply:
-        "I encountered an error while trying to respond. Please try again.",
-    };
+    
+    return { reply: "I encountered an error while trying to respond. Please try again." };
   }
 }
 
@@ -5374,7 +4444,7 @@ export interface AppletResponse {
 export async function generateAppletCode(
   messages: ChatMessage[],
   businessContext?: any,
-  isLocal: boolean = false,
+  isLocal: boolean = false
 ): Promise<AppletResponse> {
   const settings = getAiSettings();
 
@@ -5411,25 +4481,18 @@ Prioritize one focused widget per request.`
 
   try {
     // If Built-in AI is selected, execute local path directly and skip all cloud attempts
-    if (settings.preferredProvider === "builtin" && !isLocal) {
+    if (settings.preferredProvider === 'builtin' && !isLocal) {
       return await generateAppletCode(messages, businessContext, true);
     }
 
     let parsed: any = null;
-    const conversation = messages
-      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-      .join("\n");
+    const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
     const flatPrompt = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
 
-    if (
-      settings.preferredProvider === "auto" ||
-      settings.preferredProvider === "groq"
-    ) {
+    if (settings.preferredProvider === 'auto' || settings.preferredProvider === 'groq') {
       try {
-        const groqText = await fetchFromGroq(
-          flatPrompt + " You MUST return ONLY a valid JSON object.",
-        );
-        parsed = safeParseJSON(groqText || "{}");
+        const groqText = await fetchFromGroq(flatPrompt + " You MUST return ONLY a valid JSON object.");
+        parsed = safeParseJSON(groqText || '{}');
       } catch (e) {
         console.warn("Groq applet builder failed, falling back...");
       }
@@ -5442,77 +4505,51 @@ Prioritize one focused widget per request.`
       const ai = getAi();
       const response = await ai.models.generateContent({
         model: settings.geminiModel || "gemini-2.0-flash",
-        contents: messages.map((m) => ({
-          role: m.role === "user" ? "user" : "model",
-          parts: [{ text: m.content }],
-        })),
+        contents: messages.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] })),
         config: {
           systemInstruction: systemInstruction,
           responseMimeType: "application/json",
           temperature: 0.7,
-        },
+        }
       });
-      parsed = safeParseJSON(response.text || "{}");
+      parsed = safeParseJSON(response.text || '{}');
     }
 
     // Puter as absolute last resort for applet builder
-    if (
-      (!parsed || !parsed.reply || !parsed.code) &&
-      settings.preferredProvider === "auto"
-    ) {
+    if ((!parsed || !parsed.reply || !parsed.code) && settings.preferredProvider === 'auto') {
       try {
         const text = await fetchFromPuter(flatPrompt);
-        parsed = safeParseJSON(text || "{}");
+        parsed = safeParseJSON(text || '{}');
       } catch (e) {}
     }
 
     // Final check for explicit Puter preference
-    if (
-      (!parsed || !parsed.reply || !parsed.code) &&
-      settings.preferredProvider === "puter"
-    ) {
+    if ((!parsed || !parsed.reply || !parsed.code) && settings.preferredProvider === 'puter') {
       try {
         const text = await fetchFromPuter(flatPrompt);
-        parsed = safeParseJSON(text || "{}");
+        parsed = safeParseJSON(text || '{}');
       } catch (e) {}
     }
 
     // Built-in AI as the absolute final safety net
-    if (
-      (!parsed || !parsed.reply || !parsed.code) &&
-      settings.preferredProvider === "auto"
-    ) {
+    if ((!parsed || !parsed.reply || !parsed.code) && settings.preferredProvider === 'auto') {
       try {
-        console.warn(
-          "Cloud providers failed for Applet. Using Local AI Engine...",
-        );
-        const conversation = messages
-          .map(
-            (m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`,
-          )
-          .join("\n");
+        console.warn("Cloud providers failed for Applet. Using Local AI Engine...");
+        const conversation = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
         const flatPromptFallback = `${systemInstruction}\n\nConversation History:\n${conversation}\n\nGenerate the JSON response:`;
-        const localText = await (
-          await getBuiltInAi()
-        ).generate(flatPromptFallback);
-        const localParsed = safeParseJSON(localText || "{}");
+        const localText = await (await getBuiltInAi()).generate(flatPromptFallback);
+        const localParsed = safeParseJSON(localText || '{}');
         if (localParsed && localParsed.reply) parsed = localParsed;
       } catch (e) {}
     }
 
-    return parsed && parsed.reply && parsed.code
-      ? parsed
-      : parsed && parsed.reply
-        ? parsed
-        : { reply: "Error generating applet code." };
+    return (parsed && parsed.reply && parsed.code) ? parsed : (parsed && parsed.reply) ? parsed : { reply: "Error generating applet code." };
   } catch (error) {
     console.error("Applet Generation error:", error);
 
-    if (settings.preferredProvider === "auto") {
+    if (settings.preferredProvider === 'auto') {
       try {
-        console.warn(
-          "Cloud error in Applet generator, trying Built-in AI with Compact Prompt...",
-        );
+        console.warn("Cloud error in Applet generator, trying Built-in AI with Compact Prompt...");
         return await generateAppletCode(messages, businessContext, true);
       } catch (e) {}
     }
@@ -5520,3 +4557,7 @@ Prioritize one focused widget per request.`
     return { reply: "Critical error in AI Studio engine." };
   }
 }
+
+
+
+

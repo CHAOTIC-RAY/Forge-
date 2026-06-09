@@ -53,7 +53,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const [liveProducts, setLiveProducts] = useState<HighStockProduct[]>([]);
   const [isManualMode, setIsManualMode] = useState(false);
   const aiSettings = getAiSettings();
-  const [manualUrl, setManualUrl] = useState(activeBusiness?.targetUrl || '');
+  const [manualUrl, setManualUrl] = useState(activeBusiness?.targetUrl || aiSettings.targetUrl || '');
   const [manualUrlInput, setManualUrlInput] = useState(manualUrl);
   const [isScrapingScreenshot, setIsScrapingScreenshot] = useState(false);
   const [manualPreviewMode, setManualPreviewMode] = useState<'live' | 'screenshot'>('live');
@@ -140,7 +140,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     setHasSearched(false);
     setHasCheckedCounts(false);
     setLogs([]);
-    const defaultUrl = activeBusiness?.targetUrl || '';
+    const defaultUrl = activeBusiness?.targetUrl || aiSettings.targetUrl || '';
     setManualUrl(defaultUrl);
     setManualUrlInput(defaultUrl);
   }, [businessId]);
@@ -480,7 +480,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   };
 
   const handleQuickSync = async () => {
-    const url = (manualUrl || activeBusiness?.targetUrl || '').trim();
+    const url = (manualUrl || activeBusiness?.targetUrl || aiSettings.targetUrl || '').trim();
     if (!url) {
       toast.error('Add your website URL in Settings, or open import tools to enter one.');
       setShowImportPanel(true);
@@ -1098,7 +1098,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     const item: HighStockProduct = {
       title,
       type: newEntry.type.trim() || 'Uncategorized',
-      link: newEntry.link.trim() || manualUrl || '',
+      link: newEntry.link.trim() || manualUrl || undefined,
       outlet: 'Forge Enterprises',
       ...(dbMode === 'product'
         ? { price: newEntry.price.trim() || undefined, stockInfo: newEntry.price.trim() || undefined }
@@ -1141,8 +1141,24 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
   const categoryCount = new Set(products.map(p => p.type).filter(Boolean)).size;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#F7F7F5] dark:bg-[#151515]">
-      <div className="flex-1 overflow-y-auto pb-6">
+    <TabPageShell className="relative">
+      <TabPageHeader
+        icon={Database}
+        title={catalogueLabels.title}
+        subtitle={catalogueLabels.subtitle}
+        actions={
+          <TabHeaderSegments
+            options={[
+              { id: 'product', label: 'Catalogue' },
+              { id: 'info', label: 'Knowledge base' },
+            ]}
+            value={dbMode}
+            onChange={(mode) => setDbMode(mode as DbMode)}
+          />
+        }
+      />
+
+      <TabPageContent className="pb-6">
       {showScrollTop && (
         <button
           onClick={scrollToTop}
@@ -1660,7 +1676,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
           </div>
         )}
       </div>
-    </div>
-  </div>
+      </TabPageContent>
+    </TabPageShell>
   );
 }
