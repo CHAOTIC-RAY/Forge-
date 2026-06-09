@@ -703,12 +703,12 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
               value={copyPrompt}
               onChange={(e) => setCopyPrompt(e.target.value)}
               placeholder="What do you want to write about? (e.g., 'A new summer collection of sunglasses')"
-              className="w-full h-32 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-4 text-sm focus:border-brand outline-none resize-none transition-all text-[#37352F] dark:text-[#EBE9ED]"
+              className="w-full min-h-[140px] bg-[#F7F7F5] dark:bg-black/20 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] p-5 text-sm focus:border-brand/70 focus:ring-4 focus:ring-brand/10 outline-none resize-y transition-all text-[#37352F] dark:text-[#EBE9ED] shadow-inner placeholder:text-gray-400 dark:placeholder:text-gray-600 font-medium"
             />
             <button
               onClick={generateCopy}
               disabled={isGeneratingCopy || !copyPrompt}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-brand hover:bg-blue-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all active:scale-95"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 bg-brand hover:bg-brand/90 disabled:opacity-50 text-white shadow-sm hover:shadow active:scale-[0.98] rounded-[14px] text-sm font-extrabold tracking-wide transition-all"
             >
               {isGeneratingCopy ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               Generate Copy
@@ -788,13 +788,13 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
               value={frameworkProduct}
               onChange={(e) => setFrameworkProduct(e.target.value)}
               placeholder="Enter product or service name..."
-              className="w-full bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-4 text-sm focus:border-purple-500 outline-none transition-all text-[#37352F] dark:text-[#EBE9ED]"
+              className="w-full h-14 bg-[#F7F7F5] dark:bg-black/20 border border-[#E9E9E7] dark:border-white/10 rounded-[14px] px-5 text-sm focus:border-purple-500/70 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all text-[#37352F] dark:text-[#EBE9ED] shadow-inner placeholder:text-gray-400 dark:placeholder:text-gray-600 font-medium"
             />
             
             <button
               onClick={generateFrameworkCopy}
               disabled={isGeneratingFramework || !frameworkProduct}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all active:scale-95"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white shadow-sm hover:shadow active:scale-[0.98] rounded-[14px] text-sm font-extrabold tracking-wide transition-all"
             >
               {isGeneratingFramework ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               Apply Framework
@@ -853,13 +853,13 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
               value={campaignUrl}
               onChange={(e) => setCampaignUrl(e.target.value)}
               placeholder="Paste a URL (e.g., a blog post, news article, or product page)..."
-              className="w-full bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-4 text-sm focus:border-orange-500 outline-none transition-all text-[#37352F] dark:text-[#EBE9ED]"
+              className="w-full h-14 bg-[#F7F7F5] dark:bg-black/20 border border-[#E9E9E7] dark:border-white/10 rounded-[14px] px-5 text-sm focus:border-orange-500/70 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all text-[#37352F] dark:text-[#EBE9ED] shadow-inner placeholder:text-gray-400 dark:placeholder:text-gray-600 font-medium"
             />
             
             <button
               onClick={handleGenerateCampaign}
               disabled={isGeneratingCampaign || !campaignUrl}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all active:scale-95"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white shadow-sm hover:shadow active:scale-[0.98] rounded-[14px] text-sm font-extrabold tracking-wide transition-all"
             >
               {isGeneratingCampaign ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               Generate Campaign
@@ -1190,7 +1190,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                           [widgetId]: { ...(prev[widgetId] || {}), [input.name]: e.target.value } 
                         }))}
                         placeholder={`Enter ${input.label}...`}
-                        className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED] min-h-[100px] resize-y"
+                        className="w-full min-h-[140px] bg-[#F7F7F5] dark:bg-black/20 border border-[#E9E9E7] dark:border-white/10 rounded-[16px] p-5 text-sm focus:border-brand/70 focus:ring-4 focus:ring-brand/10 outline-none resize-y transition-all text-[#37352F] dark:text-[#EBE9ED] shadow-inner placeholder:text-gray-400 dark:placeholder:text-gray-600 font-medium"
                       />
                     ) : input.type === 'select' ? (
                       <select
@@ -1199,7 +1199,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                           ...prev, 
                           [widgetId]: { ...(prev[widgetId] || {}), [input.name]: e.target.value } 
                         }))}
-                        className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                        className="w-full h-14 px-5 bg-[#F7F7F5] dark:bg-black/20 border border-[#E9E9E7] dark:border-white/10 rounded-[14px] text-sm outline-none focus:border-brand/70 focus:ring-4 focus:ring-brand/10 transition-all text-[#37352F] dark:text-[#EBE9ED] font-medium shadow-inner"
                       >
                         <option value="">Select {input.label}...</option>
                         {input.options?.map(opt => (
@@ -1215,7 +1215,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                           [widgetId]: { ...(prev[widgetId] || {}), [input.name]: e.target.value } 
                         }))}
                         placeholder={`Enter ${input.label}...`}
-                        className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                        className="w-full h-14 px-5 bg-[#F7F7F5] dark:bg-black/20 border border-[#E9E9E7] dark:border-white/10 rounded-[14px] text-sm outline-none focus:border-brand/70 focus:ring-4 focus:ring-brand/10 transition-all text-[#37352F] dark:text-[#EBE9ED] font-medium shadow-inner placeholder:text-gray-400 dark:placeholder:text-gray-600"
                       />
                     )}
                   </div>
@@ -1234,7 +1234,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                         [widgetId]: { ...(prev[widgetId] || {}), [v]: e.target.value } 
                       }))}
                       placeholder={`Enter ${v}...`}
-                      className="w-full p-4 bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] text-sm outline-none focus:ring-2 focus:ring-brand transition-all text-[#37352F] dark:text-[#EBE9ED]"
+                      className="w-full h-14 px-5 bg-[#F7F7F5] dark:bg-black/20 border border-[#E9E9E7] dark:border-white/10 rounded-[14px] text-sm outline-none focus:border-brand/70 focus:ring-4 focus:ring-brand/10 transition-all text-[#37352F] dark:text-[#EBE9ED] font-medium shadow-inner placeholder:text-gray-400 dark:placeholder:text-gray-600"
                     />
                   </div>
                 ))}
@@ -1248,7 +1248,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
             <button
               onClick={() => generateCustomWidget(customWidget)}
               disabled={isGeneratingCustom[widgetId]}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-brand hover:bg-blue-700 disabled:opacity-50 text-white rounded-[12px] text-sm font-bold transition-all active:scale-95"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 bg-brand hover:bg-brand/90 disabled:opacity-50 text-white shadow-sm hover:shadow active:scale-[0.98] rounded-[14px] text-sm font-extrabold tracking-wide transition-all"
             >
               {isGeneratingCustom[widgetId] ? <ForgeLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               Generate

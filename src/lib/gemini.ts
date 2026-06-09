@@ -4,7 +4,7 @@ import { vertexAI, auth, db } from './firebase';
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
-import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
+import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiMemory';
 import { createImageCollage } from './utils';
 
 declare const puter: any;

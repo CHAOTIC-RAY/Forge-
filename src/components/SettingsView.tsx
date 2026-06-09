@@ -17,7 +17,7 @@ import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
 import { BuiltInAiStatus, BUILTIN_MODELS, BUILTIN_VISION_MODELS } from '../lib/builtinAi';
-import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
+import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiMemory';
 import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
 import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';

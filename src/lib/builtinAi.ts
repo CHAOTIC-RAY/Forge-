@@ -8,7 +8,7 @@ import {
   getContextBudget,
   truncateMessagesForLocalAi,
   truncatePromptText,
-} from './localAiContext';
+} from './localAiMemory';
 import {
   BUILTIN_MODELS,
   BUILTIN_VISION_MODELS,
