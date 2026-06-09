@@ -9,7 +9,7 @@ import {
   type WidgetCategory,
 } from '../lib/widgetRegistry';
 import { WidgetOutputActions } from './WidgetOutputActions';
-import { TabHeaderBadge, TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
+import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 import { WidgetShell } from './WidgetShell';
 import { saveTextToIdeasInbox } from '../lib/ideasInbox';
 import { ImageResizerTab } from './ImageResizerTab';
@@ -22,7 +22,11 @@ import { motion } from 'motion/react';
 import { Post, Business } from '../data';
 import { writeBatch, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { useWorkspaceConfig } from '../lib/workspaceConfig';
+import { useConfigWorkspace } from '../lib/workspaceConfig';
+
+const WIDGET_RESULT_CONTAINER_CLASS = "bg-white dark:bg-[#141414] border border-dashed border-[#E9E9E7] dark:border-white/10 rounded-[24px] p-6 lg:p-8 shadow-sm relative group transition-all";
+const WIDGET_RESULT_HEADER_CLASS = "text-[11px] font-black text-brand uppercase tracking-widest mb-6 flex items-center gap-2";
+const WIDGET_RESULT_PROSE_CLASS = "prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-[15px] leading-relaxed text-[#37352F] dark:text-[#EBE9ED] font-medium";
 import {
   generateWidgetBulkPosts,
   generateWidgetText,
@@ -75,7 +79,7 @@ export interface WidgetsTabProps {
 }
 
 export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: WidgetsTabProps) {
-  const { config } = useWorkspaceConfig();
+  const { config } = useConfigWorkspace();
   const [activeWidget, setActiveWidget] = useState<WidgetType>(null);
   const [isPlaygroundOpen, setIsPlaygroundOpen] = useState(false);
   const [customWidgets, setCustomWidgets] = useState<CustomWidget[]>([]);
@@ -664,30 +668,13 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
 
   const renderWidgetUI = (widgetId: string) => {
     if (widgetId === 'nano-upscaler') {
-      return (
-        <div key={widgetId} className="flex flex-col gap-6">
-          <div className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">
-            <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-yellow-500/10 rounded-[8px] flex items-center justify-center">
-                  <Banana className="w-4 h-4 text-yellow-500" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">Nano Banana Upscaler</h3>
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">AI Image Enhancement</p>
-                </div>
-              </div>
-              {activeWidget === null && (
-                <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
-                </button>
-              )}
-            </div>
-            <div className="p-6">
-              <NanoBananaUpscaler />
-            </div>
-          </div>
-        </div>
+      return renderWidgetShell(
+        widgetId,
+        'Nano Banana Upscaler',
+        'AI Image Enhancement',
+        <Banana className="w-4 h-4 text-yellow-500" />,
+        'bg-yellow-500/10',
+        <NanoBananaUpscaler />
       );
     }
 
@@ -723,9 +710,12 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                   businessLogo={activeBusiness?.logoUrl}
                 />
 
-                <div className="bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-5">
-                  <h4 className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-4">Raw Generated Copy</h4>
-                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
+                <div className={WIDGET_RESULT_CONTAINER_CLASS}>
+                  <h4 className={WIDGET_RESULT_HEADER_CLASS}>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Raw Generated Copy
+                  </h4>
+                  <div className={WIDGET_RESULT_PROSE_CLASS}>
                     {copyResult}
                   </div>
                   <WidgetOutputActions
@@ -742,25 +732,13 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     }
 
     if (widgetId === 'frameworks') {
-      return (
-        <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">
-          <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-purple-500/10 rounded-[8px] flex items-center justify-center">
-                <Target className="w-4 h-4 text-purple-500" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">Marketing Frameworks</h3>
-                <p className="text-xs text-[#757681] dark:text-[#9B9A97]">AIDA, PAS, BAB</p>
-              </div>
-            </div>
-            {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
-              </button>
-            )}
-          </div>
-          <div className="p-6 space-y-6">
+      return renderWidgetShell(
+        widgetId,
+        'Marketing Frameworks',
+        'AIDA, PAS, BAB',
+        <Target className="w-4 h-4 text-purple-500" />,
+        'bg-purple-500/10',
+        <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {(['AIDA', 'PAS', 'BAB'] as const).map((f) => (
                 <button
@@ -809,9 +787,12 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                   businessLogo={activeBusiness?.logoUrl}
                 />
 
-                <div className="bg-[#F7F7F5] dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] p-5">
-                  <h4 className="text-[10px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-widest mb-4">Raw Generated Framework Copy</h4>
-                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed text-[#37352F] dark:text-[#EBE9ED]">
+                <div className={WIDGET_RESULT_CONTAINER_CLASS}>
+                  <h4 className={WIDGET_RESULT_HEADER_CLASS}>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Raw Generated Framework Copy
+                  </h4>
+                  <div className={WIDGET_RESULT_PROSE_CLASS}>
                     {frameworkResult}
                   </div>
                   <WidgetOutputActions
@@ -823,31 +804,18 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                 </div>
               </div>
             )}
-          </div>
         </div>
       );
     }
 
     if (widgetId === 'urlToCampaign') {
-      return (
-        <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">
-          <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-orange-500/10 rounded-[8px] flex items-center justify-center">
-                <Link className="w-4 h-4 text-orange-500" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">URL to Campaign</h3>
-                <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Multi-platform generation</p>
-              </div>
-            </div>
-            {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
-              </button>
-            )}
-          </div>
-          <div className="p-6 space-y-6">
+      return renderWidgetShell(
+        widgetId,
+        'URL to Campaign',
+        'Multi-platform generation',
+        <Link className="w-4 h-4 text-orange-500" />,
+        'bg-orange-500/10',
+        <div className="space-y-6">
             <input
               type="url"
               value={campaignUrl}
@@ -923,14 +891,13 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                 )}
               </div>
             )}
-          </div>
         </div>
       );
     }
 
     if (widgetId === 'resizer') {
       return (
-        <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden  mb-6 relative">
+        <div key={widgetId} className="bg-[#FDFDFD] dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px] overflow-hidden shadow-sm mb-8 relative transition-all hover:shadow-md hover:shadow-brand/[0.01]">
           {activeWidget === null && (
             <div className="absolute top-4 right-4 z-10">
               <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
@@ -944,25 +911,13 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     }
 
     if (widgetId === 'bulk') {
-      return (
-        <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">
-          <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-emerald-500/10 rounded-[8px] flex items-center justify-center">
-                <Wand2 className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">Bulk Content Generator</h3>
-                <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Transform a topic into a week of content ideas instantly.</p>
-              </div>
-            </div>
-            {activeWidget === null && (
-              <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
-              </button>
-            )}
-          </div>
-          <div className="p-6 space-y-6">
+      return renderWidgetShell(
+        widgetId,
+        'Bulk Content Generator',
+        'Transform a topic into a week of content ideas instantly.',
+        <Wand2 className="w-4 h-4 text-emerald-500" />,
+        'bg-emerald-500/10',
+        <div className="space-y-6">
             <div className="bg-[#F7F7F5] dark:bg-[#202020] p-5 rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                 <div className="sm:col-span-8">
@@ -980,7 +935,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                   <select
                     value={bulkCount}
                     onChange={(e) => setBulkCount(Number(e.target.value))}
-                    className="w-full bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                    className="w-full h-10 bg-[#F7F7F5] dark:bg-black/20 border border-[#E9E9E7] dark:border-white/10 rounded-[14px] px-5 text-sm focus:border-emerald-500/70 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all text-[#37352F] dark:text-[#EBE9ED] shadow-inner font-medium"
                   >
                     <option value={3}>3 Posts</option>
                     <option value={5}>5 Posts</option>
@@ -1084,14 +1039,18 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                 </div>
               </div>
             )}
-          </div>
         </div>
       );
     }
 
     if (widgetId === 'shortener') {
-      return (
-        <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden mb-6 h-[600px]">
+      return renderWidgetShell(
+        widgetId,
+        'Link Shortener',
+        'Create and track short links',
+        <Link className="w-4 h-4 text-blue-500" />,
+        'bg-blue-500/10',
+        <div className="h-[600px] -m-6 px-6 pb-6">
           <LinkShortener businessId={activeBusiness?.id || ''} />
         </div>
       );
@@ -1101,27 +1060,13 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
     if (customWidget) {
       const vars = extractVariables(customWidget.promptTemplate);
       
-      return (
-        <div key={widgetId} className="bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden flex flex-col mb-6">
-          <div className="p-5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#2E2E2E] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-amber-500/10 rounded-[8px] flex items-center justify-center">
-                <Wand2 className="w-4 h-4 text-amber-500" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED]">{customWidget.title}</h3>
-                <p className="text-xs text-[#757681] dark:text-[#9B9A97]">{customWidget.description}</p>
-              </div>
-            </div>
-            {activeWidget === null && (
-              <div className="flex items-center gap-2">
-                <button onClick={(e) => togglePinWidget(widgetId, e)} className="text-brand p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-[8px]" title="Unpin Widget">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="p-6 space-y-6">
+      return renderWidgetShell(
+        widgetId,
+        customWidget.title,
+        customWidget.description || '',
+        <Wand2 className="w-4 h-4 text-amber-500" />,
+        'bg-amber-500/10',
+        <div className="space-y-6">
             {customWidget.code ? (
               <div className="w-full h-[500px] bg-white rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden shadow-inner">
                 <iframe
@@ -1277,7 +1222,6 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                 )}
               </div>
             )}
-          </div>
         </div>
       );
     }
@@ -1320,9 +1264,9 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
         title="Widgets"
         subtitle="Built-in AI tools for captions, briefs, and campaign copy—more widgets coming soon."
         actions={
-          <TabHeaderBadge className="bg-brand/10 text-brand uppercase tracking-wider text-[10px]">
+          <span className="bg-brand/10 text-brand uppercase tracking-wider text-[10px] px-2 py-1 rounded-md font-bold">
             More coming soon
-          </TabHeaderBadge>
+          </span>
         }
       />
 
@@ -1355,7 +1299,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                   onClick={() => setActiveWidget(widget.id as WidgetType)}
                   whileHover={{ y: -4, scale: 1.01 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  className="group relative bg-[#FDFDFD] dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[20px] p-6 cursor-pointer hover:border-brand/60 dark:hover:border-brand/60 hover:shadow-lg hover:shadow-brand/[0.03] transition-all flex flex-col justify-between overflow-hidden"
+                  className="group relative bg-[#FDFDFD] dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px] p-6 cursor-pointer hover:border-brand/60 dark:hover:border-brand/60 hover:shadow-lg hover:shadow-brand/[0.03] transition-all flex flex-col justify-between overflow-hidden"
                 >
                   {/* Custom Background Hover Gradient */}
                   <div className="absolute inset-0 bg-gradient-to-br from-brand/[0.01] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -1416,7 +1360,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
               <div 
                 key={widget.id}
                 onClick={() => setActiveWidget(widget.id)}
-                className="group relative bg-white dark:bg-white/[0.03] backdrop-blur-sm border border-[#E9E9E7] dark:border-white/10 rounded-[24px] md:rounded-[28px] p-6 md:p-8 cursor-pointer hover:border-brand hover:shadow-2xl hover:shadow-brand/20 transition-all duration-500 flex flex-col overflow-hidden"
+                className="group relative bg-[#FDFDFD] dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px] p-6 cursor-pointer hover:border-brand/60 dark:hover:border-brand/60 hover:shadow-lg hover:shadow-brand/[0.03] transition-all flex flex-col justify-between overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-[-10px] group-hover:translate-y-0 z-20">
