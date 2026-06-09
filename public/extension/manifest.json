@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Forge Web Clipper",
+  "version": "1.0",
+  "description": "Clip websites and add notes to your Forge notebook.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "externally_connectable": {
+    "matches": ["https://ais-dev-lkdab6rylgfzl4qvouhnor-22311204047.asia-southeast1.run.app/*"]
+  }
+}
