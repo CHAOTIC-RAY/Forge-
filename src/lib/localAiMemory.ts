@@ -1,1 +1,0 @@
-export const LOCAL_KNOWLEDGE_MAX_CHARS = 5000;

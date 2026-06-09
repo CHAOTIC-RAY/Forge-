@@ -68,20 +68,20 @@ export function WidgetOutputActions({
   };
 
   return (
-    <div className={`flex flex-wrap gap-2 pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] ${className || ''}`}>
+    <div className={`flex flex-wrap gap-2.5 pt-4 border-t border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] mt-2 ${className || ''}`}>
       <button
         type="button"
         onClick={handleCopy}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E]"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-xs font-bold text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] hover:bg-gray-100 dark:hover:bg-[#2E2E2E] transition-all hover:scale-105 active:scale-95"
       >
         {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-        Copy
+        Copy Result
       </button>
       <button
         type="button"
         onClick={handleSaveToIdeas}
         disabled={saving}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs font-bold text-amber-700 dark:text-amber-400 disabled:opacity-50"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] border border-amber-500/20 bg-amber-500/[0.05] hover:bg-amber-500/10 text-xs font-bold text-amber-700 dark:text-amber-500 disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
       >
         <Lightbulb className="w-3.5 h-3.5" />
         {saving ? 'Saving…' : 'Save to Ideas'}
@@ -90,10 +90,10 @@ export function WidgetOutputActions({
         <button
           type="button"
           onClick={handleCreatePost}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-bold hover:bg-brand-hover"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] bg-brand text-white text-xs font-extrabold hover:bg-brand/90 transition-all hover:scale-105 active:scale-95 shadow-sm"
         >
           <FileText className="w-3.5 h-3.5" />
-          Create post
+          Create Content Post
         </button>
       )}
     </div>
