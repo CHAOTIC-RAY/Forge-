@@ -1340,24 +1340,58 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
                 {WIDGET_CATEGORY_LABELS[cat]}
               </h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {getWidgetsByCategory(cat).map((widget) => (
-                <div
+                <motion.div
                   key={widget.id}
                   onClick={() => setActiveWidget(widget.id as WidgetType)}
-                  className="group bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] p-5 cursor-pointer hover:border-brand transition-all flex flex-col"
+                  whileHover={{ y: -4, scale: 1.01 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="group relative bg-[#FDFDFD] dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[20px] p-6 cursor-pointer hover:border-brand/60 dark:hover:border-brand/60 hover:shadow-lg hover:shadow-brand/[0.03] transition-all flex flex-col justify-between overflow-hidden"
                 >
-                  <div className={cn('w-11 h-11 rounded-[12px] flex items-center justify-center mb-3', widget.color)}>
-                    {widget.icon}
+                  {/* Custom Background Hover Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-brand/[0.01] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  
+                  {/* Top Right Badge */}
+                  <div className="absolute top-6 right-6">
+                    {widget.requiresAI ? (
+                      <span className="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 bg-brand/[0.08] dark:bg-brand/[0.15] text-brand border border-brand/[0.15] rounded-full">
+                        AI ENGINE
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 bg-gray-100 dark:bg-white/[0.06] text-[#787774] dark:text-white/40 border border-gray-200/50 dark:border-white/10 rounded-full">
+                        LOCAL UTILITY
+                      </span>
+                    )}
                   </div>
-                  <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] mb-1 group-hover:text-brand">
-                    {widget.title}
-                  </h3>
-                  <p className="text-xs text-[#757681] flex-1">{widget.description}</p>
-                  <span className="text-[10px] font-bold text-brand mt-3 opacity-0 group-hover:opacity-100">
-                    Open tool →
-                  </span>
-                </div>
+
+                  <div>
+                    {/* Icon Container */}
+                    <div className={cn('w-12 h-12 rounded-[14px] flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 shadow-sm', widget.color)}>
+                      {widget.icon}
+                    </div>
+                    
+                    {/* Titles */}
+                    <h3 className="text-base font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2 group-hover:text-brand transition-colors">
+                      {widget.title}
+                    </h3>
+                    
+                    {/* Description */}
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97] leading-relaxed mb-6">
+                      {widget.description}
+                    </p>
+                  </div>
+
+                  {/* Bottom Footer Call to Action */}
+                  <div className="flex items-center justify-between border-t border-dashed border-[#E9E9E7]/80 dark:border-[#2E2E2E]/80 pt-4 mt-2">
+                    <span className="text-[11px] font-bold text-brand flex items-center gap-1.5 opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                      Open Tool <span className="opacity-70">→</span>
+                    </span>
+                    <span className="text-[10px] text-[#757681]/50 dark:text-[#9B9A97]/40 font-mono tracking-wider">
+                      WIDGET.{widget.id.toUpperCase()}
+                    </span>
+                  </div>
+                </motion.div>
               ))}
             </div>
           </div>
