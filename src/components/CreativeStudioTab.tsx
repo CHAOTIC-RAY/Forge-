@@ -1287,19 +1287,27 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
 
   if (activeWidget !== null) {
     return (
-      <div className="flex flex-col bg-transparent pb-20 md:pb-0 h-full w-full">
-        <button 
+      <motion.div 
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -12 }}
+        transition={{ type: "spring", stiffness: 350, damping: 30 }}
+        className="flex flex-col bg-transparent pb-20 md:pb-0 h-full w-full"
+      >
+        <motion.button 
           onClick={() => setActiveWidget(null)}
-          className="flex items-center gap-2 text-sm font-bold text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors mb-6 w-fit"
+          whileHover={{ x: -3 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#757681] dark:text-[#9B9A97] hover:text-brand border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/40 dark:hover:border-brand/40 bg-[#FDFDFD]/50 dark:bg-[#1A1A1A]/50 px-4 py-2.5 rounded-full transition-all mb-8 shadow-sm w-fit"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3.5 h-3.5" />
           Back to Widgets
-        </button>
+        </motion.button>
 
         <div className="w-full">
           {renderWidgetUI(activeWidget)}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
