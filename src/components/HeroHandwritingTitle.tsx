@@ -1,133 +1,78 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { Suspense, lazy, Component, type ReactNode } from 'react';
 import { cn } from '../lib/utils';
+/** Hero handwriting draw — faster than background flame loop for snappier first impression */
+const HERO_HANDWRITE_DURATION_MS = 900;
+const HERO_HANDWRITE_DELAY_MS = 40;
 
-export function HeroHandwritingTitle({ className }: { className?: string }) {
-  // Let's create an elegant, design-forward typography animation matching "Forge" (ideas -> assets)
-  
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.12,
-        delayChildren: 0.1,
-      },
+class TegakiErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+const TegakiHero = lazy(async () => {
+  const [reactMod, fontMod] = await Promise.all([
+    import('tegaki/react'),
+    import('tegaki/fonts/caveat'),
+  ]);
+
+  const TegakiRenderer = reactMod.TegakiRenderer;
+  const caveat = fontMod.default;
+  if (!caveat || typeof caveat !== 'object' || !('glyphData' in caveat)) {
+    throw new Error('Invalid tegaki Caveat font bundle');
+  }
+
+  return {
+    default: function HeroTegaki({ className }: { className?: string }) {
+      return (
+        <TegakiRenderer
+          font={caveat}
+          className={cn('text-white', className)}
+          style={{ fontSize: 'clamp(2.25rem, 6.5vw, 4.75rem)', lineHeight: 1.05 }}
+          duration={HERO_HANDWRITE_DURATION_MS}
+          delay={HERO_HANDWRITE_DELAY_MS}
+        >
+          Sparks into substance
+        </TegakiRenderer>
+      );
     },
   };
+});
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        type: 'spring' as const,
-        damping: 18,
-        stiffness: 120,
-      },
-    },
-  };
-
+function StaticFallback({ className }: { className?: string }) {
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
+    <span
       className={cn(
-        'font-display font-medium tracking-tight text-white flex flex-wrap items-center gap-x-4 md:gap-x-5 gap-y-2 select-none text-left w-full',
+        'text-white font-bold tracking-tighter block w-full text-left',
         className
       )}
       style={{
-        fontSize: 'clamp(2.5rem, 6.5vw, 4.75rem)',
-        lineHeight: 1.1,
+        fontSize: 'clamp(2.25rem, 6.5vw, 4.75rem)',
+        lineHeight: 1.05,
       }}
     >
-      {/* Word 1: Sparks */}
-      <motion.div 
-        variants={itemVariants} 
-        className="relative inline-flex items-center"
-        animate={{
-          '--spark-color-1': ['#2383E2', '#E2234D', '#E2A123', '#23E25D', '#9333EA', '#2383E2'],
-          '--spark-color-2': ['#E2A123', '#23E25D', '#9333EA', '#2383E2', '#E2234D', '#E2A123'],
-        } as any}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: 'linear'
-        }}
-      >
-        {/* Warm ambient spark glow underneath */}
-        <span 
-          style={{ 
-            backgroundImage: 'linear-gradient(to right, var(--spark-color-1, #2383E2), var(--spark-color-2, #E2A123))',
-            opacity: 0.35,
-          }}
-          className="absolute -inset-3 rounded-full blur-2xl pointer-events-none" 
-        />
-        <span 
-          style={{ 
-            backgroundImage: 'linear-gradient(to right, var(--spark-color-1, #2383E2), var(--spark-color-2, #E2A123))',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-          className="relative font-extrabold bg-clip-text text-transparent"
-        >
-          Sparks
-        </span>
-        
-        {/* Minimal dynamic spark element */}
-        <motion.span
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 15, -15, 0],
-            opacity: [0.7, 1, 0.7],
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-          style={{
-            color: 'var(--spark-color-2, #E2A123)',
-          }}
-          className="absolute -top-1 -right-4 text-2xl drop-shadow-[0_0_10px_var(--spark-color-2,rgba(251,191,36,0.6))]"
-        >
-          ✦
-        </motion.span>
-      </motion.div>
+      Sparks into substance
+    </span>
+  );
+}
 
-      {/* Connection: into */}
-      <motion.span
-        variants={itemVariants}
-        className="font-normal text-white/80 dark:text-white/70 italic text-[0.85em] tracking-normal"
-      >
-        into
-      </motion.span>
-
-      {/* Word 3: substance */}
-      <motion.div 
-        variants={itemVariants} 
-        className="relative inline-block overflow-hidden rounded-2xl px-4 py-1 border border-white/10 bg-white/5 dark:bg-[#202020]/20 backdrop-blur-sm shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-      >
-        {/* Shimmer sweep effect */}
-        <motion.div
-          animate={{
-            x: ['-100%', '200%'],
-          }}
-          transition={{
-            duration: 2.8,
-            repeat: Infinity,
-            ease: 'easeInOut',
-            repeatDelay: 1.5,
-          }}
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/12 to-transparent -skew-x-12 pointer-events-none"
-        />
-        
-        <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-50 to-blue-200">
-          substance
-        </span>
-      </motion.div>
-    </motion.div>
+/** Hero headline — Caveat handwriting drawn letter-by-letter (Tegaki), synced to flame stroke. */
+export function HeroHandwritingTitle({ className }: { className?: string }) {
+  return (
+    <TegakiErrorBoundary fallback={<StaticFallback className={className} />}>
+      <Suspense fallback={<StaticFallback className={className} />}>
+        <TegakiHero className={className} />
+      </Suspense>
+    </TegakiErrorBoundary>
   );
 }

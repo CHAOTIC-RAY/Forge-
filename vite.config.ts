@@ -9,10 +9,9 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss(), VitePWA({
       registerType: 'autoUpdate',
-      filename: 'manifest.json',
       includeAssets: ['logo.svg', 'logo192x192.png', 'logo512x512.png'],
       devOptions: {
-        enabled: false
+        enabled: true
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
@@ -51,6 +50,7 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // Use prebuilt font bundle so Vite does not break tegaki's import attributes
         'tegaki/fonts/caveat': path.resolve(
           __dirname,
           'node_modules/tegaki/dist/fonts/caveat/bundle.mjs'
@@ -58,25 +58,7 @@ export default defineConfig(({mode}) => {
       },
     },
     optimizeDeps: {
-      include: [
-        'tegaki/react',
-        'tegaki/fonts/caveat',
-        'lucide-react',
-        'sonner',
-        'axios',
-        'xlsx',
-        'exceljs',
-        'firebase/app',
-        'firebase/auth',
-        'firebase/firestore',
-        'firebase/storage',
-        'react-firebase-hooks/auth',
-        'react-firebase-hooks/firestore',
-        'motion/react',
-        'date-fns',
-        'uuid',
-        'canvas-confetti'
-      ],
+      include: ['tegaki/react', 'tegaki/fonts/caveat'],
     },
     build: {
       rollupOptions: {

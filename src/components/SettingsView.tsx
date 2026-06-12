@@ -17,12 +17,11 @@ import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { OneDriveSetup } from './OneDriveSetup';
 import { BuiltInAiStatus, BUILTIN_MODELS, BUILTIN_VISION_MODELS } from '../lib/builtinAi';
-import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiLimits';
+import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
 import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
 import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
-import { applyCustomTheme, GOOGLE_FONTS, DEFAULT_CUSTOM_THEME, type CustomThemeConfig } from '../lib/themeEngine';
 
 const GEMINI_MODELS = [
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)' },
@@ -183,23 +182,6 @@ export function SettingsView({
 }: any) {
   const [expandedId, setExpandedId] = useState<string | null>(() => typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'account' : null);
   const [themePreset, setThemePreset] = useState(() => localStorage.getItem('forge_theme_preset') || 'default');
-  
-  const [customTheme, setCustomTheme] = useState<CustomThemeConfig>(() => {
-    try {
-      const saved = localStorage.getItem('forge_custom_theme_config');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_CUSTOM_THEME;
-  });
-
-  const handleCustomThemeUpdate = (updated: CustomThemeConfig) => {
-    setCustomTheme(updated);
-    localStorage.setItem('forge_custom_theme_config', JSON.stringify(updated));
-    if (themePreset === 'custom') {
-      applyCustomTheme(updated, isDarkMode);
-    }
-  };
-
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryType, setNewCategoryType] = useState('category');
@@ -484,11 +466,6 @@ export function SettingsView({
     setThemePreset(preset);
     localStorage.setItem('forge_theme_preset', preset);
     document.documentElement.setAttribute('data-theme', preset);
-    if (preset === 'custom') {
-      applyCustomTheme(customTheme, isDarkMode);
-    } else {
-      applyCustomTheme(null, isDarkMode);
-    }
     if (onThemePresetChange) {
       onThemePresetChange(preset);
     }
@@ -501,8 +478,7 @@ export function SettingsView({
     { id: 'forest', name: 'Forest Growth', colors: ['#064E3B', '#10B981'], description: 'Natural greens for a calm workspace.' },
     { id: 'sunset', name: 'Golden Hour', colors: ['#7C2D12', '#F97316'], description: 'Warm oranges and deep browns.' },
     { id: 'cyberpunk', name: 'Neon Pulse', colors: ['#1A1A1A', '#FF00FF'], description: 'High contrast neon aesthetics.' },
-    { id: 'nord', name: 'Nordic Frost', colors: ['#2E3440', '#88C0D0'], description: 'Cool, arctic-inspired palette.' },
-    { id: 'custom', name: 'Custom Designer', colors: ['#6366F1', '#4F46E5'], description: 'Design and tune your own visual theme.' }
+    { id: 'nord', name: 'Nordic Frost', colors: ['#2E3440', '#88C0D0'], description: 'Cool, arctic-inspired palette.' }
   ];
 
   const [isAiInstructionModalOpen, setIsAiInstructionModalOpen] = useState(false);
@@ -954,328 +930,6 @@ export function SettingsView({
                   </button>
                 ))}
               </div>
-
-              {/* Custom Theme Designer Panel */}
-              {themePreset === 'custom' && (
-                <div className="mt-4 p-5 bg-[#F7F7F5] dark:bg-[#1E1E22] border border-[#E9E9E7] dark:border-[#2E2E3E] rounded-[16px] space-y-6 animate-in fade-in duration-300">
-                  <div>
-                    <h4 className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider mb-1">Custom Designer Canvas</h4>
-                    <p className="text-[10px] text-[#757681] dark:text-[#9B9A97]">Configure your own branding palette, border-radii & micro-typography layout.</p>
-                  </div>
-
-                  {/* Starting Template Palettes */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-brand uppercase tracking-wider block">Palette Presets (Click to apply)</span>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        {
-                          name: 'Earthy Sage',
-                          brandColor: '#10b981',
-                          bgMain: isDarkMode ? '#141E17' : '#fcfdfa',
-                          bgSecondary: isDarkMode ? '#1A261D' : '#f3f6f1',
-                          textMain: isDarkMode ? '#ECFDF5' : '#2d3329',
-                          textSecondary: isDarkMode ? '#A7F3D0' : '#606a5a',
-                          borderMain: isDarkMode ? '#243C2E' : '#e1e7dc',
-                        },
-                        {
-                          name: 'Warm Clay',
-                          brandColor: '#f97316',
-                          bgMain: isDarkMode ? '#1E140F' : '#fffbf7',
-                          bgSecondary: isDarkMode ? '#281A12' : '#f7ede2',
-                          textMain: isDarkMode ? '#FFEDD5' : '#472d1b',
-                          textSecondary: isDarkMode ? '#FED7AA' : '#856450',
-                          borderMain: isDarkMode ? '#3D2416' : '#ebd9ca',
-                        },
-                        {
-                          name: 'Retro Blues',
-                          brandColor: '#38bdf8',
-                          bgMain: '#0f172a',
-                          bgSecondary: '#1e293b',
-                          textMain: '#f8fafc',
-                          textSecondary: '#94a3b8',
-                          borderMain: '#334155',
-                        },
-                        {
-                          name: 'Cyber Neon',
-                          brandColor: '#c084fc',
-                          bgMain: '#0b0416',
-                          bgSecondary: '#140c24',
-                          textMain: '#f3e8ff',
-                          textSecondary: '#a78bfa',
-                          borderMain: '#2e1c4e',
-                        },
-                        {
-                          name: 'Midnight Purple',
-                          brandColor: '#8b5cf6',
-                          bgMain: '#090514',
-                          bgSecondary: '#110b24',
-                          textMain: '#f5f3ff',
-                          textSecondary: '#ddd6fe',
-                          borderMain: '#23143c',
-                        },
-                        {
-                          name: 'Obsidian Minimal',
-                          brandColor: '#3b82f6',
-                          bgMain: '#09090b',
-                          bgSecondary: '#18181b',
-                          textMain: '#fafafa',
-                          textSecondary: '#a1a1aa',
-                          borderMain: '#27272a',
-                        },
-                      ].map((pal) => (
-                        <button
-                          key={pal.name}
-                          onClick={() => {
-                            handleCustomThemeUpdate({
-                              ...customTheme,
-                              brandColor: pal.brandColor,
-                              brandColorHover: pal.brandColor,
-                              brandColorBg: `${pal.brandColor}1A`, // 10% opacity
-                              brandColorBorder: `${pal.brandColor}33`, // 20% opacity
-                              brandColorRing: `${pal.brandColor}66`, // 40% opacity
-                              bgMain: pal.bgMain,
-                              bgSecondary: pal.bgSecondary,
-                              textMain: pal.textMain,
-                              textSecondary: pal.textSecondary,
-                              borderMain: pal.borderMain,
-                            });
-                            toast.success(`Applied ${pal.name} preset!`);
-                          }}
-                          className="px-2.5 py-1 rounded-full text-[10px] font-bold border border-black/5 dark:border-white/10 hover:border-[#757681] bg-white dark:bg-[#121214] flex items-center gap-1.5 transition-all"
-                        >
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: pal.brandColor }} />
-                          {pal.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Core Hex Customizers */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Brand Main */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold block text-[#757681]">Accent Highlight</label>
-                      <div className="flex gap-2 items-center">
-                        <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-black/10 shrink-0">
-                          <input
-                            type="color"
-                            value={customTheme.brandColor}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              handleCustomThemeUpdate({
-                                ...customTheme,
-                                brandColor: val,
-                                brandColorHover: val,
-                                brandColorBg: `${val}1A`,
-                                brandColorBorder: `${val}33`,
-                                brandColorRing: `${val}66`,
-                              });
-                            }}
-                            className="absolute -inset-1 cursor-pointer p-0 border-none bg-transparent"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={customTheme.brandColor}
-                          onChange={(e) => handleCustomThemeUpdate({ ...customTheme, brandColor: e.target.value })}
-                          className="flex-1 bg-white dark:bg-[#121214] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] px-2.5 py-1 text-xs font-mono outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Border Main */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold block text-[#757681]">Workspace Borders</label>
-                      <div className="flex gap-2 items-center">
-                        <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-black/10 shrink-0">
-                          <input
-                            type="color"
-                            value={customTheme.borderMain}
-                            onChange={(e) => handleCustomThemeUpdate({ ...customTheme, borderMain: e.target.value })}
-                            className="absolute -inset-1 cursor-pointer p-0 border-none bg-transparent"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={customTheme.borderMain}
-                          onChange={(e) => handleCustomThemeUpdate({ ...customTheme, borderMain: e.target.value })}
-                          className="flex-1 bg-white dark:bg-[#121214] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] px-2.5 py-1 text-xs font-mono outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Main BG */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold block text-[#757681]">Main Canvas Base</label>
-                      <div className="flex gap-2 items-center">
-                        <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-black/10 shrink-0">
-                          <input
-                            type="color"
-                            value={customTheme.bgMain}
-                            onChange={(e) => handleCustomThemeUpdate({ ...customTheme, bgMain: e.target.value })}
-                            className="absolute -inset-1 cursor-pointer p-0 border-none bg-transparent"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={customTheme.bgMain}
-                          onChange={(e) => handleCustomThemeUpdate({ ...customTheme, bgMain: e.target.value })}
-                          className="flex-1 bg-white dark:bg-[#121214] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] px-2.5 py-1 text-xs font-mono outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Secondary BG */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold block text-[#757681]">Secondary Panels/Sidebar</label>
-                      <div className="flex gap-2 items-center">
-                        <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-black/10 shrink-0">
-                          <input
-                            type="color"
-                            value={customTheme.bgSecondary}
-                            onChange={(e) => handleCustomThemeUpdate({ ...customTheme, bgSecondary: e.target.value })}
-                            className="absolute -inset-1 cursor-pointer p-0 border-none bg-transparent"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={customTheme.bgSecondary}
-                          onChange={(e) => handleCustomThemeUpdate({ ...customTheme, bgSecondary: e.target.value })}
-                          className="flex-1 bg-white dark:bg-[#121214] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] px-2.5 py-1 text-xs font-mono outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Text Main */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold block text-[#757681]">Primary Typography Color</label>
-                      <div className="flex gap-2 items-center">
-                        <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-black/10 shrink-0">
-                          <input
-                            type="color"
-                            value={customTheme.textMain}
-                            onChange={(e) => handleCustomThemeUpdate({ ...customTheme, textMain: e.target.value })}
-                            className="absolute -inset-1 cursor-pointer p-0 border-none bg-transparent"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={customTheme.textMain}
-                          onChange={(e) => handleCustomThemeUpdate({ ...customTheme, textMain: e.target.value })}
-                          className="flex-1 bg-white dark:bg-[#121214] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] px-2.5 py-1 text-xs font-mono outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Text Secondary */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold block text-[#757681]">Secondary Typography Color</label>
-                      <div className="flex gap-2 items-center">
-                        <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-black/10 shrink-0">
-                          <input
-                            type="color"
-                            value={customTheme.textSecondary}
-                            onChange={(e) => handleCustomThemeUpdate({ ...customTheme, textSecondary: e.target.value })}
-                            className="absolute -inset-1 cursor-pointer p-0 border-none bg-transparent"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={customTheme.textSecondary}
-                          onChange={(e) => handleCustomThemeUpdate({ ...customTheme, textSecondary: e.target.value })}
-                          className="flex-1 bg-white dark:bg-[#121214] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] px-2.5 py-1 text-xs font-mono outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Font Customizers */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Sans Font family */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold block text-[#757681]">Primary Sans Font</label>
-                      <select
-                        value={customTheme.fontSans}
-                        onChange={(e) => handleCustomThemeUpdate({ ...customTheme, fontSans: e.target.value })}
-                        className="w-full bg-white dark:bg-[#121214] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] px-3 py-1.5 text-xs text-[#37352F] dark:text-[#EBEBEB] outline-none"
-                      >
-                        {GOOGLE_FONTS.map(f => (
-                          <option key={f.id} value={f.id}>{f.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Display headings font family */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold block text-[#757681]">Display Headings Font</label>
-                      <select
-                        value={customTheme.fontDisplay}
-                        onChange={(e) => handleCustomThemeUpdate({ ...customTheme, fontDisplay: e.target.value })}
-                        className="w-full bg-white dark:bg-[#121214] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[8px] px-3 py-1.5 text-xs text-[#37352F] dark:text-[#EBEBEB] outline-none"
-                      >
-                        {GOOGLE_FONTS.map(f => (
-                          <option key={f.id} value={f.id}>{f.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Corner Radius & Glassmorphism sliders */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Border radius pill row */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold block text-[#757681]">Corner Radii Curve</label>
-                      <div className="flex gap-1 bg-white dark:bg-[#121214] p-1 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px]">
-                        {[
-                          { label: 'Sharp', val: '0px' },
-                          { label: 'Notion', val: '8px' },
-                          { label: 'Rounded', val: '16px' },
-                          { label: 'Capsule', val: '24px' }
-                        ].map((radiusItem) => (
-                          <button
-                            key={radiusItem.val}
-                            onClick={() => handleCustomThemeUpdate({ ...customTheme, borderRadius: radiusItem.val })}
-                            className={cn(
-                              "flex-1 text-[10px] font-bold py-1 px-1.5 rounded-[6px] transition-all",
-                              customTheme.borderRadius === radiusItem.val
-                                ? "bg-brand text-white"
-                                : "text-secondary-safe hover:bg-gray-100 dark:hover:bg-[#202024]"
-                            )}
-                          >
-                            {radiusItem.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Glass intensity */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold block text-[#757681]">Glassmorphic Blur</label>
-                      <div className="flex gap-1 bg-white dark:bg-[#121214] p-1 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px]">
-                        {[
-                          { label: 'Off', val: 'none' },
-                          { label: 'Soft', val: 'low' },
-                          { label: 'Glassy', val: 'medium' },
-                          { label: 'Frosty', val: 'high' }
-                        ].map((glassItem) => (
-                          <button
-                            key={glassItem.val}
-                            onClick={() => handleCustomThemeUpdate({ ...customTheme, glassIntensity: glassItem.val as any })}
-                            className={cn(
-                              "flex-1 text-[10px] font-bold py-1 px-1.5 rounded-[6px] transition-all",
-                              customTheme.glassIntensity === glassItem.val
-                                ? "bg-brand text-white"
-                                : "text-secondary-safe hover:bg-gray-100 dark:hover:bg-[#202024]"
-                            )}
-                          >
-                            {glassItem.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </BentoCard>

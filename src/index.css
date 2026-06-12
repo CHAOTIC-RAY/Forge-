@@ -4,8 +4,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: var(--font-sans-custom, "Open Sans"), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display-custom, "Poppins"), var(--font-sans);
+  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Poppins", var(--font-sans);
   
   --color-brand: var(--brand-color, #2665fd);
   --color-brand-hover: var(--brand-color-hover, #1e52d0);
@@ -158,29 +158,28 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .glass-panel {
-    background: var(--glass-bg-custom, rgba(255, 255, 255, 0.82));
-    backdrop-filter: var(--glass-backdrop-custom, blur(14px));
-    -webkit-backdrop-filter: var(--glass-backdrop-custom, blur(14px));
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(233, 233, 231, 0.9);
-    border-radius: var(--border-radius-custom, 16px);
   }
 
   .dark .glass-panel {
-    background: var(--glass-bg-custom, rgba(32, 32, 32, 0.88));
+    background: rgba(32, 32, 32, 0.88);
     border-color: rgba(46, 46, 46, 0.95);
   }
 
   .glass-card {
-    background: var(--glass-bg-custom, rgba(255, 255, 255, 0.92));
-    backdrop-filter: var(--glass-backdrop-custom, blur(10px));
-    -webkit-backdrop-filter: var(--glass-backdrop-custom, blur(10px));
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--border-main);
-    border-radius: var(--border-radius-custom, 16px);
+    border-radius: 16px;
     transition: border-color 200ms ease, box-shadow 200ms ease;
   }
 
   .dark .glass-card {
-    background: var(--glass-bg-custom, rgba(26, 26, 26, 0.92));
+    background: rgba(26, 26, 26, 0.92);
   }
 
   .glass-card:hover {

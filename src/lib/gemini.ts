@@ -4,7 +4,7 @@ import { vertexAI, auth, db } from './firebase';
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
-import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiLimits';
+import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
 import { createImageCollage } from './utils';
 
 declare const puter: any;
@@ -346,7 +346,7 @@ export function canUseCloudAiProviders(
   return isCloudAiFallbackEnabled(settings);
 }
 
-function migrateToLocalFirstDefaults(parsed: any): any {
+function migrateToLocalFirstDefaults(parsed: Record<string, unknown>) {
   if (parsed.localFirstDefaults) return parsed;
   const legacyText =
     !parsed.preferredProvider || parsed.preferredProvider === 'auto';
@@ -366,7 +366,7 @@ function migrateToLocalFirstDefaults(parsed: any): any {
   return parsed;
 }
 
-export const getAiSettings = (): any => {
+export const getAiSettings = () => {
   const saved = localStorage.getItem('forge_ai_settings');
   if (saved) {
     try {

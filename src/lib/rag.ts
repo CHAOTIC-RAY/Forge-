@@ -1,3 +1,154 @@
-export function syncDatabase(business: any, products: any[], posts: any[], brandKit: any): void {
-  // Pure local sync mock or helper for search indexing
+export interface DocumentChunk {
+  id: string;
+  source: string; 
+  content: string;
+  keywords: Set<string>;
+}
+
+// Global cached index for Live Data Sync (Phase 4)
+let globalVectorDb: DocumentChunk[] | null = null;
+let lastSyncTime = 0;
+
+export function syncDatabase(activeBusiness: any, products: any[], posts: any[], brandKit: any) {
+    globalVectorDb = buildLocalIndex(activeBusiness, products, posts, brandKit);
+    lastSyncTime = Date.now();
+    console.log(`[RAG ENGINE] Synchronized local vector db at ${new Date(lastSyncTime).toLocaleTimeString()}. Total chunks: ${globalVectorDb.length}`);
+    return globalVectorDb;
+}
+
+export function getDatabase(): DocumentChunk[] {
+    return globalVectorDb || [];
+}
+
+export function tokenize(text: string): Set<string> {
+  if (!text) return new Set();
+  const matchResult = text.toLowerCase().match(/\b\w+\b/g);
+  const words: string[] = matchResult ? Array.from(matchResult) : [];
+  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'in', 'on', 'at', 'to', 'for', 'with', 'about', 'of', 'this', 'that', 'it', 'can', 'will', 'what', 'how']);
+  return new Set(words.filter(w => !stopWords.has(w) && w.length > 2));
+}
+
+export function chunkText(text: string, source: string, maxWords: number = 200): DocumentChunk[] {
+  if (!text) return [];
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  const chunks: DocumentChunk[] = [];
+  let currentChunk = "";
+  
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).split(' ').length > maxWords) {
+      if (currentChunk) {
+        chunks.push({
+          id: crypto.randomUUID(),
+          source,
+          content: currentChunk.trim(),
+          keywords: tokenize(currentChunk)
+        });
+      }
+      currentChunk = sentence;
+    } else {
+      currentChunk += " " + sentence;
+    }
+  }
+  if (currentChunk.trim()) {
+    chunks.push({
+      id: crypto.randomUUID(),
+      source,
+      content: currentChunk.trim(),
+      keywords: tokenize(currentChunk)
+    });
+  }
+  return chunks;
+}
+
+export function searchChunks(query: string, chunks: DocumentChunk[], topK: number = 4): DocumentChunk[] {
+  const queryTokens = tokenize(query);
+  if (queryTokens.size === 0) return chunks.slice(0, topK); // Fallback
+  
+  const scored = chunks.map(chunk => {
+    let score = 0;
+    for (const token of queryTokens) {
+      if (chunk.keywords.has(token)) score += 1;
+    }
+    
+    // IDENTITY PRIORITY: Boost Brand/Business info significantly
+    if (chunk.source.toLowerCase().includes('brand') || chunk.source.toLowerCase().includes('business') || chunk.source.toLowerCase().includes('inventory')) {
+      score += 15;
+    }
+
+    // LIMIT STRATEGY EXPOSURE: Soft penalty for strategy chunks if they are too many
+    if (chunk.source.toLowerCase().includes('expert knowledge')) {
+      score = Math.min(score, 5); // Don't let strategy outscore direct brand info unless highly relevant
+    }
+    
+    return { chunk, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // IDENTITY FORCING: Always include the most relevant Brand Info regardless of score
+  const identityChunks = chunks.filter(c => 
+    c.source.includes('Business Info') || 
+    c.source.includes('Brand Profile')
+  ).slice(0, 1); // Get at least one identity chunk
+
+  // For small models, less is more. Max 2 context chunks total.
+  const brandResults = scored
+    .filter(s => s.score > 0 && !s.chunk.source.includes('Expert Knowledge') && !identityChunks.some(ic => ic.id === s.chunk.id))
+    .slice(0, 2);
+  
+  const strategyResults = scored
+    .filter(s => s.score > 0 && s.chunk.source.includes('Expert Knowledge'))
+    .slice(0, 0); // Disable strategy context for local AI until requested
+  
+  const final = [...identityChunks, ...brandResults.map(s => s.chunk), ...strategyResults.map(s => s.chunk)];
+  return final.length > 0 ? final : chunks.slice(0, Math.min(topK, 2));
+}
+
+import { SOCIAL_MEDIA_MASTERCLASS } from './knowledgeLibrary';
+
+export function buildLocalIndex(activeBusiness: any, products: any[], posts: any[], brandKit: any): DocumentChunk[] {
+  const chunks: DocumentChunk[] = [];
+  
+  // 1. Inject Knowledge Library (Static "Training" Data)
+  SOCIAL_MEDIA_MASTERCLASS.forEach(snippet => {
+    chunks.push(...chunkText(`[Masterclass: ${snippet.title}] ${snippet.content}`, `Expert Knowledge: ${snippet.category}`, 100));
+  });
+
+  if (activeBusiness) {
+    chunks.push(...chunkText(`[IDENTITY: brand.md] Business Name: ${activeBusiness.name}. Industry: ${activeBusiness.industry}. Position: ${activeBusiness.position}`, 'Business Info'));
+  }
+  if (brandKit?.brandProfile) {
+    chunks.push(...chunkText(`[IDENTITY: brand.md] PROFILED BRAND IDENTITY:\n${brandKit.brandProfile}`, 'Brand Profile'));
+  }
+  if (brandKit?.designGuide) {
+    chunks.push(...chunkText(`[IDENTITY: design.md] BRAND DESIGN GUIDE:\n${brandKit.designGuide}`, 'Design Guide'));
+  }
+  if (brandKit?.colors) {
+    const colorStr = brandKit.colors.map((c: any) => `${c.name}: ${c.hex}`).join(', ');
+    chunks.push(...chunkText(`Brand Colors: ${colorStr}`, 'Brand Colors', 50));
+  }
+  
+  // Products
+  if (products && products.length > 0) {
+    // Instead of one huge string, chunk individually or grouped
+    const categories = Array.from(new Set(products.map(p => p.type)));
+    chunks.push(...chunkText(`Available Product Categories: ${categories.join(', ')}`, 'Product Categories', 100));
+    
+    // We sample a few products or summarize. If we embed every product description, we do it here.
+    // For large DBs, RAG is perfect.
+    products.forEach(p => {
+        let pTxt = `Product: ${p.title}. Category: ${p.type}. `;
+        if(p.description) pTxt += `Description: ${p.description}. `;
+        if(p.price) pTxt += `Price: ${p.price}. `;
+        chunks.push(...chunkText(pTxt, 'Product Inventory', 50));
+    });
+  }
+
+  // Schedule summary
+  if (posts && posts.length > 0) {
+     const upcoming = posts.slice(0, 10).map(p => `- [${p.date}] ${p.title} (${p.outlet}): ${p.type}`).join('\n');
+     chunks.push(...chunkText(`Upcoming Scheduled Posts:\n${upcoming}`, 'Content Schedule'));
+  }
+
+  return chunks;
 }

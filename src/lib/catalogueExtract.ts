@@ -3,7 +3,7 @@
  */
 
 import { getAiSettings, generateAppJson, isLocalTextProvider, type HighStockProduct } from './gemini';
-import { getContextBudget } from './localAiLimits';
+import { getContextBudget } from './localAiContext';
 
 export type CatalogueMode = 'product' | 'info';
 export type UrlPageKind = 'product_list' | 'product_detail' | 'content' | 'other';

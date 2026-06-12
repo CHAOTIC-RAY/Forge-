@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AutoSuggest } from '../AutoSuggest';
 import { ForgeLoader } from '../ForgeLoader';
-import { X, Upload, Image as ImageIcon, Trash2, Wand2, MessageSquare, Send, Share2, CheckCircle2, AlertCircle, Clock, Repeat, BarChart3, Palette, Sparkles, Hash, Copy } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Trash2, Wand2, MessageSquare, Send, Share2, CheckCircle2, AlertCircle, Clock, Repeat, BarChart3, Palette, Sparkles, Hash } from 'lucide-react';
 import { toast } from 'sonner';
 import { Post, OUTLETS, PRODUCT_CATEGORIES } from '../../data';
 import { v4 as uuidv4 } from 'uuid';
@@ -68,6 +68,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     type: 'Type'
   });
   const [captionLength, setCaptionLength] = useState<number>(50);
+  const imageAiRetryRef = useRef<string | null>(null);
 
   // Handle external image drops
   useEffect(() => {
@@ -153,6 +154,58 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
       }
     }
   }, [isOpen, post, selectedDate, initialProducts]);
+
+  useEffect(() => {
+    if (!isOpen || !post || readOnly) return;
+    const images = post.images?.filter((img) => img.startsWith('data:')) ?? [];
+    if (images.length === 0) return;
+    if (post.caption?.trim()) return;
+    const title = post.title?.trim() || '';
+    const needsAiFill = /^(analyzing|new post from image|new image post|image post)/i.test(title);
+    if (!needsAiFill) return;
+    if (imageAiRetryRef.current === post.id) return;
+    imageAiRetryRef.current = post.id;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const collage = await createImageCollage(images.slice(0, 6));
+        const match = collage.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        if (!match || cancelled) return;
+        const generated = await generatePostFromImage(
+          match[2],
+          match[1],
+          post.outlet || activeBusiness?.name,
+          false,
+          activeBusiness || undefined
+        );
+        if (cancelled) return;
+        setFormData((prev) => ({
+          ...prev,
+          title: generated.title || prev.title,
+          brief: generated.brief || prev.brief,
+          caption: generated.caption || prev.caption,
+          hashtags: generated.hashtags || prev.hashtags,
+          type: generated.type || prev.type,
+          outlet: generated.outlet || prev.outlet,
+        }));
+        if (generated.caption?.trim()) {
+          toast.success('Caption and details filled from image analysis.');
+        } else {
+          toast.warning('AI returned limited content. Use Smart AI Generate or check Settings → Knowledge Center.');
+        }
+      } catch (err) {
+        console.error('[PostModal] image AI retry failed:', err);
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : 'Could not analyze image for this post.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, post?.id, readOnly, activeBusiness?.id, activeBusiness?.name]);
 
   // Remove early return so AnimatePresence can handle unmounting
   // if (!isOpen) return null;
@@ -522,7 +575,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                   name="date"
                   required
                   disabled={readOnly}
-                  value={typeof formData.date === 'string' ? formData.date : (formData.date as any)?.toISOString?.().split('T')[0] || ''}
+                  value={formData.date || ''}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[8px] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition-colors disabled:opacity-70"
                 />
@@ -609,7 +662,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       onClick={() => {
                         const current = formData.contentFormats || [];
                         const next = current.includes(format as any)
-                          ? current.filter((f: any) => f !== format)
+                          ? current.filter(f => f !== format)
                           : [...current, format as any];
                         setFormData(prev => ({ ...prev, contentFormats: next }));
                       }}
@@ -699,25 +752,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
 
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
-                <div className="flex items-center gap-3">
-                  <label className="block text-sm font-medium text-[#757681]">Caption</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!formData.caption) return;
-                      const div = document.createElement('div');
-                      div.innerHTML = formData.caption;
-                      const text = div.innerText || div.textContent || '';
-                      navigator.clipboard.writeText(text);
-                      toast.success("Caption copied to clipboard!");
-                    }}
-                    className="flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-hover active:scale-95 transition-all bg-brand/10 px-2 py-1 rounded"
-                    title="Copy caption"
-                  >
-                    <Copy className="w-3 h-3" />
-                    Copy
-                  </button>
-                </div>
+                <label className="block text-sm font-medium text-[#757681]">Caption</label>
                 {!readOnly && (
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2">
@@ -748,7 +783,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                           if (!formData.title) { toast.warning("Please provide a title first."); return; }
                           setIsGeneratingContent(true);
                           try {
-                            const caption = await generatePostWithFramework(formData.title, (formData.framework as any) || 'AIDA', activeBusiness, captionLength);
+                            const caption = await generatePostWithFramework(formData.title, formData.framework || 'AIDA', activeBusiness, captionLength);
                             setFormData(prev => ({ ...prev, caption }));
                             toast.success("Caption generated!");
                           } catch (e) {
@@ -849,7 +884,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                     <h3 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">Target Platforms</h3>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    {getAnalyticsSettings().targetPlatforms.map((platform: any) => (
+                    {getAnalyticsSettings().targetPlatforms.map((platform) => (
                       <label key={platform} className="flex items-center gap-2 cursor-pointer group">
                         <input
                           type="checkbox"
@@ -897,15 +932,15 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                 <div className={cn(
                   "p-3 rounded-[8px] flex items-center gap-3 text-xs font-medium",
                   formData.publishStatus === 'published' ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                    : formData.publishStatus === 'error' ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                    : formData.publishStatus === 'failed' ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
                     : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
                 )}>
                   {formData.publishStatus === 'published' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                   <div className="flex-1">
                     <p className="capitalize">{formData.publishStatus}: {formData.publishedAt ? `Published on ${new Date(formData.publishedAt).toLocaleString()}` : formData.publishError || 'Waiting for scheduled time'}</p>
                   </div>
-                  {formData.publishStatus === 'error' && !readOnly && (
-                    <button type="button" onClick={handlePublish} className="px-3 py-1 bg-red-600 text-white rounded-[6px] hover:bg-red-700 transition-colors">Retry</button>
+                  {formData.publishStatus === 'failed' && !readOnly && (
+                    <button onClick={handlePublish} className="px-3 py-1 bg-red-600 text-white rounded-[6px] hover:bg-red-700 transition-colors">Retry</button>
                   )}
                 </div>
               )}
@@ -1046,7 +1081,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
                       </div>
                       <div className="p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-center">
                         <p className="text-[10px] font-bold text-[#757681] uppercase mb-1">Likes</p>
-                        <p className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{(formData.analytics as any).likes?.toLocaleString() || '0'}</p>
+                        <p className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED]">{formData.analytics.likes?.toLocaleString() || '0'}</p>
                       </div>
                     </div>
                   ) : (

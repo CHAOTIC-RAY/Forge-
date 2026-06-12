@@ -1,42 +1,73 @@
-import React from 'react';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Plus, 
-  Sparkles, 
-  Calendar as CalendarIcon, 
-  Copy, 
-  Trash2, 
-  Edit3, 
-  RefreshCw, 
-  Wand2, 
-  Eye, 
-  Layers,
-  Laptop
-} from 'lucide-react';
-import { Post, Business } from '../data';
-import { cn } from '../lib/utils';
+import React, { useState, useEffect } from 'react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
+import { useDroppable, useDraggable } from '@dnd-kit/core';
+import { motion, AnimatePresence } from 'motion/react';
+import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ContextMenu, ContextMenuItem } from './ContextMenu';
+import { TabPageContent, TabPageHeader, TabHeaderSegments, TabPageShell } from './ui/TabPageHeader';
+import { Post, PRODUCT_CATEGORIES } from '../data';
+import { cn, getTrustedCdnImageElementProps, getCalendarImageDisplayUrl } from '../lib/utils';
+import { DraggableProduct } from './DraggableProduct';
+import { HighStockProduct } from '../lib/gemini';
+import { CalendarSharing } from './CalendarSharing';
 import { ForgeLoader } from './ForgeLoader';
+import { CalendarGridSkeleton } from './ui/Skeleton';
+import { 
+  Image as ImageIcon, RefreshCw, Wand2, LayoutList, Grid, 
+  List as ListIcon, ChevronLeft, ChevronRight, Search, 
+  X as CloseIcon, Plus, Calendar as CalendarIcon, Share2,
+  Edit2, Trash2, Copy, ExternalLink
+} from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
+
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(max-width: 768px)');
+    const update = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return isMobile;
+}
+
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+
+interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  dueDate?: string;
+  dueTime?: string;
+  priority: 'low' | 'medium' | 'high';
+  project?: string;
+}
+
+type ViewMode = 'grid' | 'timeline';
 
 interface CalendarProps {
   currentDate: Date;
   posts: Post[];
   onEditPost: (post: Post) => void;
-  onDeletePost?: (id: string) => void;
-  onCopyPost?: (post: Post) => void;
-  onAddPost?: (date: Date) => void;
-  onGenerateWithAi?: () => void;
-  onImageClick?: (url: string) => void;
+  onAddPost: (date?: string) => void;
+  onDeletePost?: (postId: string) => void;
+  onCopyPost?: (post: Post, date: string) => void;
+  onImageClick: (images: string[] | string, index?: number, aiProvider?: string) => void;
   onRegeneratePost?: (post: Post) => void;
   onGenerateMockup?: (post: Post) => void;
   onUpdatePost?: (post: Post) => void;
-  onPrevMonth: () => void;
-  onNextMonth: () => void;
-  onFileDrop?: (file: File, dateStr: string) => void;
-  isAdmin: boolean;
-  isGuest: boolean;
-  activeBusiness?: Business | null;
-  onUpdateBusiness?: (biz: Business) => void;
+  onPrevMonth?: () => void;
+  onNextMonth?: () => void;
+  onFileDrop?: (date: string, files: File[]) => void;
+  onGenerateWithAi?: (date?: string) => void;
+  isAdmin?: boolean;
+  isGuest?: boolean;
+  activeBusiness?: any;
+  onUpdateBusiness?: (business: any) => void;
   isDarkMode?: boolean;
   toggleDarkMode?: () => void;
   calendarMode?: 'work' | 'personal';
@@ -44,250 +75,877 @@ interface CalendarProps {
   isSyncing?: boolean;
 }
 
-export function Calendar({
-  currentDate,
-  posts,
-  onEditPost,
-  onDeletePost,
-  onCopyPost,
-  onAddPost,
-  onGenerateWithAi,
-  onImageClick,
-  onRegeneratePost,
-  onGenerateMockup,
-  onPrevMonth,
-  onNextMonth,
-  onFileDrop,
-  isAdmin,
-  isGuest,
-  activeBusiness,
-  calendarMode = 'work',
-  onCalendarModeChange,
-  isSyncing = false
-}: CalendarProps) {
+export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange, isSyncing }: CalendarProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [selectedDate, setSelectedDate] = useState<Date>(currentDate);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; dateStr: string } | null>(null);
+  const [todos, setTodos] = useState<Todo[]>([]);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, 'todos'),
+      where('userId', '==', auth.currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const todosData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Todo[];
+      setTodos(todosData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'todos');
+    });
+
+    return () => unsubscribe();
+  }, []);
   
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(monthStart);
+  const startDate = startOfWeek(monthStart);
+  const endDate = endOfWeek(monthEnd);
 
-  const firstDayOfMonth = new Date(year, month, 1);
-  const startDayOfWeek = firstDayOfMonth.getDay();
-  const totalDays = new Date(year, month + 1, 0).getDate();
+  const dateFormat = "yyyy-MM-dd";
+  const days = eachDayOfInterval({ start: startDate, end: endDate });
 
-  const daysArr: (Date | null)[] = [];
-  for (let i = 0; i < startDayOfWeek; i++) {
-    daysArr.push(null);
-  }
-  for (let d = 1; d <= totalDays; d++) {
-    daysArr.push(new Date(year, month, d));
-  }
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Ensure 42 cell grid
-  while (daysArr.length < 42) {
-    daysArr.push(null);
-  }
-
-  const isSameDay = (postDate: any, cellDate: Date) => {
-    if (!postDate) return false;
-    const d = postDate instanceof Date ? postDate : new Date(postDate);
-    return d.getFullYear() === cellDate.getFullYear() &&
-           d.getMonth() === cellDate.getMonth() &&
-           d.getDate() === cellDate.getDate();
-  };
-
-  const dayOfWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // For timeline view, only show days with posts
+  const daysWithPosts = days.filter(day => isSameMonth(day, monthStart) && posts.some(p => p.date === format(day, dateFormat)));
+  const selectedDateStr = format(selectedDate, dateFormat);
+  const selectedPosts = posts.filter(p => p.date === selectedDateStr);
+  const selectedTodos = todos.filter(t => t.dueDate === selectedDateStr);
+  const selectedItemCount = selectedPosts.length + selectedTodos.length;
 
   return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-      {/* Calendar Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-950/40">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white font-heading">
-            {monthNames[month]} {year}
-          </h2>
-          {isSyncing && <ForgeLoader size={16} />}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onPrevMonth}
-            className="p-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            onClick={onNextMonth}
-            className="p-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer"
-          >
-            <ChevronRight size={16} />
-          </button>
-
-          {isAdmin && onGenerateWithAi && (
-            <button
-              onClick={onGenerateWithAi}
-              className="ml-2 flex items-center gap-1.5 bg-[#2665fd] hover:bg-[#2665fd]/95 text-white py-1.5 px-3 rounded-lg text-xs font-semibold cursor-pointer shadow-sm transition"
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="flex-1 flex flex-col min-h-0"
+    >
+    <TabPageShell className="flex-1 min-h-0">
+      <ContextMenu
+        isOpen={!!contextMenu}
+        x={contextMenu?.x || 0}
+        y={contextMenu?.y || 0}
+        onClose={() => setContextMenu(null)}
+        items={[
+          { label: 'Add Post', icon: <Plus className="w-4 h-4" />, onClick: () => {
+            if (contextMenu) onAddPost(contextMenu.dateStr); 
+            setContextMenu(null);
+          }},
+        ]}
+      />
+      {!isGuest && (
+        <TabPageHeader
+          icon={CalendarIcon}
+          title="Content Calendar"
+          subtitle="Plan and schedule your social media content."
+          actions={
+            isAdmin && onCalendarModeChange ? (
+              <TabHeaderSegments
+                options={[
+                  { id: 'work', label: 'Work' },
+                  { id: 'personal', label: 'Personal' },
+                ]}
+                value={calendarMode}
+                onChange={(id) => onCalendarModeChange(id)}
+              />
+            ) : undefined
+          }
+        />
+      )}
+      <TabPageContent className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 pb-4 md:pb-6">
+      <div className="flex-1 flex flex-col md:flex-row bg-white dark:bg-[#191919] rounded-[12px] md:rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:border-none print:h-auto print:block min-h-0">
+        <div className="flex-1 flex flex-col min-w-0">
+        {/* Header & View Switcher */}
+        <div className="flex items-center justify-between gap-2 p-2 md:p-1.5 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] shrink-0 print:border-none print:p-0 print:mb-4">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-center bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden print:bg-transparent print:border-none">
+            <button 
+              onClick={onPrevMonth}
+              aria-label="Previous Month"
+              className="p-1 md:p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#757681] transition-colors border-r border-[#E9E9E7] dark:border-[#2E2E2E] print:hidden min-h-[44px] min-w-[44px] flex items-center justify-center"
+              title="Previous Month"
             >
-              <Sparkles size={12} className="shrink-0" />
-              <span>Fill Month with AI</span>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <h2 className="px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] min-w-[108px] md:min-w-[140px] text-center print:text-2xl print:text-black print:p-0 print:text-left uppercase tracking-tight">
+              {format(currentDate, 'MMM yyyy')}
+            </h2>
+            <button 
+              onClick={onNextMonth}
+              aria-label="Next Month"
+              className="p-1 md:p-1.5 hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] text-[#757681] transition-colors border-l border-[#E9E9E7] dark:border-[#2E2E2E] print:hidden min-h-[44px] min-w-[44px] flex items-center justify-center"
+              title="Next Month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            </div>
+          </div>
+
+        
+        <div className="flex items-center gap-2 print:hidden">
+          {isGuest && toggleDarkMode && (
+            <button
+              onClick={toggleDarkMode}
+              aria-label="Toggle Dark Mode"
+              className="flex items-center justify-center p-1.5 md:p-2 bg-[#F7F7F5] dark:bg-[#202020] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E] transition-colors text-[#757681] min-h-[44px] min-w-[44px]"
+              title="Toggle Dark Mode"
+            >
+              {isDarkMode ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>}
             </button>
           )}
-
-          {onCalendarModeChange && (
-            <div className="flex items-center border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden shrink-0">
+          {isAdmin && (
+            <div className="flex items-center gap-2 mr-2">
+              <div className="hidden md:block">
+                <CalendarSharing activeBusiness={activeBusiness} onUpdateBusiness={onUpdateBusiness} />
+              </div>
               <button
-                onClick={() => onCalendarModeChange('work')}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium transition cursor-pointer",
-                  calendarMode === 'work' 
-                    ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" 
-                    : "bg-white dark:bg-zinc-900 text-gray-500 hover:bg-gray-50 dark:hover:bg-zinc-800"
-                )}
+                onClick={() => onGenerateWithAi?.()}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#202020] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] text-brand rounded-[8px] text-sm font-medium transition-colors border border-brand-border min-h-[44px]"
               >
-                Work
+                <Wand2 className="w-4 h-4" />
+                AI Generate
               </button>
               <button
-                onClick={() => onCalendarModeChange('personal')}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium transition cursor-pointer",
-                  calendarMode === 'personal' 
-                    ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" 
-                    : "bg-white dark:bg-zinc-900 text-gray-500 hover:bg-gray-50 dark:hover:bg-zinc-800"
-                )}
+                onClick={() => onAddPost()}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand-hover text-white rounded-[8px] text-sm font-medium transition-colors min-h-[44px]"
               >
-                Personal
+                <Plus className="w-4 h-4" />
+                New Post
               </button>
             </div>
           )}
+          <div className="flex bg-[#F7F7F5] dark:bg-[#202020] p-0.5 rounded-[8px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+          <button 
+            onClick={() => setViewMode('grid')} 
+            aria-label="Grid View"
+            className={cn("px-2 md:px-1.5 py-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center gap-1.5", viewMode === 'grid' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
+            title="Grid View"
+          >
+            <Grid className="w-4 h-4" />
+            <span className="hidden min-[390px]:inline md:hidden text-[11px] font-bold">Month</span>
+          </button>
+          <button 
+            onClick={() => setViewMode('timeline')} 
+            aria-label="Timeline View"
+            className={cn("px-2 md:px-1.5 py-1.5 rounded-[6px] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center gap-1.5", viewMode === 'timeline' ? "bg-white dark:bg-[#2E2E2E] text-[#37352F] dark:text-[#EBE9ED] border border-[#E9E9E7] dark:border-[#3E3E3E]" : "text-[#757681] hover:text-[#37352F] dark:hover:text-[#EBE9ED]")}
+            title="Timeline View"
+          >
+            <ListIcon className="w-4 h-4" />
+            <span className="hidden min-[390px]:inline md:hidden text-[11px] font-bold">List</span>
+          </button>
+          </div>
         </div>
       </div>
 
-      {/* Week Day Labels */}
-      <div className="grid grid-cols-7 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/20 dark:bg-zinc-900/30">
-        {dayOfWeekNames.map(day => (
-          <div key={day} className="py-2 text-center text-xs font-semibold text-gray-500 dark:text-zinc-400 font-sans uppercase tracking-wider border-r last:border-r-0 border-gray-100 dark:border-zinc-800">
-            {day}
-          </div>
-        ))}
-      </div>
+      <div className={cn(
+        "flex-1 flex flex-col min-w-0",
+        viewMode !== 'timeline' ? "overflow-x-auto" : ""
+      )}>
+        <div className={cn(
+          "flex-1 flex flex-col",
+          viewMode === 'grid' ? "min-w-0" : ""
+        )}>
+          {/* Weekday Headers (only for grid view) */}
+          {viewMode !== 'timeline' && (
+            <div className={cn(
+              "border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#202020] shrink-0 print:bg-white print:border-gray-300",
+              "grid grid-cols-7 sticky top-0 z-20"
+            )}>
+              {weekDays.map((day) => (
+                <div key={day} className="py-1.5 md:py-3 text-center text-[9px] md:text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider print:text-black">
+                  <span className="md:hidden print:hidden">{day.substring(0, 1)}</span>
+                  <span className="hidden md:inline print:inline">{day}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
-      {/* Calendar Days Matrix */}
-      <div className="grid grid-cols-7 grid-rows-6 flex-1 divide-x divide-y divide-gray-100 dark:divide-zinc-800">
-        {daysArr.map((cellDate, index) => {
-          const cellPosts = cellDate ? posts.filter(post => isSameDay(post.date, cellDate)) : [];
-          const isToday = cellDate && new Date().toDateString() === cellDate.toDateString();
-
-          return (
-            <div
-              key={index}
-              className={cn(
-                "min-h-[110px] p-2 flex flex-col group relative border-gray-100 dark:border-zinc-800",
-                !cellDate && "bg-gray-50/30 dark:bg-zinc-950/20"
-              )}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                {cellDate ? (
-                  <span className={cn(
-                    "text-xs font-bold leading-none px-1.5 py-1 rounded-md",
-                    isToday 
-                      ? "bg-[#2665fd] text-white" 
-                      : "text-gray-800 dark:text-zinc-300"
-                  )}>
-                    {cellDate.getDate()}
-                  </span>
-                ) : <span />}
-
-                {cellDate && isAdmin && onAddPost && (
-                  <button
-                    onClick={() => onAddPost(cellDate)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-zinc-800 rounded-md cursor-pointer transition shrink-0"
-                    title="Add content"
-                  >
-                    <Plus size={12} />
-                  </button>
-                )}
-              </div>
-
-              {/* Cell Posts */}
-              <div className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar max-h-[90px]">
-                {cellPosts.map(post => {
-                  const hasImage = post.images && post.images.length > 0;
+          {/* Main Content Area */}
+          {viewMode === 'timeline' ? (
+            <div className="flex-1 overflow-y-auto bg-white dark:bg-[#191919] p-4 md:p-6 print:p-0 print:block">
+              {daysWithPosts.length === 0 ? (
+                <div className="text-center py-12 text-[#757681] dark:text-[#9B9A97]">
+                  No posts scheduled for this month.
+                </div>
+              ) : (
+                daysWithPosts.map(day => {
+                  const dateStr = format(day, dateFormat);
+                  const dayPosts = posts.filter(p => p.date === dateStr);
                   return (
-                    <div
-                      key={post.id}
-                      className={cn(
-                        "rounded-lg p-1.5 text-[11px] border leading-tight transition cursor-pointer select-none flex flex-col justify-between hover:shadow-sm",
-                        post.status === 'published'
-                          ? "bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400"
-                          : post.status === 'scheduled'
-                          ? "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400"
-                          : "bg-gray-100 dark:bg-zinc-800/80 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300"
-                      )}
-                      onClick={() => onEditPost(post)}
-                    >
-                      <div className="font-semibold truncate mb-1">
-                        {post.title}
-                      </div>
-
-                      {hasImage && post.images && onImageClick && (
-                        <div 
-                          className="w-full h-8 rounded-md mb-1.5 overflow-hidden border border-black/10 shrink-0 select-none group/img relative"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onImageClick(post.images![0]);
-                          }}
-                        >
-                          <img 
-                            src={post.images[0]} 
-                            alt="post preview" 
-                            className="w-full h-full object-cover transition duration-150 transform hover:scale-105"
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition">
-                            <Eye size={10} className="text-white" />
-                          </div>
+                    <div key={dateStr} className="flex flex-col gap-4 mb-8 last:mb-0 print:break-inside-avoid print:mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center text-base font-bold ",
+                          isToday(day) ? "bg-[#2383E2] text-white print:bg-gray-200 print:text-black" : "bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] print:bg-white print:border print:border-gray-300"
+                        )}>
+                          {format(day, 'd')}
                         </div>
-                      )}
-
-                      {/* Action buttons on hover */}
-                      <div className="flex items-center gap-1.5 mt-1 shrink-0">
-                        {isAdmin && onCopyPost && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onCopyPost(post);
-                            }}
-                            className="text-gray-400 hover:text-gray-600 dark:hover:text-white p-0.5"
-                            title="Duplicate"
-                          >
-                            <Copy size={9} />
-                          </button>
-                        )}
-                        {isAdmin && onDeletePost && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeletePost(post.id);
-                            }}
-                            className="text-gray-400 hover:text-red-500 p-0.5 ml-auto"
-                            title="Delete"
-                          >
-                            <Trash2 size={9} />
-                          </button>
-                        )}
+                        <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED] print:text-black">
+                          {format(day, 'EEEE, MMMM d')}
+                        </h3>
+                      </div>
+                      <div className="flex flex-col gap-3 pl-5 border-l-2 border-[#E9E9E7] dark:border-[#2E2E2E] ml-5 print:border-gray-300 print:pl-4">
+                        {dayPosts.map(post => (
+                          <DraggablePost 
+                            key={post.id} 
+                            post={post} 
+                            onEdit={() => onEditPost(post)} 
+                            onImageClick={onImageClick}
+                            onRegenerate={() => onRegeneratePost?.(post)}
+                            onGenerateMockup={() => onGenerateMockup?.(post)}
+                          />
+                        ))}
                       </div>
                     </div>
+                  );
+                })
+              )}
+            </div>
+          ) : isSyncing && posts.length === 0 ? (
+            <CalendarGridSkeleton />
+          ) : (
+            <div className="flex-1 overflow-y-auto bg-[#E9E9E7] dark:bg-[#2E2E2E]">
+              <div 
+                className={cn(
+                  "grid gap-1 md:gap-2 p-1 md:p-2 print:relative print:bg-gray-300 print:border-t print:border-l print:border-gray-300 print:grid",
+                  "grid-cols-7"
+                )}
+              >
+                {days.map((day) => {
+                  const dateStr = format(day, dateFormat);
+                  const dayPosts = posts.filter(p => p.date === dateStr);
+                  const dayTodos = todos.filter(t => t.dueDate === dateStr);
+                  
+                  return (
+                    <DroppableDay 
+                      key={day.toString()} 
+                      day={day} 
+                      dateStr={dateStr} 
+                      posts={dayPosts}
+                      todos={dayTodos}
+                      isCurrentMonth={isSameMonth(day, monthStart)}
+                      viewMode={viewMode}
+                      isSelected={isSameDay(day, selectedDate)}
+                      onSelect={() => setSelectedDate(day)}
+                      onEditPost={onEditPost}
+                      onAddPost={onAddPost}
+                      onImageClick={onImageClick}
+                      onRegeneratePost={onRegeneratePost}
+                      onGenerateMockup={onGenerateMockup}
+                      onUpdatePost={onUpdatePost}
+                      onDeletePost={onDeletePost}
+                      onFileDrop={onFileDrop}
+                      isAdmin={isAdmin}
+                      setContextMenu={setContextMenu}
+                    />
                   );
                 })}
               </div>
             </div>
-          );
-        })}
+          )}
+        </div>
+      </div>
+
+      {/* Selected Date Posts (Mobile Grid View Only) */}
+      {viewMode === 'grid' && (
+        <div className="md:hidden border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5] dark:bg-[#121212] p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] print:hidden">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Selected Date</span>
+              <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-lg leading-tight">
+                {format(selectedDate, 'EEEE, MMM d')}
+              </h3>
+              <span className="mt-1 text-xs font-medium text-[#757681] dark:text-[#9B9A97]">
+                {selectedItemCount === 0 ? 'No items yet' : `${selectedItemCount} scheduled item${selectedItemCount === 1 ? '' : 's'}`}
+              </span>
+            </div>
+            {isAdmin && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button 
+                  onClick={() => onGenerateWithAi?.(format(selectedDate, dateFormat))}
+                  aria-label="Generate post with AI for selected date"
+                  className="w-12 h-12 bg-white dark:bg-[#1E1E1E] text-brand rounded-[14px] border border-brand-border flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <Wand2 className="w-6 h-6" />
+                </button>
+                <button 
+                  onClick={() => onAddPost(format(selectedDate, dateFormat))}
+                  aria-label="Add post for selected date"
+                  className="w-12 h-12 bg-brand text-white rounded-[14px] flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <Plus className="w-6 h-6" />
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex flex-col gap-4">
+            {selectedPosts.length === 0 && selectedTodos.length === 0 ? (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="py-10 px-5 text-center bg-white dark:bg-[#1E1E1E] rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E]"
+              >
+                <div className="w-12 h-12 bg-[#F7F7F5] dark:bg-[#2E2E2E] rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CalendarIcon className="w-6 h-6 text-[#9B9A97]" />
+                </div>
+                <p className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED]">No scheduled items</p>
+                {isAdmin && (
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-1">Tap the + button to add a post for this day.</p>
+                )}
+              </motion.div>
+            ) : (
+              <div className="space-y-4">
+                {selectedPosts.map((post, idx) => (
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                  >
+                    <DraggablePost 
+                      post={post} 
+                      onEdit={() => onEditPost(post)} 
+                      onImageClick={onImageClick}
+                      onRegenerate={() => onRegeneratePost?.(post)}
+                      onGenerateMockup={() => onGenerateMockup?.(post)}
+                      isAdmin={isAdmin}
+                    />
+                  </motion.div>
+                ))}
+                {selectedTodos.map((todo, idx) => (
+                  <motion.div
+                    key={todo.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className={cn(
+                      "p-4 rounded-[12px] border flex flex-col gap-2 relative group overflow-hidden transition-all",
+                      todo.completed ? "bg-gray-50 border-gray-200 text-gray-500 line-through" : "bg-yellow-50 border-yellow-200 text-yellow-800"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ListIcon className="w-4 h-4 shrink-0" />
+                      <span className="font-bold">{todo.text}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      </div>
+      </div>
+      </TabPageContent>
+    </TabPageShell>
+    </motion.div>
+  );
+}
+
+function DraggableImage({ imageUrl, post }: { imageUrl: string, post: Post, key?: React.Key }) {
+  const isMobile = useIsMobile();
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `image:${post.id}-${imageUrl}`,
+    data: { type: 'image', imageUrl, sourcePost: post },
+    disabled: isMobile
+  });
+
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    zIndex: isDragging ? 100 : 1,
+  };
+
+  const getDisplayUrl = (url: string) => getCalendarImageDisplayUrl(url);
+
+  return (
+    <div className="relative w-full h-full">
+      <img 
+        ref={setNodeRef}
+        style={style}
+        {...listeners}
+        {...attributes}
+        src={getDisplayUrl(imageUrl)} 
+        alt="" 
+        {...getTrustedCdnImageElementProps(imageUrl)}
+        className={cn("w-full h-full object-cover", isDragging && "opacity-50")} 
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          if (!target.src.includes('placehold.co')) {
+            if (target.crossOrigin && !target.dataset.forgeImgRetry) {
+              target.dataset.forgeImgRetry = '1';
+              target.removeAttribute('crossorigin');
+              const prev = target.src;
+              target.src = '';
+              target.src = prev;
+              return;
+            }
+            target.src = 'https://placehold.co/600x600/f3f4f6/94a3b8?text=Image+Unavailable';
+          }
+        }}
+      />
+      {auth.currentUser && post.aiProvider && imageUrl.startsWith('data:') && (
+        <div className="absolute bottom-0.5 left-0.5 px-1 py-0.5 bg-purple-500/80 text-white text-[6px] font-bold rounded uppercase tracking-widest z-10 pointer-events-none">
+          AI: {post.aiProvider}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+interface DroppableDayProps {
+  key?: React.Key;
+  day: Date;
+  dateStr: string;
+  posts: Post[];
+  todos?: Todo[];
+  isCurrentMonth: boolean;
+  viewMode: ViewMode;
+  isSelected: boolean;
+  onSelect: () => void;
+  onEditPost: (post: Post) => void;
+  onAddPost: (date?: string) => void;
+  onImageClick: (images: string[] | string, index?: number, aiProvider?: string) => void;
+  onRegeneratePost?: (post: Post) => void;
+  onGenerateMockup?: (post: Post) => void;
+  onUpdatePost?: (post: Post) => void;
+  onDeletePost?: (postId: string) => void;
+  onFileDrop?: (date: string, files: File[]) => void;
+  isAdmin?: boolean;
+  setContextMenu: (menu: { x: number; y: number; dateStr: string } | null) => void;
+}
+
+function DroppableDay({ day, dateStr, posts, todos = [], isCurrentMonth, viewMode, isSelected, onSelect, onEditPost, onAddPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onDeletePost, onFileDrop, isAdmin, setContextMenu }: DroppableDayProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: dateStr,
+  });
+
+  const [isNativeDragOver, setIsNativeDragOver] = useState(false);
+
+  // Find the first post with an image to use as background
+  const postWithImage = posts.find(p => p.images && p.images.length > 0);
+  const backgroundImage = postWithImage?.images?.[0];
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      setIsNativeDragOver(true);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      setIsNativeDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsNativeDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      setIsNativeDragOver(false);
+      const files = Array.from(e.dataTransfer.files) as File[];
+      const mediaFiles = files.filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+      if (mediaFiles.length > 0 && onFileDrop) {
+        onFileDrop(dateStr, mediaFiles);
+      }
+    }
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, dateStr });
+      }}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onClick={(e) => {
+        if (viewMode === 'grid' && window.innerWidth < 768) {
+          onSelect();
+        } else if (e.target === e.currentTarget && isAdmin) {
+          onAddPost(dateStr);
+        }
+      }}
+      className={cn(
+        "transition-all cursor-pointer flex flex-col relative group min-h-0 overflow-hidden rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50",
+        "aspect-square p-1.5 md:p-2.5 gap-1 md:gap-1.5",
+        "bg-white dark:bg-[#191919]",
+        !isCurrentMonth && "flex bg-[#F7F7F5] dark:bg-[#202020] text-[#757681] opacity-40 print:opacity-100 print:bg-gray-50",
+        (isOver || isNativeDragOver) && "bg-[#EFEFED] dark:bg-[#2E2E2E] ring-2 ring-inset ring-brand",
+        viewMode === 'grid' && isSelected && "ring-2 ring-inset ring-brand bg-[#EFEFED]/50 dark:bg-[#2E2E2E]/50",
+        "print:bg-white print:min-h-[120px] print:border-r print:border-b print:border-gray-300 print:p-1"
+      )}
+    >
+      {/* Background Image */}
+      {backgroundImage && (
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <img 
+            src={getCalendarImageDisplayUrl(backgroundImage)}
+            alt=""
+            {...getTrustedCdnImageElementProps(backgroundImage)}
+            className="absolute inset-0 w-full h-full object-cover opacity-60 dark:opacity-40"
+            style={{ 
+              display: 'block',
+              width: '100%',
+              height: '100%',
+            }}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/5 to-black/30 dark:to-black/70" />
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-1.5 md:mb-2 shrink-0 z-10 relative">
+        <div className="flex items-center gap-1.5 flex-row">
+          <span className={cn(
+            "text-xs md:text-sm font-bold flex items-center justify-center rounded-[8px] transition-all",
+            "w-6 h-6 md:w-8 md:h-8",
+            isToday(day) 
+              ? "bg-brand text-white ring-2 ring-blue-200 dark:ring-blue-900/30" 
+              : isSelected 
+                ? "bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919]"
+                : backgroundImage 
+                  ? "text-white bg-black/40 backdrop-blur-sm"
+                  : "text-[#37352F] dark:text-[#EBE9ED] bg-[#F7F7F5] dark:bg-[#202020] md:bg-transparent md:dark:bg-transparent"
+          )}>
+            {format(day, 'd')}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-1 pointer-events-auto">
+          {/* Universal Post Indicator (Dot) - Hidden if background image is present to keep it clean */}
+          {posts.length > 0 && !backgroundImage && (
+            <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+          )}
+          
+          {/* Quick add button visible on hover on desktop */}
+          {isAdmin && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onAddPost(dateStr); }}
+              aria-label="Add Post"
+              className={cn(
+                "hidden sm:flex w-8 h-8 items-center justify-center rounded-[8px] transition-all print:hidden",
+                backgroundImage 
+                  ? "bg-black/40 backdrop-blur-sm text-white hover:bg-black/60" 
+                  : "bg-[#EFEFED] dark:bg-[#2E2E2E] hover:bg-[#E9E9E7] dark:hover:bg-[#3E3E3E] text-[#757681]"
+              )}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Grid View Dots (Secondary detailed indicator) */}
+      {viewMode === 'grid' && (
+        <div className="md:hidden flex flex-wrap justify-center gap-0.5 mt-0.5 print:hidden">
+          {posts.slice(0, 4).map(post => (
+            <div key={post.id} className="w-1 h-1 rounded-full bg-brand/60" />
+          ))}
+        </div>
+      )}
+
+      {/* Desktop View Posts */}
+      <div className={cn(
+        "flex-1 min-h-0 flex flex-col gap-1.5 print:overflow-visible overflow-y-auto no-scrollbar relative z-10",
+        viewMode === 'grid' ? "hidden md:flex print:flex" : "flex"
+      )}>
+        <SortableContext items={posts.map(p => p.id)} strategy={rectSortingStrategy}>
+          {posts.map(post => (
+            <DraggablePost 
+              key={post.id} 
+              post={post} 
+              viewMode={viewMode}
+              onEdit={() => onEditPost(post)} 
+              onImageClick={onImageClick}
+              onRegenerate={() => onRegeneratePost?.(post)}
+              onGenerateMockup={() => onGenerateMockup?.(post)}
+              onUpdate={(updatedPost) => onUpdatePost?.(updatedPost)}
+              onDelete={() => onDeletePost?.(post.id)}
+              isAdmin={isAdmin}
+            />
+          ))}
+        </SortableContext>
+        {todos.map(todo => (
+          <div key={todo.id} className={cn(
+            "text-[10px] p-1.5 rounded border flex flex-col gap-0.5 relative group overflow-hidden transition-all",
+            todo.completed ? "bg-gray-50 border-gray-200 text-gray-500 line-through" : "bg-yellow-50 border-yellow-200 text-yellow-800"
+          )}>
+            <div className="flex items-center gap-1">
+              <ListIcon className="w-3 h-3 shrink-0" />
+              <span className="font-bold truncate">{todo.text}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
-export default Calendar;
+
+interface DraggablePostProps {
+  key?: React.Key;
+  post: Post;
+  viewMode?: ViewMode;
+  onEdit: () => void;
+  onImageClick: (images: string[] | string, index?: number, aiProvider?: string) => void;
+  onRegenerate?: () => void;
+  onGenerateMockup?: () => void;
+  onUpdate?: (post: Post) => void;
+  onDelete?: () => void;
+  isAdmin?: boolean;
+}
+
+function DraggablePost({ post, viewMode, onEdit, onImageClick, onRegenerate, onGenerateMockup, onUpdate, onDelete, isAdmin }: DraggablePostProps) {
+  const [isRegenerating, setIsRegenerating] = React.useState(false);
+  const [isGeneratingMockup, setIsGeneratingMockup] = React.useState(false);
+
+  const handleRegenerate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRegenerate) {
+      setIsRegenerating(true);
+      await onRegenerate();
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleGenerateMockup = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onGenerateMockup) {
+      setIsGeneratingMockup(true);
+      await onGenerateMockup();
+      setIsGeneratingMockup(false);
+    }
+  };
+
+  const isMobile = useIsMobile();
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: post.id, data: { type: 'post', post }, disabled: isMobile });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.5 : 1,
+    touchAction: 'none',
+  };
+
+  // Extract emoji from type
+  const emojiMatch = (post.type || '').match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u);
+  const emoji = emojiMatch ? emojiMatch[0] : '📝';
+
+  const contextMenuItems: ContextMenuItem[] = [
+    { label: 'Edit Post', icon: <Edit2 className="w-3.5 h-3.5" />, onClick: onEdit },
+    { label: 'Regenerate AI', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => onRegenerate?.() },
+    { label: 'Generate Mockup', icon: <Wand2 className="w-3.5 h-3.5" />, onClick: () => onGenerateMockup?.() },
+    { label: 'Copy Title', icon: <Copy className="w-3.5 h-3.5" />, onClick: () => {
+      navigator.clipboard.writeText(post.title);
+      toast.success("Title copied!");
+    }},
+    { label: 'Copy Caption', icon: <Copy className="w-3.5 h-3.5" />, onClick: () => {
+      navigator.clipboard.writeText(post.caption || '');
+      toast.success("Caption copied!");
+    }},
+    { 
+      label: 'Open Link', 
+      icon: <ExternalLink className="w-3.5 h-3.5" />, 
+      disabled: !post.link,
+      onClick: () => post.link && window.open(post.link, '_blank') 
+    },
+    ...(isAdmin ? [{ 
+      label: post.isHiddenForOthers ? 'Show for others' : 'Hide for others', 
+      icon: post.isHiddenForOthers ? <ExternalLink className="w-3.5 h-3.5" /> : <CloseIcon className="w-3.5 h-3.5" />, 
+      onClick: () => {
+        onUpdate?.({ ...post, isHiddenForOthers: !post.isHiddenForOthers });
+        toast.success(post.isHiddenForOthers ? "Post is now visible to others" : "Post is now hidden from others");
+      }
+    }] : []),
+    ...(isAdmin ? [{ 
+      label: 'Delete Post', 
+      icon: <Trash2 className="w-3.5 h-3.5" />, 
+      variant: 'danger' as const,
+      onClick: () => {
+        if (window.confirm("Are you sure you want to delete this post?")) {
+          onDelete?.();
+        }
+      }
+    }] : []),
+  ];
+
+  const isStory = post.contentFormats?.includes('Story');
+  const isReel = post.contentFormats?.includes('Reel');
+
+  return (
+    <ContextMenu items={contextMenuItems}>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={(e) => {
+          // Prevent drag click from triggering edit immediately if dragging
+          if (!isDragging) {
+            e.stopPropagation();
+            onEdit();
+          }
+        }}
+        className={cn(
+          "text-left bg-white/90 dark:bg-[#1E1E1E]/80 backdrop-blur-md border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-brand transition-all cursor-grab active:cursor-grabbing flex flex-col z-10 relative overflow-hidden",
+          viewMode === 'grid' ? "py-3 pr-3 pl-3 md:py-1.5 md:pr-1.5 md:pl-1.5 gap-2 md:gap-1" : "py-4 pr-4 pl-4 gap-3",
+          (isStory || isReel) && (viewMode === 'grid' ? "pl-[16px] md:pl-[10px]" : "pl-6"),
+          isDragging && "border-brand shadow-2xl z-50 ring-4 ring-brand/20 opacity-90",
+          !isDragging && "hover:border-brand/60",
+          "print:border-none print:shadow-none print:p-1 print:bg-transparent print:gap-1 print:break-inside-avoid"
+        )}
+      >
+        {(isStory || isReel) && (
+          <div className="absolute left-0 top-0 bottom-0 w-[4px] flex flex-col z-0">
+            {isStory && <div className="flex-1 bg-pink-500" />}
+            {isReel && <div className="flex-1 bg-amber-400" />}
+          </div>
+        )}
+      <div className={cn("flex items-center gap-2 text-[#757681] print:text-sm print:text-black", viewMode === 'grid' ? "text-[11px] mb-1" : "text-xs mb-1")}>
+        <span className={cn(viewMode === 'grid' ? "text-sm" : "text-sm")}>{emoji}</span>
+        <span className="truncate font-bold text-[#37352F] dark:text-[#EBE9ED] print:whitespace-normal">{post.outlet}</span>
+        {post.productCategory && <span className="hidden print:inline"> • {post.productCategory}</span>}
+        
+        {/* Status Indicators */}
+        <div className="ml-auto flex gap-[2px] items-center">
+          {/* Content Format Badges */}
+          {post.contentFormats?.map(format => {
+            if (format !== 'Story' && format !== 'Reel') return null; // Only highlight special formats
+            return (
+              <span key={format} className={cn(
+                "rounded-[4px] font-bold uppercase tracking-wider border",
+                viewMode === 'grid' ? "text-[6px] px-0.5 py-[1px] leading-none" : "text-[8px] px-1.5 py-[2px] leading-none",
+                format === 'Story' ? "bg-pink-50 text-pink-600 border-pink-200 dark:bg-pink-950/40 dark:text-pink-400 dark:border-pink-900/50" :
+                "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50"
+              )}>
+                {viewMode === 'grid' ? format.charAt(0) : format}
+              </span>
+            );
+          })}
+          {post.isHiddenForOthers && (
+            <span className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 rounded-[4px] font-bold uppercase text-[7px] px-1 flex items-center gap-0.5" title="Hidden from other viewers">
+              <CloseIcon className="w-2 h-2" />
+              Private
+            </span>
+          )}
+          {post.approvalStatus && post.approvalStatus !== 'draft' && (
+            <span className={cn(
+              "rounded-[4px] font-bold uppercase",
+              viewMode === 'grid' ? "text-[7px] px-0.5" : "text-[9px] px-1",
+              post.approvalStatus === 'approved' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : 
+              post.approvalStatus === 'needs_revision' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+            )}>
+              {viewMode === 'grid' ? post.approvalStatus.charAt(0) : post.approvalStatus.replace('_', ' ')}
+            </span>
+          )}
+          {post.publishStatus && (
+            <span className={cn(
+              "rounded-[4px] font-bold uppercase",
+              viewMode === 'grid' ? "text-[7px] px-0.5" : "text-[9px] px-1",
+              post.publishStatus === 'published' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : 
+              post.publishStatus === 'failed' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+            )}>
+              {viewMode === 'grid' ? post.publishStatus.charAt(0) : post.publishStatus}
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <h4 className={cn("font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight print:line-clamp-none print:text-lg print:text-black print:mb-2", viewMode === 'grid' ? "text-[10px] md:text-xs line-clamp-2" : "text-sm md:text-xs md:line-clamp-2")}>
+        {post.title}
+      </h4>
+
+      {post.link && viewMode !== 'grid' && (
+        <div className="text-[10px] text-[#2383E2] truncate hover:underline print:hidden">
+          <a href={post.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+            {post.link}
+          </a>
+        </div>
+      )}
+
+      <div className="hidden print:block text-sm text-black mb-2">
+        {post.brief && <p className="mb-1"><strong>Brief:</strong> {post.brief}</p>}
+        {post.caption && <p className="mb-1"><strong>Caption:</strong> {post.caption}</p>}
+        {post.hashtags && <p className="mb-1 text-blue-600">{post.hashtags}</p>}
+        {post.link && <p className="mb-1 text-blue-600 underline">{post.link}</p>}
+      </div>
+
+      {post.images && post.images.length > 0 && (
+        <div className={cn(
+          "flex gap-1 mt-1 overflow-x-auto pointer-events-auto print:flex-wrap print:overflow-visible print:gap-4 print:mt-2",
+          viewMode === 'grid' ? "mt-0.5" : "mt-1"
+        )}>
+          {post.images.map((img, idx) => (
+            <div 
+              key={idx} 
+              className={cn(
+                "relative rounded overflow-hidden flex-shrink-0 border border-[#E9E9E7] dark:border-[#2E2E2E] cursor-pointer hover:opacity-80 transition-opacity print:w-48 print:h-48 print:border-gray-300 print:rounded-[8px] print:",
+                viewMode === 'grid' ? "w-10 h-10 md:w-14 lg:w-16 md:h-14 lg:h-16" : "w-6 h-6 sm:w-8 sm:h-8"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onImageClick(post.images!, idx, post.aiProvider);
+              }}
+            >
+              <DraggableImage imageUrl={img} post={post} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* AI Actions */}
+      {isAdmin && viewMode !== 'grid' && (
+        <div className={cn("flex items-center mt-2 pt-2 border-t border-[#E9E9E7] dark:border-[#2E2E2E] pointer-events-auto print:hidden", "gap-3 md:gap-2")}>
+          <button
+            onClick={handleRegenerate}
+            disabled={isRegenerating}
+            className="flex items-center gap-1.5 text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] disabled:opacity-50 transition-colors"
+            title="Regenerate with AI"
+          >
+            {isRegenerating ? <ForgeLoader size={14} /> : <RefreshCw className="w-3.5 h-3.5" />}
+            <span className="text-xs font-medium">Regenerate</span>
+          </button>
+          <button
+            onClick={handleGenerateMockup}
+            disabled={isGeneratingMockup || !post.title || !post.brief || !post.caption}
+            className="flex items-center gap-1.5 text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] disabled:opacity-50 transition-colors"
+            title={(!post.title || !post.brief || !post.caption) ? "Fill title, brief, and caption to generate mockup" : "Generate Mockup"}
+          >
+            {isGeneratingMockup ? <ForgeLoader size={14} /> : <Wand2 className="w-3.5 h-3.5" />}
+            <span className="text-xs font-medium">Mockup</span>
+          </button>
+        </div>
+      )}
+      </div>
+    </ContextMenu>
+  );
+}

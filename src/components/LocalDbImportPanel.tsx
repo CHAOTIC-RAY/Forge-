@@ -40,7 +40,7 @@ const TAB_LABELS: { id: ImportTab; label: string }[] = [
   { id: 'advanced', label: 'Advanced' },
 ];
 
-const KIND_LABELS: Record<string, string> = {
+const KIND_LABELS: Record<UrlPageKind, string> = {
   product_list: 'Listing',
   product_detail: 'Product',
   content: 'Content',
@@ -110,7 +110,7 @@ export function LocalDbImportPanel({
   >([]);
   const [pendingReview, setPendingReview] = useState<HighStockProduct[]>([]);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
-  const [queueFilter, setQueueFilter] = useState<any>('all');
+  const [queueFilter, setQueueFilter] = useState<UrlPageKind | 'all'>('all');
   const [crawlLimit, setCrawlLimit] = useState(
     () => aiSettings.catalogueCrawlLimit || 100
   );
@@ -229,7 +229,7 @@ export function LocalDbImportPanel({
   };
 
   const processCrawlPages = async (pages: any[]) => {
-    const report: any = {
+    const report: ImportReport = {
       pagesProcessed: 0,
       itemsExtracted: 0,
       duplicatesSkipped: 0,
@@ -313,7 +313,7 @@ export function LocalDbImportPanel({
     }
     setIsConverting(true);
     setConvertProgress({ done: 0, total: fetchedPages.length });
-    const report: any = {
+    const report: ImportReport = {
       pagesProcessed: 0,
       itemsExtracted: 0,
       duplicatesSkipped: 0,
@@ -377,7 +377,7 @@ export function LocalDbImportPanel({
     const includePaths = ['/product', '/shop', '/products', '/collections', '/category'];
     const excludePaths = ['/cart', '/checkout', '/account', '/wp-admin'];
     try {
-      const data: any = await (startCrawlJob as any)({
+      const data = await startCrawlJob({
         url: manualUrl,
         limit: crawlLimit,
         apiKey: aiSettings.firecrawlApiKey,
@@ -411,7 +411,7 @@ export function LocalDbImportPanel({
 
     crawlIntervalRef.current = setInterval(async () => {
       try {
-        const data: any = await (pollCrawlJob as any)(jobId, aiSettings.firecrawlApiKey);
+        const data = await pollCrawlJob(jobId, aiSettings.firecrawlApiKey);
         if (data.data && data.data.length > processed + 15) {
           const batch = data.data.slice(processed, processed + 20);
           await processCrawlPages(batch);
@@ -427,14 +427,14 @@ export function LocalDbImportPanel({
             });
           }
         }
-        if ((data.status as any) === 'completed' || (data.status as any) === 'failed') {
+        if (data.status === 'completed' || data.status === 'failed') {
           if (crawlIntervalRef.current) clearInterval(crawlIntervalRef.current);
           crawlIntervalRef.current = null;
           const remaining = data.data?.slice(processed) || [];
           if (remaining.length) await processCrawlPages(remaining);
           setIsCrawling(false);
           setCrawlJobId(null);
-          addLog((data.status as any) === 'completed' ? 'Crawl completed.' : `Crawl failed: ${data.error}`);
+          addLog(data.status === 'completed' ? 'Crawl completed.' : `Crawl failed: ${data.error}`);
         }
       } catch (e: any) {
         if (crawlIntervalRef.current) clearInterval(crawlIntervalRef.current);
@@ -574,12 +574,12 @@ export function LocalDbImportPanel({
         <div className="flex-1 relative">
           <input
             type="url"
-            placeholder={`Source URL (${activeBusiness?.targetUrl || 'https://example.com'})`}
+            placeholder={`Source URL (${aiSettings.targetUrl || 'https://example.com'})`}
             value={manualUrlInput}
             onChange={(e) => setManualUrlInput(e.target.value)}
-            onBlur={() => setManualUrl(manualUrlInput || activeBusiness?.targetUrl || '')}
+            onBlur={() => setManualUrl(manualUrlInput || aiSettings.targetUrl || '')}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') setManualUrl(manualUrlInput || activeBusiness?.targetUrl || '');
+              if (e.key === 'Enter') setManualUrl(manualUrlInput || aiSettings.targetUrl || '');
             }}
             className="w-full pl-4 pr-10 py-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-brand/30 outline-none"
           />

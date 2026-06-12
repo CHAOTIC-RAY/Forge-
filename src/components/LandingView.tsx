@@ -34,9 +34,8 @@ import {
   Tag,
   Instagram,
   RefreshCw,
-  Boxes,
 } from 'lucide-react';
-import { ForgeLogo } from './ForgeLogo';
+import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
 import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent } from 'motion/react';
@@ -44,75 +43,6 @@ import { HeroHandwritingTitle } from './HeroHandwritingTitle';
 import { animateScrollTo, easeOutExpo, easeInOutQuint, waitMs } from '../lib/guidedScroll';
 
 const landingTerms = INDUSTRY_CONFIGS.default.terminology;
-
-const FORGE_SCRIBBLE_CYCLE_S = 6;
-
-export function ScribbleFlame() {
-  const colors = ['#2383E2', '#E2234D', '#E2A123', '#23E25D', '#9333EA'];
-  const [colorIndex, setColorIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setColorIndex((prev) => (prev + 1) % colors.length);
-    }, FORGE_SCRIBBLE_CYCLE_S * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const path1 = "M80.94,339.18C54.87,305.14,1.11,253.95,24.35,206.95c19.57-39.57,85.35-54.11,122.96-71.32,22.58-10.33,49.32-24.04,59.45-48.04l3.3,16.72c-1.5,34.98-17.01,51.98-47.34,65.85-9.29,4.25-42.44,13.21-44.92,22.07-1.23,4.4,2.15,8.29,6.11,9.36,5.31,1.43,20.62-6.08,26.58-8.63,13.92-5.95,28.69-13.54,41.9-20.98-2.86,36.18-36.16,66.88-69.22,78.06-8.2,2.77-42.23,7.56-42.23,16.69v72.45Z";
-  const path2 = "M10.86,234.07c-2.26-.04-3.13-4.53-3.9-6.42-18.16-44.69.65-84.17,40.06-107.91,36.8-22.18,136.59-47.56,137.48-99.91.11-6.63-4.19-13.12-2.44-19.82,19.74,18.71,27.39,43.38,20.72,70.07-12.87,51.53-90.85,66.89-132.46,87.29-31.16,15.27-62.01,37.69-59.45,76.71Z";
-
-  return (
-    <motion.div 
-      className="w-full h-full relative"
-      animate={{ color: colors[colorIndex] }}
-      transition={{ duration: 0.5 }}
-    >
-      <svg viewBox="0 0 210 340" className="w-full h-full text-current absolute inset-0 overflow-visible animate-pulse duration-1000">
-        {/* Glow Layer */}
-        <motion.path
-          d={path1}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="10"
-          initial={{ opacity: 0, filter: "blur(0px)", scale: 1 }}
-          animate={{ opacity: [0, 0, 0.8, 0, 0], filter: ["blur(0px)", "blur(0px)", "blur(20px)", "blur(60px)", "blur(0px)"], scale: [1, 1, 1.1, 1.5, 1] }}
-          transition={{ duration: FORGE_SCRIBBLE_CYCLE_S, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut" }}
-          style={{ transformOrigin: "center" }}
-        />
-        <motion.path
-          d={path2}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="10"
-          initial={{ opacity: 0, filter: "blur(0px)", scale: 1 }}
-          animate={{ opacity: [0, 0, 0.8, 0, 0], filter: ["blur(0px)", "blur(0px)", "blur(20px)", "blur(60px)", "blur(0px)"], scale: [1, 1, 1.1, 1.5, 1] }}
-          transition={{ duration: FORGE_SCRIBBLE_CYCLE_S, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut", delay: 0.1 }}
-          style={{ transformOrigin: "center" }}
-        />
-        
-        {/* Outline Layer */}
-        <motion.path
-          d={path1}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: [0, 1, 1, 1, 0], opacity: [1, 1, 0.5, 0, 0] }}
-          transition={{ duration: FORGE_SCRIBBLE_CYCLE_S, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut" }}
-        />
-        <motion.path
-          d={path2}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: [0, 1, 1, 1, 0], opacity: [1, 1, 0.5, 0, 0] }}
-          transition={{ duration: FORGE_SCRIBBLE_CYCLE_S, repeat: Infinity, times: [0, 0.4, 0.6, 0.8, 1], ease: "easeInOut", delay: 0.1 }}
-        />
-      </svg>
-    </motion.div>
-  );
-}
 
 const IMPORT_TABS = ['Discover', 'Fetch', 'Convert', 'Review', 'Advanced'] as const;
 
@@ -858,7 +788,7 @@ const SECTIONS: LandingSection[] = [
   },
   {
     id: 'ai',
-    icon: Boxes,
+    icon: Sparkles,
     title: 'Widgets',
     description:
       'Built-in AI widgets ship with the app—caption writer, hashtag packs, designer briefs, and hooks. Run locally in the browser when you want privacy; optional cloud models when you need more power. More widgets on the way.',
@@ -939,23 +869,16 @@ export function LandingView({ onLogin }: LandingViewProps) {
     offset: ['start end', 'end end'],
   });
 
-  const calloutScale = useTransform(scrollYProgress, [0, 0.65, 0.85, 1], [0.92, 0.98, 1.15, 1.15]);
-  const calloutRadius = useTransform(scrollYProgress, [0, 0.65, 0.85, 1], ['28px', '28px', '0px', '0px']);
-  const sectionPadX = useTransform(scrollYProgress, [0, 0.65, 0.85, 1], ['1.25rem', '1.25rem', '0px', '0px']);
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.65, 0.85, 1], [1, 1, 0, 0]);
-  const fullBleedOpacity = useTransform(scrollYProgress, [0, 0.65, 0.85, 1], [0, 0, 1, 1]);
-  const headlineSize = useTransform(scrollYProgress, [0, 0.65, 0.85, 1], ['1.875rem', '1.875rem', '3rem', '3rem']);
-  const contentY = useTransform(scrollYProgress, [0, 0.65, 0.85, 1], [20, 20, 0, 0]);
+  const calloutScale = useTransform(scrollYProgress, [0, 0.4, 0.72], [0.92, 0.98, 1]);
+  const calloutRadius = useTransform(scrollYProgress, [0, 0.55, 0.8], ['28px', '16px', '0px']);
+  const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.5, 0.72], [1, 1, 0]);
+  const fullBleedOpacity = useTransform(scrollYProgress, [0.38, 0.58, 0.82], [0, 0.7, 1]);
+  const headlineSize = useTransform(scrollYProgress, [0, 0.75, 1], ['1.875rem', '2.25rem', '3rem']);
+  const contentY = useTransform(scrollYProgress, [0.7, 1], [12, 0]);
   const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
   const sidebarX = useTransform(scrollYProgress, [0.48, 0.72], ['0%', '-110%']);
-  
-  // High-fidelity backdrop flame animation: starts highly visible and beautifully centered on the hero,
-  // then slowly fades and moves further to the right sides as the user scrolls down,
-  // before fading to zero on the immersive footer call-to-action.
-  const scribbleOpacity = useTransform(scrollYProgress, [0, 0.22, 0.48, 0.82, 0.95], [0.38, 0.14, 0.08, 0.08, 0]);
-  const scribbleX = useTransform(scrollYProgress, [0, 0.45], ['0%', '32%']);
-  const scribbleScale = useTransform(scrollYProgress, [0, 0.45], [1.18, 0.82]);
-
+  const decorOpacity = useTransform(scrollYProgress, [0.45, 0.7], [1, 0]);
   const [ctaImmersive, setCtaImmersive] = useState(false);
   const [tourFocusId, setTourFocusId] = useState<string | null>(null);
 
@@ -963,9 +886,9 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const hideScribbleDecor = isAutoScrolling || !!tourFocusId || footerImmersive;
 
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    const immersive = v >= 0.85;
+    const immersive = v >= 0.65;
     setCtaImmersive(immersive);
-    if (v >= 0.75) setActiveSection('footer-cta');
+    if (immersive) setActiveSection('footer-cta');
   });
 
   const stopAutoScroll = () => {
@@ -1073,10 +996,18 @@ export function LandingView({ onLogin }: LandingViewProps) {
   return (
     <div
       className={cn(
-        'relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white'
+        'relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white',
+        footerImmersive && 'bg-brand'
       )}
-      style={footerImmersive ? { backgroundColor: 'var(--brand-color, #2665fd)' } : undefined}
     >
+      {/* Full-viewport brand + grid on final scroll (covers entire screen) */}
+      <motion.div
+        className="fixed inset-0 z-[90] bg-brand pointer-events-none"
+        style={{ opacity: footerImmersive ? 1 : fullBleedOpacity }}
+        aria-hidden
+      >
+        <FooterCtaGrid className="opacity-[0.14]" />
+      </motion.div>
 
       {/* Sidebar (Desktop) / Bottom Bar (Mobile) */}
       <motion.aside
@@ -1170,18 +1101,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
         </div>
       </motion.aside>
 
-      {/* Scribble flame — global background; hidden during guided tour so it never covers feature copy */}
+      {/* Scribble flame — hero only; hidden during guided tour so it never covers feature copy */}
       <motion.div
-        style={{
-          opacity: hideScribbleDecor ? 0 : scribbleOpacity,
-          x: scribbleX,
-          scale: scribbleScale,
-          transformOrigin: 'right center',
-        }}
-        className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[480px] aspect-[210/339] pointer-events-none z-[1]"
+        style={{ opacity: hideScribbleDecor ? 0 : decorOpacity }}
+        className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[480px] aspect-[210/339] pointer-events-none z-[1] opacity-10 md:opacity-15"
         aria-hidden
       >
-        <div className="w-full h-full">
+        <div className="w-full h-full scale-125 md:scale-90 origin-right translate-x-[8%]">
           <ScribbleFlame />
         </div>
       </motion.div>
@@ -1348,31 +1274,29 @@ export function LandingView({ onLogin }: LandingViewProps) {
         <motion.section
           id="footer-cta"
           ref={footerRef}
-          className="relative z-10 min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden py-16 md:py-24"
-          style={footerImmersive ? { paddingLeft: 0, paddingRight: 0 } : { paddingLeft: sectionPadX, paddingRight: sectionPadX }}
+          className={cn(
+            'relative z-10 min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden',
+            footerImmersive ? 'py-0 px-0' : 'py-16 md:py-24'
+          )}
+          style={
+            footerImmersive
+              ? undefined
+              : { paddingLeft: sectionPadX, paddingRight: sectionPadX }
+          }
         >
-          {/* Full-bleed background inside the section (fades in as you scroll, locked full if immersive) */}
-          <motion.div
-            style={{ opacity: footerImmersive ? 1 : fullBleedOpacity }}
-            className="absolute inset-0 z-[1] bg-brand pointer-events-none"
-            aria-hidden
-          >
-            <FooterCtaGrid className="opacity-[0.14]" />
-          </motion.div>
-
           {/* Bordered card — fades out as you scroll in */}
           <motion.div
             style={{
-              scale: calloutScale,
-              borderRadius: calloutRadius,
-              opacity: cardOpacity,
+              scale: footerImmersive ? 1 : calloutScale,
+              borderRadius: footerImmersive ? 0 : calloutRadius,
+              opacity: footerImmersive ? 0 : cardOpacity,
             }}
             className={cn(
               'relative z-[20] w-full max-w-4xl lg:max-w-5xl mx-auto',
               'bg-brand text-white overflow-hidden',
               'border border-white/25 shadow-[0_24px_80px_rgba(0,0,0,0.28)]',
               'ring-1 ring-inset ring-white/10',
-              footerImmersive && 'pointer-events-none invisible opacity-0'
+              footerImmersive && 'pointer-events-none'
             )}
           >
             <FooterCtaGrid className="opacity-[0.12]" />
@@ -1399,18 +1323,23 @@ export function LandingView({ onLogin }: LandingViewProps) {
 
           {/* Full-bleed copy (no card) — visible when purple fills the viewport */}
           <motion.div
-            style={{ opacity: footerImmersive ? 1 : fullBleedOpacity, y: footerImmersive ? 0 : contentY }}
-            className={cn(
-              'absolute inset-0 z-[30] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 text-white',
-              footerImmersive ? 'pointer-events-auto opacity-105' : 'pointer-events-none'
-            )}
+            style={{ opacity: footerImmersive ? 1 : fullBleedOpacity, y: contentY }}
+            className="absolute inset-0 z-[30] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 pointer-events-none text-white"
           >
-            <div className="flex flex-col items-center gap-8 md:gap-10 max-w-3xl w-full">
+            <div
+              className={cn(
+                'flex flex-col items-center gap-8 md:gap-10 max-w-3xl w-full',
+                footerImmersive ? 'pointer-events-auto' : 'pointer-events-none'
+              )}
+            >
               <div className="space-y-4 md:space-y-5">
-                <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] transition-all">
+                <motion.h2
+                  style={{ fontSize: headlineSize }}
+                  className="font-bold tracking-tight leading-[1.08]"
+                >
                   Ready to ship your next month of content?
-                </h2>
-                <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed max-w-2xl mx-auto">
+                </motion.h2>
+                <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed">
                   Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the{' '}
                   {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you
                   are ready.

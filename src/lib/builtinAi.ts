@@ -8,7 +8,7 @@ import {
   getContextBudget,
   truncateMessagesForLocalAi,
   truncatePromptText,
-} from './localAiLimits';
+} from './localAiContext';
 import {
   BUILTIN_MODELS,
   BUILTIN_VISION_MODELS,
@@ -262,45 +262,18 @@ class BuiltInAiService {
         image_url: { url },
       }));
 
-      let response;
-      try {
-        response = await this.visionEngine.chat.completions.create({
-          messages: [
-            { role: 'system', content: BUILTIN_SYSTEM_PROMPT },
-            {
-              role: 'user',
-              content: [...imageParts, { type: 'text' as const, text: textPrompt }],
-            },
-          ],
-          stream: false,
-          temperature: 0.35,
-          max_tokens: Math.min(1536, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
-        });
-      } catch (visionErr: any) {
-        const errMsg = visionErr?.message || '';
-        if (errMsg.includes('disposed') || errMsg.includes('dispose') || errMsg.includes('been disposed')) {
-          console.warn("[BuiltInAI] Vision engine was disposed, resetting and retrying once...");
-          this.visionIsLoaded = false;
-          this.visionEngine = null;
-          await this.initVision(visionId);
-          if (!this.visionEngine) throw visionErr;
-
-          response = await this.visionEngine.chat.completions.create({
-            messages: [
-              { role: 'system', content: BUILTIN_SYSTEM_PROMPT },
-              {
-                role: 'user',
-                content: [...imageParts, { type: 'text' as const, text: textPrompt }],
-              },
-            ],
-            stream: false,
-            temperature: 0.35,
-            max_tokens: Math.min(1536, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
-          });
-        } else {
-          throw visionErr;
-        }
-      }
+      const response = await this.visionEngine.chat.completions.create({
+        messages: [
+          { role: 'system', content: BUILTIN_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [...imageParts, { type: 'text' as const, text: textPrompt }],
+          },
+        ],
+        stream: false,
+        temperature: 0.35,
+        max_tokens: Math.min(1536, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
+      });
 
       const content = response?.choices?.[0]?.message?.content;
       if (typeof content === 'string') return content;
@@ -463,48 +436,19 @@ class BuiltInAiService {
       }
 
       let fullText = "";
-      try {
-        const chunks = await this.engine!.chat.completions.create({
-          messages,
-          stream: true,
-          temperature: 0.7,
-          top_p: 0.9,
-          repetition_penalty: 1.2,
-          max_tokens: Math.min(1024, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
-        });
+      const chunks = await this.engine!.chat.completions.create({
+        messages,
+        stream: true,
+        temperature: 0.7,
+        top_p: 0.9,
+        repetition_penalty: 1.2,
+        max_tokens: Math.min(1024, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
+      });
 
-        for await (const chunk of chunks) {
-          const delta = chunk.choices[0]?.delta.content || "";
-          fullText += delta;
-          if (onToken) onToken(delta);
-        }
-      } catch (genErr: any) {
-        const errMsg = genErr?.message || '';
-        if (errMsg.includes('disposed') || errMsg.includes('dispose') || errMsg.includes('been disposed')) {
-          console.warn("[BuiltInAI] Engine was disposed, resetting and retrying once...");
-          this.isLoaded = false;
-          this.engine = null;
-          await this.init(this.currentModelId);
-          if (!this.isLoaded || !this.engine) throw genErr;
-
-          const chunks = await this.engine.chat.completions.create({
-            messages,
-            stream: true,
-            temperature: 0.7,
-            top_p: 0.9,
-            repetition_penalty: 1.2,
-            max_tokens: Math.min(1024, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
-          });
-
-          fullText = "";
-          for await (const chunk of chunks) {
-            const delta = chunk.choices[0]?.delta.content || "";
-            fullText += delta;
-            if (onToken) onToken(delta);
-          }
-        } else {
-          throw genErr;
-        }
+      for await (const chunk of chunks) {
+        const delta = chunk.choices[0]?.delta.content || "";
+        fullText += delta;
+        if (onToken) onToken(delta);
       }
 
       return fullText;

@@ -1,33 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-export function CorsImage({ src, alt, fallbackProxy, className, ...props }: any) {
-  const [imgSrc, setImgSrc] = useState(src);
-  const [errorCount, setErrorCount] = useState(0);
+interface CorsImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+  fallbackProxy?: boolean;
+}
 
-  useEffect(() => {
-    setImgSrc(src);
-    setErrorCount(0);
-  }, [src]);
+export const CorsImage: React.FC<CorsImageProps> = ({ src, crossOrigin = "anonymous", fallbackProxy = false, onError, ...props }) => {
+  const [loadState, setLoadState] = useState<'initial' | 'no-cors' | 'proxy' | 'error'>('initial');
 
-  const handleError = () => {
-    if (errorCount === 0 && fallbackProxy && src && !src.startsWith('data:')) {
-      setImgSrc(`https://images.weserv.nl/?url=${encodeURIComponent(src)}`);
-      setErrorCount(1);
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    if (loadState === 'initial') {
+      // First fallback: remove crossOrigin
+      setLoadState('no-cors');
+    } else if (loadState === 'no-cors' && fallbackProxy) {
+      // Second fallback: use a public CORS proxy
+      setLoadState('proxy');
     } else {
-      setImgSrc(`https://ui-avatars.com/api/?name=${encodeURIComponent(alt || 'Av')}&background=random`);
-      setErrorCount(2);
+      setLoadState('error');
+      if (onError) onError(e);
     }
   };
 
+  if (!src) return <img {...props} />;
+
+  let finalSrc = src;
+  let finalCrossOrigin = crossOrigin;
+
+  if (loadState === 'no-cors') {
+    finalCrossOrigin = undefined;
+  } else if (loadState === 'proxy') {
+    finalCrossOrigin = "anonymous";
+    finalSrc = `https://corsproxy.io/?url=${encodeURIComponent(src)}`;
+  }
+
   return (
     <img 
-      src={imgSrc} 
-      alt={alt || ''} 
-      className={className} 
+      src={finalSrc} 
+      crossOrigin={finalCrossOrigin as "anonymous" | "use-credentials" | "" | undefined} 
       onError={handleError} 
-      referrerPolicy="no-referrer"
       {...props} 
     />
   );
-}
-export default CorsImage;
+};

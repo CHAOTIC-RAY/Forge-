@@ -1,13 +1,10 @@
 /// <reference types="vite/client" />
 
-declare module 'virtual:pwa-register' {
-  export interface RegisterSWOptions {
-    immediate?: boolean;
-    onNeedRefresh?: () => void;
-    onOfflineReady?: () => void;
-    onRegistered?: (registration: ServiceWorkerRegistration | undefined) => void;
-    onRegisterError?: (error: any) => void;
-  }
+interface ImportMetaEnv {
+  readonly VITE_APPWRITE_PROJECT_ID: string;
+  readonly VITE_APPWRITE_ENDPOINT: string;
+}
 
-  export function registerSW(options?: RegisterSWOptions): (reloadPage?: boolean) => Promise<void>;
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
 }

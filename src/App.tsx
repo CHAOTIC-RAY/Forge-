@@ -44,7 +44,6 @@ import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceCon
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
 import { isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
 import type { BuiltInAiStatus } from './lib/builtinAi';
-import { applyCustomTheme, DEFAULT_CUSTOM_THEME } from './lib/themeEngine';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
 import { LocalDb } from './components/LocalDb';
@@ -663,66 +662,10 @@ export default function App() {
       localStorage.setItem('forge_theme_mode', 'light');
     }
 
-    // Force pristine default clean styling for public flow (Landing View or Login page)
-    const isShowingPublicLandingOrLogin = !user && !isCheckingShare && !isViewOnly;
-
-    if (isShowingPublicLandingOrLogin) {
-      root.setAttribute('data-theme', 'default');
-      applyCustomTheme(null, isDarkMode);
-      return;
-    }
-
-    // Apply theme preset for authenticated app workspace
+    // Apply theme preset
     root.setAttribute('data-theme', themePreset);
     localStorage.setItem('forge_theme_preset', themePreset);
-
-    if (themePreset === 'custom') {
-       try {
-         const savedCustom = localStorage.getItem('forge_custom_theme_config');
-         if (savedCustom) {
-           applyCustomTheme(JSON.parse(savedCustom), isDarkMode);
-         } else {
-           // Fallback to default custom theme structure
-           applyCustomTheme(DEFAULT_CUSTOM_THEME, isDarkMode);
-         }
-       } catch (e) {
-         console.error("Error reading custom theme config", e);
-       }
-     } else {
-      applyCustomTheme(null, isDarkMode);
-    }
-  }, [isDarkMode, themePreset, user, showLogin, isViewOnly, isCheckingShare]);
-
-  const getSidebarTabClass = (isActive: boolean) => {
-    if (themePreset === 'custom') {
-      return cn(
-        "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
-        isActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
-      );
-    } else {
-      // Default Notion Minimal styling matching LandingView buttons
-      return cn(
-        "flex p-2.5 items-center justify-center transition-all duration-200 relative group w-full rounded-[8px]",
-        isActive 
-          ? "bg-white dark:bg-[#2E2E2E] text-brand shadow-sm" 
-          : "text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] hover:bg-[#E9E9E7]/50 md:dark:hover:bg-[#2E2E2E]/50"
-      );
-    }
-  };
-
-  const renderSidebarTabIndicator = (isActive: boolean) => {
-    if (themePreset !== 'custom' && isActive) {
-      return (
-        <motion.div
-          layoutId="desktopActiveTabIndicator"
-          className="absolute left-0 w-1 h-5 bg-brand rounded-r-full"
-          initial={false}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        />
-      );
-    }
-    return null;
-  };
+  }, [isDarkMode, themePreset]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
   const userProfileSynced = useRef<string | null>(null);
@@ -3317,10 +3260,7 @@ export default function App() {
               ]}>
                 <div className="flex flex-1 w-full relative">
                   {/* Sidebar (Desktop Only) */}
-                  <aside className={cn(
-                    "hidden md:flex sticky top-0 h-screen w-20 flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar border-r border-[#E9E9E7] dark:border-[#2E2E2E]",
-                    themePreset === 'custom' ? "glass-panel" : "bg-[#F7F7F5] dark:bg-[#191919]"
-                  )}>
+                  <aside className="hidden md:flex sticky top-0 h-screen w-20 glass-panel border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
                       {/* Logo */}
                       <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
@@ -3403,71 +3343,87 @@ export default function App() {
                         <button
                           onClick={() => setActiveTab('home')}
                           title="Home"
-                          className={getSidebarTabClass(activeTab === 'home')}
+                          className={cn(
+                            "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                            activeTab === 'home' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                          )}
                         >
                           <LayoutGrid className="w-5 h-5 shrink-0" />
-                          {renderSidebarTabIndicator(activeTab === 'home')}
                         </button>
                         <DroppableTab
                           id="calendar-tab-droppable"
                           onClick={() => setActiveTab('schedule')}
                           title={industryConfig.terminology.calendar}
-                          className={getSidebarTabClass(activeTab === 'schedule')}
+                          className={cn(
+                            "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                            activeTab === 'schedule' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                          )}
                         >
                           <CalendarIcon className="w-5 h-5 shrink-0" />
-                          {renderSidebarTabIndicator(activeTab === 'schedule')}
                         </DroppableTab>
                         {isAdmin ? (
                           <>
                             <button
                               onClick={() => setActiveTab('search')}
                               title={industryConfig.terminology.products}
-                              className={getSidebarTabClass(activeTab === 'search')}
+                              className={cn(
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                activeTab === 'search' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
                             >
                               <Database className="w-5 h-5 shrink-0" />
-                              {renderSidebarTabIndicator(activeTab === 'search')}
                             </button>
                             <button
                               onClick={() => setActiveTab('ideas')}
                               title="Ideas"
-                              className={getSidebarTabClass(isIdeasTabActive)}
+                              className={cn(
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                isIdeasTabActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
                             >
                               <Lightbulb className="w-5 h-5 shrink-0" />
-                              {renderSidebarTabIndicator(isIdeasTabActive)}
                             </button>
                             <button
                               onClick={() => setActiveTab('brandkit')}
                               title={industryConfig.terminology.assets}
-                              className={getSidebarTabClass(activeTab === 'brandkit')}
+                              className={cn(
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                activeTab === 'brandkit' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
                             >
                               <Palette className="w-5 h-5 shrink-0" />
-                              {renderSidebarTabIndicator(activeTab === 'brandkit')}
                             </button>
                             <button
                               onClick={() => setActiveTab('widgets')}
                               title="Widgets"
-                              className={getSidebarTabClass(isWidgetsTabActive)}
+                              className={cn(
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                isWidgetsTabActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
                             >
                               <Boxes className="w-5 h-5 shrink-0" />
-                              {renderSidebarTabIndicator(isWidgetsTabActive)}
                             </button>
                             <button
                               onClick={() => setActiveTab('analytics')}
                               title="Insights & Analytics"
-                              className={getSidebarTabClass(activeTab === 'analytics')}
+                              className={cn(
+                                "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
+                                activeTab === 'analytics' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                              )}
                             >
                               <BarChart3 className="w-5 h-5 shrink-0" />
-                              {renderSidebarTabIndicator(activeTab === 'analytics')}
                             </button>
                             {activeBusiness?.applets?.map(applet => (
                               <button
                                 key={applet.id}
                                 onClick={() => setActiveTab(`applet_${applet.id}` as any)}
                                 title={applet.name}
-                                className={getSidebarTabClass(activeTab === `applet_${applet.id}`)}
+                                className={cn(
+                                  "w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors relative group",
+                                  activeTab === `applet_${applet.id}` ? "bg-[#EFEFED] dark:bg-[#2E2E2E] text-indigo-600 dark:text-indigo-400" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
+                                )}
                               >
                                 <Box className="w-5 h-5 shrink-0" />
-                                {renderSidebarTabIndicator(activeTab === `applet_${applet.id}`)}
                                 <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
                                   {applet.name}
                                 </div>

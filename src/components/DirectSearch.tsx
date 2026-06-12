@@ -1,105 +1,169 @@
-import React, { useState } from 'react';
-import { Search, X, Calendar, Database } from 'lucide-react';
-import { useAppStore } from '../store';
+import React, { useState, useEffect } from 'react';
+import { ForgeLoader } from './ForgeLoader';
+import { Search, ExternalLink, X, Globe, Info, AlertCircle } from 'lucide-react';
+import { HighStockProduct, getAiSettings } from '../lib/gemini';
+import { toast } from 'sonner';
 
-export function DirectSearch({ isOpen, onClose }: any) {
+interface DirectSearchProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function DirectSearch({ isOpen, onClose }: DirectSearchProps) {
   const [query, setQuery] = useState('');
-  const posts = useAppStore(state => state.posts) || [];
-  const products = useAppStore(state => state.products) || [];
+  const [results, setResults] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const aiSettings = getAiSettings();
+      const baseUrl = aiSettings.targetUrl || 'https://example.com';
+      // Fetch directly from our backend using the direct-scrape endpoint
+      const response = await fetch(`/api/direct-scrape?q=${encodeURIComponent(query)}&targetUrl=${encodeURIComponent(baseUrl)}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Search failed');
+      }
+
+      setResults(data.products || []);
+    } catch (err: any) {
+      console.error('Search error:', err);
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
-  const filteredPosts = query.trim() === '' ? [] : posts.filter((p: any) => 
-    p.title?.toLowerCase().includes(query.toLowerCase()) || 
-    p.caption?.toLowerCase().includes(query.toLowerCase())
-  );
-
-  const filteredProducts = query.trim() === '' ? [] : products.filter((p: any) => 
-    p.title?.toLowerCase().includes(query.toLowerCase()) ||
-    p.type?.toLowerCase().includes(query.toLowerCase())
-  );
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[10vh] animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[70vh] text-left">
-        <div className="p-4 border-b border-gray-100 dark:border-zinc-800 flex items-center gap-3">
-          <Search className="text-gray-400 w-5 h-5 flex-shrink-0" />
-          <input 
-            type="text" 
-            placeholder="Search workspace posts, draft marketing titles, or products..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            className="w-full bg-transparent outline-none text-sm text-gray-850 dark:text-white"
-            autoFocus
-          />
-          <button 
-            type="button" 
-            onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 flex-shrink-0"
-          >
-            <X size={16} />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 sm:p-6 backdrop-blur-sm">
+      <div className="bg-white dark:bg-[#191919] rounded-[12px]  border border-[#E9E9E7] dark:border-[#2E2E2E] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center p-4 sm:p-6 border-b border-[#E9E9E7] dark:border-[#2E2E2E]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <Globe className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-[#37352F] dark:text-[#EBE9ED]">
+                Node.js Product Scrape
+              </h2>
+              <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Directly scraping target website</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-[#EFEFED] dark:hover:bg-[#2E2E2E] rounded-full transition-colors">
+            <X className="w-5 h-5 text-[#757681] dark:text-[#9B9A97]" />
           </button>
         </div>
 
-        <div className="p-4 flex-1 overflow-y-auto space-y-4">
-          {query.trim() === '' ? (
-            <div className="text-center py-8 text-gray-400">
-              <p className="text-xs">Type to search scheduled content, draft frameworks, and items...</p>
-            </div>
-          ) : filteredPosts.length === 0 && filteredProducts.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <p className="text-xs">No matching results found for "{query}"</p>
-            </div>
-          ) : (
-            <>
-              {filteredPosts.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-bold tracking-wider uppercase text-gray-400 dark:text-zinc-550 flex items-center gap-1">
-                    <Calendar size={12} />
-                    <span>Scheduled Posts ({filteredPosts.length})</span>
-                  </h4>
-                  <div className="divide-y divide-gray-100 dark:divide-zinc-800 bg-gray-50/50 dark:bg-zinc-850/30 rounded-xl border border-gray-105-10">
-                    {filteredPosts.map((p: any) => (
-                      <div key={p.id} className="p-3 text-xs flex justify-between items-center gap-4 hover:bg-gray-100/30 dark:hover:bg-zinc-800/30">
-                        <div>
-                          <p className="font-bold text-gray-800 dark:text-zinc-200">{p.title || 'Untitled Post'}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5 max-w-sm truncate">{p.caption}</p>
-                        </div>
-                        <span className="p-1 px-2.5 bg-blue-50 dark:bg-zinc-800/80 text-[#2665fd] dark:text-blue-400 uppercase font-black text-[8px] rounded-full">
-                          {p.publishStatus || 'draft'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F7F7F5] dark:bg-[#202020]">
+          <div className="flex flex-col h-full">
+            <form onSubmit={handleSearch} className="mb-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Enter product name, brand or SKU..."
+                  className="w-full pl-12 pr-4 py-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9B9A97]" />
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-blue-600 text-white rounded-[8px] text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? <ForgeLoader size={16} /> : 'Search'}
+                </button>
+              </div>
+            </form>
 
-              {filteredProducts.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-bold tracking-wider uppercase text-gray-400 dark:text-zinc-550 flex items-center gap-1">
-                    <Database size={12} />
-                    <span>Catalog Products ({filteredProducts.length})</span>
-                  </h4>
-                  <div className="divide-y divide-gray-100 dark:divide-zinc-800 bg-gray-50/50 dark:bg-zinc-850/30 rounded-xl border border-gray-105-10">
-                    {filteredProducts.map((p: any) => (
-                      <div key={p.id || p.title} className="p-3 text-xs flex justify-between items-center gap-4 hover:bg-gray-100/30 dark:hover:bg-zinc-800/30">
-                        <div>
-                          <p className="font-bold text-gray-800 dark:text-zinc-200">{p.title}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wider">{p.type || 'Product'}</p>
+            <div className="flex-1 min-h-[300px]">
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-[#757681]">
+                  <ForgeLoader size={32} className="mb-4" />
+                  <p className="text-sm">Scraping website directly...</p>
+                </div>
+              ) : error ? (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-red-500 text-center px-6">
+                  <AlertCircle className="w-12 h-12 mb-4 opacity-20" />
+                  <p className="text-sm font-medium mb-2">Search Error</p>
+                  <p className="text-xs opacity-80">{error}</p>
+                </div>
+              ) : results.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                  {results.map((product, idx) => (
+                    <a
+                      key={idx}
+                      href={product.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-4 p-3 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] hover:border-blue-500 transition-all group"
+                    >
+                      {product.image ? (
+                        <img 
+                          src={product.image} 
+                          alt={product.title} 
+                          className="w-16 h-16 object-cover rounded-[8px] bg-[#F7F7F5] dark:bg-[#202020]"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-[#F7F7F5] dark:bg-[#202020] rounded-[8px] flex items-center justify-center text-[#9B9A97]">
+                          <Globe className="w-6 h-6 opacity-20" />
                         </div>
-                        <span className="font-bold text-xs text-gray-650 dark:text-zinc-400 font-mono">
-                          {p.price || 'In Stock'}
-                        </span>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold text-[#37352F] dark:text-[#EBE9ED] truncate group-hover:text-blue-600 transition-colors">
+                          {product.title}
+                        </h4>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">
+                          {product.stockInfo}
+                        </p>
+                        <div className="flex items-center gap-1 text-[10px] text-[#757681] mt-1">
+                          <ExternalLink className="w-3 h-3" />
+                          <span className="truncate">{new URL(product.link).hostname}</span>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    </a>
+                  ))}
+                </div>
+              ) : query && !isLoading ? (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-[#757681]">
+                  <Search className="w-12 h-12 mb-4 opacity-10" />
+                  <p className="text-sm">No products found for "{query}"</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-[#757681] text-center px-6">
+                  <Info className="w-12 h-12 mb-4 opacity-10" />
+                  <p className="text-sm">Enter a search term above to find products directly from the target website</p>
                 </div>
               )}
-            </>
-          )}
+            </div>
+          </div>
         </div>
+
+        {/* Footer */}
+        <div className="p-4 sm:p-6 border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-[#37352F] dark:bg-[#EBE9ED] text-white dark:text-[#191919] rounded-[8px] transition-colors font-bold text-sm "
+          >
+            Close
+          </button>
+        </div>
+
       </div>
     </div>
   );
 }
-export default DirectSearch;

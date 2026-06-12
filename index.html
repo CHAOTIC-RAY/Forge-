@@ -6,14 +6,12 @@
     <meta name="theme-color" content="#030712" />
     <link rel="icon" type="image/png" href="logo192x192.png" />
     <link rel="icon" type="image/svg+xml" href="logo.svg" />
-    <link rel="manifest" href="/manifest.json" />
     <title>Forge</title>
     <script src="https://js.puter.com/v2/"></script>
   </head>
   <body class="bg-gray-950 text-gray-100">
     <script>
       // Force unregister service workers to clear potential COEP/COOP blockage from PWA
-      // This helps resolve "MIME type text/html" issues caused by stale service workers intercepting script requests
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
           for(let registration of registrations) {

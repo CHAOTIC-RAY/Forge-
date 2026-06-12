@@ -1,6 +1,6 @@
 /** Context budgeting for browser local models (WebLLM / Chrome Prompt API). */
 
-/** Max chars for brand knowledge bundle when using local providers (plan: <=2k). */
+/** Max chars for brand knowledge bundle when using local providers (plan: ≤2k). */
 export const LOCAL_KNOWLEDGE_MAX_CHARS = 2000;
 
 /** Target markdown slice per catalogue extraction chunk (see catalogueExtract.ts). */

@@ -1,43 +1,57 @@
 import { create } from 'zustand';
+import { Post, Business } from './data';
+import { HighStockProduct } from './lib/gemini';
 
 export interface AppState {
   aiSettings: any;
   setAiSettings: (settings: any) => void;
+  
   analyticsSettings: any;
   setAnalyticsSettings: (settings: any) => void;
-  businesses: any[];
-  setBusinesses: (businesses: any[]) => void;
-  activeBusiness: any;
-  setActiveBusiness: (business: any) => void;
+
+  businesses: Business[];
+  setBusinesses: (businesses: Business[]) => void;
+  
+  activeBusiness: Business | null;
+  setActiveBusiness: (biz: Business | null) => void;
+
+  posts: Post[];
+  setPosts: (posts: Post[] | ((prev: Post[]) => Post[])) => void;
+  
   brandKit: any;
-  setBrandKit: (brandKit: any) => void;
-  products: any[];
-  setProducts: (products: any[] | ((prev: any[]) => any[])) => void;
-  posts: any[];
-  setPosts: (posts: any[] | ((prev: any[]) => any[])) => void;
+  setBrandKit: (bk: any) => void;
+  
+  products: HighStockProduct[];
+  setProducts: (products: HighStockProduct[]) => void;
+  
   isSyncing: boolean;
-  setIsSyncing: (isSyncing: boolean) => void;
+  setIsSyncing: (syncing: boolean) => void;
 }
 
-export const useAppStore = create<AppState>()((set) => ({
+export const useAppStore = create<AppState>((set) => ({
   aiSettings: null,
-  setAiSettings: (aiSettings) => set({ aiSettings }),
+  setAiSettings: (settings) => set({ aiSettings: settings }),
+
   analyticsSettings: null,
-  setAnalyticsSettings: (analyticsSettings) => set({ analyticsSettings }),
+  setAnalyticsSettings: (settings) => set({ analyticsSettings: settings }),
+
   businesses: [],
   setBusinesses: (businesses) => set({ businesses }),
+
   activeBusiness: null,
-  setActiveBusiness: (activeBusiness) => set({ activeBusiness }),
+  setActiveBusiness: (biz) => set({ activeBusiness: biz }),
+
+  posts: [],
+  setPosts: (posts: Post[] | ((prev: Post[]) => Post[])) => set((state) => ({ 
+    posts: typeof posts === 'function' ? posts(state.posts) : posts 
+  })),
+
   brandKit: null,
   setBrandKit: (brandKit) => set({ brandKit }),
+
   products: [],
-  setProducts: (products) => set((state) => ({ 
-    products: typeof products === 'function' ? (products as any)(state.products) : products 
-  })),
-  posts: [],
-  setPosts: (posts) => set((state) => ({ 
-    posts: typeof posts === 'function' ? (posts as any)(state.posts) : posts 
-  })),
+  setProducts: (products) => set({ products }),
+
   isSyncing: false,
   setIsSyncing: (isSyncing) => set({ isSyncing }),
 }));

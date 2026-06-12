@@ -1,15 +1,141 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
+import { Business } from '../data';
 
-export const ConfigWorkspaceContext = createContext<any>(null);
+export interface WorkspaceConfig {
+  industry: string;
+  modules: {
+    showCalendar: boolean;
+    showCreativeStudio: boolean;
+    /** Alias for showCreativeStudio — gates Widgets tab visibility */
+    showWidgets?: boolean;
+    showAnalytics: boolean;
+    showBrandKit: boolean;
+    showInventory: boolean;
+    showCampaigns: boolean;
+  };
+  aiContext: {
+    systemInstruction: string;
+    promptPrefix: string;
+    suggestedFormats: string[];
+  };
+  uiTheme?: {
+    primaryColor?: string;
+    accentColor?: string;
+  };
+}
 
-export function WorkspaceProvider({ children, activeBusiness }: any) {
+const DEFAULT_CONFIG: WorkspaceConfig = {
+  industry: 'General',
+  modules: {
+    showCalendar: true,
+    showCreativeStudio: true,
+    showAnalytics: true,
+    showBrandKit: true,
+    showInventory: false,
+    showCampaigns: true,
+  },
+  aiContext: {
+    systemInstruction: "You are a versatile content strategist and creative assistant.",
+    promptPrefix: "Create engaging content that resonates with a broad audience.",
+    suggestedFormats: ['Post', 'Reel', 'Story'],
+  },
+};
+
+const INDUSTRY_PROFILES: Record<string, WorkspaceConfig> = {
+  'Retail': {
+    industry: 'Retail',
+    modules: {
+      showCalendar: true,
+      showCreativeStudio: true,
+      showAnalytics: true,
+      showBrandKit: true,
+      showInventory: true,
+      showCampaigns: true,
+    },
+    aiContext: {
+      systemInstruction: "You are a retail marketing expert focused on product sales and seasonal promotions.",
+      promptPrefix: "Focus on product benefits, pricing, and limited-time offers to drive foot traffic and online sales.",
+      suggestedFormats: ['Product Showcase', 'Sale Announcement', 'Customer Review'],
+    },
+  },
+  'Banking': {
+    industry: 'Banking',
+    modules: {
+      showCalendar: true,
+      showCreativeStudio: false,
+      showAnalytics: true,
+      showBrandKit: true,
+      showInventory: false,
+      showCampaigns: true,
+    },
+    aiContext: {
+      systemInstruction: "You are a financial communications specialist focused on trust, security, and educational content.",
+      promptPrefix: "Prioritize clarity, compliance, and value-driven financial tips. Avoid overly casual language.",
+      suggestedFormats: ['Financial Tip', 'Security Update', 'Service Spotlight'],
+    },
+  },
+  'Technology': {
+    industry: 'Technology',
+    modules: {
+      showCalendar: true,
+      showCreativeStudio: true,
+      showAnalytics: true,
+      showBrandKit: true,
+      showInventory: false,
+      showCampaigns: true,
+    },
+    aiContext: {
+      systemInstruction: "You are a tech-savvy content creator focused on innovation, features, and developer relations.",
+      promptPrefix: "Highlight technical specs, innovation milestones, and future-forward solutions.",
+      suggestedFormats: ['Feature Deep-dive', 'Tech News', 'Tutorial'],
+    },
+  },
+};
+
+export type ResolvedWorkspaceConfig = WorkspaceConfig & {
+  modules: WorkspaceConfig['modules'] & { showWidgets: boolean };
+};
+
+interface WorkspaceContextType {
+  config: ResolvedWorkspaceConfig;
+  activeBusiness: Business | null;
+}
+
+const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
+
+export function WorkspaceProvider({ 
+  children, 
+  activeBusiness 
+}: { 
+  children: React.ReactNode; 
+  activeBusiness: Business | null;
+}) {
+  const config = useMemo((): ResolvedWorkspaceConfig => {
+    const base =
+      !activeBusiness || !activeBusiness.industry
+        ? DEFAULT_CONFIG
+        : Object.entries(INDUSTRY_PROFILES).find(([key]) =>
+            activeBusiness.industry?.toLowerCase().includes(key.toLowerCase())
+          )?.[1] ?? DEFAULT_CONFIG;
+
+    const showWidgets = base.modules.showWidgets ?? base.modules.showCreativeStudio;
+    return {
+      ...base,
+      modules: { ...base.modules, showWidgets },
+    };
+  }, [activeBusiness]);
+
   return (
-    <ConfigWorkspaceContext.Provider value={{ activeBusiness }}>
+    <WorkspaceContext.Provider value={{ config, activeBusiness }}>
       {children}
-    </ConfigWorkspaceContext.Provider>
+    </WorkspaceContext.Provider>
   );
 }
 
-export function useConfigWorkspace() {
-  return useContext(ConfigWorkspaceContext);
+export function useWorkspaceConfig() {
+  const context = useContext(WorkspaceContext);
+  if (context === undefined) {
+    throw new Error('useWorkspaceConfig must be used within a WorkspaceProvider');
+  }
+  return context;
 }
