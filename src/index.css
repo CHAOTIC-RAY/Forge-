@@ -335,6 +335,19 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 0.9;
 }
 
+/* Keep the label on the active item (the base active style repurposes ::after
+   as a left bar, which would otherwise hide the label in expanded mode). */
+[data-sidebar-style="expanded"] .forge-sidebar-rail nav button.nav-pill-active::after {
+  content: attr(data-label);
+  position: static;
+  transform: none;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  opacity: 1;
+}
+
 [data-sidebar-style="island"] {
   --sidebar-width: 80px;
   --sidebar-padding: 0.75rem;
@@ -357,37 +370,26 @@ h1, h2, h3, h4, h5, h6 {
   border-color: rgba(46, 46, 46, 0.6);
 }
 
+[data-sidebar-style="island"] .forge-sidebar-rail nav {
+  gap: 0.5rem;
+}
+
 [data-sidebar-style="island"] .forge-sidebar-rail nav button {
   aspect-ratio: 1;
   border-radius: 14px;
   position: relative;
 }
 
-[data-sidebar-style="island"] .forge-sidebar-rail nav button::before {
-  content: '';
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.4;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-[data-sidebar-style="island"] .forge-sidebar-rail nav button svg {
-  opacity: 0;
-}
-
-[data-sidebar-style="island"] .forge-sidebar-rail nav button.nav-pill-active::before {
-  opacity: 1;
-  width: 8px;
-  height: 8px;
-}
-
+/* Icons stay visible; the active item gets a centered pill instead of the
+   left edge bar so it reads well inside the floating card. */
 [data-sidebar-style="island"] .forge-sidebar-rail nav button.nav-pill-active::after {
-  content: '';
+  left: 50%;
+  top: auto;
+  bottom: 4px;
+  transform: translateX(-50%);
+  width: 1rem;
+  height: 3px;
+  border-radius: 3px;
 }
 
 [data-sidebar-style="dock"] {
@@ -404,6 +406,13 @@ h1, h2, h3, h4, h5, h6 {
 
 [data-sidebar-style="dock"] .forge-dock-nav {
   display: flex !important;
+}
+
+/* Reserve space at the bottom so the floating dock never covers content. */
+@media (min-width: 768px) {
+  [data-sidebar-style="dock"] #main-content {
+    padding-bottom: 7.5rem !important;
+  }
 }
 
 @media print {

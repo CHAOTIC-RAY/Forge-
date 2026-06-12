@@ -27,6 +27,65 @@ import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
 import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
 
+type UnifiedPreset = {
+  id: string;
+  name: string;
+  colors: string[];
+  sidebarStyle?: ThemeConfig['sidebarStyle'];
+  kind: 'palette' | 'legacy' | 'custom';
+  legacyId?: string;
+  config: Partial<ThemeConfig>;
+};
+
+// Accent-only configs for the legacy data-theme presets so they slot into the
+// unified preset grid without dropping their original look.
+const LEGACY_ACCENT_CONFIG: Record<string, Partial<ThemeConfig>> = {
+  default: { accentColor: '#2665fd', accentHover: '#1e52d0' },
+  midnight: { accentColor: '#38bdf8', accentHover: '#0284c7' },
+  forest: { accentColor: '#10b981', accentHover: '#059669' },
+  sunset: { accentColor: '#f97316', accentHover: '#ea580c' },
+  cyberpunk: { accentColor: '#ff00ff', accentHover: '#d900d9' },
+  nord: { accentColor: '#88c0d0', accentHover: '#6fa8b8' },
+};
+
+// Mini layout sketch used in the Sidebar Style picker so each option is visual.
+function SidebarStylePreview({ style, active }: { style: 'classic' | 'expanded' | 'island' | 'dock'; active: boolean }) {
+  const railBg = active ? 'bg-brand' : 'bg-[#C7C6C3] dark:bg-[#5A5A5A]';
+  const dotBg = active ? 'bg-brand/60' : 'bg-[#C7C6C3] dark:bg-[#5A5A5A]';
+  return (
+    <div className="w-9 h-8 rounded-md border border-[#E9E9E7] dark:border-[#3A3A3A] bg-[#F7F7F5] dark:bg-[#262626] p-0.5 flex shrink-0 overflow-hidden">
+      {style === 'classic' && (
+        <>
+          <div className={cn('w-1.5 h-full rounded-sm', railBg)} />
+          <div className="flex-1" />
+        </>
+      )}
+      {style === 'expanded' && (
+        <>
+          <div className={cn('w-3 h-full rounded-sm flex flex-col gap-0.5 p-0.5', active ? 'bg-brand/20' : 'bg-[#E0DFDC] dark:bg-[#3A3A3A]')}>
+            <div className={cn('h-0.5 rounded-full', railBg)} />
+            <div className={cn('h-0.5 rounded-full', railBg)} />
+            <div className={cn('h-0.5 rounded-full', railBg)} />
+          </div>
+          <div className="flex-1" />
+        </>
+      )}
+      {style === 'island' && (
+        <>
+          <div className={cn('w-1.5 h-[85%] my-auto ml-0.5 rounded-[3px]', railBg)} />
+          <div className="flex-1" />
+        </>
+      )}
+      {style === 'dock' && (
+        <div className="flex flex-col w-full">
+          <div className="flex-1" />
+          <div className={cn('h-1.5 w-[70%] mx-auto rounded-full', dotBg)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const GEMINI_MODELS = [
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)' },
   { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
@@ -193,6 +252,9 @@ export function SettingsView({
   });
   const [savePresetName, setSavePresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
+  const [activePresetId, setActivePresetId] = useState<string>(
+    () => localStorage.getItem('forge_active_preset') || localStorage.getItem('forge_theme_preset') || 'default'
+  );
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryType, setNewCategoryType] = useState('category');
@@ -520,6 +582,10 @@ export function SettingsView({
     setCustomPresets(updated);
     localStorage.setItem('forge_custom_presets', JSON.stringify(updated));
     if (themePreset === id) handleThemePresetChange('default');
+    if (activePresetId === id) {
+      setActivePresetId('default');
+      localStorage.setItem('forge_active_preset', 'default');
+    }
     toast.success('Custom preset removed');
   };
 
@@ -533,6 +599,49 @@ export function SettingsView({
     } else {
       handleThemePresetChange(presetId);
     }
+  };
+
+  // ── Unified theme preset list (built-in palettes + accent themes + saved customs) ──
+  const unifiedPresets: UnifiedPreset[] = [
+    ...ENGINE_PALETTE_PRESETS.map(pp => ({
+      id: `palette_${pp.name}`,
+      name: pp.name,
+      colors: pp.colors,
+      sidebarStyle: pp.config.sidebarStyle,
+      kind: 'palette' as const,
+      config: pp.config,
+    })),
+    ...BASE_THEME_PRESETS.map(bp => ({
+      id: bp.id,
+      name: bp.name,
+      colors: bp.colors,
+      kind: 'legacy' as const,
+      legacyId: bp.id,
+      config: LEGACY_ACCENT_CONFIG[bp.id] ?? {},
+    })),
+    ...customPresets.map(cp => ({
+      id: cp.id,
+      name: cp.name,
+      colors: cp.colors,
+      sidebarStyle: cp.config.sidebarStyle,
+      kind: 'custom' as const,
+      config: cp.config,
+    })),
+  ];
+
+  const applyUnifiedPreset = (preset: UnifiedPreset) => {
+    const next: ThemeConfig = { ...customTheme, ...preset.config };
+    if (preset.kind === 'legacy' && preset.legacyId) {
+      setThemePreset(preset.legacyId);
+      localStorage.setItem('forge_theme_preset', preset.legacyId);
+      document.documentElement.setAttribute('data-theme', preset.legacyId);
+    }
+    setCustomTheme(next);
+    applyThemeConfig(next);
+    saveThemeConfig(next);
+    setActivePresetId(preset.id);
+    localStorage.setItem('forge_active_preset', preset.id);
+    toast.success(`Applied "${preset.name}"`);
   };
 
   const [isAiInstructionModalOpen, setIsAiInstructionModalOpen] = useState(false);
@@ -947,320 +1056,281 @@ export function SettingsView({
               </button>
             </div>
 
-            <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] space-y-4">
+            {/* Unified Theme & Customization */}
+            <div className="p-4 sm:p-5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] space-y-6 bg-white dark:bg-[#191919]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-[12px] flex items-center justify-center text-pink-600 dark:text-pink-400">
                   <Palette className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Advanced Theme Settings</h3>
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Choose a visual preset for your workspace</p>
+                  <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Theme &amp; Customization</h3>
+                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Pick a preset or fine-tune every detail — changes preview live.</p>
                 </div>
               </div>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {THEME_PRESETS.map((preset) => {
-                  const isCustom = customPresets.some(cp => cp.id === preset.id);
-                  return (
-                    <div key={preset.id} className="relative group">
-                      <button
-                        onClick={() => isCustom ? handleApplyCustomPreset(preset.id) : handleThemePresetChange(preset.id)}
-                        className={cn(
-                          "w-full p-3 rounded-[12px] border text-left transition-all relative overflow-hidden",
-                          themePreset === preset.id 
-                            ? "border-brand bg-brand-bg ring-2 ring-brand/20" 
-                            : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50 bg-white dark:bg-[#191919]"
-                        )}
-                      >
-                        <div className="flex gap-1 mb-2">
-                          {preset.colors.map((c, i) => (
-                            <div key={i} className="w-4 h-4 rounded-full border border-black/5" style={{ backgroundColor: c }} />
-                          ))}
-                        </div>
-                        <h4 className="text-xs font-bold truncate pr-4">{preset.name}</h4>
-                        {isCustom && <span className="text-[9px] text-brand font-bold">Custom</span>}
-                        {themePreset === preset.id && (
-                          <div className="absolute top-2 right-2">
-                            <CheckCircle2 className="w-3 h-3 text-brand" />
-                          </div>
-                        )}
-                      </button>
-                      {isCustom && (
+
+              {/* Presets */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">Presets</p>
+                  <span className="text-[10px] font-medium text-[#9B9A97] dark:text-[#7D7C78]">{unifiedPresets.length} themes</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {unifiedPresets.map((preset) => {
+                    const isActive = activePresetId === preset.id;
+                    return (
+                      <div key={preset.id} className="relative group">
                         <button
-                          onClick={() => handleDeleteCustomPreset(preset.id)}
-                          className="absolute top-1.5 right-1.5 w-5 h-5 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                          title="Delete custom preset"
+                          onClick={() => applyUnifiedPreset(preset)}
+                          className={cn(
+                            "w-full p-3 rounded-[12px] border text-left transition-all relative overflow-hidden",
+                            isActive
+                              ? "border-brand bg-brand-bg ring-2 ring-brand/20"
+                              : "border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/50 hover:-translate-y-0.5 bg-white dark:bg-[#191919]"
+                          )}
                         >
-                          <X className="w-2.5 h-2.5" />
+                          <div className="flex gap-1 mb-2">
+                            {preset.colors.map((c, i) => (
+                              <div key={i} className="w-4 h-4 rounded-full border border-black/5 shadow-sm" style={{ backgroundColor: c }} />
+                            ))}
+                          </div>
+                          <h4 className="text-xs font-bold truncate pr-4 text-[#37352F] dark:text-[#EBE9ED]">{preset.name}</h4>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {preset.sidebarStyle && (
+                              <span className="text-[9px] text-brand font-medium capitalize">{preset.sidebarStyle} sidebar</span>
+                            )}
+                            {preset.kind === 'custom' && <span className="text-[9px] text-[#9B9A97] font-bold uppercase tracking-wide">Custom</span>}
+                          </div>
+                          {isActive && (
+                            <div className="absolute top-2 right-2">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-brand" />
+                            </div>
+                          )}
                         </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Advanced Custom Theme Designer */}
-            <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] space-y-4">
-              <button
-                onClick={() => setShowAdvancedTheme(v => !v)}
-                className="w-full flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-[12px] flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                    <Sliders className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Custom Theme Designer</h3>
-                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Colors, fonts, radius & glass effects</p>
-                  </div>
+                        {preset.kind === 'custom' && (
+                          <button
+                            onClick={() => handleDeleteCustomPreset(preset.id)}
+                            className="absolute top-1.5 right-1.5 w-5 h-5 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            title="Delete custom preset"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <ChevronDown className={cn('w-4 h-4 text-[#757681] transition-transform', showAdvancedTheme && 'rotate-180')} />
-              </button>
+              </div>
 
-              <AnimatePresence initial={false}>
-                {showAdvancedTheme && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.22 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="space-y-5 pt-1">
-                      {/* Palette Presets */}
-                      <div>
-                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Palette Presets</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {ENGINE_PALETTE_PRESETS.map(preset => {
-                            const sidebarStyle = preset.config.sidebarStyle || 'classic';
-                            const sidebarLabel = sidebarStyle.charAt(0).toUpperCase() + sidebarStyle.slice(1);
-                            return (
-                              <button
-                                key={preset.name}
-                                onClick={() => {
-                                  const next = { ...customTheme, ...preset.config };
-                                  setCustomTheme(next);
-                                  applyThemeConfig(next);
-                                  saveThemeConfig(next);
-                                  toast.success(`Applied "${preset.name}" palette`);
-                                }}
-                                className="p-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-left hover:border-brand/40 transition-all bg-white dark:bg-[#191919]"
-                              >
-                                <div className="flex gap-1 mb-1.5">
-                                  {preset.colors.map((c, i) => (
-                                    <div key={i} className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: c }} />
-                                  ))}
-                                </div>
-                                <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight truncate">{preset.name}</p>
-                                <p className="text-[9px] text-brand font-medium mt-0.5">{sidebarLabel} sidebar</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+              {/* Customize */}
+              <div className="space-y-5 pt-5 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-[#757681] dark:text-[#9B9A97]" />
+                  <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">Customize</p>
+                </div>
 
-                      {/* Color Pickers */}
-                      <div>
-                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Custom Colors</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          {([
-                            { key: 'accentColor', label: 'Accent' },
-                            { key: 'accentHover', label: 'Accent Hover' },
-                            { key: 'canvasBackground', label: 'Canvas Bg' },
-                            { key: 'panelBackground', label: 'Panel Bg' },
-                            { key: 'textPrimary', label: 'Text Primary' },
-                            { key: 'textSecondary', label: 'Text Secondary' },
-                          ] as { key: keyof ThemeConfig; label: string }[]).map(({ key, label }) => (
-                            <label key={key} className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="color"
-                                value={(customTheme[key] as string) || '#ffffff'}
-                                onChange={e => {
-                                  const next = { ...customTheme, [key]: e.target.value };
-                                  setCustomTheme(next);
-                                  applyThemeConfig(next); // live preview
-                                }}
-                                className="w-8 h-8 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] cursor-pointer bg-transparent p-0.5"
-                              />
-                              <span className="text-xs text-[#37352F] dark:text-[#EBE9ED] font-medium">{label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Font */}
-                      <div>
-                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                          <Type className="w-3.5 h-3.5" /> Font Family
-                        </p>
-                        <select
-                          value={customTheme.fontFamily}
+                {/* Color Pickers */}
+                <div>
+                  <p className="text-[11px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Colors</p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {([
+                      { key: 'accentColor', label: 'Accent' },
+                      { key: 'accentHover', label: 'Accent Hover' },
+                      { key: 'canvasBackground', label: 'Canvas Bg' },
+                      { key: 'panelBackground', label: 'Panel Bg' },
+                      { key: 'textPrimary', label: 'Text Primary' },
+                      { key: 'textSecondary', label: 'Text Secondary' },
+                    ] as { key: keyof ThemeConfig; label: string }[]).map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer px-2.5 py-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FBFAF8] dark:bg-[#202020] hover:border-brand/40 transition-colors">
+                        <input
+                          type="color"
+                          value={(customTheme[key] as string) || '#ffffff'}
                           onChange={e => {
-                            const next = { ...customTheme, fontFamily: e.target.value };
+                            const next = { ...customTheme, [key]: e.target.value };
                             setCustomTheme(next);
                             applyThemeConfig(next); // live preview
                           }}
-                          className="w-full px-3 py-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-xs text-[#37352F] dark:text-[#EBE9ED] focus:outline-none focus:ring-2 focus:ring-brand/30"
-                        >
-                          {FONT_OPTIONS.map(f => (
-                            <option key={f.value} value={f.value}>{f.label}</option>
-                          ))}
-                        </select>
-                      </div>
+                          className="w-7 h-7 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] cursor-pointer bg-transparent p-0.5 shrink-0"
+                        />
+                        <span className="text-xs text-[#37352F] dark:text-[#EBE9ED] font-medium truncate">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
-                      {/* Border Radius */}
-                      <div>
-                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Corner Radius</p>
-                        <div className="flex gap-2">
-                          {(['sharp', 'balanced', 'rounded', 'capsule'] as const).map(r => (
-                            <button
-                              key={r}
-                              onClick={() => {
-                                const next = { ...customTheme, borderRadius: r };
-                                setCustomTheme(next);
-                                applyThemeConfig(next); // live preview
-                              }}
-                              className={cn(
-                                'flex-1 py-1.5 text-[10px] font-bold capitalize border transition-all',
-                                customTheme.borderRadius === r
-                                  ? 'bg-brand text-white border-brand'
-                                  : 'border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] hover:border-brand/40 bg-white dark:bg-[#191919]'
-                              )}
-                              style={{ borderRadius: r === 'sharp' ? 2 : r === 'balanced' ? 6 : r === 'rounded' ? 10 : 20 }}
-                            >
-                              {r}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                {/* Font */}
+                <div>
+                  <p className="text-[11px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Type className="w-3.5 h-3.5" /> Font Family
+                  </p>
+                  <select
+                    value={customTheme.fontFamily}
+                    onChange={e => {
+                      const next = { ...customTheme, fontFamily: e.target.value };
+                      setCustomTheme(next);
+                      applyThemeConfig(next); // live preview
+                    }}
+                    className="w-full px-3 py-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-xs text-[#37352F] dark:text-[#EBE9ED] focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  >
+                    {FONT_OPTIONS.map(f => (
+                      <option key={f.value} value={f.value}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-                      {/* Glass Intensity */}
-                      <div>
-                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Glass Effect</p>
-                        <div className="flex gap-2">
-                          {(['off', 'soft', 'glassy', 'frosty'] as const).map(g => (
-                            <button
-                              key={g}
-                              onClick={() => {
-                                const next = { ...customTheme, glassIntensity: g };
-                                setCustomTheme(next);
-                                applyThemeConfig(next); // live preview
-                              }}
-                              className={cn(
-                                'flex-1 py-1.5 text-[10px] font-bold capitalize rounded-lg border transition-all',
-                                customTheme.glassIntensity === g
-                                  ? 'bg-brand text-white border-brand'
-                                  : 'border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] hover:border-brand/40 bg-white dark:bg-[#191919]'
-                              )}
-                            >
-                              {g}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Sidebar Style */}
-                      <div>
-                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Sidebar Style</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {([
-                            { value: 'classic', label: 'Classic', desc: 'Standard left sidebar', icon: '▐' },
-                            { value: 'expanded', label: 'Expanded', desc: 'Wide sidebar with labels', icon: '▐▐' },
-                            { value: 'island', label: 'Island', desc: 'Floating card sidebar', icon: '❏' },
-                            { value: 'dock', label: 'Dock', desc: 'Bottom icon dock', icon: '▬' },
-                          ] as const).map(opt => (
-                            <button
-                              key={opt.value}
-                              onClick={() => {
-                                const next = { ...customTheme, sidebarStyle: opt.value };
-                                setCustomTheme(next);
-                                applyThemeConfig(next);
-                              }}
-                              className={cn(
-                                'p-2.5 rounded-[10px] border text-left transition-all',
-                                customTheme.sidebarStyle === opt.value
-                                  ? 'border-brand bg-brand-bg'
-                                  : 'border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/40 bg-white dark:bg-[#191919]'
-                              )}
-                            >
-                              <div className={cn(
-                                'text-lg mb-1',
-                                customTheme.sidebarStyle === opt.value ? 'text-brand' : 'text-[#787774] dark:text-[#9B9A97]'
-                              )}>{opt.icon}</div>
-                              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">{opt.label}</p>
-                              <p className="text-[9px] text-[#757681] dark:text-[#9B9A97] leading-tight">{opt.desc}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Save as Named Preset */}
-                      <AnimatePresence initial={false}>
-                        {showSavePreset && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="flex gap-2 pt-1">
-                              <input
-                                type="text"
-                                value={savePresetName}
-                                onChange={e => setSavePresetName(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') handleSaveAsPreset(); if (e.key === 'Escape') setShowSavePreset(false); }}
-                                placeholder="Preset name…"
-                                autoFocus
-                                className="flex-1 px-3 py-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
-                              />
-                              <button
-                                onClick={handleSaveAsPreset}
-                                className="px-3 py-2 bg-brand text-white text-xs font-bold rounded-[10px] hover:bg-brand-hover transition-colors"
-                              >Save</button>
-                              <button
-                                onClick={() => setShowSavePreset(false)}
-                                className="px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] text-xs font-bold rounded-[10px] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors"
-                              >Cancel</button>
-                            </div>
-                          </motion.div>
+                {/* Border Radius */}
+                <div>
+                  <p className="text-[11px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Corner Radius</p>
+                  <div className="flex gap-2">
+                    {(['sharp', 'balanced', 'rounded', 'capsule'] as const).map(r => (
+                      <button
+                        key={r}
+                        onClick={() => {
+                          const next = { ...customTheme, borderRadius: r };
+                          setCustomTheme(next);
+                          applyThemeConfig(next); // live preview
+                        }}
+                        className={cn(
+                          'flex-1 py-1.5 text-[10px] font-bold capitalize border transition-all',
+                          customTheme.borderRadius === r
+                            ? 'bg-brand text-white border-brand'
+                            : 'border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] hover:border-brand/40 bg-white dark:bg-[#191919]'
                         )}
-                      </AnimatePresence>
+                        style={{ borderRadius: r === 'sharp' ? 2 : r === 'balanced' ? 6 : r === 'rounded' ? 10 : 20 }}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                      {/* Actions */}
-                      <div className="flex flex-wrap gap-2 pt-1">
+                {/* Glass Intensity */}
+                <div>
+                  <p className="text-[11px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Glass Effect</p>
+                  <div className="flex gap-2">
+                    {(['off', 'soft', 'glassy', 'frosty'] as const).map(g => (
+                      <button
+                        key={g}
+                        onClick={() => {
+                          const next = { ...customTheme, glassIntensity: g };
+                          setCustomTheme(next);
+                          applyThemeConfig(next); // live preview
+                        }}
+                        className={cn(
+                          'flex-1 py-1.5 text-[10px] font-bold capitalize rounded-lg border transition-all',
+                          customTheme.glassIntensity === g
+                            ? 'bg-brand text-white border-brand'
+                            : 'border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] hover:border-brand/40 bg-white dark:bg-[#191919]'
+                        )}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sidebar Style */}
+                <div>
+                  <p className="text-[11px] font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Sidebar Style</p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {([
+                      { value: 'classic', label: 'Classic', desc: 'Standard icon rail' },
+                      { value: 'expanded', label: 'Expanded', desc: 'Wide rail with labels' },
+                      { value: 'island', label: 'Island', desc: 'Floating card rail' },
+                      { value: 'dock', label: 'Dock', desc: 'Bottom icon dock' },
+                    ] as const).map(opt => {
+                      const selected = (customTheme.sidebarStyle ?? 'classic') === opt.value;
+                      return (
                         <button
+                          key={opt.value}
                           onClick={() => {
-                            applyThemeConfig(customTheme);
-                            saveThemeConfig(customTheme);
-                            toast.success('Custom theme applied & saved!');
+                            const next = { ...customTheme, sidebarStyle: opt.value };
+                            setCustomTheme(next);
+                            applyThemeConfig(next);
                           }}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-brand text-white text-xs font-bold rounded-[10px] hover:bg-brand-hover transition-colors"
+                          className={cn(
+                            'p-2.5 rounded-[12px] border text-left transition-all flex items-center gap-2.5',
+                            selected
+                              ? 'border-brand bg-brand-bg ring-2 ring-brand/20'
+                              : 'border-[#E9E9E7] dark:border-[#2E2E2E] hover:border-brand/40 bg-white dark:bg-[#191919]'
+                          )}
                         >
-                          <Save className="w-3.5 h-3.5" /> Apply & Save
+                          <SidebarStylePreview style={opt.value} active={selected} />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight">{opt.label}</p>
+                            <p className="text-[9px] text-[#757681] dark:text-[#9B9A97] leading-tight">{opt.desc}</p>
+                          </div>
+                          {selected && <CheckCircle2 className="w-3.5 h-3.5 text-brand ml-auto shrink-0" />}
                         </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Save as Named Preset */}
+                <AnimatePresence initial={false}>
+                  {showSavePreset && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={savePresetName}
+                          onChange={e => setSavePresetName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleSaveAsPreset(); if (e.key === 'Escape') setShowSavePreset(false); }}
+                          placeholder="Preset name…"
+                          autoFocus
+                          className="flex-1 px-3 py-2 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
+                        />
                         <button
-                          onClick={() => setShowSavePreset(v => !v)}
-                          className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-brand/40 text-brand text-xs font-bold rounded-[10px] hover:bg-brand-bg transition-colors"
-                          title="Save current settings as a named preset"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" /> Save as Preset
-                        </button>
+                          onClick={handleSaveAsPreset}
+                          className="px-3 py-2 bg-brand text-white text-xs font-bold rounded-[10px] hover:bg-brand-hover transition-colors"
+                        >Save</button>
                         <button
-                          onClick={() => {
-                            resetThemeConfig();
-                            setCustomTheme({ ...DEFAULT_THEME_CONFIG });
-                            toast.success('Theme reset to defaults');
-                          }}
-                          className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] text-xs font-bold rounded-[10px] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" /> Reset
-                        </button>
+                          onClick={() => setShowSavePreset(false)}
+                          className="px-3 py-2 border border-[#E9E9E7] dark:border-[#2E2E2E] text-xs font-bold rounded-[10px] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors"
+                        >Cancel</button>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      applyThemeConfig(customTheme);
+                      saveThemeConfig(customTheme);
+                      toast.success('Custom theme applied & saved!');
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-brand text-white text-xs font-bold rounded-[10px] hover:bg-brand-hover transition-colors"
+                  >
+                    <Save className="w-3.5 h-3.5" /> Apply &amp; Save
+                  </button>
+                  <button
+                    onClick={() => setShowSavePreset(v => !v)}
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-brand/40 text-brand text-xs font-bold rounded-[10px] hover:bg-brand-bg transition-colors"
+                    title="Save current settings as a named preset"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Save as Preset
+                  </button>
+                  <button
+                    onClick={() => {
+                      resetThemeConfig();
+                      setCustomTheme({ ...DEFAULT_THEME_CONFIG });
+                      setActivePresetId('default');
+                      localStorage.setItem('forge_active_preset', 'default');
+                      toast.success('Theme reset to defaults');
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] text-xs font-bold rounded-[10px] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Reset
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </BentoCard>
