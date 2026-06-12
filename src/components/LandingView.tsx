@@ -879,7 +879,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
   const cardOpacity = useTransform(scrollYProgress, [0, 0.5, 0.72, 1], [1, 1, 0, 0]);
   const fullBleedOpacity = useTransform(scrollYProgress, [0, 0.38, 0.58, 0.82, 1], [0, 0, 0.7, 1, 1]);
-  const headlineScale = useTransform(scrollYProgress, [0, 0.7, 1], [1, 1, 1.55]);
+  const headlineScale = useTransform(scrollYProgress, [0, 0.7, 1], [1, 1, 1.15]);
   const contentY = useTransform(scrollYProgress, [0, 0.7, 1], [16, 16, 0]);
   const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
   const sidebarX = useTransform(scrollYProgress, [0.48, 0.72], ['0%', '-110%']);
@@ -887,7 +887,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
 
   const scribbleX = useTransform(pageProgress, [0, 0.85], ['0%', '30%']);
   const scribbleScale = useTransform(pageProgress, [0, 0.85], [1, 0.78]);
-  const scribbleBaseOpacity = useTransform(pageProgress, [0, 0.05, 0.55, 0.82], [0, 0.38, 0.38, 0]);
+  const scribbleBaseOpacity = useTransform(pageProgress, [0, 0.55, 0.82], [0.38, 0.38, 0]);
   const [ctaImmersive, setCtaImmersive] = useState(false);
   const [tourFocusId, setTourFocusId] = useState<string | null>(null);
 
@@ -1006,6 +1006,29 @@ export function LandingView({ onLogin }: LandingViewProps) {
     <div
       className="relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white"
     >
+      {/* Top right floating Log In / Sign Up button for quick access */}
+      <motion.div
+        animate={{ opacity: footerImmersive ? 0 : 1, y: footerImmersive ? -20 : 0 }}
+        transition={{ duration: 0.3 }}
+        className={cn(
+          "fixed top-4 right-6 z-[80] flex items-center gap-3",
+          footerImmersive && "pointer-events-none"
+        )}
+      >
+        <button
+          onClick={onLogin}
+          className="px-4 py-2 text-sm font-bold text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors"
+        >
+          Log In
+        </button>
+        <button
+          onClick={onLogin}
+          className="px-4 py-2 text-sm font-bold bg-[#2383E2] hover:bg-[#1a6fc4] text-white rounded-xl shadow-md transition-colors"
+        >
+          Sign Up
+        </button>
+      </motion.div>
+
       {/* Full-viewport brand background — fades in smoothly as footer scrolls into view */}
       <motion.div
         className="fixed inset-0 z-[90] bg-brand pointer-events-none"
@@ -1018,8 +1041,10 @@ export function LandingView({ onLogin }: LandingViewProps) {
       {/* Full-bleed CTA copy — fixed at z-[95] so it escapes main's stacking context */}
       <motion.div
         style={{ opacity: fullBleedOpacity, y: contentY }}
-        className="fixed inset-0 z-[95] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 pointer-events-none text-white"
+        className="fixed inset-0 z-[95] flex flex-col items-center justify-between text-center px-6 sm:px-10 py-10 md:py-14 pointer-events-none text-white"
       >
+        <div /> {/* Top spacer to push CTA to center */}
+        
         <div
           className={cn(
             'flex flex-col items-center gap-8 md:gap-10 max-w-3xl w-full',
@@ -1048,6 +1073,44 @@ export function LandingView({ onLogin }: LandingViewProps) {
           >
             Sign Up Now
           </motion.button>
+        </div>
+
+        {/* Footer credits */}
+        <div 
+          className={cn(
+            'flex flex-col items-center gap-2 max-w-2xl w-full text-xs md:text-sm text-blue-100/75 select-text transition-opacity',
+            ctaImmersive ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+          )}
+        >
+          <p className="font-medium">
+            Created from passion by <span className="text-white font-semibold">choasstudio.mv</span>
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-blue-200/80">
+            <a 
+              href="mailto:chaos.studio.mv@gmail.com" 
+              className="hover:text-white transition-colors underline decoration-blue-200/30"
+            >
+              chaos.studio.mv@gmail.com
+            </a>
+            <span className="hidden sm:inline opacity-40">•</span>
+            <a 
+              href="https://t.me/Wafig" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:text-white transition-colors underline decoration-blue-200/30"
+            >
+              +960 9401011 (Telegram)
+            </a>
+            <span className="hidden sm:inline opacity-40">•</span>
+            <a 
+              href="https://portfolio.chaoticstudio.workers.dev/studio" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:text-white transition-colors underline decoration-blue-200/30"
+            >
+              chaos.studio
+            </a>
+          </div>
         </div>
       </motion.div>
 
