@@ -50,6 +50,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#ede8de',
       textPrimary: '#2d3b2d',
       textSecondary: '#5a6b5a',
+      sidebarStyle: 'classic',
     },
   },
   {
@@ -63,6 +64,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#f5ece4',
       textPrimary: '#3b2318',
       textSecondary: '#7a4f38',
+      sidebarStyle: 'expanded',
     },
   },
   {
@@ -76,6 +78,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#e3edf8',
       textPrimary: '#0f2340',
       textSecondary: '#3a5f8a',
+      sidebarStyle: 'island',
     },
   },
   {
@@ -89,6 +92,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#0d1520',
       textPrimary: '#e0fff4',
       textSecondary: '#80bfa8',
+      sidebarStyle: 'dock',
     },
   },
   {
@@ -102,6 +106,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#150e28',
       textPrimary: '#ede9fe',
       textSecondary: '#9d8fcc',
+      sidebarStyle: 'classic',
     },
   },
   {
@@ -115,6 +120,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#1a1a1a',
       textPrimary: '#f0f0f0',
       textSecondary: '#888888',
+      sidebarStyle: 'island',
     },
   },
   {
@@ -128,6 +134,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#1a1826',
       textPrimary: '#fffffe',
       textSecondary: '#a6a0bd',
+      sidebarStyle: 'dock',
     },
   },
   {
@@ -141,6 +148,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#e8eef5',
       textPrimary: '#1a2940',
       textSecondary: '#4a6480',
+      sidebarStyle: 'expanded',
     },
   },
   {
@@ -154,6 +162,7 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#f5f0e5',
       textPrimary: '#2a1f08',
       textSecondary: '#5a4820',
+      sidebarStyle: 'classic',
     },
   },
 ];

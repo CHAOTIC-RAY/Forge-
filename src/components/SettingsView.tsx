@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  User, Building2, Sparkles, BarChart3, Database, 
-  Download, Save, Upload, RefreshCw, FileSpreadsheet, 
-  Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
-  Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2,
-  FileText, MessageSquareText, Box, Wand2, ExternalLink, Boxes, Type, Sliders, RotateCcw
-} from 'lucide-react';
+import { User, Building2, Sparkles, ChartBar as BarChart3, Database, Download, Save, Upload, RefreshCw, FileSpreadsheet, Globe, LogOut, Smartphone, Bell, Printer, X, Settings, Trash2, ChevronDown, Activity, Tags, Link2, Hop as Home, Palette, Lightbulb, ListTodo, Search, Moon, CircleCheck as CheckCircle2, FileText, MessageSquareText, Box, Wand as Wand2, ExternalLink, Boxes, Type, FileSliders as Sliders, RotateCcw } from 'lucide-react';
 import {
   type ThemeConfig,
   PALETTE_PRESETS as ENGINE_PALETTE_PRESETS,
@@ -1038,26 +1032,31 @@ export function SettingsView({
                       <div>
                         <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Palette Presets</p>
                         <div className="grid grid-cols-3 gap-2">
-                          {ENGINE_PALETTE_PRESETS.map(preset => (
-                            <button
-                              key={preset.name}
-                              onClick={() => {
-                                const next = { ...customTheme, ...preset.config };
-                                setCustomTheme(next);
-                                applyThemeConfig(next);
-                                saveThemeConfig(next);
-                                toast.success(`Applied "${preset.name}" palette`);
-                              }}
-                              className="p-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-left hover:border-brand/40 transition-all bg-white dark:bg-[#191919]"
-                            >
-                              <div className="flex gap-1 mb-1.5">
-                                {preset.colors.map((c, i) => (
-                                  <div key={i} className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: c }} />
-                                ))}
-                              </div>
-                              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight truncate">{preset.name}</p>
-                            </button>
-                          ))}
+                          {ENGINE_PALETTE_PRESETS.map(preset => {
+                            const sidebarStyle = preset.config.sidebarStyle || 'classic';
+                            const sidebarLabel = sidebarStyle.charAt(0).toUpperCase() + sidebarStyle.slice(1);
+                            return (
+                              <button
+                                key={preset.name}
+                                onClick={() => {
+                                  const next = { ...customTheme, ...preset.config };
+                                  setCustomTheme(next);
+                                  applyThemeConfig(next);
+                                  saveThemeConfig(next);
+                                  toast.success(`Applied "${preset.name}" palette`);
+                                }}
+                                className="p-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-left hover:border-brand/40 transition-all bg-white dark:bg-[#191919]"
+                              >
+                                <div className="flex gap-1 mb-1.5">
+                                  {preset.colors.map((c, i) => (
+                                    <div key={i} className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: c }} />
+                                  ))}
+                                </div>
+                                <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight truncate">{preset.name}</p>
+                                <p className="text-[9px] text-brand font-medium mt-0.5">{sidebarLabel} sidebar</p>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 

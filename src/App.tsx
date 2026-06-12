@@ -29,10 +29,7 @@ import * as XLSX from 'xlsx';
 import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
-import {
-  Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, AlertCircle, Cloud, User, CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, BarChart3, Maximize, Share2, Terminal, Wand2,
-  Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box, Boxes
-} from 'lucide-react';
+import { Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, CircleAlert as AlertCircle, Cloud, User, CircleCheck as CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, ChartBar as BarChart3, Maximize, Share2, Terminal, Wand as Wand2, Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box, Boxes } from 'lucide-react';
 import { Type } from "@google/genai";
 
 import { useParams, useNavigate } from 'react-router-dom';
@@ -3271,7 +3268,7 @@ export default function App() {
               ]}>
                 <div className="flex flex-1 w-full relative">
                   {/* Sidebar (Desktop Only) — Notion Minimal Rail */}
-                  <aside className="hidden md:flex sticky top-0 h-screen w-16 bg-[#FBFAF8] dark:bg-[#191919] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
+                  <aside className="forge-sidebar-rail hidden md:flex sticky top-0 h-screen w-16 bg-[#FBFAF8] dark:bg-[#191919] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar transition-all duration-300">
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
                       {/* Logo */}
                       <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
@@ -3354,6 +3351,7 @@ export default function App() {
                         <button
                           onClick={() => setActiveTab('home')}
                           title="Home"
+                          data-label="Home"
                           className={cn(
                             "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
                             activeTab === 'home' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
@@ -3365,6 +3363,7 @@ export default function App() {
                           id="calendar-tab-droppable"
                           onClick={() => setActiveTab('schedule')}
                           title={industryConfig.terminology.calendar}
+                          data-label={industryConfig.terminology.calendar}
                           className={cn(
                             "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
                             activeTab === 'schedule' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
@@ -3377,6 +3376,7 @@ export default function App() {
                             <button
                               onClick={() => setActiveTab('search')}
                               title={industryConfig.terminology.products}
+                              data-label="Products"
                               className={cn(
                                 "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
                                 activeTab === 'search' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
@@ -3387,6 +3387,7 @@ export default function App() {
                             <button
                               onClick={() => setActiveTab('ideas')}
                               title="Ideas"
+                              data-label="Ideas"
                               className={cn(
                                 "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
                                 isIdeasTabActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
@@ -3397,6 +3398,7 @@ export default function App() {
                             <button
                               onClick={() => setActiveTab('brandkit')}
                               title={industryConfig.terminology.assets}
+                              data-label="Assets"
                               className={cn(
                                 "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
                                 activeTab === 'brandkit' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
@@ -3407,6 +3409,7 @@ export default function App() {
                             <button
                               onClick={() => setActiveTab('widgets')}
                               title="Widgets"
+                              data-label="Widgets"
                               className={cn(
                                 "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
                                 isWidgetsTabActive ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
@@ -3417,6 +3420,7 @@ export default function App() {
                             <button
                               onClick={() => setActiveTab('analytics')}
                               title="Insights & Analytics"
+                              data-label="Analytics"
                               className={cn(
                                 "interactive focus-ring w-full flex items-center justify-center p-2.5 rounded-[12px]",
                                 activeTab === 'analytics' ? "nav-pill-active" : "hover:bg-[#EFEFED]/50 dark:hover:bg-[#2E2E2E]/50 text-[#757681] dark:text-[#9B9A97]"
@@ -4007,6 +4011,47 @@ export default function App() {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Desktop Dock Navigation (for dock sidebar style) */}
+              <div className="forge-dock-nav hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 glass-panel rounded-2xl shadow-xl shadow-black/10 border border-white/20 dark:border-[#2E2E2E]/50">
+                <nav className="flex items-center gap-1">
+                  {[
+                    { id: 'home', icon: LayoutGrid, title: 'Home', color: 'bg-rose-500' },
+                    { id: 'schedule', icon: CalendarIcon, title: industryConfig.terminology.calendar, color: 'bg-amber-500' },
+                    { id: 'search', icon: Database, title: industryConfig.terminology.products, color: 'bg-emerald-500' },
+                    { id: 'ideas', icon: Lightbulb, title: 'Ideas', color: 'bg-sky-500' },
+                    { id: 'brandkit', icon: Palette, title: 'Assets', color: 'bg-violet-500' },
+                    { id: 'analytics', icon: BarChart3, title: 'Analytics', color: 'bg-brand' },
+                    { id: 'more', icon: Settings, title: 'Settings', color: 'bg-[#6074b9]' },
+                  ].map((tab, idx) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id ||
+                      (tab.id === 'ideas' && isIdeasTabActive) ||
+                      (tab.id === 'analytics' && activeTab === 'analytics');
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as any)}
+                        className={cn(
+                          "w-12 h-12 rounded-xl flex items-center justify-center transition-all relative group",
+                          isActive
+                            ? `${tab.color} text-white shadow-lg scale-110`
+                            : "hover:bg-[#F7F7F5] dark:hover:bg-[#202020] text-[#757681]"
+                        )}
+                        title={tab.title}
+                      >
+                        <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+                        {isActive && (
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full border-2 border-current shadow-lg" />
+                        )}
+                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#37352F] text-white text-[10px] font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                          {tab.title}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </nav>
               </div>
 
               {/* Modals */}
