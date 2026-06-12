@@ -32,20 +32,9 @@ type UnifiedPreset = {
   name: string;
   colors: string[];
   sidebarStyle?: ThemeConfig['sidebarStyle'];
-  kind: 'palette' | 'legacy' | 'custom';
-  legacyId?: string;
+  kind: 'palette' | 'custom';
+  mode?: 'light' | 'dark';
   config: Partial<ThemeConfig>;
-};
-
-// Accent-only configs for the legacy data-theme presets so they slot into the
-// unified preset grid without dropping their original look.
-const LEGACY_ACCENT_CONFIG: Record<string, Partial<ThemeConfig>> = {
-  default: { accentColor: '#2665fd', accentHover: '#1e52d0' },
-  midnight: { accentColor: '#38bdf8', accentHover: '#0284c7' },
-  forest: { accentColor: '#10b981', accentHover: '#059669' },
-  sunset: { accentColor: '#f97316', accentHover: '#ea580c' },
-  cyberpunk: { accentColor: '#ff00ff', accentHover: '#d900d9' },
-  nord: { accentColor: '#88c0d0', accentHover: '#6fa8b8' },
 };
 
 // Mini layout sketch used in the Sidebar Style picker so each option is visual.
@@ -247,7 +236,9 @@ export function SettingsView({
   const [themePreset, setThemePreset] = useState(() => localStorage.getItem('forge_theme_preset') || 'default');
   const [customTheme, setCustomTheme] = useState<ThemeConfig>(() => loadThemeConfig() ?? { ...DEFAULT_THEME_CONFIG });
   const [showAdvancedTheme, setShowAdvancedTheme] = useState(false);
-  const [customPresets, setCustomPresets] = useState<Array<{ id: string; name: string; colors: string[]; config: ThemeConfig }>>(() => {
+  const [showAllPresets, setShowAllPresets] = useState(false);
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [customPresets, setCustomPresets] = useState<Array<{ id: string; name: string; colors: string[]; mode?: 'light' | 'dark'; config: ThemeConfig }>>(() => {
     try { return JSON.parse(localStorage.getItem('forge_custom_presets') || '[]'); } catch { return []; }
   });
   const [savePresetName, setSavePresetName] = useState('');
@@ -567,6 +558,7 @@ export function SettingsView({
       id,
       name: savePresetName.trim(),
       colors: [customTheme.canvasBackground || '#ffffff', customTheme.accentColor || '#2665fd', customTheme.panelBackground || '#f7f7f5'],
+      mode: (isDarkMode ? 'dark' : 'light') as 'light' | 'dark',
       config: { ...customTheme },
     };
     const updated = [...customPresets, newPreset];
@@ -601,7 +593,7 @@ export function SettingsView({
     }
   };
 
-  // ── Unified theme preset list (built-in palettes + accent themes + saved customs) ──
+  // ── Unified theme preset list (curated palettes + saved customs) ──
   const unifiedPresets: UnifiedPreset[] = [
     ...ENGINE_PALETTE_PRESETS.map(pp => ({
       id: `palette_${pp.name}`,
@@ -609,15 +601,8 @@ export function SettingsView({
       colors: pp.colors,
       sidebarStyle: pp.config.sidebarStyle,
       kind: 'palette' as const,
+      mode: pp.mode,
       config: pp.config,
-    })),
-    ...BASE_THEME_PRESETS.map(bp => ({
-      id: bp.id,
-      name: bp.name,
-      colors: bp.colors,
-      kind: 'legacy' as const,
-      legacyId: bp.id,
-      config: LEGACY_ACCENT_CONFIG[bp.id] ?? {},
     })),
     ...customPresets.map(cp => ({
       id: cp.id,
@@ -625,16 +610,25 @@ export function SettingsView({
       colors: cp.colors,
       sidebarStyle: cp.config.sidebarStyle,
       kind: 'custom' as const,
+      mode: cp.mode,
       config: cp.config,
     })),
   ];
 
+  // Show the active preset first, then the rest. Collapsed view shows only 3.
+  const orderedPresets = [
+    ...unifiedPresets.filter(p => p.id === activePresetId),
+    ...unifiedPresets.filter(p => p.id !== activePresetId),
+  ];
+  const visiblePresets = showAllPresets ? orderedPresets : orderedPresets.slice(0, 3);
+
   const applyUnifiedPreset = (preset: UnifiedPreset) => {
     const next: ThemeConfig = { ...customTheme, ...preset.config };
-    if (preset.kind === 'legacy' && preset.legacyId) {
-      setThemePreset(preset.legacyId);
-      localStorage.setItem('forge_theme_preset', preset.legacyId);
-      document.documentElement.setAttribute('data-theme', preset.legacyId);
+    // Keep light/dark mode in sync with the preset so a light theme never
+    // renders on top of dark mode (and vice-versa).
+    if (preset.mode && toggleDarkMode) {
+      const currentMode = isDarkMode ? 'dark' : 'light';
+      if (preset.mode !== currentMode) toggleDarkMode();
     }
     setCustomTheme(next);
     applyThemeConfig(next);
@@ -1075,7 +1069,7 @@ export function SettingsView({
                   <span className="text-[10px] font-medium text-[#9B9A97] dark:text-[#7D7C78]">{unifiedPresets.length} themes</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {unifiedPresets.map((preset) => {
+                  {visiblePresets.map((preset) => {
                     const isActive = activePresetId === preset.id;
                     return (
                       <div key={preset.id} className="relative group">
@@ -1119,14 +1113,38 @@ export function SettingsView({
                     );
                   })}
                 </div>
+                {orderedPresets.length > 3 && (
+                  <button
+                    onClick={() => setShowAllPresets(v => !v)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold text-[#757681] dark:text-[#9B9A97] hover:text-brand border border-dashed border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] hover:border-brand/40 transition-colors"
+                  >
+                    {showAllPresets ? 'Show less' : `Show all ${orderedPresets.length} themes`}
+                    <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showAllPresets && 'rotate-180')} />
+                  </button>
+                )}
               </div>
 
-              {/* Customize */}
-              <div className="space-y-5 pt-5 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
-                <div className="flex items-center gap-2">
+              {/* Customize (advanced) */}
+              <div className="pt-5 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <button
+                  onClick={() => setShowCustomize(v => !v)}
+                  className="w-full flex items-center gap-2 group"
+                >
                   <Sliders className="w-4 h-4 text-[#757681] dark:text-[#9B9A97]" />
                   <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">Customize</p>
-                </div>
+                  <span className="text-[10px] font-medium text-[#9B9A97] dark:text-[#7D7C78] normal-case">Colors, font, radius, glass &amp; sidebar</span>
+                  <ChevronDown className={cn('w-4 h-4 text-[#9B9A97] ml-auto transition-transform', showCustomize && 'rotate-180')} />
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {showCustomize && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                    <div className="space-y-5 pt-5">
 
                 {/* Color Pickers */}
                 <div>
@@ -1330,6 +1348,10 @@ export function SettingsView({
                     <RotateCcw className="w-3.5 h-3.5" /> Reset
                   </button>
                 </div>
+                    </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
