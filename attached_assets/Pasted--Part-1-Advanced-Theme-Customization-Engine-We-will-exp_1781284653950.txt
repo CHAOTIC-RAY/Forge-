@@ -1,0 +1,96 @@
+🎨 Part 1: Advanced Theme & Customization Engine
+We will expand the static preset themes into a fully customizable design system, giving users absolute freedom over their creative workspace.
+code
+Code
+[ Custom CSS Variable Layer ]
+                  ▲
+                  │  (Instant CSS overrides)
+     [ Client-side Theme Controller State ]
+       ▲                              ▲
+       │ (Load / Save)                │ (Sync)
+ [ Firestore (user/theme) ]      [ LocalStorage fallback ]
+1. Real-Time Palette & Color Customizer
+Dynamic Variable Engine: Support custom color inputs (hex picker or direct input) that dynamically rewrite CSS custom variables (--brand-color, --brand-color-hover, and ambient transparency alpha layers like --brand-color-bg) in real time.
+Adaptive Ambient Presets:
+Light Theme: Fresh, off-white, high-contrast editor backdrop.
+Carbon Charcoal: Subtle ink grays to elevate editorial clarity.
+True OLED Black: Pure #000000 panels for battery efficiency and high-contrast dark room drafting.
+Cohesive Presets: Introduce Tokyo Neon, Nordic Clean, and Warm Editorial (Sepia).
+2. Advanced Typography Controls
+Dynamic Font Loaders: Integrate a dynamic typography selector to key in tailored font pairs:
+Sans-Serif (Standard): Inter or Public Sans.
+Editorial: Playfair Display or Lora for copywriters.
+Technical / Mono: JetBrains Mono or Fira Code for clean structured lists and calendar status cards.
+Fluid Typography Tuning: Control font size defaults, heading line-heights, and custom letter tracking (tracking-tight vs tracking-wide) globally.
+3. Border Radii & Interface Accents
+Corner Rounding Slider: A configuration slider allowing users to toggle corner values globally:
+0px — Brutalist Sharp (High-tech, flat).
+8px — Modern Balanced (Notion-like minimalist).
+18px — Playful Rounded (Generous pill boundaries).
+Borders & Surface Depths: Configure frosted glass card backdrops (backdrop-blur-md bg-white/70) versus clean opaque borders.
+4. Instant Storage & Sync Architecture
+Persist the selected design configuration in the Firestore users/{userId} record under a new themeConfig property so style choices persist across all devices.
+Utilize local storage fallbacks to synchronously inject attributes on the HTML element (document.documentElement.setAttribute('data-theme', ...)) to eliminate flash-of-unstyled-content (FOUC).
+
+1. Scroll-Linked Backdrop Logo Animation (ScribbleFlame)
+Enhanced Visual Clarity: Raised the initial visibility of the background logo to a warm, prominent opacity (38% instead of the previous faint setup), making it beautifully evident on the Hero section.
+Precise Positioning: Shifted the default layout coordinates leftwards slightly so it frames the screen structure and copy.
+Dynamic Fluidity: Integrated frame-by-frame, scroll-linked Framer Motion transformation:
+When scroll progress is 0 (at the top / Hero level), the logo sits elegantly in its display position.
+As you scroll down, it slowly fades and transitions to the side (translating smoothly over to the right by up to 32% and scaling down to 82%).
+Once approaching the bottom call-to-action block, it gracefully dissolves out of view to maintain a clean immersive layout.
+Scrolling back up perfectly reverses these properties live!
+1. Advanced Custom Theme Designer (Appearance & Branding Studio)
+I implemented a comprehensive custom theme creator inside Advanced Theme Settings under the Appearance & Theme card in Settings:
+Dynamic Custom Theme Engine (src/lib/themeEngine.ts): Designed a centralized theme configuration engine that supports customizable elements, colors, layouts, and typography.
+Palette Presets: Integrated curated start button templates (e.g., Earthy Sage, Warm Clay, Retro Blues, Cyber Neon, Midnight Purple, Obsidian Minimal) that users can click to instantaneously set up a base scheme and tweak.
+Real-time Visual Controllers:
+Interactive Color Pickers for Accent/Highlights, Workspace Borders, Main Canvas background, Secondary Panel background, and Primary/Secondary typography color tones.
+Google Fonts Integration utilizing professional types directly imported dynamically (Inter, Space Grotesk, Outfit, DM Sans, Poppins, JetBrains Mono, Lora, Playfair Display, Bricolage Grotesque).
+Border Corner Radii pills (Sharp, Notion-minimal, Rounded, Capsule) directly controlling custom layouts in real-time.
+Glassmorphic Slider intensifier (Off, Soft, Glassy, Frosty) setting backdrop filters dynamically.
+Global Layout Binding (src/index.css): Connected theme choices directly to modern glassmorphic cards (.glass-card), sidebars (.glass-panel), and text variables, supporting custom fonts seamlessly in light & dark modes.
+2. Intrtic/Intuitive Widgets Live Preview Stream Canvas
+To bring a fully native feeling to copywriting and campaign widgets, I created a highly responsive rendering simulator:
+Visual Stream Generator (src/components/WidgetPreviewCanvas.tsx): Created a phone/mockup canvas container that instantly represents your generated marketing content inside pixel-perfect cards of four leading social platforms:
+Instagram Post Layout: Displays the active business's logo/mark as an avatar, sponsored label, gradient preview container, interactive heart/comment icon deck, and the formatted caption containing active hashtags.
+Twitter / X Card: Employs circular branding avatars, handles, timestamp tags, readable post rendering, and the classic engagement ribbon.
+LinkedIn Professional Post: Renders professional follower cards, taglines, formatted text blocks, reaction metrics, and LinkedIn reaction action buttons.
+Facebook Simulator: Showcases standard business markers, privacy locks, visual image backdrops, and interactive engagement metrics.
+In-Place Fine-Tuning: Fulfills the "intrtic" widget design by introducing a dual In-place Editor panel. Clicking "Fine-Tune" opens up an inline playground where modifying the copy instantly updates the styled mockup card on-the-fly.
+Warn Limit Tracking: Twitter/X characters length analyzer that raises warnings when the text exceeds 280-characters limit.
+1. Unified Notion Minimal Sidebar Design
+Straight-Edge Flat Surface Layout: The primary workspace <aside> sidebar container has been updated. When the default Notion Minimal theme is selected, it completely transitions from the rounded, floating card overlay style (glass-panel) to a pristine, sharp-edged vertical layout (bg-[#F7F7F5] dark:bg-[#191919]) that matches the landing page sidebar.
+Landing View Active Indicator Alignment: Active tabs now use custom list borders (bg-white dark:bg-[#2E2E2E] shadow-sm text-brand rounded-[8px]) and render the absolute-positioned blue indicator strip (layoutId="desktopActiveTabIndicator") on the leftmost edge with fluid spring physics transitions.
+1. Unified Notion Minimal Sidebar Design
+Straight-Edge Flat Surface Layout: The primary workspace <aside> sidebar container has been updated. When the default Notion Minimal theme is selected, it completely transitions from the rounded, floating card overlay style (glass-panel) to a pristine, sharp-edged vertical layout (bg-[#F7F7F5] dark:bg-[#191919]) that matches the landing page sidebar.
+Landing View Active Indicator Alignment: Active tabs now use custom list borders (bg-white dark:bg-[#2E2E2E] shadow-sm text-brand rounded-[8px]) and render the absolute-positioned blue indicator strip (layoutId="desktopActiveTabIndicator") on the leftmost edge with fluid spring physics transitions.
+
+3. Isolated Styling Limits for Landing & Login Flows
+Strict Scope Isolation: Updated the top-level theme initialization engine inside App.tsx. If the user is logging in or navigating the public landing view, any active custom configuration is automatically suppressed and cleaned, ensuring that the landing page's custom branding animates perfectly under its original palette and remains completely immune to user configuration leakage.
+Self-Healing Local AI Engine: Implemented an automated recovery layer that catches disposed object exceptions from the WebGPU WebLLM backend. If the browser tab suspends resources or experiences hot-reloading context loss, the service quietly reinstantiates a clean engine instance on-the-fly, preventing crashes.
+Typographic Hero Animation: Replaced the hand-drawn font drawing with a modern, high-contrast kinetic typographic title using sleek spring transitions. Key terms are styled with dynamic gradients, gentle floating spark elements, and shimmering light sweeps to accentuate high-end SaaS product aesthetics.
+Immersive Last-Scroll Resilience: Restructured the landing page's footer call-to-action section. Instead of relying purely on linear scroll progress coordinate calculations, we integrated robust conditional state logic. This guarantees the full-bleed branding background and white headlines are completely visible and centered with perfect responsive typography on every device.
+Robust Background Logo Persistence (LandingView.tsx):
+Swapped out the complex scroll target tracking with a state-driven layout controller that fades the background ScribbleFlame seamlessly.
+When you are anywhere on the page (from the very top "Hero" to the "Metrics" section), the logo is fully active.
+When you reach the absolute bottom into the immersive purple section (footer-cta), the background logo smoothly fades out to 0 opacity so as not to clutter the final call to action.
+As soon as you scroll back up, the system immediately recognizes the section shift and smoothly fades the background logo animation back in, avoiding any sudden pops or complete disappearances.
+Liquid Color-Shifting "Sparks" Gradient (HeroHandwritingTitle.tsx):
+Converted the static orange-yellow "Sparks" text gradient into an organically shifting dynamic color spectrum.
+Using Framer Motion-driven CSS Custom Properties (--spark-color-1, --spark-color-2), the text gradient, the ambient background glow, the star icon (✦), and its corresponding drop-shadow glow all cycle in synchronized, smooth unison.
+It transitions elegantly through blue, red, gold, green, and purple, mirroring the gorgeous cycles of the master background logo animation.
+1. High-Fidelity "Scribble" Motion System
+Scribble Flame Backdrop: Replaced static assets with a dynamic, scroll-linked SVG flame. It utilizes motion/react to scale, fade, and shift along the X-axis as users explore the page, creating a sense of depth and life.
+Guided Feature Tour: Introduced a "See how it works" auto-scroll mode. When triggered, the page gracefully navigates through key features using a custom easeOutExpo scroll controller, highlighting content without "tab chaos."
+2. Hero & Brand Identity Refresh
+HeroHandwritingTitle: The main headline now features an animated handwriting effect, emphasizing the "handcrafted" nature of Forge-generated content.
+Dynamic Industry Copy: The landing page text is now reactive. It pulls terminology from INDUSTRY_CONFIGS, meaning terms like "ideas" and "assets" automatically update based on the specific industry context of the workspace.
+"Tab Chaos" Narrative: The copy has been sharpened to focus on productivity, positioning Forge as the antidote to fragmented workflows for social content creators.
+3. Interactive UI Previews
+Catalogue Import Visualizer: Added a bespoke preview component (CatalogueImportLandingPreview) that simulates the "Website-to-Catalogue" workflow, showing a live breakdown of how raw links turn into organized business knowledge.
+Glassmorphism & Grids: Standardized the use of "Glass-cards" (frosted backgrounds) and technical grid overlays (FooterCtaGrid) to reinforce the modern, precise aesthetic of the brand.
+4. Structural Optimization
+Spline 3D Removal: To ensure lightning-fast load times and better mobile accessibility, the heavy 3D Spline experience was removed in favor of the lightweight, high-performance "Scribble" motion system.
+Immersive Footer Logic: Implemented a state-aware footer that transitions the layout into an "immersive" focus mode, clearing background decorations when the user reaches the final call-to-action.
+
