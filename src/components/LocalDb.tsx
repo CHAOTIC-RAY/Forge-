@@ -1153,7 +1153,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               { id: 'info', label: 'Knowledge base' },
             ]}
             value={dbMode}
-            onChange={setDbMode}
+            onChange={(id) => setDbMode(id as DbMode)}
           />
         }
       />

@@ -80,7 +80,7 @@ export function CatalogueGridSkeleton() {
 export function IdeasBoardSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 md:p-6" aria-busy="true" aria-label="Loading ideas">
-      {Array.from({ length: 3 }).map((col) => (
+      {Array.from({ length: 3 }).map((_, col) => (
         <div key={col} className="flex flex-col rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] glass-card min-h-[240px] p-3 gap-2">
           <Skeleton className="h-5 w-24 rounded-md" />
           <Skeleton className="h-16 rounded-xl" />

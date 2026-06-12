@@ -291,7 +291,45 @@ export async function fetchBrandKitDesignGuide(businessId: string): Promise<stri
 
 export type AiRouteOptions = { forceLocal?: boolean };
 
-export function getDefaultAiSettings() {
+export interface AiSettings {
+  preferredProvider: string;
+  imageProvider: string;
+  geminiModel: string;
+  groqModel: string;
+  groqVisionModel: string;
+  pollinationModel: string;
+  pollinationApiKey: string;
+  puterTextModel: string;
+  puterImageModel: string;
+  builtinModelId: string;
+  builtinVisionModelId: string;
+  customModelUrl: string;
+  customModelConfig: Record<string, unknown> | null;
+  allowedAutoProviders: string[];
+  targetUrl: string;
+  geminiApiKey: string;
+  groqApiKey: string;
+  firecrawlApiKey: string;
+  systemInstructions: string;
+  brandVoice: string;
+  businessRules: string;
+  brandKnowledge: string;
+  localAiDebug: boolean;
+  localFirstDefaults: boolean;
+  localProxyUrl: string;
+  localProxyModel: string;
+  localProxyApiKey: string;
+  cloudinaryCloudName: string;
+  cloudinaryApiKey: string;
+  cloudinaryApiSecret: string;
+  catalogueImportLocalOnly: boolean;
+  catalogueImportCloudFallback: boolean;
+  catalogueCrawlLimit: number;
+  fallbackToCloudAi: boolean;
+  [key: string]: unknown;
+}
+
+export function getDefaultAiSettings(): AiSettings {
   return {
     preferredProvider: 'builtin',
     imageProvider: 'builtin',
@@ -366,7 +404,7 @@ function migrateToLocalFirstDefaults(parsed: Record<string, unknown>) {
   return parsed;
 }
 
-export const getAiSettings = () => {
+export const getAiSettings = (): AiSettings => {
   const saved = localStorage.getItem('forge_ai_settings');
   if (saved) {
     try {
@@ -386,45 +424,10 @@ export const getAiSettings = () => {
       if (parsed.catalogueImportCloudFallback === undefined) parsed.catalogueImportCloudFallback = true;
       if (!parsed.catalogueCrawlLimit) parsed.catalogueCrawlLimit = 100;
       if (parsed.fallbackToCloudAi === undefined) parsed.fallbackToCloudAi = false;
-      return parsed;
+      return { ...getDefaultAiSettings(), ...parsed } as AiSettings;
     } catch (e) {}
   }
-  return {
-    preferredProvider: 'builtin',
-    imageProvider: 'builtin',
-    geminiModel: 'gemini-2.5-flash',
-    groqModel: 'llama-3.3-70b-versatile',
-    groqVisionModel: 'llama-3.2-11b-vision-preview',
-    pollinationModel: 'flux',
-    pollinationApiKey: '',
-    puterTextModel: 'gpt-4o-mini',
-    puterImageModel: 'dall-e-3',
-    builtinModelId: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
-    builtinVisionModelId: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
-    customModelUrl: '',
-    customModelConfig: null,
-    allowedAutoProviders: ['builtin', 'local_proxy', 'puter', 'groq', 'gemini'],
-    targetUrl: '',
-    geminiApiKey: '',
-    groqApiKey: '',
-    firecrawlApiKey: '',
-    systemInstructions: '',
-    brandVoice: '',
-    businessRules: '',
-    brandKnowledge: '',
-    localAiDebug: false,
-    localFirstDefaults: true,
-    localProxyUrl: 'http://localhost:11434/v1',
-    localProxyModel: 'llama3',
-    localProxyApiKey: '',
-    cloudinaryCloudName: '',
-    cloudinaryApiKey: '',
-    cloudinaryApiSecret: '',
-    catalogueImportLocalOnly: true,
-    catalogueImportCloudFallback: true,
-    catalogueCrawlLimit: 100,
-    fallbackToCloudAi: false,
-  };
+  return getDefaultAiSettings();
 };
 
 export const setAiSettings = (settings: any) => {
