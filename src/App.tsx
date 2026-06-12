@@ -149,13 +149,14 @@ type SyncLog = {
   type: 'info' | 'success' | 'error';
 };
 
-function DroppableTab({ id, children, className, onClick, title }: { id: string, children: React.ReactNode, className?: string, onClick?: () => void, title?: string }) {
+function DroppableTab({ id, children, className, onClick, title, 'data-label': dataLabel }: { id: string, children: React.ReactNode, className?: string, onClick?: () => void, title?: string, 'data-label'?: string }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <button
       ref={setNodeRef}
       onClick={onClick}
       title={title}
+      data-label={dataLabel}
       className={cn(className, isOver && "ring-2 ring-blue-500 bg-blue-500/10")}
     >
       {children}
@@ -4022,12 +4023,14 @@ export default function App() {
                     { id: 'search', icon: Database, title: industryConfig.terminology.products, color: 'bg-emerald-500' },
                     { id: 'ideas', icon: Lightbulb, title: 'Ideas', color: 'bg-sky-500' },
                     { id: 'brandkit', icon: Palette, title: 'Assets', color: 'bg-violet-500' },
+                    { id: 'widgets', icon: Boxes, title: 'Widgets', color: 'bg-fuchsia-500' },
                     { id: 'analytics', icon: BarChart3, title: 'Analytics', color: 'bg-brand' },
                     { id: 'more', icon: Settings, title: 'Settings', color: 'bg-[#6074b9]' },
                   ].map((tab, idx) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id ||
                       (tab.id === 'ideas' && isIdeasTabActive) ||
+                      (tab.id === 'widgets' && isWidgetsTabActive) ||
                       (tab.id === 'analytics' && activeTab === 'analytics');
                     return (
                       <button
