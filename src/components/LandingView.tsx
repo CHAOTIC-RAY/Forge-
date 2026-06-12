@@ -28,6 +28,7 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
+  Boxes,
   Plus,
   Hash,
   PenTool,
@@ -788,7 +789,7 @@ const SECTIONS: LandingSection[] = [
   },
   {
     id: 'ai',
-    icon: Sparkles,
+    icon: Boxes,
     title: 'Widgets',
     description:
       'Built-in AI widgets ship with the app—caption writer, hashtag packs, designer briefs, and hooks. Run locally in the browser when you want privacy; optional cloud models when you need more power. More widgets on the way.',
@@ -878,7 +879,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
   const cardOpacity = useTransform(scrollYProgress, [0, 0.5, 0.72, 1], [1, 1, 0, 0]);
   const fullBleedOpacity = useTransform(scrollYProgress, [0, 0.38, 0.58, 0.82, 1], [0, 0, 0.7, 1, 1]);
-  const headlineSize = useTransform(scrollYProgress, [0, 0.75, 1], ['1.875rem', '2.25rem', '3rem']);
+  const headlineScale = useTransform(scrollYProgress, [0, 0.7, 1], [1, 1, 1.55]);
   const contentY = useTransform(scrollYProgress, [0, 0.7, 1], [16, 16, 0]);
   const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
   const sidebarX = useTransform(scrollYProgress, [0.48, 0.72], ['0%', '-110%']);
@@ -1027,8 +1028,8 @@ export function LandingView({ onLogin }: LandingViewProps) {
         >
           <div className="space-y-4 md:space-y-5">
             <motion.h2
-              style={{ fontSize: headlineSize }}
-              className="font-bold tracking-tight leading-[1.08]"
+              style={{ scale: headlineScale, transformOrigin: 'center center' }}
+              className="font-bold tracking-tight leading-[1.08] text-3xl sm:text-4xl md:text-5xl"
             >
               Ready to ship your next month of content?
             </motion.h2>
