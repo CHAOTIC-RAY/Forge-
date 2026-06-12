@@ -12,13 +12,17 @@
 useDefault = true
 
 [allowlist]
-description = "TEMP: pre-existing committed keys pending rotation (Phase 0)"
+description = "Allowlist: pre-existing keys pending rotation (Phase 0) + public Firebase web config"
 regexes = [
+  # TEMP — rotate & remove after Phase 0 (these are real server-side secrets):
   '''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''',
   '''tgJmVVZKnt1OFZkXib6obxFqkBY''',
   '''946979991492561''',
   '''fc-b666b97269774f07b78a15cdeaee1262''',
+  # Firebase WEB apiKey is public client config by design (not a secret):
+  '''AIzaSyCI9dw2m47MMk9jIXvl4l7DEPA4AF91tS0''',
 ]
 paths = [
   '''package-lock\.json''',
+  '''firebase-applet-config\.json''',
 ]
