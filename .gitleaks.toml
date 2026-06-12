@@ -1,0 +1,28 @@
+# gitleaks configuration for Forge
+# Extends the default ruleset and adds a temporary allowlist for the API keys
+# that are currently committed in wrangler.jsonc.
+#
+# !!! PHASE 0 ACTION (repo owner) !!!
+# These keys MUST be rotated and moved to the Cloudflare secret store
+# (`wrangler secret put <NAME>`). Once wrangler.jsonc no longer contains
+# plaintext secrets, DELETE the allowlist entries below so the scanner
+# protects the repo going forward.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist: pre-existing keys pending rotation (Phase 0) + public Firebase web config"
+regexes = [
+  # TEMP — rotate & remove after Phase 0 (these are real server-side secrets):
+  '''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''',
+  '''tgJmVVZKnt1OFZkXib6obxFqkBY''',
+  '''946979991492561''',
+  '''fc-b666b97269774f07b78a15cdeaee1262''',
+  # Firebase WEB apiKey is public client config by design (not a secret):
+  '''AIzaSyCI9dw2m47MMk9jIXvl4l7DEPA4AF91tS0''',
+]
+paths = [
+  '''package-lock\.json''',
+  '''firebase-applet-config\.json''',
+]

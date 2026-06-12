@@ -196,10 +196,10 @@ export async function startServer(forcePort?: number) {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       if (response.headers['content-type']) {
-        res.setHeader('Content-Type', response.headers['content-type']);
+        res.setHeader('Content-Type', String(response.headers['content-type']));
       }
       if (response.headers['content-length']) {
-        res.setHeader('Content-Length', response.headers['content-length']);
+        res.setHeader('Content-Length', String(response.headers['content-length']));
       }
       if (response.headers['content-range']) {
         res.setHeader('Content-Range', response.headers['content-range']);
@@ -245,7 +245,7 @@ export async function startServer(forcePort?: number) {
         return res.status(response.status).send(`Failed to fetch image: ${response.statusText}`);
       }
 
-      const contentType = response.headers["content-type"] || "image/png";
+      const contentType = String(response.headers["content-type"] || "image/png");
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");

@@ -2178,7 +2178,7 @@ export default function App() {
           : [];
       
       if (generatedPosts.length > 0) {
-        let currentDate = new Date(); // start today
+        const currentDate = new Date(); // start today
         
         for (let i = 0; i < Math.min(generatedPosts.length, count); i++) {
           const gp = generatedPosts[i];
@@ -2400,7 +2400,7 @@ export default function App() {
         const monthKey = format(monthDate, 'yyyy-MM');
         const searchLabel = format(monthDate, 'MMM yyyy').toLowerCase().trim();
 
-        let sheet = workbook.worksheets.find(s => s.name.toLowerCase().trim() === searchLabel);
+        const sheet = workbook.worksheets.find(s => s.name.toLowerCase().trim() === searchLabel);
         if (!sheet) continue;
 
         // Banner Branding
@@ -2669,7 +2669,7 @@ export default function App() {
 
                   // Case 2: Base64
                   if (trimmed.startsWith('data:') || trimmed.length > 10000) {
-                    let dataUrl = trimmed.startsWith('data:') ? trimmed : `data:image/jpeg;base64,${trimmed}`;
+                    const dataUrl = trimmed.startsWith('data:') ? trimmed : `data:image/jpeg;base64,${trimmed}`;
                     const storagePath = `posts/${user.uid}/${postId}/image_${i}`;
 
                     try {

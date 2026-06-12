@@ -408,7 +408,7 @@ export async function extractCatalogueFromMarkdown(
   );
 
   const allRaw: Record<string, unknown>[] = [];
-  let usedLocalAi =
+  const usedLocalAi =
     opts.forceLocal ??
     (settings.catalogueImportLocalOnly !== false && isLocalTextProvider(settings));
 

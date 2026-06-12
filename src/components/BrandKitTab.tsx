@@ -771,7 +771,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     if (!activeBusiness?.id) return;
     
     // If it's a reset, we clear everything first
-    let currentCategories = isReset ? [] : [...categories];
+    const currentCategories = isReset ? [] : [...categories];
     
     const isRainbow = activeBusiness.name.toLowerCase().includes('rainbow');
     const defaultOutlets = isRainbow 

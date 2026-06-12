@@ -453,7 +453,7 @@ export function FloatingChat({
   ];
 
   const changeModel = (modelId: string, provider: 'gemini' | 'groq' | 'puter' | 'builtin' | 'webllm') => {
-    let updated = { ...aiSettings, preferredProvider: provider === 'webllm' ? 'auto' : provider };
+    const updated = { ...aiSettings, preferredProvider: provider === 'webllm' ? 'auto' : provider };
     
     if (provider === 'gemini') updated.geminiModel = modelId;
     if (provider === 'groq') updated.groqModel = modelId;

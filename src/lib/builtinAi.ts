@@ -69,9 +69,9 @@ If an instructions file context is provided, prioritize it above all else.`;
 type WebLlmModule = typeof import('@mlc-ai/web-llm');
 
 class BuiltInAiService {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private engine: any = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private visionEngine: any = null;
   private webllmModule: WebLlmModule | null = null;
 

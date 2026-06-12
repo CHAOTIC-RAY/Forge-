@@ -585,7 +585,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       return;
     }
 
-    let allExtractedProducts: HighStockProduct[] = [];
+    const allExtractedProducts: HighStockProduct[] = [];
     setCrawlProgress({ current: 0, total: pages.length });
     const outlet = activeBusiness?.name || 'Forge Enterprises';
 
@@ -1153,7 +1153,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
               { id: 'info', label: 'Knowledge base' },
             ]}
             value={dbMode}
-            onChange={setDbMode}
+            onChange={(id) => setDbMode(id as DbMode)}
           />
         }
       />
