@@ -2,7 +2,12 @@
  * Catalogue extraction: URL classification, markdown chunking, local-AI JSON extraction, normalize/dedupe.
  */
 
-import { getAiSettings, generateAppJson, isLocalTextProvider, type HighStockProduct } from './gemini';
+import {
+  getAiSettings,
+  generateAppJson,
+  isLocalTextProvider,
+  type HighStockProduct,
+} from './gemini';
 import { getContextBudget } from './localAiContext';
 
 export type CatalogueMode = 'product' | 'info';
@@ -97,7 +102,7 @@ export function classifyUrl(url: string): UrlPageKind {
 }
 
 export function classifySiteMapLinks(
-  links: Array<{ url: string; title?: string }>
+  links: Array<{ url: string; title?: string }>,
 ): ClassifiedMapLink[] {
   return links.map((link) => {
     const kind = classifyUrl(link.url);
@@ -114,7 +119,7 @@ export function classifySiteMapLinks(
 
 export function buildCategoryCountsFromClassified(
   classified: ClassifiedMapLink[],
-  baseUrl?: string
+  baseUrl?: string,
 ): Array<{ category: string; count: number; url?: string }> {
   const buckets: Record<string, number> = {
     product_list: 0,
@@ -206,12 +211,10 @@ export function normalizeCatalogueItem(
   raw: Record<string, unknown>,
   mode: CatalogueMode,
   pageUrl?: string,
-  outlet?: string
+  outlet?: string,
 ): HighStockProduct | null {
   const title =
-    normalizeTitle(raw.title) ||
-    normalizeTitle(raw.name) ||
-    normalizeTitle(raw.product_name);
+    normalizeTitle(raw.title) || normalizeTitle(raw.name) || normalizeTitle(raw.product_name);
   if (!title) return null;
 
   const type =
@@ -223,7 +226,7 @@ export function normalizeCatalogueItem(
 
   const link = resolveAbsoluteUrl(
     typeof raw.link === 'string' ? raw.link : typeof raw.url === 'string' ? raw.url : undefined,
-    pageUrl
+    pageUrl,
   );
 
   const price =
@@ -252,9 +255,7 @@ export function normalizeCatalogueItem(
     outlet: typeof raw.outlet === 'string' ? raw.outlet : outlet || 'Forge Enterprises',
     sku: typeof raw.sku === 'string' ? raw.sku : undefined,
     price,
-    categories: Array.isArray(raw.categories)
-      ? raw.categories.map(String)
-      : undefined,
+    categories: Array.isArray(raw.categories) ? raw.categories.map(String) : undefined,
   };
 }
 
@@ -262,11 +263,10 @@ export function dedupeCatalogueItems(items: HighStockProduct[]): HighStockProduc
   const seen = new Set<string>();
   const out: HighStockProduct[] = [];
   for (const item of items) {
-    const key = (
+    const key =
       item.link?.toLowerCase().trim() ||
       item.sku?.toLowerCase().trim() ||
-      item.title.toLowerCase().trim()
-    );
+      item.title.toLowerCase().trim();
     if (!key || seen.has(key)) continue;
     seen.add(key);
     out.push(item);
@@ -276,15 +276,13 @@ export function dedupeCatalogueItems(items: HighStockProduct[]): HighStockProduc
 
 export function mergeUniqueCatalogue(
   existing: HighStockProduct[],
-  incoming: HighStockProduct[]
+  incoming: HighStockProduct[],
 ): { merged: HighStockProduct[]; added: HighStockProduct[]; duplicatesSkipped: number } {
   const keys = new Set(
     existing.map(
       (p) =>
-        p.link?.toLowerCase().trim() ||
-        p.sku?.toLowerCase().trim() ||
-        p.title.toLowerCase().trim()
-    )
+        p.link?.toLowerCase().trim() || p.sku?.toLowerCase().trim() || p.title.toLowerCase().trim(),
+    ),
   );
   const added: HighStockProduct[] = [];
   let duplicatesSkipped = 0;
@@ -303,13 +301,9 @@ export function mergeUniqueCatalogue(
   return { merged: [...existing, ...added], added, duplicatesSkipped };
 }
 
-function buildExtractionPrompt(
-  chunk: string,
-  opts: ExtractCatalogueOptions
-): string {
-  const cats =
-    opts.brandCategories?.length ?
-      opts.brandCategories.join(', ')
+function buildExtractionPrompt(chunk: string, opts: ExtractCatalogueOptions): string {
+  const cats = opts.brandCategories?.length
+    ? opts.brandCategories.join(', ')
     : 'Furniture, Building Materials, Home Appliances, Electronics, Lighting, Hardware, Technical, Strategy, Research';
 
   const pageCtx = [
@@ -359,14 +353,13 @@ ${chunk}`;
 
 async function extractChunk(
   chunk: string,
-  opts: ExtractCatalogueOptions
+  opts: ExtractCatalogueOptions,
 ): Promise<Record<string, unknown>[]> {
   const settings = getAiSettings();
   const forceLocal =
     opts.forceLocal ??
     (settings.catalogueImportLocalOnly !== false && isLocalTextProvider(settings));
-  const allowCloud =
-    opts.allowCloudFallback ?? settings.catalogueImportCloudFallback !== false;
+  const allowCloud = opts.allowCloudFallback ?? settings.catalogueImportCloudFallback !== false;
 
   const prompt = buildExtractionPrompt(chunk, opts);
 
@@ -378,7 +371,8 @@ async function extractChunk(
     });
     if (Array.isArray(parsed)) return parsed as Record<string, unknown>[];
     if (parsed && typeof parsed === 'object') {
-      const arr = (parsed as { items?: unknown[] }).items || (parsed as { products?: unknown[] }).products;
+      const arr =
+        (parsed as { items?: unknown[] }).items || (parsed as { products?: unknown[] }).products;
       if (Array.isArray(arr)) return arr as Record<string, unknown>[];
     }
     return [];
@@ -394,21 +388,18 @@ async function extractChunk(
 }
 
 export async function extractCatalogueFromMarkdown(
-  opts: ExtractCatalogueOptions
+  opts: ExtractCatalogueOptions,
 ): Promise<ExtractCatalogueResult> {
   const settings = getAiSettings();
   const budget = getContextBudget(settings.builtinModelId || null);
-  const maxChunk =
-    Math.min(CHUNK_SIZE, Math.floor(budget.maxInputChars * 0.55)) || CHUNK_SIZE;
+  const maxChunk = Math.min(CHUNK_SIZE, Math.floor(budget.maxInputChars * 0.55)) || CHUNK_SIZE;
 
   const md = typeof opts.markdown === 'string' ? opts.markdown : '';
   const rawChunks = splitMarkdownIntoChunks(md);
-  const chunks = rawChunks.map((c) =>
-    c.length > maxChunk ? c.slice(0, maxChunk) : c
-  );
+  const chunks = rawChunks.map((c) => (c.length > maxChunk ? c.slice(0, maxChunk) : c));
 
   const allRaw: Record<string, unknown>[] = [];
-  let usedLocalAi =
+  const usedLocalAi =
     opts.forceLocal ??
     (settings.catalogueImportLocalOnly !== false && isLocalTextProvider(settings));
 
@@ -431,13 +422,11 @@ export async function extractCatalogueFromMarkdown(
 export function pickBestUrlForCategory(
   classified: ClassifiedMapLink[],
   categoryLabel: string,
-  fallbackBase?: string
+  fallbackBase?: string,
 ): string | null {
   const slug = categoryLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const match = classified.find(
-    (c) =>
-      c.kind === 'product_list' &&
-      c.url.toLowerCase().includes(slug)
+    (c) => c.kind === 'product_list' && c.url.toLowerCase().includes(slug),
   );
   if (match) return match.url;
   const anyList = classified.find((c) => c.kind === 'product_list');

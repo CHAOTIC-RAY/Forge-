@@ -4,11 +4,7 @@ import {
   normalizeBuiltinModelId,
   rewriteHuggingFaceModelUrl,
 } from './webLlmAppConfig';
-import {
-  getContextBudget,
-  truncateMessagesForLocalAi,
-  truncatePromptText,
-} from './localAiContext';
+import { getContextBudget, truncateMessagesForLocalAi, truncatePromptText } from './localAiContext';
 import {
   BUILTIN_MODELS,
   BUILTIN_VISION_MODELS,
@@ -44,9 +40,9 @@ async function tryWindowAi(prompt: string): Promise<string | null> {
   try {
     const ai = (window as any).ai;
     if (!ai?.languageModel) return null;
-    const availability = await ai.languageModel.availability?.() ?? 'no';
+    const availability = (await ai.languageModel.availability?.()) ?? 'no';
     if (availability === 'no') return null;
-    
+
     const session = await ai.languageModel.create({
       systemPrompt: 'You are a helpful AI assistant. Be concise and professional.',
     });
@@ -69,9 +65,8 @@ If an instructions file context is provided, prioritize it above all else.`;
 type WebLlmModule = typeof import('@mlc-ai/web-llm');
 
 class BuiltInAiService {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private engine: any = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   private visionEngine: any = null;
   private webllmModule: WebLlmModule | null = null;
 
@@ -89,7 +84,7 @@ class BuiltInAiService {
   private isProcessing = false;
   private isLoaded = false;
   private progress = 0;
-  private message = "";
+  private message = '';
   private error: string | null = null;
   private statusListeners: ((status: BuiltInAiStatus) => void)[] = [];
   private pendingRequest: Promise<any> = Promise.resolve();
@@ -121,7 +116,9 @@ class BuiltInAiService {
       this.reset();
     }
     this.notify();
-    toast.info(`Local AI Cache: ${this.skipCache ? 'DISABLED (Run in RAM)' : 'ENABLED (Optimized)'}`);
+    toast.info(
+      `Local AI Cache: ${this.skipCache ? 'DISABLED (Run in RAM)' : 'ENABLED (Optimized)'}`,
+    );
   }
 
   isCacheSkipped() {
@@ -133,16 +130,14 @@ class BuiltInAiService {
       this.reset(); // Stop engine and clear internal state first
       if ('caches' in window) {
         const cacheNames = await caches.keys();
-        await Promise.all(
-          cacheNames.map(name => caches.delete(name))
-        );
-        console.log("[BuiltInAI] Cache cleared successfully.");
-        toast.success("Local AI cache cleared successfully. You can now try re-initializing.");
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+        console.log('[BuiltInAI] Cache cleared successfully.');
+        toast.success('Local AI cache cleared successfully. You can now try re-initializing.');
       } else {
-        throw new Error("Cache API not available.");
+        throw new Error('Cache API not available.');
       }
     } catch (err: any) {
-      console.error("[BuiltInAI] Failed to clear cache:", err);
+      console.error('[BuiltInAI] Failed to clear cache:', err);
       toast.error(`Failed to clear cache: ${err.message}`);
     }
   }
@@ -150,13 +145,13 @@ class BuiltInAiService {
   onStatusChange(callback: (status: BuiltInAiStatus) => void) {
     this.statusListeners.push(callback);
     return () => {
-      this.statusListeners = this.statusListeners.filter(l => l !== callback);
+      this.statusListeners = this.statusListeners.filter((l) => l !== callback);
     };
   }
 
   private notify() {
     const status = this.getStatus();
-    this.statusListeners.forEach(l => l(status));
+    this.statusListeners.forEach((l) => l(status));
   }
 
   reset() {
@@ -174,7 +169,7 @@ class BuiltInAiService {
     this.isLoading = false;
     this.isLoaded = false;
     this.progress = 0;
-    this.message = "";
+    this.message = '';
     this.error = null;
     this.corsBlocked = false;
     this.notify();
@@ -197,7 +192,9 @@ class BuiltInAiService {
 
     try {
       if (!(navigator as Navigator & { gpu?: unknown }).gpu) {
-        throw new Error('WebGPU is required for local vision. Enable hardware acceleration in your browser.');
+        throw new Error(
+          'WebGPU is required for local vision. Enable hardware acceleration in your browser.',
+        );
       }
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -294,23 +291,25 @@ class BuiltInAiService {
     this.isLoading = true;
     this.error = null;
     this.progress = 0;
-    this.message = "Initializing engine...";
+    this.message = 'Initializing engine...';
     this.notify();
 
     try {
       // 1. Check for WebGPU
       if (!(navigator as any).gpu) {
-        throw new Error("WebGPU is not supported or disabled. Please ensure hardware acceleration is enabled in Chrome.");
+        throw new Error(
+          'WebGPU is not supported or disabled. Please ensure hardware acceleration is enabled in Chrome.',
+        );
       }
 
       console.log(`[BuiltInAI] Initializing ${normalizedId}...`);
-      
+
       const engineConfig: any = {
         initProgressCallback: (report: any) => {
           this.message = report.text;
           this.progress = Math.round(report.progress * 100);
           this.notify();
-        }
+        },
       };
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -336,12 +335,15 @@ class BuiltInAiService {
       this.currentModelId = normalizedId;
       console.log(`[BuiltInAI] Model ${normalizedId} loaded successfully.`);
     } catch (err: any) {
-      let errorMsg = err.message || "Failed to initialize Local AI Engine.";
+      let errorMsg = err.message || 'Failed to initialize Local AI Engine.';
       const raw = `${err?.message || ''} ${err?.stack || ''}`.toLowerCase();
-      
+
       if (errorMsg.includes("Failed to execute 'add' on 'Cache'")) {
-        errorMsg = "Browser Cache Restriction: Google AI Studio iframes block local storage. You MUST open this app in a NEW TAB to use local AI models.";
-        console.warn("[BuiltInAI] Detected iframe cache restriction. User must open app in new tab.");
+        errorMsg =
+          'Browser Cache Restriction: Google AI Studio iframes block local storage. You MUST open this app in a NEW TAB to use local AI models.';
+        console.warn(
+          '[BuiltInAI] Detected iframe cache restriction. User must open app in new tab.',
+        );
       }
       if (raw.includes('cors') || raw.includes('access-control-allow-origin')) {
         this.corsBlocked = true;
@@ -350,21 +352,27 @@ class BuiltInAiService {
       }
 
       this.error = errorMsg;
-      console.error("[BuiltInAI] Setup error details:", {
+      console.error('[BuiltInAI] Setup error details:', {
         message: err.message,
         stack: err.stack,
-        modelId: normalizedId
+        modelId: normalizedId,
       });
-      
+
       // If we are in an iframe, provide the link directly in the toast
       if (window.self !== window.top) {
-        toast.error("Initialization Failed: Please open the app in a new tab to enable local storage.", {
-          duration: 10000,
-        });
+        toast.error(
+          'Initialization Failed: Please open the app in a new tab to enable local storage.',
+          {
+            duration: 10000,
+          },
+        );
       } else if (this.corsBlocked) {
-        toast.error("Local AI blocked by CORS on this domain. Use Auto/Cloud providers or localhost for Local AI.", {
-          duration: 10000,
-        });
+        toast.error(
+          'Local AI blocked by CORS on this domain. Use Auto/Cloud providers or localhost for Local AI.',
+          {
+            duration: 10000,
+          },
+        );
       } else {
         toast.error(`Local AI failed: ${this.error}`);
       }
@@ -375,16 +383,18 @@ class BuiltInAiService {
   }
 
   async generate(
-    input: string | { role: "system" | "user" | "assistant"; content: string }[], 
-    onToken?: (token: string) => void
+    input: string | { role: 'system' | 'user' | 'assistant'; content: string }[],
+    onToken?: (token: string) => void,
   ): Promise<string> {
     const previous = this.pendingRequest;
     let resolveLock: (val: any) => void;
-    this.pendingRequest = new Promise(resolve => { resolveLock = resolve; });
+    this.pendingRequest = new Promise((resolve) => {
+      resolveLock = resolve;
+    });
 
     try {
       if (this.isProcessing) {
-        console.log("[BuiltInAI] Queuing concurrent request...");
+        console.log('[BuiltInAI] Queuing concurrent request...');
       }
       await previous;
       this.isProcessing = true;
@@ -395,10 +405,10 @@ class BuiltInAiService {
 
       // Normalize input to messages array and inject Forge Master System Prompt
       const messages: any[] = [];
-      const hasSystemMessage = typeof input !== 'string' && input.some(m => m.role === 'system');
-      
+      const hasSystemMessage = typeof input !== 'string' && input.some((m) => m.role === 'system');
+
       if (!hasSystemMessage) {
-        messages.push({ role: "system", content: BUILTIN_SYSTEM_PROMPT });
+        messages.push({ role: 'system', content: BUILTIN_SYSTEM_PROMPT });
       }
 
       const budget = getContextBudget(this.currentModelId);
@@ -412,14 +422,15 @@ class BuiltInAiService {
         messages.push(
           ...truncateMessagesForLocalAi(
             input.map((m) => ({ role: m.role, content: m.content })),
-            budget.maxInputChars
-          )
+            budget.maxInputChars,
+          ),
         );
       }
 
-      const flatPrompt = typeof input === 'string'
-        ? `${BUILTIN_SYSTEM_PROMPT}\n\nUSER: ${messages.find((m) => m.role === 'user')?.content || input}`
-        : messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+      const flatPrompt =
+        typeof input === 'string'
+          ? `${BUILTIN_SYSTEM_PROMPT}\n\nUSER: ${messages.find((m) => m.role === 'user')?.content || input}`
+          : messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
       // ── 1. Try Chrome's built-in Gemini Nano first ──
       // Note: window.ai currently only takes a string prompt
@@ -432,10 +443,10 @@ class BuiltInAiService {
       // ── 2. Use WebLLM Engine ──
       if (!this.isLoaded || !this.engine) {
         await this.init(this.currentModelId);
-        if (!this.isLoaded) throw new Error(this.error || "Built-in AI engine not ready.");
+        if (!this.isLoaded) throw new Error(this.error || 'Built-in AI engine not ready.');
       }
 
-      let fullText = "";
+      let fullText = '';
       const chunks = await this.engine!.chat.completions.create({
         messages,
         stream: true,
@@ -446,14 +457,14 @@ class BuiltInAiService {
       });
 
       for await (const chunk of chunks) {
-        const delta = chunk.choices[0]?.delta.content || "";
+        const delta = chunk.choices[0]?.delta.content || '';
         fullText += delta;
         if (onToken) onToken(delta);
       }
 
       return fullText;
     } catch (err: any) {
-      console.error("[BuiltInAI] Generation error:", err);
+      console.error('[BuiltInAI] Generation error:', err);
       throw err;
     } finally {
       this.isProcessing = false;
