@@ -38,9 +38,38 @@ export const FONT_OPTIONS = [
   { label: 'Bricolage Grotesque', value: 'Bricolage Grotesque' },
 ];
 
-export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colors: string[] }[] = [
+export type PalettePreset = {
+  name: string;
+  mode: 'light' | 'dark';
+  colors: string[];
+  config: Partial<ThemeConfig>;
+};
+
+// Curated presets. Each fully defines its look — accent, surfaces, font, radius,
+// glass and sidebar — and declares whether it is a light or dark theme so the app
+// can switch modes when it is applied (no more light sidebar in dark mode).
+export const PALETTE_PRESETS: PalettePreset[] = [
+  {
+    name: 'Aurora',
+    mode: 'light',
+    colors: ['#2665fd', '#5b8cff', '#ffffff'],
+    config: {
+      accentColor: '#2665fd',
+      accentHover: '#1e52d0',
+      borderColor: 'rgba(38,101,253,0.18)',
+      canvasBackground: '#ffffff',
+      panelBackground: '#f7f8fa',
+      textPrimary: '#1a1a2e',
+      textSecondary: '#5a5f73',
+      fontFamily: 'Inter',
+      borderRadius: 'rounded',
+      glassIntensity: 'soft',
+      sidebarStyle: 'classic',
+    },
+  },
   {
     name: 'Earthy Sage',
+    mode: 'light',
     colors: ['#5a7a5a', '#8faf8f', '#f5f0e8'],
     config: {
       accentColor: '#5a7a5a',
@@ -50,11 +79,15 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#ede8de',
       textPrimary: '#2d3b2d',
       textSecondary: '#5a6b5a',
+      fontFamily: 'Lora',
+      borderRadius: 'rounded',
+      glassIntensity: 'soft',
       sidebarStyle: 'classic',
     },
   },
   {
     name: 'Warm Clay',
+    mode: 'light',
     colors: ['#c06b3d', '#e8956a', '#fdf6f0'],
     config: {
       accentColor: '#c06b3d',
@@ -64,25 +97,33 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#f5ece4',
       textPrimary: '#3b2318',
       textSecondary: '#7a4f38',
+      fontFamily: 'DM Sans',
+      borderRadius: 'balanced',
+      glassIntensity: 'off',
       sidebarStyle: 'expanded',
     },
   },
   {
-    name: 'Retro Blues',
-    colors: ['#2c6ea8', '#5b9bd5', '#eef4fb'],
+    name: 'Midnight Purple',
+    mode: 'dark',
+    colors: ['#a78bfa', '#7c3aed', '#0d0b1a'],
     config: {
-      accentColor: '#2c6ea8',
-      accentHover: '#1c5e98',
-      borderColor: 'rgba(44,110,168,0.2)',
-      canvasBackground: '#eef4fb',
-      panelBackground: '#e3edf8',
-      textPrimary: '#0f2340',
-      textSecondary: '#3a5f8a',
-      sidebarStyle: 'island',
+      accentColor: '#a78bfa',
+      accentHover: '#8b5cf6',
+      borderColor: 'rgba(167,139,250,0.25)',
+      canvasBackground: '#0d0b1a',
+      panelBackground: '#150e28',
+      textPrimary: '#ede9fe',
+      textSecondary: '#9d8fcc',
+      fontFamily: 'Space Grotesk',
+      borderRadius: 'rounded',
+      glassIntensity: 'glassy',
+      sidebarStyle: 'classic',
     },
   },
   {
     name: 'Cyber Neon',
+    mode: 'dark',
     colors: ['#00f5a0', '#00d9f5', '#060a10'],
     config: {
       accentColor: '#00f5a0',
@@ -92,25 +133,15 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#0d1520',
       textPrimary: '#e0fff4',
       textSecondary: '#80bfa8',
+      fontFamily: 'JetBrains Mono',
+      borderRadius: 'sharp',
+      glassIntensity: 'glassy',
       sidebarStyle: 'dock',
     },
   },
   {
-    name: 'Midnight Purple',
-    colors: ['#7c3aed', '#a78bfa', '#0d0b1a'],
-    config: {
-      accentColor: '#7c3aed',
-      accentHover: '#6d28d9',
-      borderColor: 'rgba(124,58,237,0.25)',
-      canvasBackground: '#0d0b1a',
-      panelBackground: '#150e28',
-      textPrimary: '#ede9fe',
-      textSecondary: '#9d8fcc',
-      sidebarStyle: 'classic',
-    },
-  },
-  {
-    name: 'Obsidian Minimal',
+    name: 'Obsidian',
+    mode: 'dark',
     colors: ['#e0e0e0', '#a0a0a0', '#111111'],
     config: {
       accentColor: '#d0d0d0',
@@ -120,49 +151,10 @@ export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colo
       panelBackground: '#1a1a1a',
       textPrimary: '#f0f0f0',
       textSecondary: '#888888',
+      fontFamily: 'Inter',
+      borderRadius: 'balanced',
+      glassIntensity: 'off',
       sidebarStyle: 'island',
-    },
-  },
-  {
-    name: 'Tokyo Neon',
-    colors: ['#ff6b9d', '#c43a7e', '#0f0e17'],
-    config: {
-      accentColor: '#ff6b9d',
-      accentHover: '#e05587',
-      borderColor: 'rgba(255,107,157,0.25)',
-      canvasBackground: '#0f0e17',
-      panelBackground: '#1a1826',
-      textPrimary: '#fffffe',
-      textSecondary: '#a6a0bd',
-      sidebarStyle: 'dock',
-    },
-  },
-  {
-    name: 'Nordic Clean',
-    colors: ['#4c8fd6', '#7fb3e8', '#f0f4f8'],
-    config: {
-      accentColor: '#4c8fd6',
-      accentHover: '#3a7ec5',
-      borderColor: 'rgba(76,143,214,0.2)',
-      canvasBackground: '#f0f4f8',
-      panelBackground: '#e8eef5',
-      textPrimary: '#1a2940',
-      textSecondary: '#4a6480',
-      sidebarStyle: 'expanded',
-    },
-  },
-  {
-    name: 'Warm Editorial',
-    colors: ['#8b6914', '#c49a2a', '#fdf8f0'],
-    config: {
-      accentColor: '#8b6914',
-      accentHover: '#7a5c0f',
-      borderColor: 'rgba(139,105,20,0.2)',
-      canvasBackground: '#fdf8f0',
-      panelBackground: '#f5f0e5',
-      textPrimary: '#2a1f08',
-      textSecondary: '#5a4820',
-      sidebarStyle: 'classic',
     },
   },
 ];
