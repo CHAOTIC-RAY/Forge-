@@ -9,6 +9,7 @@ export interface ThemeConfig {
   fontFamily: string;
   borderRadius: 'sharp' | 'balanced' | 'rounded' | 'capsule';
   glassIntensity: 'off' | 'soft' | 'glassy' | 'frosty';
+  sidebarStyle?: 'classic' | 'expanded' | 'island' | 'dock';
 }
 
 export const BORDER_RADIUS_MAP: Record<ThemeConfig['borderRadius'], string> = {
@@ -168,6 +169,7 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   fontFamily: 'Inter',
   borderRadius: 'rounded',
   glassIntensity: 'soft',
+  sidebarStyle: 'classic',
 };
 
 const STORAGE_KEY = 'forge_custom_theme';
@@ -242,11 +244,69 @@ export function applyThemeConfig(config: ThemeConfig): void {
   root.style.setProperty('--forge-glass-bg', glass.bg);
   root.style.setProperty('--forge-glass-dark-bg', glass.darkBg);
 
-  if (config.fontFamily && config.fontFamily !== 'Inter') {
-    loadGoogleFont(config.fontFamily);
-    root.style.setProperty('--font-sans', `"${config.fontFamily}", ui-sans-serif, system-ui, sans-serif`);
+  // Font: Tailwind v4 @theme vars are compile-time only, so we inject a style tag
+  // to override font-family at runtime for all elements globally.
+  let fontStyleEl = document.getElementById('forge-font-override') as HTMLStyleElement | null;
+  if (!fontStyleEl) {
+    fontStyleEl = document.createElement('style');
+    fontStyleEl.id = 'forge-font-override';
+    document.head.appendChild(fontStyleEl);
+  }
+
+  const fontFamily = config.fontFamily && config.fontFamily !== 'Inter'
+    ? config.fontFamily
+    : null;
+
+  if (fontFamily) {
+    loadGoogleFont(fontFamily);
+    const fontStack = `"${fontFamily}", ui-sans-serif, system-ui, sans-serif`;
+    // Also update CSS custom properties for any code that reads them
+    root.style.setProperty('--forge-font-family', fontStack);
+    fontStyleEl.textContent = [
+      `body, html, input, textarea, select, button { font-family: ${fontStack} !important; }`,
+      `h1, h2, h3, h4, h5, h6 { font-family: ${fontStack} !important; }`,
+      `* { font-family: ${fontStack} !important; }`,
+    ].join('\n');
   } else {
-    root.style.removeProperty('--font-sans');
+    root.style.removeProperty('--forge-font-family');
+    fontStyleEl.textContent = '';
+  }
+
+  // Border radius: inject a global style override so it applies everywhere
+  let radiusStyleEl = document.getElementById('forge-radius-override') as HTMLStyleElement | null;
+  if (!radiusStyleEl) {
+    radiusStyleEl = document.createElement('style');
+    radiusStyleEl.id = 'forge-radius-override';
+    document.head.appendChild(radiusStyleEl);
+  }
+  if (config.borderRadius && config.borderRadius !== 'rounded') {
+    radiusStyleEl.textContent = [
+      `:root { --forge-radius: ${radius}; }`,
+      `.rounded-\\[16px\\], .rounded-\\[12px\\], .rounded-\\[24px\\] { border-radius: ${radius} !important; }`,
+    ].join('\n');
+  } else {
+    radiusStyleEl.textContent = `:root { --forge-radius: ${radius}; }`;
+  }
+
+  // Glass effect: inject style override
+  let glassStyleEl = document.getElementById('forge-glass-override') as HTMLStyleElement | null;
+  if (!glassStyleEl) {
+    glassStyleEl = document.createElement('style');
+    glassStyleEl.id = 'forge-glass-override';
+    document.head.appendChild(glassStyleEl);
+  }
+  glassStyleEl.textContent = [
+    `:root { --forge-glass-blur: ${glass.blur}; --forge-glass-bg: ${glass.bg}; --forge-glass-dark-bg: ${glass.darkBg}; }`,
+    `.glass-panel { background: ${glass.bg} !important; backdrop-filter: blur(${glass.blur}) !important; -webkit-backdrop-filter: blur(${glass.blur}) !important; }`,
+    `.dark .glass-panel { background: ${glass.darkBg} !important; }`,
+    `.glass-card { background: ${glass.bg} !important; backdrop-filter: blur(${glass.blur}) !important; -webkit-backdrop-filter: blur(${glass.blur}) !important; }`,
+    `.dark .glass-card { background: ${glass.darkBg} !important; }`,
+  ].join('\n');
+
+  if (config.sidebarStyle) {
+    root.setAttribute('data-sidebar-style', config.sidebarStyle);
+  } else {
+    root.setAttribute('data-sidebar-style', 'classic');
   }
 }
 
@@ -256,9 +316,14 @@ export function resetThemeConfig(): void {
     '--brand-color', '--brand-color-hover', '--brand-color-bg', '--brand-color-border',
     '--brand-color-ring', '--bg-main', '--bg-secondary', '--text-main', '--text-secondary',
     '--text-muted', '--border-main', '--forge-radius', '--forge-glass-blur',
-    '--forge-glass-bg', '--forge-glass-dark-bg', '--font-sans',
+    '--forge-glass-bg', '--forge-glass-dark-bg', '--forge-font-family',
   ];
   vars.forEach(v => root.style.removeProperty(v));
+  root.removeAttribute('data-sidebar-style');
+  // Remove injected style overrides
+  ['forge-font-override', 'forge-radius-override', 'forge-glass-override'].forEach(id => {
+    document.getElementById(id)?.remove();
+  });
   clearThemeConfig();
 }
 
