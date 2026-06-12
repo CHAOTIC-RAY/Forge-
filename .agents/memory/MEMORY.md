@@ -1,0 +1,2 @@
+- [Theme engine pattern](theme-engine.md) — custom CSS vars applied via themeEngine.ts; strip on landing/login, apply on user login via App.tsx useEffect
+- [Hero title approach](hero-title.md) — kinetic typography with Framer Motion CSS custom property animation for gradient colors; requires @property in CSS for smooth interpolation

@@ -1,0 +1,273 @@
+export interface ThemeConfig {
+  accentColor: string;
+  accentHover: string;
+  borderColor: string;
+  canvasBackground: string;
+  panelBackground: string;
+  textPrimary: string;
+  textSecondary: string;
+  fontFamily: string;
+  borderRadius: 'sharp' | 'balanced' | 'rounded' | 'capsule';
+  glassIntensity: 'off' | 'soft' | 'glassy' | 'frosty';
+}
+
+export const BORDER_RADIUS_MAP: Record<ThemeConfig['borderRadius'], string> = {
+  sharp: '0px',
+  balanced: '8px',
+  rounded: '16px',
+  capsule: '24px',
+};
+
+export const GLASS_MAP: Record<ThemeConfig['glassIntensity'], { blur: string; bg: string; darkBg: string }> = {
+  off: { blur: '0px', bg: 'rgba(255,255,255,0.98)', darkBg: 'rgba(26,26,26,0.98)' },
+  soft: { blur: '8px', bg: 'rgba(255,255,255,0.88)', darkBg: 'rgba(26,26,26,0.88)' },
+  glassy: { blur: '14px', bg: 'rgba(255,255,255,0.78)', darkBg: 'rgba(26,26,26,0.78)' },
+  frosty: { blur: '24px', bg: 'rgba(255,255,255,0.60)', darkBg: 'rgba(26,26,26,0.60)' },
+};
+
+export const FONT_OPTIONS = [
+  { label: 'Inter (Default)', value: 'Inter' },
+  { label: 'Space Grotesk', value: 'Space Grotesk' },
+  { label: 'Outfit', value: 'Outfit' },
+  { label: 'DM Sans', value: 'DM Sans' },
+  { label: 'Poppins', value: 'Poppins' },
+  { label: 'JetBrains Mono', value: 'JetBrains Mono' },
+  { label: 'Lora (Editorial)', value: 'Lora' },
+  { label: 'Playfair Display', value: 'Playfair Display' },
+  { label: 'Bricolage Grotesque', value: 'Bricolage Grotesque' },
+];
+
+export const PALETTE_PRESETS: { name: string; config: Partial<ThemeConfig>; colors: string[] }[] = [
+  {
+    name: 'Earthy Sage',
+    colors: ['#5a7a5a', '#8faf8f', '#f5f0e8'],
+    config: {
+      accentColor: '#5a7a5a',
+      accentHover: '#4a6a4a',
+      borderColor: 'rgba(90,122,90,0.2)',
+      canvasBackground: '#f5f0e8',
+      panelBackground: '#ede8de',
+      textPrimary: '#2d3b2d',
+      textSecondary: '#5a6b5a',
+    },
+  },
+  {
+    name: 'Warm Clay',
+    colors: ['#c06b3d', '#e8956a', '#fdf6f0'],
+    config: {
+      accentColor: '#c06b3d',
+      accentHover: '#a85a2c',
+      borderColor: 'rgba(192,107,61,0.2)',
+      canvasBackground: '#fdf6f0',
+      panelBackground: '#f5ece4',
+      textPrimary: '#3b2318',
+      textSecondary: '#7a4f38',
+    },
+  },
+  {
+    name: 'Retro Blues',
+    colors: ['#2c6ea8', '#5b9bd5', '#eef4fb'],
+    config: {
+      accentColor: '#2c6ea8',
+      accentHover: '#1c5e98',
+      borderColor: 'rgba(44,110,168,0.2)',
+      canvasBackground: '#eef4fb',
+      panelBackground: '#e3edf8',
+      textPrimary: '#0f2340',
+      textSecondary: '#3a5f8a',
+    },
+  },
+  {
+    name: 'Cyber Neon',
+    colors: ['#00f5a0', '#00d9f5', '#060a10'],
+    config: {
+      accentColor: '#00f5a0',
+      accentHover: '#00d88a',
+      borderColor: 'rgba(0,245,160,0.25)',
+      canvasBackground: '#060a10',
+      panelBackground: '#0d1520',
+      textPrimary: '#e0fff4',
+      textSecondary: '#80bfa8',
+    },
+  },
+  {
+    name: 'Midnight Purple',
+    colors: ['#7c3aed', '#a78bfa', '#0d0b1a'],
+    config: {
+      accentColor: '#7c3aed',
+      accentHover: '#6d28d9',
+      borderColor: 'rgba(124,58,237,0.25)',
+      canvasBackground: '#0d0b1a',
+      panelBackground: '#150e28',
+      textPrimary: '#ede9fe',
+      textSecondary: '#9d8fcc',
+    },
+  },
+  {
+    name: 'Obsidian Minimal',
+    colors: ['#e0e0e0', '#a0a0a0', '#111111'],
+    config: {
+      accentColor: '#d0d0d0',
+      accentHover: '#b0b0b0',
+      borderColor: 'rgba(200,200,200,0.15)',
+      canvasBackground: '#111111',
+      panelBackground: '#1a1a1a',
+      textPrimary: '#f0f0f0',
+      textSecondary: '#888888',
+    },
+  },
+  {
+    name: 'Tokyo Neon',
+    colors: ['#ff6b9d', '#c43a7e', '#0f0e17'],
+    config: {
+      accentColor: '#ff6b9d',
+      accentHover: '#e05587',
+      borderColor: 'rgba(255,107,157,0.25)',
+      canvasBackground: '#0f0e17',
+      panelBackground: '#1a1826',
+      textPrimary: '#fffffe',
+      textSecondary: '#a6a0bd',
+    },
+  },
+  {
+    name: 'Nordic Clean',
+    colors: ['#4c8fd6', '#7fb3e8', '#f0f4f8'],
+    config: {
+      accentColor: '#4c8fd6',
+      accentHover: '#3a7ec5',
+      borderColor: 'rgba(76,143,214,0.2)',
+      canvasBackground: '#f0f4f8',
+      panelBackground: '#e8eef5',
+      textPrimary: '#1a2940',
+      textSecondary: '#4a6480',
+    },
+  },
+  {
+    name: 'Warm Editorial',
+    colors: ['#8b6914', '#c49a2a', '#fdf8f0'],
+    config: {
+      accentColor: '#8b6914',
+      accentHover: '#7a5c0f',
+      borderColor: 'rgba(139,105,20,0.2)',
+      canvasBackground: '#fdf8f0',
+      panelBackground: '#f5f0e5',
+      textPrimary: '#2a1f08',
+      textSecondary: '#5a4820',
+    },
+  },
+];
+
+export const DEFAULT_THEME_CONFIG: ThemeConfig = {
+  accentColor: '#2665fd',
+  accentHover: '#1e52d0',
+  borderColor: 'rgba(38,101,253,0.2)',
+  canvasBackground: '',
+  panelBackground: '',
+  textPrimary: '',
+  textSecondary: '',
+  fontFamily: 'Inter',
+  borderRadius: 'rounded',
+  glassIntensity: 'soft',
+};
+
+const STORAGE_KEY = 'forge_custom_theme';
+
+export function loadThemeConfig(): ThemeConfig | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as ThemeConfig;
+  } catch {
+    return null;
+  }
+}
+
+export function saveThemeConfig(config: ThemeConfig): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+}
+
+export function clearThemeConfig(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+function hexToRgb(hex: string) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!result) return null;
+  return {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16),
+  };
+}
+
+function rgbString(hex: string, alpha: number) {
+  const c = hexToRgb(hex);
+  if (!c) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${c.r},${c.g},${c.b},${alpha})`;
+}
+
+export function applyThemeConfig(config: ThemeConfig): void {
+  const root = document.documentElement;
+
+  if (config.accentColor) {
+    root.style.setProperty('--brand-color', config.accentColor);
+    root.style.setProperty('--brand-color-hover', config.accentHover || config.accentColor);
+    root.style.setProperty('--brand-color-bg', rgbString(config.accentColor, 0.1));
+    root.style.setProperty('--brand-color-border', rgbString(config.accentColor, 0.2));
+    root.style.setProperty('--brand-color-ring', rgbString(config.accentColor, 0.4));
+  }
+
+  if (config.canvasBackground) {
+    root.style.setProperty('--bg-main', config.canvasBackground);
+  }
+  if (config.panelBackground) {
+    root.style.setProperty('--bg-secondary', config.panelBackground);
+  }
+  if (config.textPrimary) {
+    root.style.setProperty('--text-main', config.textPrimary);
+  }
+  if (config.textSecondary) {
+    root.style.setProperty('--text-secondary', config.textSecondary);
+    root.style.setProperty('--text-muted', config.textSecondary);
+  }
+  if (config.borderColor) {
+    root.style.setProperty('--border-main', config.borderColor);
+  }
+
+  const radius = BORDER_RADIUS_MAP[config.borderRadius] ?? '16px';
+  root.style.setProperty('--forge-radius', radius);
+
+  const glass = GLASS_MAP[config.glassIntensity] ?? GLASS_MAP.soft;
+  root.style.setProperty('--forge-glass-blur', glass.blur);
+  root.style.setProperty('--forge-glass-bg', glass.bg);
+  root.style.setProperty('--forge-glass-dark-bg', glass.darkBg);
+
+  if (config.fontFamily && config.fontFamily !== 'Inter') {
+    loadGoogleFont(config.fontFamily);
+    root.style.setProperty('--font-sans', `"${config.fontFamily}", ui-sans-serif, system-ui, sans-serif`);
+  } else {
+    root.style.removeProperty('--font-sans');
+  }
+}
+
+export function resetThemeConfig(): void {
+  const root = document.documentElement;
+  const vars = [
+    '--brand-color', '--brand-color-hover', '--brand-color-bg', '--brand-color-border',
+    '--brand-color-ring', '--bg-main', '--bg-secondary', '--text-main', '--text-secondary',
+    '--text-muted', '--border-main', '--forge-radius', '--forge-glass-blur',
+    '--forge-glass-bg', '--forge-glass-dark-bg', '--font-sans',
+  ];
+  vars.forEach(v => root.style.removeProperty(v));
+  clearThemeConfig();
+}
+
+function loadGoogleFont(family: string) {
+  const id = `gf-${family.replace(/\s+/g, '-').toLowerCase()}`;
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;500;600;700&display=swap`;
+  document.head.appendChild(link);
+}

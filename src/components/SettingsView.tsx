@@ -5,8 +5,18 @@ import {
   Download, Save, Upload, RefreshCw, FileSpreadsheet, 
   Globe, LogOut, Smartphone, Bell, Printer, X, Settings,
   Trash2, ChevronDown, Activity, Tags, Link2, Home, Palette, Lightbulb, ListTodo, Search, Moon, CheckCircle2,
-  FileText, MessageSquareText, Box, Wand2, ExternalLink, Boxes
+  FileText, MessageSquareText, Box, Wand2, ExternalLink, Boxes, Type, Sliders, RotateCcw
 } from 'lucide-react';
+import {
+  type ThemeConfig,
+  PALETTE_PRESETS as ENGINE_PALETTE_PRESETS,
+  FONT_OPTIONS,
+  DEFAULT_THEME_CONFIG,
+  applyThemeConfig,
+  loadThemeConfig,
+  saveThemeConfig,
+  resetThemeConfig,
+} from '../lib/themeEngine';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
 import { ForgeLoader } from './ForgeLoader';
@@ -182,6 +192,8 @@ export function SettingsView({
 }: any) {
   const [expandedId, setExpandedId] = useState<string | null>(() => typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'account' : null);
   const [themePreset, setThemePreset] = useState(() => localStorage.getItem('forge_theme_preset') || 'default');
+  const [customTheme, setCustomTheme] = useState<ThemeConfig>(() => loadThemeConfig() ?? { ...DEFAULT_THEME_CONFIG });
+  const [showAdvancedTheme, setShowAdvancedTheme] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryType, setNewCategoryType] = useState('category');
@@ -930,6 +942,174 @@ export function SettingsView({
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Advanced Custom Theme Designer */}
+            <div className="p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] space-y-4">
+              <button
+                onClick={() => setShowAdvancedTheme(v => !v)}
+                className="w-full flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-[12px] flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <Sliders className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Custom Theme Designer</h3>
+                    <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Colors, fonts, radius & glass effects</p>
+                  </div>
+                </div>
+                <ChevronDown className={cn('w-4 h-4 text-[#757681] transition-transform', showAdvancedTheme && 'rotate-180')} />
+              </button>
+
+              <AnimatePresence initial={false}>
+                {showAdvancedTheme && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.22 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-5 pt-1">
+                      {/* Palette Presets */}
+                      <div>
+                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Palette Presets</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {ENGINE_PALETTE_PRESETS.map(preset => (
+                            <button
+                              key={preset.name}
+                              onClick={() => {
+                                const next = { ...customTheme, ...preset.config };
+                                setCustomTheme(next);
+                                applyThemeConfig(next);
+                                saveThemeConfig(next);
+                                toast.success(`Applied "${preset.name}" palette`);
+                              }}
+                              className="p-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-left hover:border-brand/40 transition-all bg-white dark:bg-[#191919]"
+                            >
+                              <div className="flex gap-1 mb-1.5">
+                                {preset.colors.map((c, i) => (
+                                  <div key={i} className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: c }} />
+                                ))}
+                              </div>
+                              <p className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED] leading-tight truncate">{preset.name}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Color Pickers */}
+                      <div>
+                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Custom Colors</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {([
+                            { key: 'accentColor', label: 'Accent' },
+                            { key: 'accentHover', label: 'Accent Hover' },
+                            { key: 'canvasBackground', label: 'Canvas Bg' },
+                            { key: 'panelBackground', label: 'Panel Bg' },
+                            { key: 'textPrimary', label: 'Text Primary' },
+                            { key: 'textSecondary', label: 'Text Secondary' },
+                          ] as { key: keyof ThemeConfig; label: string }[]).map(({ key, label }) => (
+                            <label key={key} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="color"
+                                value={(customTheme[key] as string) || '#ffffff'}
+                                onChange={e => setCustomTheme(prev => ({ ...prev, [key]: e.target.value }))}
+                                className="w-8 h-8 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] cursor-pointer bg-transparent p-0.5"
+                              />
+                              <span className="text-xs text-[#37352F] dark:text-[#EBE9ED] font-medium">{label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Font */}
+                      <div>
+                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <Type className="w-3.5 h-3.5" /> Font Family
+                        </p>
+                        <select
+                          value={customTheme.fontFamily}
+                          onChange={e => setCustomTheme(prev => ({ ...prev, fontFamily: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-xs text-[#37352F] dark:text-[#EBE9ED] focus:outline-none focus:ring-2 focus:ring-brand/30"
+                        >
+                          {FONT_OPTIONS.map(f => (
+                            <option key={f.value} value={f.value}>{f.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Border Radius */}
+                      <div>
+                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Corner Radius</p>
+                        <div className="flex gap-2">
+                          {(['sharp', 'balanced', 'rounded', 'capsule'] as const).map(r => (
+                            <button
+                              key={r}
+                              onClick={() => setCustomTheme(prev => ({ ...prev, borderRadius: r }))}
+                              className={cn(
+                                'flex-1 py-1.5 text-[10px] font-bold capitalize border transition-all',
+                                customTheme.borderRadius === r
+                                  ? 'bg-brand text-white border-brand'
+                                  : 'border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] hover:border-brand/40 bg-white dark:bg-[#191919]'
+                              )}
+                              style={{ borderRadius: r === 'sharp' ? 2 : r === 'balanced' ? 6 : r === 'rounded' ? 10 : 20 }}
+                            >
+                              {r}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Glass Intensity */}
+                      <div>
+                        <p className="text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider mb-2">Glass Effect</p>
+                        <div className="flex gap-2">
+                          {(['off', 'soft', 'glassy', 'frosty'] as const).map(g => (
+                            <button
+                              key={g}
+                              onClick={() => setCustomTheme(prev => ({ ...prev, glassIntensity: g }))}
+                              className={cn(
+                                'flex-1 py-1.5 text-[10px] font-bold capitalize rounded-lg border transition-all',
+                                customTheme.glassIntensity === g
+                                  ? 'bg-brand text-white border-brand'
+                                  : 'border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] hover:border-brand/40 bg-white dark:bg-[#191919]'
+                              )}
+                            >
+                              {g}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            applyThemeConfig(customTheme);
+                            saveThemeConfig(customTheme);
+                            toast.success('Custom theme saved!');
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-brand text-white text-xs font-bold rounded-[10px] hover:bg-brand-hover transition-colors"
+                        >
+                          <Save className="w-3.5 h-3.5" /> Apply & Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            resetThemeConfig();
+                            setCustomTheme({ ...DEFAULT_THEME_CONFIG });
+                            toast.success('Theme reset to defaults');
+                          }}
+                          className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-[#E9E9E7] dark:border-[#2E2E2E] text-[#787774] dark:text-[#9B9A97] text-xs font-bold rounded-[10px] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-colors"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" /> Reset
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </BentoCard>

@@ -42,6 +42,7 @@ import { Post, initialPosts, Business, OUTLETS } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
+import { loadThemeConfig, applyThemeConfig, resetThemeConfig } from './lib/themeEngine';
 import { isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
 import type { BuiltInAiStatus } from './lib/builtinAi';
 import { Calendar } from './components/Calendar';
@@ -666,6 +667,16 @@ export default function App() {
     root.setAttribute('data-theme', themePreset);
     localStorage.setItem('forge_theme_preset', themePreset);
   }, [isDarkMode, themePreset]);
+
+  // Apply saved custom theme when user is logged in; strip it on landing/login
+  useEffect(() => {
+    if (user) {
+      const saved = loadThemeConfig();
+      if (saved) applyThemeConfig(saved);
+    } else {
+      resetThemeConfig();
+    }
+  }, [user?.uid]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
   const userProfileSynced = useRef<string | null>(null);
@@ -3259,8 +3270,8 @@ export default function App() {
                 { label: 'Sign Out', icon: <LogOut className="w-3.5 h-3.5" />, variant: 'danger', onClick: () => signOut(auth) },
               ]}>
                 <div className="flex flex-1 w-full relative">
-                  {/* Sidebar (Desktop Only) */}
-                  <aside className="hidden md:flex sticky top-0 h-screen w-20 glass-panel border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
+                  {/* Sidebar (Desktop Only) — Notion Minimal Rail */}
+                  <aside className="hidden md:flex sticky top-0 h-screen w-16 bg-[#FBFAF8] dark:bg-[#191919] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar">
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
                       {/* Logo */}
                       <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
@@ -3287,7 +3298,7 @@ export default function App() {
                                 className="fixed inset-0 z-[100]"
                                 onClick={() => setIsWorkspaceDropdownOpen(false)}
                               />
-                              <div className="fixed top-20 left-20 ml-2 w-56 bg-white dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px]  z-[101] py-2 overflow-hidden flex flex-col max-h-[60vh]">
+                              <div className="fixed top-16 left-16 ml-2 w-56 bg-white dark:bg-[#2E2E2E] border border-[#E9E9E7] dark:border-[#3E3E3E] rounded-[12px] shadow-lg z-[101] py-2 overflow-hidden flex flex-col max-h-[60vh]">
                                 <div className="px-3 py-2 text-xs font-bold text-[#757681] dark:text-[#9B9A97] uppercase tracking-wider">
                                   Workspaces
                                 </div>

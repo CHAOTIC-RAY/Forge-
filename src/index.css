@@ -24,6 +24,18 @@
   --color-border-main: var(--border-main);
 }
 
+@property --spark-color-1 {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #60a5fa;
+}
+
+@property --spark-color-2 {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #818cf8;
+}
+
 :root {
   --bg-main: #ffffff;
   --bg-secondary: #f7f7f5;
@@ -36,6 +48,10 @@
   --brand-color-bg: rgba(38, 101, 253, 0.1);
   --brand-color-border: rgba(38, 101, 253, 0.2);
   --brand-color-ring: rgba(38, 101, 253, 0.4);
+  --forge-radius: 16px;
+  --forge-glass-blur: 8px;
+  --forge-glass-bg: rgba(255, 255, 255, 0.88);
+  --forge-glass-dark-bg: rgba(26, 26, 26, 0.88);
 }
 
 .dark {
@@ -188,8 +204,21 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .nav-pill-active {
+    position: relative;
     background: var(--brand-color-bg);
     color: var(--brand-color);
+  }
+
+  .nav-pill-active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 1.125rem;
+    background: var(--brand-color);
+    border-radius: 0 3px 3px 0;
   }
 
   .skip-link {

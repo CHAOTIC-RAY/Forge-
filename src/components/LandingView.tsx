@@ -869,6 +869,10 @@ export function LandingView({ onLogin }: LandingViewProps) {
     offset: ['start end', 'end end'],
   });
 
+  const { scrollYProgress: pageProgress } = useScroll({
+    container: containerRef,
+  });
+
   const calloutScale = useTransform(scrollYProgress, [0, 0.4, 0.72], [0.92, 0.98, 1]);
   const calloutRadius = useTransform(scrollYProgress, [0, 0.55, 0.8], ['28px', '16px', '0px']);
   const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
@@ -879,6 +883,10 @@ export function LandingView({ onLogin }: LandingViewProps) {
   const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
   const sidebarX = useTransform(scrollYProgress, [0.48, 0.72], ['0%', '-110%']);
   const decorOpacity = useTransform(scrollYProgress, [0.45, 0.7], [1, 0]);
+
+  const scribbleX = useTransform(pageProgress, [0, 0.85], ['0%', '30%']);
+  const scribbleScale = useTransform(pageProgress, [0, 0.85], [1, 0.78]);
+  const scribbleBaseOpacity = useTransform(pageProgress, [0, 0.05, 0.55, 0.82], [0, 0.38, 0.38, 0]);
   const [ctaImmersive, setCtaImmersive] = useState(false);
   const [tourFocusId, setTourFocusId] = useState<string | null>(null);
 
@@ -1101,13 +1109,17 @@ export function LandingView({ onLogin }: LandingViewProps) {
         </div>
       </motion.aside>
 
-      {/* Scribble flame — hero only; hidden during guided tour so it never covers feature copy */}
+      {/* Scribble flame — scroll-linked parallax decoration */}
       <motion.div
-        style={{ opacity: hideScribbleDecor ? 0 : decorOpacity }}
-        className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[480px] aspect-[210/339] pointer-events-none z-[1] opacity-10 md:opacity-15"
+        style={{
+          opacity: hideScribbleDecor ? 0 : scribbleBaseOpacity,
+          x: scribbleX,
+          scale: scribbleScale,
+        }}
+        className="fixed top-1/2 right-0 -translate-y-1/2 w-full md:w-1/2 max-w-[520px] aspect-[210/339] pointer-events-none z-[1]"
         aria-hidden
       >
-        <div className="w-full h-full scale-125 md:scale-90 origin-right translate-x-[8%]">
+        <div className="w-full h-full scale-125 md:scale-95 origin-right translate-x-[4%]">
           <ScribbleFlame />
         </div>
       </motion.div>
