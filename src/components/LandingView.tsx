@@ -873,13 +873,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
     container: containerRef,
   });
 
-  const calloutScale = useTransform(scrollYProgress, [0, 0.4, 0.72], [0.92, 0.98, 1]);
-  const calloutRadius = useTransform(scrollYProgress, [0, 0.55, 0.8], ['28px', '16px', '0px']);
+  const calloutScale = useTransform(scrollYProgress, [0, 0.4, 0.72, 1], [0.92, 0.98, 1, 1]);
+  const calloutRadius = useTransform(scrollYProgress, [0, 0.55, 0.8, 1], ['28px', '16px', '0px', '0px']);
   const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.5, 0.72], [1, 1, 0]);
-  const fullBleedOpacity = useTransform(scrollYProgress, [0.38, 0.58, 0.82], [0, 0.7, 1]);
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.5, 0.72, 1], [1, 1, 0, 0]);
+  const fullBleedOpacity = useTransform(scrollYProgress, [0, 0.38, 0.58, 0.82, 1], [0, 0, 0.7, 1, 1]);
   const headlineSize = useTransform(scrollYProgress, [0, 0.75, 1], ['1.875rem', '2.25rem', '3rem']);
-  const contentY = useTransform(scrollYProgress, [0.7, 1], [12, 0]);
+  const contentY = useTransform(scrollYProgress, [0, 0.7, 1], [16, 16, 0]);
   const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
   const sidebarX = useTransform(scrollYProgress, [0.48, 0.72], ['0%', '-110%']);
   const decorOpacity = useTransform(scrollYProgress, [0.45, 0.7], [1, 0]);
@@ -1003,18 +1003,51 @@ export function LandingView({ onLogin }: LandingViewProps) {
 
   return (
     <div
-      className={cn(
-        'relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white',
-        footerImmersive && 'bg-brand'
-      )}
+      className="relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white"
     >
-      {/* Full-viewport brand + grid on final scroll (covers entire screen) */}
+      {/* Full-viewport brand background — fades in smoothly as footer scrolls into view */}
       <motion.div
         className="fixed inset-0 z-[90] bg-brand pointer-events-none"
-        style={{ opacity: footerImmersive ? 1 : fullBleedOpacity }}
+        style={{ opacity: fullBleedOpacity }}
         aria-hidden
       >
         <FooterCtaGrid className="opacity-[0.14]" />
+      </motion.div>
+
+      {/* Full-bleed CTA copy — fixed at z-[95] so it escapes main's stacking context */}
+      <motion.div
+        style={{ opacity: fullBleedOpacity, y: contentY }}
+        className="fixed inset-0 z-[95] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 pointer-events-none text-white"
+      >
+        <div
+          className={cn(
+            'flex flex-col items-center gap-8 md:gap-10 max-w-3xl w-full',
+            ctaImmersive ? 'pointer-events-auto' : 'pointer-events-none'
+          )}
+        >
+          <div className="space-y-4 md:space-y-5">
+            <motion.h2
+              style={{ fontSize: headlineSize }}
+              className="font-bold tracking-tight leading-[1.08]"
+            >
+              Ready to ship your next month of content?
+            </motion.h2>
+            <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed">
+              Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the{' '}
+              {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you
+              are ready.
+            </p>
+          </div>
+          <motion.button
+            type="button"
+            onClick={onLogin}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-colors shadow-xl min-h-[48px]"
+          >
+            Sign Up Now
+          </motion.button>
+        </div>
       </motion.div>
 
       {/* Sidebar (Desktop) / Bottom Bar (Mobile) */}
@@ -1296,12 +1329,12 @@ export function LandingView({ onLogin }: LandingViewProps) {
               : { paddingLeft: sectionPadX, paddingRight: sectionPadX }
           }
         >
-          {/* Bordered card — fades out as you scroll in */}
+          {/* Bordered card — zooms in then fades out as full-bleed takes over */}
           <motion.div
             style={{
-              scale: footerImmersive ? 1 : calloutScale,
-              borderRadius: footerImmersive ? 0 : calloutRadius,
-              opacity: footerImmersive ? 0 : cardOpacity,
+              scale: calloutScale,
+              borderRadius: calloutRadius,
+              opacity: cardOpacity,
             }}
             className={cn(
               'relative z-[20] w-full max-w-4xl lg:max-w-5xl mx-auto',
@@ -1333,41 +1366,6 @@ export function LandingView({ onLogin }: LandingViewProps) {
             </div>
           </motion.div>
 
-          {/* Full-bleed copy (no card) — visible when purple fills the viewport */}
-          <motion.div
-            style={{ opacity: footerImmersive ? 1 : fullBleedOpacity, y: contentY }}
-            className="absolute inset-0 z-[30] flex flex-col items-center justify-center text-center px-6 sm:px-10 gap-8 md:gap-10 pointer-events-none text-white"
-          >
-            <div
-              className={cn(
-                'flex flex-col items-center gap-8 md:gap-10 max-w-3xl w-full',
-                footerImmersive ? 'pointer-events-auto' : 'pointer-events-none'
-              )}
-            >
-              <div className="space-y-4 md:space-y-5">
-                <motion.h2
-                  style={{ fontSize: headlineSize }}
-                  className="font-bold tracking-tight leading-[1.08]"
-                >
-                  Ready to ship your next month of content?
-                </motion.h2>
-                <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed">
-                  Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the{' '}
-                  {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you
-                  are ready.
-                </p>
-              </div>
-              <motion.button
-                type="button"
-                onClick={onLogin}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-                className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-colors shadow-xl min-h-[48px]"
-              >
-                Sign Up Now
-              </motion.button>
-            </div>
-          </motion.div>
         </motion.section>
       </main>
 
