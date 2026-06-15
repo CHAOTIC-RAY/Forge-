@@ -4,6 +4,7 @@ import {
   detectScaleFromFilename,
   float16BitsToFloat32,
   float32ToFloat16Bits,
+  patchEsrganOnnxOutputDims,
 } from './esrganUpscaler';
 
 describe('detectScaleFromFilename', () => {
@@ -52,5 +53,33 @@ describe('computeInferenceTilePlacement', () => {
     expect(inner.dstY).toBe(0);
     expect(inner.extractW).toBe(276);
     expect(inner.extractH).toBe(276);
+  });
+});
+
+describe('patchEsrganOnnxOutputDims', () => {
+  it('renames output spatial dim params without changing byte length', () => {
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+    const blob = new Uint8Array([
+      ...enc.encode('input-batch_size-height-width-'),
+      ...enc.encode('output-batch_size-height-width-'),
+    ]);
+    const patched = new Uint8Array(patchEsrganOnnxOutputDims(blob.buffer));
+    const text = dec.decode(patched);
+    expect(text).toContain('input-batch_size-height-width-');
+    expect(text).toContain('output-batch_size-h_out_-w_out-');
+    expect(text.match(/height/g)?.length).toBe(1);
+    expect(text.match(/width/g)?.length).toBe(1);
+  });
+
+  it('is idempotent when applied twice', () => {
+    const enc = new TextEncoder();
+    const blob = new Uint8Array([
+      ...enc.encode('aa-height-width-'),
+      ...enc.encode('bb-height-width-'),
+    ]);
+    const once = patchEsrganOnnxOutputDims(blob.buffer);
+    const twice = patchEsrganOnnxOutputDims(once);
+    expect(new Uint8Array(twice)).toEqual(new Uint8Array(once));
   });
 });

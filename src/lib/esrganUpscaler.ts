@@ -160,7 +160,52 @@ function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
 }
 
-/** Fixed inference tile size — ORT WebGPU reuses GPU buffers and requires identical dims each run. */
+/** Fixed inference tile size — ORT WebGPU requires identical dims on every session.run(). */
+/** Nomos2 (and many ESRGAN) ONNX exports reuse `height`/`width` on output — breaks WebGPU buffer reuse. */
+const ONNX_DIM_PATCHES: ReadonlyArray<readonly [string, string]> = [
+  ['height', 'h_out_'],
+  ['width', 'w_out'],
+] as const;
+
+function findSubarrayPositions(data: Uint8Array, needle: Uint8Array): number[] {
+  const positions: number[] = [];
+  if (needle.length === 0) return positions;
+  for (let i = 0; i <= data.length - needle.length; i++) {
+    let match = true;
+    for (let j = 0; j < needle.length; j++) {
+      if (data[i + j] !== needle[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) positions.push(i);
+  }
+  return positions;
+}
+
+export function patchEsrganOnnxOutputDims(buffer: ArrayBuffer): ArrayBuffer {
+  const data = new Uint8Array(buffer.slice(0));
+  const enc = new TextEncoder();
+
+  for (const [oldStr, newStr] of ONNX_DIM_PATCHES) {
+    const old = enc.encode(oldStr);
+    const neu = enc.encode(newStr);
+    if (old.length !== neu.length) {
+      throw new Error(`ONNX dim patch length mismatch for ${oldStr}`);
+    }
+
+    const positions = findSubarrayPositions(data, old);
+    if (positions.length === 0) continue;
+    if (positions.length === 1) continue;
+    if (positions.length !== 2) {
+      throw new Error(`Unexpected "${oldStr}" count in ONNX model (${positions.length})`);
+    }
+    data.set(neu, positions[1]);
+  }
+
+  return data.buffer;
+}
+
 export function computeInferenceTilePlacement(
   x: number,
   y: number,
@@ -302,10 +347,15 @@ async function fetchModelBuffer(
   return merged.buffer;
 }
 
+type OrtModule = typeof OrtTypes;
+
 class EsrganUpscalerService {
   private session: OrtTypes.InferenceSession | null = null;
-  private ort: typeof OrtTypes | null = null;
+  private ort: OrtModule | null = null;
+  private wasmOrt: OrtModule | null = null;
   private activeModel: EsrganModelRef | null = null;
+  private modelBuffer: ArrayBuffer | null = null;
+  private executionProvider: 'webgpu' | 'wasm' = 'webgpu';
   private inputName = 'input';
   private outputName = 'output';
   private inputElemType: OrtElemType = 'float32';
@@ -324,6 +374,69 @@ class EsrganUpscalerService {
       this.ort = await import('onnxruntime-web/webgpu');
     }
     return this.ort;
+  }
+
+  private async getWasmOrt() {
+    if (!this.wasmOrt) {
+      this.wasmOrt = await import('onnxruntime-web');
+    }
+    return this.wasmOrt;
+  }
+
+  private async releaseSession() {
+    if (this.session) {
+      await this.session.release();
+      this.session = null;
+    }
+  }
+
+  private async createSession(
+    ort: OrtModule,
+    buffer: ArrayBuffer,
+    provider: 'webgpu' | 'wasm'
+  ): Promise<OrtTypes.InferenceSession> {
+    return ort.InferenceSession.create(buffer, {
+      executionProviders: [provider],
+      graphOptimizationLevel: 'basic',
+      enableMemPattern: false,
+      enableCpuMemArena: false,
+    });
+  }
+
+  private async initSessionFromBuffer(buffer: ArrayBuffer, provider: 'webgpu' | 'wasm' = 'webgpu') {
+    const patched = patchEsrganOnnxOutputDims(buffer);
+    this.modelBuffer = patched;
+    const ort = provider === 'webgpu' ? await this.getOrt() : await this.getWasmOrt();
+    await this.releaseSession();
+    this.session = await this.createSession(ort, patched, provider);
+    this.ort = ort;
+    this.executionProvider = provider;
+    this.inputName = this.session.inputNames[0];
+    this.outputName = this.session.outputNames[0];
+    const inputMeta = this.session.inputMetadata.find((m) => m.name === this.inputName);
+    this.inputElemType =
+      inputMeta?.isTensor && inputMeta.type === 'float16' ? 'float16' : 'float32';
+  }
+
+  private async runTileInference(inputImage: ImageData): Promise<OrtTypes.Tensor> {
+    if (!this.session || !this.ort) throw new Error('ONNX session not initialized');
+
+    const buildTensor = (ort: OrtModule) => imageDataToNchwTensor(inputImage, ort, this.inputElemType);
+
+    const runOnce = async (): Promise<OrtTypes.Tensor> => {
+      const inputTensor = buildTensor(this.ort!);
+      const results = await this.session!.run({ [this.inputName]: inputTensor });
+      return results[this.outputName];
+    };
+
+    try {
+      return await runOnce();
+    } catch (err) {
+      if (this.executionProvider !== 'webgpu' || !this.modelBuffer) throw err;
+      console.warn('[ESRGAN] WebGPU tile failed, retrying on WASM:', err);
+      await this.initSessionFromBuffer(this.modelBuffer, 'wasm');
+      return runOnce();
+    }
   }
 
   async listModels(): Promise<EsrganModelRef[]> {
@@ -412,22 +525,10 @@ class EsrganUpscalerService {
       }
 
       onProgress?.({ progress: 100, message: 'Compiling ONNX session…' });
-      const ort = await this.getOrt();
-      if (this.session) {
-        await this.session.release();
-        this.session = null;
-      }
-
-      this.session = await ort.InferenceSession.create(buffer, {
-        executionProviders: ['webgpu'],
-      });
-      this.inputName = this.session.inputNames[0];
-      this.outputName = this.session.outputNames[0];
-      const inputMeta = this.session.inputMetadata.find((m) => m.name === this.inputName);
-      if (inputMeta?.isTensor && inputMeta.type === 'float16') {
-        this.inputElemType = 'float16';
-      } else {
-        this.inputElemType = 'float32';
+      try {
+        await this.initSessionFromBuffer(buffer, 'webgpu');
+      } catch {
+        await this.initSessionFromBuffer(buffer, 'wasm');
       }
       this.activeModel = meta;
       return meta;
@@ -445,7 +546,6 @@ class EsrganUpscalerService {
     if (!this.session || !this.activeModel) {
       throw new Error('Load an ESRGAN model first.');
     }
-    const ort = await this.getOrt();
 
     const scale = this.activeModel.scale;
     const tileSize = 256;
@@ -508,10 +608,7 @@ class EsrganUpscalerService {
         );
 
         const inputImage = tileCtx.getImageData(0, 0, inferenceSize, inferenceSize);
-        const inputTensor = imageDataToNchwTensor(inputImage, ort, this.inputElemType);
-        const feeds: Record<string, OrtTypes.Tensor> = { [this.inputName]: inputTensor };
-        const results = await this.session.run(feeds);
-        const output = results[this.outputName];
+        const output = await this.runTileInference(inputImage);
         const outSize = inferenceSize * scale;
         const outImage = nchwTensorToImageData(output, outSize, outSize);
 
