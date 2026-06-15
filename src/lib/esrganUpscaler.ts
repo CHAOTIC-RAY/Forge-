@@ -48,7 +48,75 @@ export function detectScaleFromFilename(filename: string): number {
   return 4;
 }
 
-export function imageDataToNchwTensor(imageData: ImageData, ort: typeof OrtTypes): OrtTypes.Tensor {
+export type OrtElemType = 'float32' | 'float16';
+
+export function float32ToFloat16Bits(val: number): number {
+  const f32 = new Float32Array(1);
+  f32[0] = val;
+  const bits = new Uint32Array(f32.buffer)[0];
+  const sign = (bits >> 31) & 0x1;
+  const exp = ((bits >> 23) & 0xff) - 127;
+  const mant = bits & 0x7fffff;
+
+  if (exp === 128) {
+    return (sign << 15) | (mant ? 0x7e00 : 0x7c00);
+  }
+  if (exp > 15) return (sign << 15) | 0x7c00;
+  if (exp < -14) return sign << 15;
+
+  const halfExp = exp + 15;
+  const halfMant = mant >> 13;
+  return (sign << 15) | (halfExp << 10) | halfMant;
+}
+
+export function float16BitsToFloat32(h: number): number {
+  const sign = (h >> 15) & 1;
+  const exp = (h >> 10) & 0x1f;
+  const mant = h & 0x3ff;
+
+  if (exp === 0) {
+    if (mant === 0) return sign ? -0 : 0;
+    const v = (mant / 1024) * 2 ** -14;
+    return sign ? -v : v;
+  }
+  if (exp === 31) {
+    if (mant) return NaN;
+    return sign ? -Infinity : Infinity;
+  }
+  const v = 2 ** (exp - 15) * (1 + mant / 1024);
+  return sign ? -v : v;
+}
+
+export function float32ArrayToFloat16(src: Float32Array): Float16Array | Uint16Array {
+  if (typeof Float16Array !== 'undefined') {
+    const out = new Float16Array(src.length);
+    for (let i = 0; i < src.length; i++) out[i] = src[i];
+    return out;
+  }
+  const out = new Uint16Array(src.length);
+  for (let i = 0; i < src.length; i++) out[i] = float32ToFloat16Bits(src[i]);
+  return out;
+}
+
+export function readTensorValue(
+  data: Float32Array | Float16Array | Uint16Array,
+  index: number,
+  type: string
+): number {
+  if (type === 'float16') {
+    if (typeof Float16Array !== 'undefined' && data instanceof Float16Array) {
+      return data[index];
+    }
+    return float16BitsToFloat32((data as Uint16Array)[index]);
+  }
+  return (data as Float32Array)[index];
+}
+
+export function imageDataToNchwTensor(
+  imageData: ImageData,
+  ort: typeof OrtTypes,
+  elemType: OrtElemType = 'float32'
+): OrtTypes.Tensor {
   const { width, height, data } = imageData;
   const floats = new Float32Array(3 * width * height);
   let p = 0;
@@ -60,23 +128,28 @@ export function imageDataToNchwTensor(imageData: ImageData, ort: typeof OrtTypes
       floats[p++] = data[i + 2] / 255;
     }
   }
+  if (elemType === 'float16') {
+    const f16 = float32ArrayToFloat16(floats);
+    return new ort.Tensor('float16', f16 as Uint16Array, [1, 3, height, width]);
+  }
   return new ort.Tensor('float32', floats, [1, 3, height, width]);
 }
 
 export function nchwTensorToImageData(tensor: OrtTypes.Tensor, width: number, height: number): ImageData {
-  const data = tensor.data as Float32Array | Float16Array;
+  const data = tensor.data as Float32Array | Float16Array | Uint16Array;
+  const elemType = String(tensor.type);
   const imageData = new ImageData(width, height);
-  const channels = Math.max(1, Math.floor(data.length / (width * height)));
+  const plane = width * height;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const px = y * width + x;
       const di = px * 4;
-      const r = clampByte((data[px] ?? 0) * 255);
-      const g = clampByte((data[width * height + px] ?? r) * 255);
-      const b = clampByte((data[2 * width * height + px] ?? r) * 255);
-      imageData.data[di] = channels >= 1 ? r : 0;
-      imageData.data[di + 1] = channels >= 2 ? g : r;
-      imageData.data[di + 2] = channels >= 3 ? b : r;
+      const r = clampByte(readTensorValue(data, px, elemType) * 255);
+      const g = clampByte(readTensorValue(data, plane + px, elemType) * 255);
+      const b = clampByte(readTensorValue(data, 2 * plane + px, elemType) * 255);
+      imageData.data[di] = r;
+      imageData.data[di + 1] = g;
+      imageData.data[di + 2] = b;
       imageData.data[di + 3] = 255;
     }
   }
@@ -204,6 +277,7 @@ class EsrganUpscalerService {
   private activeModel: EsrganModelRef | null = null;
   private inputName = 'input';
   private outputName = 'output';
+  private inputElemType: OrtElemType = 'float32';
   private loading = false;
 
   get isLoading() {
@@ -318,6 +392,12 @@ class EsrganUpscalerService {
       });
       this.inputName = this.session.inputNames[0];
       this.outputName = this.session.outputNames[0];
+      const inputMeta = this.session.inputMetadata.find((m) => m.name === this.inputName);
+      if (inputMeta?.isTensor && inputMeta.type === 'float16') {
+        this.inputElemType = 'float16';
+      } else {
+        this.inputElemType = 'float32';
+      }
       this.activeModel = meta;
       return meta;
     } finally {
@@ -381,7 +461,7 @@ class EsrganUpscalerService {
         tileCtx.drawImage(srcCanvas, -xStart, -yStart);
 
         const inputImage = tileCtx.getImageData(0, 0, padW, padH);
-        const inputTensor = imageDataToNchwTensor(inputImage, ort);
+        const inputTensor = imageDataToNchwTensor(inputImage, ort, this.inputElemType);
         const feeds: Record<string, OrtTypes.Tensor> = { [this.inputName]: inputTensor };
         const results = await this.session.run(feeds);
         const output = results[this.outputName];

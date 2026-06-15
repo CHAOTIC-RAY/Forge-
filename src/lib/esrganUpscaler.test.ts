@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectScaleFromFilename } from './esrganUpscaler';
+import { detectScaleFromFilename, float16BitsToFloat32, float32ToFloat16Bits } from './esrganUpscaler';
 
 describe('detectScaleFromFilename', () => {
   it('detects 4x from Nomos model name', () => {
@@ -13,5 +13,15 @@ describe('detectScaleFromFilename', () => {
 
   it('defaults to 4x when scale is unknown', () => {
     expect(detectScaleFromFilename('custom_esrgan.onnx')).toBe(4);
+  });
+});
+
+describe('float16 conversion', () => {
+  it('round-trips common values', () => {
+    for (const v of [0, 0.5, 1, 0.25, 0.75]) {
+      const bits = float32ToFloat16Bits(v);
+      const back = float16BitsToFloat32(bits);
+      expect(Math.abs(back - v)).toBeLessThan(0.01);
+    }
   });
 });
