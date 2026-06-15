@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && npm run build:server",
+    "build": "cp node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm public/ort-wasm-simd-threaded.wasm && vite build && npm run build:server",
     "build:server": "esbuild server.ts --bundle --platform=node --outfile=dist/server.js --external:vite --external:express --external:axios",
     "start": "node dist/server.js",
     "preview": "npm run build && wrangler dev",

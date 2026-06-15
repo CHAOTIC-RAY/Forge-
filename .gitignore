@@ -16,3 +16,6 @@ test-results/
 !.dev.vars.example
 __pycache__/
 .env
+
+# Copied at build time from onnxruntime-web
+public/ort-wasm-simd-threaded.wasm

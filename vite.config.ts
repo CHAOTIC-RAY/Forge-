@@ -62,6 +62,7 @@ export default defineConfig(({mode}) => {
       include: ['tegaki/react', 'tegaki/fonts/caveat'],
     },
     build: {
+      assetsInlineLimit: 0,
       rollupOptions: {
         output: {
           manualChunks(id) {

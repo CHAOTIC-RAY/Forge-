@@ -671,7 +671,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
       return renderWidgetShell(
         resolvedId,
         'ESRGAN Upscaler',
-        'WebGPU · ONNX · 4x Nomos2',
+        'ONNX · 4x Nomos2',
         <Maximize2 className="w-4 h-4 text-emerald-500" />,
         'bg-emerald-500/10',
         <React.Suspense fallback={<div className="flex justify-center p-8"><ForgeLoader size={32} /></div>}>

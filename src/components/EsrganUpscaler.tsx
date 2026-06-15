@@ -192,7 +192,7 @@ export function EsrganUpscaler() {
         <div className="flex items-center gap-2 text-xs text-[#757681]">
           <Cpu className="w-3.5 h-3.5 text-emerald-500" />
           <span>
-            WebGPU · {activeModel.name} · {activeModel.scale}x upscale
+            ONNX · {activeModel.name} · {activeModel.scale}x upscale
           </span>
         </div>
       ) : null}
@@ -224,7 +224,7 @@ export function EsrganUpscaler() {
                 <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
                   <ForgeLoader size={28} className="shrink-0" />
                   <p className="text-xs font-bold text-white/90">
-                    Upscaling on WebGPU… {upscaleProgress > 0 ? `${upscaleProgress}%` : ''}
+                    Upscaling… {upscaleProgress > 0 ? `${upscaleProgress}%` : ''}
                   </p>
                 </div>
               ) : null}
@@ -291,7 +291,7 @@ export function EsrganUpscaler() {
         >
           4x Nomos2 OTF ESRGAN
         </a>
-        · runs fully on-device via WebGPU
+        · runs fully on-device via ONNX WASM
       </p>
     </div>
   );

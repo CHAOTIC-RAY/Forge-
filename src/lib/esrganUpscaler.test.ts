@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  computeInferenceTilePlacement,
-  detectScaleFromFilename,
-  float16BitsToFloat32,
-  float32ToFloat16Bits,
-  patchEsrganOnnxOutputDims,
-} from './esrganUpscaler';
+import { patchEsrganOnnxOutputDims } from './esrganOnnxPatch';
+import { detectScaleFromFilename, float16BitsToFloat32, float32ToFloat16Bits, computeInferenceTilePlacement } from './esrganUpscaler';
 
 describe('detectScaleFromFilename', () => {
   it('detects 4x from Nomos model name', () => {

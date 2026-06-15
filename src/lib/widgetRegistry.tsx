@@ -76,7 +76,7 @@ export const BUILTIN_WIDGET_CATALOG: BuiltinWidgetDefinition[] = [
   {
     id: 'esrgan-upscaler',
     title: 'ESRGAN upscaler',
-    description: '4x photo upscaling with Nomos2 ESRGAN on WebGPU — upload custom ONNX models.',
+    description: '4x photo upscaling with Nomos2 ESRGAN on-device — upload custom ONNX models.',
     category: 'image',
     icon: <Maximize2 className="w-6 h-6 text-emerald-500" />,
     color: 'bg-emerald-500/10',

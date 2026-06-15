@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { scraperRouter } from "./server/routes/api";
+import { patchEsrganOnnxOutputDims } from "./src/lib/esrganOnnxPatch";
 
 console.log("[Server] Starting initialization...");
 console.log("[Server] Environment:", process.env.NODE_ENV);
@@ -221,16 +222,12 @@ export async function startServer(forcePort?: number) {
       "https://github.com/Phhofm/models/releases/download/4xNomos2_otf_esrgan/4xNomos2_otf_esrgan_fp16_opset17.onnx";
 
     try {
-      const headers: Record<string, string> = {
-        "User-Agent": "Forge-ESRGAN-Proxy/1.0",
-      };
-      const range = req.headers.range;
-      if (range) headers["Range"] = range;
-
       const response = await axios.get(upstream, {
         responseType: "arraybuffer",
         timeout: 120000,
-        headers,
+        headers: {
+          "User-Agent": "Forge-ESRGAN-Proxy/1.0",
+        },
         validateStatus: (status) => status < 500,
       });
 
@@ -238,17 +235,14 @@ export async function startServer(forcePort?: number) {
         return res.status(response.status).send(`Failed to fetch model: ${response.statusText}`);
       }
 
+      const patched = patchEsrganOnnxOutputDims(response.data);
+
       res.setHeader("Content-Type", "application/octet-stream");
       res.setHeader("Cache-Control", "public, max-age=604800");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.setHeader("Access-Control-Allow-Origin", "*");
-      if (response.headers["content-length"]) {
-        res.setHeader("Content-Length", String(response.headers["content-length"]));
-      }
-      if (response.headers["content-range"]) {
-        res.setHeader("Content-Range", String(response.headers["content-range"]));
-      }
-      res.status(response.status).send(response.data);
+      res.setHeader("Content-Length", String(patched.byteLength));
+      res.status(200).send(Buffer.from(patched));
     } catch (error: any) {
       console.error("ESRGAN model proxy failed:", error.message);
       res.status(500).send(`Failed to fetch model: ${error.message}`);

@@ -1,6 +1,9 @@
-import type * as OrtTypes from 'onnxruntime-web/webgpu';
+import type * as OrtTypes from 'onnxruntime-web';
+import { isEsrganOnnxPatched, patchEsrganOnnxOutputDims } from './esrganOnnxPatch';
 
-const CACHE_NAME = 'forge-esrgan-models-v1';
+const ORT_WASM_URL = `${import.meta.env.BASE_URL}ort-wasm-simd-threaded.wasm`;
+
+const CACHE_NAME = 'forge-esrgan-models-v2';
 const CUSTOM_DB = 'ForgeEsrganDB';
 const CUSTOM_STORE = 'models';
 
@@ -17,6 +20,8 @@ export const DEFAULT_ESRGAN_MODEL = {
 /** Upstream ONNX (server/worker only) */
 export const ESRGAN_DEFAULT_MODEL_UPSTREAM =
   'https://github.com/Phhofm/models/releases/download/4xNomos2_otf_esrgan/4xNomos2_otf_esrgan_fp16_opset17.onnx';
+
+export { patchEsrganOnnxOutputDims, isEsrganOnnxPatched } from './esrganOnnxPatch';
 
 function resolveModelUrl(url: string): string {
   if (url.startsWith('/')) {
@@ -160,52 +165,7 @@ function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
 }
 
-/** Fixed inference tile size — ORT WebGPU requires identical dims on every session.run(). */
-/** Nomos2 (and many ESRGAN) ONNX exports reuse `height`/`width` on output — breaks WebGPU buffer reuse. */
-const ONNX_DIM_PATCHES: ReadonlyArray<readonly [string, string]> = [
-  ['height', 'h_out_'],
-  ['width', 'w_out'],
-] as const;
-
-function findSubarrayPositions(data: Uint8Array, needle: Uint8Array): number[] {
-  const positions: number[] = [];
-  if (needle.length === 0) return positions;
-  for (let i = 0; i <= data.length - needle.length; i++) {
-    let match = true;
-    for (let j = 0; j < needle.length; j++) {
-      if (data[i + j] !== needle[j]) {
-        match = false;
-        break;
-      }
-    }
-    if (match) positions.push(i);
-  }
-  return positions;
-}
-
-export function patchEsrganOnnxOutputDims(buffer: ArrayBuffer): ArrayBuffer {
-  const data = new Uint8Array(buffer.slice(0));
-  const enc = new TextEncoder();
-
-  for (const [oldStr, newStr] of ONNX_DIM_PATCHES) {
-    const old = enc.encode(oldStr);
-    const neu = enc.encode(newStr);
-    if (old.length !== neu.length) {
-      throw new Error(`ONNX dim patch length mismatch for ${oldStr}`);
-    }
-
-    const positions = findSubarrayPositions(data, old);
-    if (positions.length === 0) continue;
-    if (positions.length === 1) continue;
-    if (positions.length !== 2) {
-      throw new Error(`Unexpected "${oldStr}" count in ONNX model (${positions.length})`);
-    }
-    data.set(neu, positions[1]);
-  }
-
-  return data.buffer;
-}
-
+/** Fixed inference tile size — every tile must share identical tensor dims. */
 export function computeInferenceTilePlacement(
   x: number,
   y: number,
@@ -298,6 +258,11 @@ async function writeCustomModel(row: {
   };
 }
 
+function prepareModelBuffer(buffer: ArrayBuffer): ArrayBuffer {
+  if (isEsrganOnnxPatched(buffer)) return buffer;
+  return patchEsrganOnnxOutputDims(buffer);
+}
+
 async function fetchModelBuffer(
   url: string,
   onProgress?: (p: EsrganLoadProgress) => void
@@ -307,7 +272,7 @@ async function fetchModelBuffer(
   const cached = await cache.match(fetchUrl);
   if (cached) {
     onProgress?.({ progress: 100, message: 'Loaded model from cache' });
-    return cached.arrayBuffer();
+    return prepareModelBuffer(await cached.arrayBuffer());
   }
 
   onProgress?.({ progress: 0, message: 'Downloading ESRGAN model…' });
@@ -316,7 +281,7 @@ async function fetchModelBuffer(
 
   const total = Number(res.headers.get('content-length') || 0);
   if (!res.body || !total) {
-    const buf = await res.arrayBuffer();
+    const buf = prepareModelBuffer(await res.arrayBuffer());
     await cache.put(fetchUrl, new Response(buf));
     onProgress?.({ progress: 100, message: 'Model ready' });
     return buf;
@@ -342,9 +307,10 @@ async function fetchModelBuffer(
     merged.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  await cache.put(fetchUrl, new Response(merged));
+  const buf = prepareModelBuffer(merged.buffer);
+  await cache.put(fetchUrl, new Response(buf));
   onProgress?.({ progress: 100, message: 'Model ready' });
-  return merged.buffer;
+  return buf;
 }
 
 type OrtModule = typeof OrtTypes;
@@ -352,14 +318,13 @@ type OrtModule = typeof OrtTypes;
 class EsrganUpscalerService {
   private session: OrtTypes.InferenceSession | null = null;
   private ort: OrtModule | null = null;
-  private wasmOrt: OrtModule | null = null;
   private activeModel: EsrganModelRef | null = null;
   private modelBuffer: ArrayBuffer | null = null;
-  private executionProvider: 'webgpu' | 'wasm' = 'webgpu';
   private inputName = 'input';
   private outputName = 'output';
   private inputElemType: OrtElemType = 'float32';
   private loading = false;
+  private wasmReady = false;
 
   get isLoading() {
     return this.loading;
@@ -369,18 +334,19 @@ class EsrganUpscalerService {
     return this.activeModel;
   }
 
-  private async getOrt() {
+  private async getOrt(): Promise<OrtModule> {
     if (!this.ort) {
-      this.ort = await import('onnxruntime-web/webgpu');
+      this.ort = await import('onnxruntime-web');
+    }
+    if (!this.wasmReady) {
+      const ort = this.ort;
+      ort.env.wasm.wasmPaths = { wasm: ORT_WASM_URL };
+      ort.env.wasm.simd = true;
+      const threaded = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+      ort.env.wasm.numThreads = threaded ? Math.min(navigator.hardwareConcurrency ?? 4, 4) : 1;
+      this.wasmReady = true;
     }
     return this.ort;
-  }
-
-  private async getWasmOrt() {
-    if (!this.wasmOrt) {
-      this.wasmOrt = await import('onnxruntime-web');
-    }
-    return this.wasmOrt;
   }
 
   private async releaseSession() {
@@ -390,27 +356,20 @@ class EsrganUpscalerService {
     }
   }
 
-  private async createSession(
-    ort: OrtModule,
-    buffer: ArrayBuffer,
-    provider: 'webgpu' | 'wasm'
-  ): Promise<OrtTypes.InferenceSession> {
-    return ort.InferenceSession.create(buffer, {
-      executionProviders: [provider],
-      graphOptimizationLevel: 'basic',
+  private async initSessionFromBuffer(buffer: ArrayBuffer) {
+    const patched = prepareModelBuffer(buffer);
+    if (!isEsrganOnnxPatched(patched)) {
+      throw new Error('ESRGAN model metadata is invalid for browser inference');
+    }
+    this.modelBuffer = patched;
+    const ort = await this.getOrt();
+    await this.releaseSession();
+    this.session = await ort.InferenceSession.create(patched, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'disabled',
       enableMemPattern: false,
       enableCpuMemArena: false,
     });
-  }
-
-  private async initSessionFromBuffer(buffer: ArrayBuffer, provider: 'webgpu' | 'wasm' = 'webgpu') {
-    const patched = patchEsrganOnnxOutputDims(buffer);
-    this.modelBuffer = patched;
-    const ort = provider === 'webgpu' ? await this.getOrt() : await this.getWasmOrt();
-    await this.releaseSession();
-    this.session = await this.createSession(ort, patched, provider);
-    this.ort = ort;
-    this.executionProvider = provider;
     this.inputName = this.session.inputNames[0];
     this.outputName = this.session.outputNames[0];
     const inputMeta = this.session.inputMetadata.find((m) => m.name === this.inputName);
@@ -418,25 +377,28 @@ class EsrganUpscalerService {
       inputMeta?.isTensor && inputMeta.type === 'float16' ? 'float16' : 'float32';
   }
 
-  private async runTileInference(inputImage: ImageData): Promise<OrtTypes.Tensor> {
+  private createOutputTensor(ort: OrtModule, outH: number, outW: number): OrtTypes.Tensor {
+    const elements = 3 * outH * outW;
+    if (this.inputElemType === 'float16') {
+      const data =
+        typeof Float16Array !== 'undefined' ? new Float16Array(elements) : new Uint16Array(elements);
+      return new ort.Tensor('float16', data as Uint16Array, [1, 3, outH, outW]);
+    }
+    return new ort.Tensor('float32', new Float32Array(elements), [1, 3, outH, outW]);
+  }
+
+  private async runTileInference(inputImage: ImageData, scale: number): Promise<OrtTypes.Tensor> {
     if (!this.session || !this.ort) throw new Error('ONNX session not initialized');
 
-    const buildTensor = (ort: OrtModule) => imageDataToNchwTensor(inputImage, ort, this.inputElemType);
-
-    const runOnce = async (): Promise<OrtTypes.Tensor> => {
-      const inputTensor = buildTensor(this.ort!);
-      const results = await this.session!.run({ [this.inputName]: inputTensor });
-      return results[this.outputName];
-    };
-
-    try {
-      return await runOnce();
-    } catch (err) {
-      if (this.executionProvider !== 'webgpu' || !this.modelBuffer) throw err;
-      console.warn('[ESRGAN] WebGPU tile failed, retrying on WASM:', err);
-      await this.initSessionFromBuffer(this.modelBuffer, 'wasm');
-      return runOnce();
-    }
+    const outH = inputImage.height * scale;
+    const outW = inputImage.width * scale;
+    const inputTensor = imageDataToNchwTensor(inputImage, this.ort, this.inputElemType);
+    const outputTensor = this.createOutputTensor(this.ort, outH, outW);
+    const results = await this.session.run(
+      { [this.inputName]: inputTensor },
+      { [this.outputName]: outputTensor }
+    );
+    return results[this.outputName];
   }
 
   async listModels(): Promise<EsrganModelRef[]> {
@@ -499,10 +461,7 @@ class EsrganUpscalerService {
     if (this.activeModel?.id === modelId && this.session) return this.activeModel;
     this.loading = true;
     try {
-      onProgress?.({ progress: 0, message: 'Initializing WebGPU…' });
-      if (typeof navigator !== 'undefined' && !('gpu' in navigator && (navigator as Navigator & { gpu?: unknown }).gpu)) {
-        throw new Error('WebGPU is not available in this browser.');
-      }
+      onProgress?.({ progress: 0, message: 'Initializing ONNX runtime…' });
 
       let buffer: ArrayBuffer;
       let meta: EsrganModelRef;
@@ -520,16 +479,12 @@ class EsrganUpscalerService {
         const custom = await readCustomModel(modelId);
         if (!custom) throw new Error('Custom model not found.');
         meta = custom.meta;
-        buffer = custom.buffer;
+        buffer = prepareModelBuffer(custom.buffer);
         onProgress?.({ progress: 100, message: 'Loaded custom model' });
       }
 
       onProgress?.({ progress: 100, message: 'Compiling ONNX session…' });
-      try {
-        await this.initSessionFromBuffer(buffer, 'webgpu');
-      } catch {
-        await this.initSessionFromBuffer(buffer, 'wasm');
-      }
+      await this.initSessionFromBuffer(buffer);
       this.activeModel = meta;
       return meta;
     } finally {
@@ -608,7 +563,7 @@ class EsrganUpscalerService {
         );
 
         const inputImage = tileCtx.getImageData(0, 0, inferenceSize, inferenceSize);
-        const output = await this.runTileInference(inputImage);
+        const output = await this.runTileInference(inputImage, scale);
         const outSize = inferenceSize * scale;
         const outImage = nchwTensorToImageData(output, outSize, outSize);
 

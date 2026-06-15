@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { patchEsrganOnnxOutputDims } from "./lib/esrganOnnxPatch";
 
 export interface Env {
   CLOUDINARY_CLOUD_NAME: string;
@@ -246,34 +247,32 @@ export default {
           const upstream =
             'https://github.com/Phhofm/models/releases/download/4xNomos2_otf_esrgan/4xNomos2_otf_esrgan_fp16_opset17.onnx';
 
-          const forwardHeaders: Record<string, string> = {
-            'User-Agent': 'Forge-ESRGAN-Proxy/1.0 (Cloudflare Worker)',
-          };
-          const range = request.headers.get('Range');
-          if (range) forwardHeaders['Range'] = range;
-
           const ghRes = await fetch(upstream, {
-            method: request.method,
-            headers: forwardHeaders,
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Forge-ESRGAN-Proxy/1.0 (Cloudflare Worker)',
+            },
           });
 
-          const outHeaders = new Headers();
-          for (const key of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'cache-control']) {
-            const v = ghRes.headers.get(key);
-            if (v) outHeaders.set(key, v);
-          }
-          outHeaders.set('Content-Type', ghRes.headers.get('Content-Type') || 'application/octet-stream');
-          outHeaders.set('Access-Control-Allow-Origin', '*');
-          outHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-          outHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type');
-          outHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-          outHeaders.set('Cross-Origin-Resource-Policy', 'cross-origin');
-          if (!outHeaders.has('cache-control')) {
-            outHeaders.set('Cache-Control', 'public, max-age=604800');
+          if (!ghRes.ok) {
+            return new Response(`Failed to fetch model: ${ghRes.status}`, { status: ghRes.status });
           }
 
-          return new Response(request.method === 'HEAD' ? null : ghRes.body, {
-            status: ghRes.status,
+          const raw = await ghRes.arrayBuffer();
+          const patched = patchEsrganOnnxOutputDims(raw);
+
+          const outHeaders = new Headers();
+          outHeaders.set('Content-Type', 'application/octet-stream');
+          outHeaders.set('Content-Length', String(patched.byteLength));
+          outHeaders.set('Access-Control-Allow-Origin', '*');
+          outHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+          outHeaders.set('Access-Control-Allow-Headers', 'Content-Type');
+          outHeaders.set('Access-Control-Expose-Headers', 'Content-Length');
+          outHeaders.set('Cross-Origin-Resource-Policy', 'cross-origin');
+          outHeaders.set('Cache-Control', 'public, max-age=604800');
+
+          return new Response(request.method === 'HEAD' ? null : patched, {
+            status: 200,
             headers: outHeaders,
           });
         }
