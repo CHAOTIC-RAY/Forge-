@@ -6,7 +6,7 @@ import {
   Wand2,
   Link,
   Link2,
-  Banana,
+  Maximize2,
   LayoutGrid,
 } from 'lucide-react';
 
@@ -74,12 +74,12 @@ export const BUILTIN_WIDGET_CATALOG: BuiltinWidgetDefinition[] = [
     color: 'bg-pink-500/10',
   },
   {
-    id: 'nano-upscaler',
-    title: 'Image upscaler',
-    description: 'Enhance image resolution with AI upscaling.',
+    id: 'esrgan-upscaler',
+    title: 'ESRGAN upscaler',
+    description: '4x photo upscaling with Nomos2 ESRGAN on WebGPU — upload custom ONNX models.',
     category: 'image',
-    icon: <Banana className="w-6 h-6 text-yellow-500" />,
-    color: 'bg-yellow-500/10',
+    icon: <Maximize2 className="w-6 h-6 text-emerald-500" />,
+    color: 'bg-emerald-500/10',
   },
   {
     id: 'shortener',

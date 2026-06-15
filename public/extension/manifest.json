@@ -9,11 +9,19 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://forge.chaoticstudio.workers.dev/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
       "js": ["content.js"]
     }
   ],
   "externally_connectable": {
-    "matches": ["https://ais-dev-lkdab6rylgfzl4qvouhnor-22311204047.asia-southeast1.run.app/*"]
+    "matches": [
+      "https://forge.chaoticstudio.workers.dev/*",
+      "http://localhost/*",
+      "http://127.0.0.1/*"
+    ]
   }
 }

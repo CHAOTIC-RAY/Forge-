@@ -3,21 +3,25 @@
   "name": "Forge Companion & AI",
   "version": "2.0",
   "description": "Clip websites, track your calendar, and chat with AI from anywhere.",
-  "permissions": ["activeTab", "scripting", "storage", "debugger"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "action": {
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://forge.chaoticstudio.workers.dev/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
       "js": ["content.js"]
     }
   ],
   "externally_connectable": {
     "matches": [
-      "https://ais-dev-lkdab6rylgfzl4qvouhnor-22311204047.asia-southeast1.run.app/*",
       "https://forge.chaoticstudio.workers.dev/*",
-      "http://localhost/*"
+      "http://localhost/*",
+      "http://127.0.0.1/*"
     ]
   }
 }
