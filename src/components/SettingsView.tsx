@@ -13,6 +13,7 @@ import {
 } from '../lib/themeEngine';
 import { cn } from '../lib/utils';
 import { WorkspacesSettings } from './WorkspacesSettings';
+import { ChaoticStudioCredits } from './ChaoticStudioCredits';
 import { ForgeLoader } from './ForgeLoader';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -2826,6 +2827,12 @@ export function SettingsView({
         </BentoCard>
         </div>
           </motion.div>
+        </section>
+
+        <section className="pt-4 pb-2">
+          <div className="rounded-2xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#F7F7F5]/60 dark:bg-[#202020]/60 px-6 py-8">
+            <ChaoticStudioCredits className="mx-auto" />
+          </div>
         </section>
       </div>
       <AnimatePresence>

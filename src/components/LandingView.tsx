@@ -41,6 +41,7 @@ import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
 import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent } from 'motion/react';
 import { HeroHandwritingTitle } from './HeroHandwritingTitle';
+import { ChaoticStudioCredits } from './ChaoticStudioCredits';
 import { animateScrollTo, easeOutExpo, easeInOutQuint, waitMs } from '../lib/guidedScroll';
 
 const landingTerms = INDUSTRY_CONFIGS.default.terminology;
@@ -1075,43 +1076,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
           </motion.button>
         </div>
 
-        {/* Footer credits */}
-        <div 
+        <ChaoticStudioCredits
+          variant="landing"
           className={cn(
-            'flex flex-col items-center gap-2 max-w-2xl w-full text-xs md:text-sm text-blue-100/75 select-text transition-opacity',
+            'transition-opacity',
             ctaImmersive ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
           )}
-        >
-          <p className="font-medium">
-            Created from passion by <span className="text-white font-semibold">choasstudio.mv</span>
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-blue-200/80">
-            <a 
-              href="mailto:chaos.studio.mv@gmail.com" 
-              className="hover:text-white transition-colors underline decoration-blue-200/30"
-            >
-              chaos.studio.mv@gmail.com
-            </a>
-            <span className="hidden sm:inline opacity-40">•</span>
-            <a 
-              href="https://t.me/Wafig" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="hover:text-white transition-colors underline decoration-blue-200/30"
-            >
-              +960 9401011 (Telegram)
-            </a>
-            <span className="hidden sm:inline opacity-40">•</span>
-            <a 
-              href="https://portfolio.chaoticstudio.workers.dev/studio" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="hover:text-white transition-colors underline decoration-blue-200/30"
-            >
-              chaos.studio
-            </a>
-          </div>
-        </div>
+        />
       </motion.div>
 
       {/* Sidebar (Desktop) / Bottom Bar (Mobile) */}
