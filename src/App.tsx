@@ -3944,7 +3944,6 @@ export default function App() {
                 {isAdmin ? (
                   <nav className="flex-1 flex flex-row justify-between w-full h-[72px] items-stretch" aria-label="Primary mobile navigation">
                     {[
-                      { id: 'home', icon: LayoutGrid, title: 'Home' },
                       { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
                       { id: 'chat', icon: MessageSquare, title: 'Chat' },
                       { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
@@ -3960,7 +3959,7 @@ export default function App() {
                           aria-current={isActive ? 'page' : undefined}
                           className={cn(
                             "interactive focus-ring flex flex-col items-center justify-center gap-1 relative flex-1 h-full rounded-[14px]",
-                            isActive ? "text-brand nav-pill-active" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
+                            isActive ? "text-brand bg-brand-bg" : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED]"
                           )}
                           title={tab.title}
                         >

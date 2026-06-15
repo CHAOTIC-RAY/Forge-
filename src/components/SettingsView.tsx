@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Building2, Sparkles, ChartBar as BarChart3, Database, Download, Save, Upload, RefreshCw, FileSpreadsheet, Globe, LogOut, Smartphone, Bell, Printer, X, Settings, Trash2, ChevronDown, Activity, Tags, Link2, Hop as Home, Palette, Lightbulb, ListTodo, Search, Moon, CircleCheck as CheckCircle2, FileText, MessageSquareText, Box, Wand as Wand2, ExternalLink, Boxes, Type, FileSliders as Sliders, RotateCcw } from 'lucide-react';
+import { User, Building2, Sparkles, ChartBar as BarChart3, Database, Download, Save, Upload, RefreshCw, FileSpreadsheet, Globe, LogOut, Smartphone, Bell, Printer, X, Settings, Trash2, ChevronDown, Activity, Tags, Link2, Palette, Lightbulb, ListTodo, Search, Moon, CircleCheck as CheckCircle2, FileText, MessageSquareText, Box, Wand as Wand2, ExternalLink, Boxes, Type, FileSliders as Sliders, RotateCcw } from 'lucide-react';
 import {
   type ThemeConfig,
   PALETTE_PRESETS as ENGINE_PALETTE_PRESETS,
@@ -819,16 +819,6 @@ export function SettingsView({
       {/* Mobile Hidden Tabs Bento Grid */}
       <div className="md:hidden grid grid-cols-6 gap-2 mb-8">
         <button 
-          onClick={() => setActiveTab?.('home')}
-          className="col-span-3 flex flex-col items-center justify-center p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
-        >
-          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[16px] flex items-center justify-center text-blue-600 dark:text-blue-400 mb-2">
-            <Home className="w-5 h-5" />
-          </div>
-          <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Home</span>
-        </button>
-        
-        <button 
           onClick={() => setActiveTab?.('brandkit')}
           className="col-span-3 flex flex-col items-center justify-center p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
@@ -840,32 +830,22 @@ export function SettingsView({
 
         <button 
           onClick={() => setActiveTab?.('widgets')}
-          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
+          className="col-span-3 flex flex-col items-center justify-center p-4 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
-          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-[12px] flex items-center justify-center text-purple-600 dark:text-purple-400 mb-1.5">
-            <Boxes className="w-4 h-4" />
+          <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-[16px] flex items-center justify-center text-purple-600 dark:text-purple-400 mb-2">
+            <Boxes className="w-5 h-5" />
           </div>
-          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</span>
+          <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Widgets</span>
         </button>
 
         <button 
           onClick={() => setActiveTab?.('analytics')}
-          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
+          className="col-span-6 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
         >
           <div className="w-8 h-8 bg-pink-100 dark:bg-pink-900/30 rounded-[12px] flex items-center justify-center text-pink-600 dark:text-pink-400 mb-1.5">
             <BarChart3 className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Insights</span>
-        </button>
-
-        <button 
-          onClick={() => setActiveTab?.('notebook')}
-          className="col-span-2 flex flex-col items-center justify-center p-3 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px]  active:scale-95 transition-transform"
-        >
-          <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-[12px] flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1.5">
-            <Lightbulb className="w-4 h-4" />
-          </div>
-          <span className="text-[10px] font-bold text-[#37352F] dark:text-[#EBE9ED]">Idea Lab</span>
         </button>
 
         <button 

@@ -3,7 +3,7 @@ import { Business } from '../data';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { toast } from 'sonner';
-import { Trash2, Edit2, Save, Shield, Settings } from 'lucide-react';
+import { Trash2, Edit2, Save, Shield, Settings, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface WorkspacesSettingsProps {
@@ -83,6 +83,13 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
     }
   };
 
+  const handleSwitchWorkspace = (biz: Business) => {
+    if (!setActiveBusiness) return;
+    if (activeBusiness?.id === biz.id) return;
+    setActiveBusiness(biz);
+    toast.success(`Switched to ${biz.name}`);
+  };
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-20">
       {/* Workspace Details */}
@@ -92,8 +99,18 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
           <h2 className="text-xs font-bold text-[#9B9A97] dark:text-[#7D7C78] uppercase tracking-widest">Workspace Details</h2>
         </div>
         <div className="grid gap-4">
-          {businesses.map(biz => (
-            <div key={biz.id} className="group relative p-4 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] transition-all hover:shadow-md">
+          {businesses.map(biz => {
+            const isActive = activeBusiness?.id === biz.id;
+            return (
+            <div
+              key={biz.id}
+              className={cn(
+                "group relative p-4 bg-white dark:bg-[#191919] border rounded-[16px] transition-all hover:shadow-md",
+                isActive
+                  ? "border-brand ring-1 ring-brand/30 shadow-sm"
+                  : "border-[#E9E9E7] dark:border-[#2E2E2E]"
+              )}
+            >
               {editingId === biz.id ? (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -139,29 +156,45 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchWorkspace(biz)}
+                    className="flex items-center gap-4 min-w-0 flex-1 text-left rounded-[12px] -m-1 p-1 active:scale-[0.99] transition-transform"
+                  >
                     {biz.logoUrl ? (
-                      <img src={biz.logoUrl} alt={biz.name} crossOrigin="anonymous" className="w-12 h-12 rounded-[12px] object-contain bg-[#F7F7F5] dark:bg-[#202020] p-2 border border-[#E9E9E7] dark:border-[#2E2E2E]" />
+                      <img src={biz.logoUrl} alt={biz.name} crossOrigin="anonymous" className="w-12 h-12 rounded-[12px] object-contain bg-[#F7F7F5] dark:bg-[#202020] p-2 border border-[#E9E9E7] dark:border-[#2E2E2E] shrink-0" />
                     ) : (
-                      <div className="w-12 h-12 rounded-[12px] bg-brand/10 flex items-center justify-center text-brand font-bold text-xl">
+                      <div className="w-12 h-12 rounded-[12px] bg-brand/10 flex items-center justify-center text-brand font-bold text-xl shrink-0">
                         {biz.name[0]}
                       </div>
                     )}
-                    <div>
-                      <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">{biz.name}</h3>
-                      <p className="text-xs text-[#757681] dark:text-[#9B9A97]">{biz.industry || 'No industry set'}</p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED] truncate">{biz.name}</h3>
+                        {isActive && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wide shrink-0">
+                            <Check className="w-3 h-3" />
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#757681] dark:text-[#9B9A97] truncate">{biz.industry || 'No industry set'}</p>
+                      {!isActive && (
+                        <p className="text-[10px] text-brand font-medium mt-0.5 md:hidden">Tap to switch</p>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleManageTeam(biz)} className="p-2 text-brand hover:bg-brand/10 rounded-[8px] transition-all" title="Manage Team & Permissions"><Settings className="w-4 h-4" /></button>
-                    <button onClick={() => handleEdit(biz)} className="p-2 text-[#757681] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-[8px] transition-all" title="Edit Workspace"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => handleDelete(biz.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-[8px] transition-all" title="Delete Workspace"><Trash2 className="w-4 h-4" /></button>
+                  </button>
+                  <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
+                    <button type="button" onClick={() => handleManageTeam(biz)} className="p-2 text-brand hover:bg-brand/10 rounded-[8px] transition-all" title="Manage Team & Permissions"><Settings className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => handleEdit(biz)} className="p-2 text-[#757681] hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] rounded-[8px] transition-all" title="Edit Workspace"><Edit2 className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => handleDelete(biz.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-[8px] transition-all" title="Delete Workspace"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
       </section>
     </div>
