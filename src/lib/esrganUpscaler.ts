@@ -1,7 +1,9 @@
 import type * as OrtTypes from 'onnxruntime-web';
 import { isEsrganOnnxPatched, patchEsrganOnnxOutputDims } from './esrganOnnxPatch';
 
-const ORT_WASM_URL = `${import.meta.env.BASE_URL}ort-wasm-simd-threaded.wasm`;
+/** Loaded from CDN at runtime — bundling onnxruntime-web exceeds Cloudflare's 25 MiB asset limit. */
+const ORT_VERSION = '1.26.0';
+const ORT_CDN = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist`;
 
 const CACHE_NAME = 'forge-esrgan-models-v2';
 const CUSTOM_DB = 'ForgeEsrganDB';
@@ -336,11 +338,13 @@ class EsrganUpscalerService {
 
   private async getOrt(): Promise<OrtModule> {
     if (!this.ort) {
-      this.ort = await import('onnxruntime-web');
+      this.ort = (await import(
+        /* @vite-ignore */ `${ORT_CDN}/ort.min.mjs`
+      )) as OrtModule;
     }
     if (!this.wasmReady) {
       const ort = this.ort;
-      ort.env.wasm.wasmPaths = { wasm: ORT_WASM_URL };
+      ort.env.wasm.wasmPaths = `${ORT_CDN}/`;
       ort.env.wasm.simd = true;
       const threaded = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
       ort.env.wasm.numThreads = threaded ? Math.min(navigator.hardwareConcurrency ?? 4, 4) : 1;
