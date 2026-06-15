@@ -160,6 +160,37 @@ function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
 }
 
+/** Fixed inference tile size — ORT WebGPU reuses GPU buffers and requires identical dims each run. */
+export function computeInferenceTilePlacement(
+  x: number,
+  y: number,
+  tileW: number,
+  tileH: number,
+  imageW: number,
+  imageH: number,
+  tileSize: number,
+  tilePad: number
+): {
+  inferenceSize: number;
+  srcX: number;
+  srcY: number;
+  extractW: number;
+  extractH: number;
+  dstX: number;
+  dstY: number;
+} {
+  const inferenceSize = tileSize + 2 * tilePad;
+  const srcX = Math.max(x - tilePad, 0);
+  const srcY = Math.max(y - tilePad, 0);
+  const srcX2 = Math.min(x + tileW + tilePad, imageW);
+  const srcY2 = Math.min(y + tileH + tilePad, imageH);
+  const extractW = srcX2 - srcX;
+  const extractH = srcY2 - srcY;
+  const dstX = srcX === 0 ? tilePad : 0;
+  const dstY = srcY === 0 ? tilePad : 0;
+  return { inferenceSize, srcX, srcY, extractW, extractH, dstX, dstY };
+}
+
 function openCustomDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(CUSTOM_DB, 1);
@@ -419,6 +450,7 @@ class EsrganUpscalerService {
     const scale = this.activeModel.scale;
     const tileSize = 256;
     const tilePad = 10;
+    const inferenceSize = tileSize + 2 * tilePad;
 
     const srcCanvas = document.createElement('canvas');
     srcCanvas.width = width;
@@ -448,38 +480,56 @@ class EsrganUpscalerService {
         const tileW = Math.min(tileSize, width - x);
         const tileH = Math.min(tileSize, height - y);
 
-        const xStart = Math.max(x - tilePad, 0);
-        const yStart = Math.max(y - tilePad, 0);
-        const xEnd = Math.min(x + tileW + tilePad, width);
-        const yEnd = Math.min(y + tileH + tilePad, height);
-        const padW = xEnd - xStart;
-        const padH = yEnd - yStart;
+        const placement = computeInferenceTilePlacement(
+          x,
+          y,
+          tileW,
+          tileH,
+          width,
+          height,
+          tileSize,
+          tilePad
+        );
 
-        tileCanvas.width = padW;
-        tileCanvas.height = padH;
-        tileCtx.clearRect(0, 0, padW, padH);
-        tileCtx.drawImage(srcCanvas, -xStart, -yStart);
+        tileCanvas.width = inferenceSize;
+        tileCanvas.height = inferenceSize;
+        tileCtx.fillStyle = '#000';
+        tileCtx.fillRect(0, 0, inferenceSize, inferenceSize);
+        tileCtx.drawImage(
+          srcCanvas,
+          placement.srcX,
+          placement.srcY,
+          placement.extractW,
+          placement.extractH,
+          placement.dstX,
+          placement.dstY,
+          placement.extractW,
+          placement.extractH
+        );
 
-        const inputImage = tileCtx.getImageData(0, 0, padW, padH);
+        const inputImage = tileCtx.getImageData(0, 0, inferenceSize, inferenceSize);
         const inputTensor = imageDataToNchwTensor(inputImage, ort, this.inputElemType);
         const feeds: Record<string, OrtTypes.Tensor> = { [this.inputName]: inputTensor };
         const results = await this.session.run(feeds);
         const output = results[this.outputName];
-        const outW = padW * scale;
-        const outH = padH * scale;
-        const outImage = nchwTensorToImageData(output, outW, outH);
+        const outSize = inferenceSize * scale;
+        const outImage = nchwTensorToImageData(output, outSize, outSize);
 
-        const cropX = (x - xStart) * scale;
-        const cropY = (y - yStart) * scale;
+        const cropX = placement.dstX * scale;
+        const cropY = placement.dstY * scale;
         const cropW = tileW * scale;
         const cropH = tileH * scale;
 
         const patchCanvas = document.createElement('canvas');
-        patchCanvas.width = outW;
-        patchCanvas.height = outH;
+        patchCanvas.width = outSize;
+        patchCanvas.height = outSize;
         const patchCtx = patchCanvas.getContext('2d');
         patchCtx?.putImageData(outImage, 0, 0);
         outCtx.drawImage(patchCanvas, cropX, cropY, cropW, cropH, x * scale, y * scale, cropW, cropH);
+
+        if ('dispose' in output && typeof output.dispose === 'function') {
+          output.dispose();
+        }
 
         doneTiles += 1;
         onTileProgress?.(Math.round((doneTiles / (tilesX * tilesY)) * 100));
