@@ -8,10 +8,23 @@ export const DEFAULT_ESRGAN_MODEL = {
   id: '4x-nomos2-otf-esrgan',
   name: '4x Nomos2 OTF ESRGAN',
   scale: 4,
-  url: 'https://github.com/Phhofm/models/releases/download/4xNomos2_otf_esrgan/4xNomos2_otf_esrgan_fp16_opset17.onnx',
+  /** Same-origin proxy — GitHub release assets block browser CORS */
+  url: '/api/esrgan-model',
   sizeLabel: '32 MB',
   source: 'openmodeldb' as const,
 };
+
+/** Upstream ONNX (server/worker only) */
+export const ESRGAN_DEFAULT_MODEL_UPSTREAM =
+  'https://github.com/Phhofm/models/releases/download/4xNomos2_otf_esrgan/4xNomos2_otf_esrgan_fp16_opset17.onnx';
+
+function resolveModelUrl(url: string): string {
+  if (url.startsWith('/')) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}${url}`;
+  }
+  return url;
+}
 
 export type EsrganModelRef = {
   id: string;
@@ -140,21 +153,22 @@ async function fetchModelBuffer(
   url: string,
   onProgress?: (p: EsrganLoadProgress) => void
 ): Promise<ArrayBuffer> {
+  const fetchUrl = resolveModelUrl(url);
   const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(url);
+  const cached = await cache.match(fetchUrl);
   if (cached) {
     onProgress?.({ progress: 100, message: 'Loaded model from cache' });
     return cached.arrayBuffer();
   }
 
   onProgress?.({ progress: 0, message: 'Downloading ESRGAN model…' });
-  const res = await fetch(url);
+  const res = await fetch(fetchUrl);
   if (!res.ok) throw new Error(`Model download failed (${res.status})`);
 
   const total = Number(res.headers.get('content-length') || 0);
   if (!res.body || !total) {
     const buf = await res.arrayBuffer();
-    await cache.put(url, new Response(buf));
+    await cache.put(fetchUrl, new Response(buf));
     onProgress?.({ progress: 100, message: 'Model ready' });
     return buf;
   }
@@ -179,7 +193,7 @@ async function fetchModelBuffer(
     merged.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  await cache.put(url, new Response(merged));
+  await cache.put(fetchUrl, new Response(merged));
   onProgress?.({ progress: 100, message: 'Model ready' });
   return merged.buffer;
 }
