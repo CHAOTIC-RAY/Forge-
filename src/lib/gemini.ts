@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firesto
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
 import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
+import { hasWebGpuApi } from './webGpu';
 import { createImageCollage } from './utils';
 
 declare const puter: any;
@@ -637,7 +638,7 @@ export function isBuiltinVisionPreferred(settings = getAiSettings()): boolean {
 }
 
 export function canUseBuiltinWebGpuVision(): boolean {
-  return typeof navigator !== 'undefined' && !!(navigator as Navigator & { gpu?: unknown }).gpu;
+  return hasWebGpuApi();
 }
 
 /** Preload WebLLM Phi-3.5 Vision for local image understanding. */

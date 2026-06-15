@@ -583,7 +583,7 @@ export function FloatingChat({
             )}
 
             {/* Main Chat Column */}
-            <div className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
+            <div className="flex-1 flex flex-col relative w-full h-full min-h-0 overflow-hidden">
             {/* AI Glow Effect Background for FullPage */}
             {isFullPage && (
               <>
@@ -710,13 +710,13 @@ export function FloatingChat({
             </div>
             )}
 
-            {/* Messages Area */}
-            <div className={cn("flex flex-1 flex-col overflow-hidden relative", isFullPage ? "w-full z-10" : "")}>
+            {/* Messages + input (flex column — avoids fixed footer overlapping messages on mobile) */}
+            <div className={cn("flex flex-1 flex-col min-h-0 overflow-hidden relative", isFullPage ? "w-full z-10" : "")}>
               <div 
                 ref={scrollRef}
                 className={cn(
-                  "flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth relative",
-                  isFullPage && "pb-40"
+                  "flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth relative",
+                  isFullPage ? "pb-4" : ""
                 )}
               >
                 {/* Subtle AI Background Pattern */}
@@ -927,16 +927,15 @@ export function FloatingChat({
               )}
                 </div>
               </div>
-            </div>
 
             {/* Input Area */}
             <div className={cn(
-              "z-30 transition-all duration-300",
+              "z-30 flex-shrink-0 transition-all duration-300",
               isFullPage 
-                ? "fixed bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-4 left-0 right-0 p-4 pb-4 md:p-6 pointer-events-none lg:pl-[260px]" 
+                ? "border-t border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAFA]/95 dark:bg-[#131314]/95 backdrop-blur-xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 lg:pl-[calc(260px+1.5rem)]" 
                 : "p-4 border-t bg-white/90 dark:bg-[#1A1A1A]/90 backdrop-blur-xl border-[#E9E9E7] dark:border-[#2E2E2E] rounded-b-[24px]"
             )}>
-              <div className="max-w-3xl mx-auto w-full pointer-events-auto flex flex-col gap-3">
+              <div className="max-w-3xl mx-auto w-full flex flex-col gap-3">
                 {/* Suggestion Pills (Moved here) */}
                 {messages.length <= 1 && (
                   <div className={cn(
@@ -1098,6 +1097,7 @@ export function FloatingChat({
                   <p className="text-[11px] text-[#A0A0A0] dark:text-[#8E8E8E] font-medium tracking-wide">Forge AI can make mistakes. Verify important info.</p>
                 </div>
               )}
+            </div>
             </div>
             </div>
             </div>

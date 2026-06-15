@@ -15,6 +15,7 @@ import {
   DEFAULT_BUILTIN_VISION_MODEL_ID,
   type BuiltInModel,
 } from './builtinModels';
+import { ensureWebGpuAdapter } from './webGpu';
 
 export type { BuiltInModel };
 export { BUILTIN_MODELS, BUILTIN_VISION_MODELS, DEFAULT_BUILTIN_VISION_MODEL_ID };
@@ -196,9 +197,8 @@ class BuiltInAiService {
     this.notify();
 
     try {
-      if (!(navigator as Navigator & { gpu?: unknown }).gpu) {
-        throw new Error('WebGPU is required for local vision. Enable hardware acceleration in your browser.');
-      }
+      const gpu = await ensureWebGpuAdapter();
+      console.log(`[BuiltInAI] Vision WebGPU adapter: ${gpu.adapterName ?? 'GPU'}`);
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const engineConfig: Record<string, unknown> = {
@@ -298,10 +298,8 @@ class BuiltInAiService {
     this.notify();
 
     try {
-      // 1. Check for WebGPU
-      if (!(navigator as any).gpu) {
-        throw new Error("WebGPU is not supported or disabled. Please ensure hardware acceleration is enabled in Chrome.");
-      }
+      const gpu = await ensureWebGpuAdapter();
+      console.log(`[BuiltInAI] WebGPU adapter: ${gpu.adapterName ?? 'GPU'}${gpu.vendor ? ` (${gpu.vendor})` : ''}`);
 
       console.log(`[BuiltInAI] Initializing ${normalizedId}...`);
       
