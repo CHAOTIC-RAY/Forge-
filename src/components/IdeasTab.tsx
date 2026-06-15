@@ -19,7 +19,9 @@ import {
   X,
   GripVertical,
   Upload,
+  CalendarPlus,
 } from 'lucide-react';
+import { useIsMobile } from './Calendar';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'motion/react';
@@ -100,6 +102,7 @@ interface Link {
 
 interface IdeasTabProps {
   activeBusiness: any;
+  onAddToCalendar?: (block: Block) => void;
 }
 
 type IdeasViewMode = 'board' | 'list';
@@ -201,6 +204,7 @@ function IdeaCard({
 }
 
 function DraggableBlock({ block, children, isSelected, onClick }: { block: Block, children: React.ReactNode, isSelected: boolean, onClick: () => void, key?: React.Key }) {
+  const isMobile = useIsMobile();
   const {
     attributes,
     listeners,
@@ -210,6 +214,7 @@ function DraggableBlock({ block, children, isSelected, onClick }: { block: Block
     isDragging
   } = useSortable({ 
     id: block.id,
+    disabled: isMobile,
     data: {
       type: 'notebook-block',
       block
@@ -220,7 +225,7 @@ function DraggableBlock({ block, children, isSelected, onClick }: { block: Block
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.3 : 1,
-    touchAction: 'none',
+    touchAction: isMobile ? 'auto' : 'none',
   };
 
   return (
@@ -228,10 +233,11 @@ function DraggableBlock({ block, children, isSelected, onClick }: { block: Block
       ref={setNodeRef} 
       style={style} 
       {...attributes} 
-      {...listeners}
+      {...(isMobile ? {} : listeners)}
       onClick={onClick}
       className={cn(
-        "flex items-start gap-2 px-3 py-2.5 rounded-xl border text-sm cursor-grab active:cursor-grabbing group transition-all w-full",
+        "flex items-start gap-2 px-3 py-2.5 rounded-xl border text-sm group transition-all w-full",
+        isMobile ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
         isSelected
           ? "border-brand/30 bg-white dark:bg-[#1A1A1A] shadow-sm"
           : "border-transparent bg-[#F7F7F5]/80 dark:bg-[#202020]/80 hover:border-[#E9E9E7] dark:hover:border-[#2E2E2E]",
@@ -244,7 +250,8 @@ function DraggableBlock({ block, children, isSelected, onClick }: { block: Block
   );
 }
 
-export function IdeasTab({ activeBusiness }: IdeasTabProps) {
+export function IdeasTab({ activeBusiness, onAddToCalendar }: IdeasTabProps) {
+  const isMobile = useIsMobile();
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
@@ -953,10 +960,22 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
               )}
             </>
           )}
-          <p className="text-[10px] text-[#757681] flex items-center gap-1">
-            <GripVertical className="w-3 h-3" />
-            Drag this idea to the calendar to turn it into a scheduled post.
-          </p>
+          {onAddToCalendar && (
+            <button
+              type="button"
+              onClick={() => onAddToCalendar(selectedBlock)}
+              className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-brand text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
+            >
+              <CalendarPlus className="w-4 h-4" />
+              Add to calendar
+            </button>
+          )}
+          {!isMobile && (
+            <p className="text-[10px] text-[#757681] flex items-center gap-1">
+              <GripVertical className="w-3 h-3" />
+              Drag this idea to the calendar to turn it into a scheduled post.
+            </p>
+          )}
           {childBlocks.length > 0 && (
             <div className="pt-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
               <h4 className="text-xs font-bold text-[#757681] mb-3">Related ideas</h4>
@@ -987,7 +1006,11 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
         iconBgClassName="bg-amber-500/10"
         iconClassName="text-amber-500"
         title="Ideas"
-        subtitle="Capture, organize, and ship content — drag to calendar when ready."
+        subtitle={
+          isMobile
+            ? 'Capture, organize, and ship content — open an idea to add it to the calendar.'
+            : 'Capture, organize, and ship content — drag to calendar when ready.'
+        }
         actions={
           <>
             <TabHeaderBadge className="bg-amber-500/10 text-amber-700 dark:text-amber-400">
@@ -1208,7 +1231,7 @@ export function IdeasTab({ activeBusiness }: IdeasTabProps) {
                     },
                     {
                       title: 'Ready',
-                      subtitle: 'Drag to calendar to schedule',
+                      subtitle: isMobile ? 'Open an idea to add to calendar' : 'Drag to calendar to schedule',
                       items: activeIdeas,
                       empty: 'No ready ideas yet',
                       onAdd: () => addBlock(null, 'organized'),

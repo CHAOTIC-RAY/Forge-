@@ -2151,6 +2151,29 @@ export default function App() {
     setIsPostModalOpen(true);
   };
 
+  const openDraftPostFromNotebookBlock = (block: {
+    type: string;
+    title?: string;
+    content?: string;
+    postcardData?: { frontText: string; backText: string; imageUrl: string };
+  }) => {
+    let title = block.title || 'New Post from Notebook';
+    if (block.type === 'postcard' && block.postcardData) {
+      title = block.postcardData.frontText;
+    }
+    openDraftPostFromWidget({
+      title,
+      brief: block.content || '',
+      caption: block.postcardData?.backText || block.content || '',
+      hashtags: activeBusiness?.industry ? `#${activeBusiness.industry.replace(/\s+/g, '')}` : '',
+      type: block.type === 'postcard' ? '🎨 Postcard' : '📝 Note',
+      outlet: activeBusiness?.name || 'Forge Enterprises',
+      images: block.postcardData?.imageUrl ? [block.postcardData.imageUrl] : [],
+    });
+    setActiveTab('schedule');
+    toast.success('Idea added to calendar — pick a date and finish the post.');
+  };
+
   const handleAutoFillSubmit = async (prompt: string, count: number) => {
     if (!activeBusiness) {
       toast.error("Please select a workspace first.");
@@ -3726,7 +3749,12 @@ export default function App() {
 
                         {isAdmin && (
                           <LazyTab active={isIdeasTabActive}>
-                            {() => <IdeasTab activeBusiness={activeBusiness} />}
+                            {() => (
+                              <IdeasTab
+                                activeBusiness={activeBusiness}
+                                onAddToCalendar={openDraftPostFromNotebookBlock}
+                              />
+                            )}
                           </LazyTab>
                         )}
 
