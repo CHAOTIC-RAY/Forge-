@@ -207,7 +207,7 @@ export async function getProfile(firebaseUid: string): Promise<Profile | null> {
     .from('profiles')
     .select('*')
     .eq('firebase_uid', firebaseUid)
-    .single();
+    .maybeSingle();
 
   if (error) {
     if (error.code === 'PGRST116') return null;

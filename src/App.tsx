@@ -2710,7 +2710,7 @@ export default function App() {
     e.target.value = '';
   };
 
-  if ((loading || profileLoading || (user && profile && loadingBusinesses)) && !authTimeout) {
+  if ((loading || (user && profileLoading) || (user && profile && loadingBusinesses)) && !authTimeout) {
     return (
       <div className="min-h-screen bg-[#1A1C1E] flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">

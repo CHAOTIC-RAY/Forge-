@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.tsx';
 import { PublicCalendarView } from './components/PublicCalendarView';
 import { ForgeLoader } from './components/ForgeLoader';
+import { ensureAuthSessionVersion } from './lib/authMigration';
 import { ensureSupabaseConfig } from './lib/supabase';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
@@ -11,7 +12,9 @@ import { registerSW } from 'virtual:pwa-register';
 // Register service worker
 registerSW();
 
-void ensureSupabaseConfig().then(() => {
+void (async () => {
+  await ensureAuthSessionVersion();
+  await ensureSupabaseConfig();
 
 // Global Image Error Handler (CORS fallback mechanism)
 window.addEventListener('error', (e) => {
@@ -54,4 +57,4 @@ window.addEventListener('error', (e) => {
       </Suspense>
     </StrictMode>,
   );
-});
+})();
