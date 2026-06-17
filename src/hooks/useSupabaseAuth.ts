@@ -8,7 +8,6 @@ import {
   setFirebaseUidForRls,
 } from '../lib/supabase';
 import { clearSupabaseAccessToken, exchangeSupabaseAccessToken } from '../lib/supabaseSession';
-import { repairWorkspaceOwnership } from '../lib/workspaceRepair';
 
 interface AuthState {
   firebaseUser: User | null;
@@ -41,12 +40,6 @@ export function useSupabaseAuth(): AuthState & {
         firebaseUser.displayName || undefined,
         firebaseUser.photoURL || undefined
       ));
-
-    try {
-      await repairWorkspaceOwnership();
-    } catch (error) {
-      console.warn('[auth] workspace ownership repair failed:', error);
-    }
 
     const refreshed = await getProfile(firebaseUser.uid);
     return refreshed || profile;

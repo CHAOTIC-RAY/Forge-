@@ -12,6 +12,8 @@ import {
   Cpu,
   Eye,
   Store,
+  Upload,
+  PlusCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -27,12 +29,18 @@ interface OnboardingWizardProps {
     geminiApiKey?: string;
     outletNames?: string;
   }) => Promise<void>;
+  onImportJson: (file: File, onProgress: (stage: string) => void) => Promise<void>;
   userEmail: string;
 }
 
-export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProps) {
+type OnboardingPath = 'choose' | 'create' | 'import';
+
+export function OnboardingWizard({ onComplete, onImportJson, userEmail }: OnboardingWizardProps) {
+  const [path, setPath] = useState<OnboardingPath>('choose');
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState('');
   const [aiStatus, setAiStatus] = useState<BuiltInAiStatus | null>(null);
   const [aiBootstrapStarted, setAiBootstrapStarted] = useState(false);
   const [formData, setFormData] = useState({
@@ -105,6 +113,24 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
     }
   };
 
+  const handleImport = async () => {
+    if (!importFile) {
+      toast.error('Choose a Forge JSON export file first.');
+      return;
+    }
+    setIsSubmitting(true);
+    setImportProgress('Starting import…');
+    try {
+      await onImportJson(importFile, setImportProgress);
+    } catch (error) {
+      console.error('Import failed', error);
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+      setImportProgress('');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const steps = [
     { id: 1, title: 'Workspace', icon: Building2 },
     { id: 2, title: 'Brand', icon: Palette },
@@ -133,10 +159,15 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
               </div>
             </div>
             <div className="text-xs font-medium px-3 py-1 rounded-full bg-brand/10 text-brand">
-              Step {step} of 4
+              {path === 'choose'
+                ? 'Get started'
+                : path === 'import'
+                  ? 'Import backup'
+                  : `Step ${step} of 4`}
             </div>
           </div>
 
+          {path === 'create' && (
           <div className="flex items-center gap-4">
             {steps.map((s) => (
               <div key={s.id} className="flex-1 flex flex-col gap-2">
@@ -163,11 +194,83 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
               </div>
             ))}
           </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-8">
           <AnimatePresence mode="wait">
-            {step === 1 && (
+            {path === 'choose' && (
+              <motion.div
+                key="choose"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Welcome to Forge. Create a fresh workspace or restore data from a JSON export file.
+                </p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPath('create');
+                      setStep(1);
+                    }}
+                    className="text-left p-6 rounded-2xl border-2 border-slate-200 dark:border-[#2E2E2E] hover:border-brand dark:hover:border-brand transition-colors bg-white dark:bg-[#202020]"
+                  >
+                    <PlusCircle className="w-8 h-8 text-brand mb-4" />
+                    <h3 className="font-bold text-slate-900 dark:text-white mb-2">Start fresh</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Set up a new business workspace, brand kit, and calendar from scratch.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPath('import')}
+                    className="text-left p-6 rounded-2xl border-2 border-slate-200 dark:border-[#2E2E2E] hover:border-brand dark:hover:border-brand transition-colors bg-white dark:bg-[#202020]"
+                  >
+                    <Upload className="w-8 h-8 text-brand mb-4" />
+                    <h3 className="font-bold text-slate-900 dark:text-white mb-2">Import JSON backup</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Restore workspaces, calendar posts, AI settings, and inventory from an export file.
+                    </p>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {path === 'import' && (
+              <motion.div
+                key="import"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Select your <code className="text-xs bg-slate-100 dark:bg-[#2E2E2E] px-1.5 py-0.5 rounded">forge-firestore-export-*.json</code> file.
+                  Posts, AI instructions, and workspaces will be imported into your account.
+                </p>
+                <label className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-300 dark:border-[#3E3E3E] rounded-2xl cursor-pointer hover:border-brand transition-colors">
+                  <Upload className="w-10 h-10 text-slate-400" />
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {importFile ? importFile.name : 'Choose JSON file'}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  />
+                </label>
+                {importProgress && (
+                  <p className="text-sm text-brand font-medium text-center">{importProgress}</p>
+                )}
+              </motion.div>
+            )}
+
+            {path === 'create' && step === 1 && (
               <motion.div
                 key="step1"
                 initial={{ opacity: 0, x: 20 }}
@@ -276,7 +379,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
               </motion.div>
             )}
 
-            {step === 2 && (
+            {path === 'create' && step === 2 && (
               <motion.div
                 key="step2"
                 initial={{ opacity: 0, x: 20 }}
@@ -367,7 +470,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
               </motion.div>
             )}
 
-            {step === 3 && (
+            {path === 'create' && step === 3 && (
               <motion.div
                 key="step3"
                 initial={{ opacity: 0, x: 20 }}
@@ -460,7 +563,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
               </motion.div>
             )}
 
-            {step === 4 && (
+            {path === 'create' && step === 4 && (
               <motion.div
                 key="step4"
                 initial={{ opacity: 0, x: 20 }}
@@ -511,14 +614,52 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
         </div>
 
         <div className="p-8 border-t border-slate-100 dark:border-[#2E2E2E] flex items-center justify-between bg-slate-50/50 dark:bg-[#202020]/50">
+          {path === 'choose' ? (
+            <div className="w-full text-center text-xs text-slate-500 dark:text-slate-400">
+              You can change this later from Settings.
+            </div>
+          ) : (
+            <>
           <button
             type="button"
-            onClick={() => setStep(Math.max(1, step - 1))}
-            disabled={step === 1 || isSubmitting}
-            className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-0"
+            onClick={() => {
+              if (path === 'import') {
+                setPath('choose');
+                setImportFile(null);
+                setImportProgress('');
+                return;
+              }
+              if (step === 1) {
+                setPath('choose');
+                return;
+              }
+              setStep(Math.max(1, step - 1));
+            }}
+            disabled={isSubmitting}
+            className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-50"
           >
             Back
           </button>
+          {path === 'import' ? (
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={!importFile || isSubmitting}
+              className="px-8 py-3.5 rounded-2xl font-bold flex items-center gap-2 shadow-xl transition-all active:scale-95 disabled:opacity-50 bg-brand text-white shadow-brand/20"
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" />
+                  <span>Importing…</span>
+                </>
+              ) : (
+                <>
+                  <span>Import &amp; continue</span>
+                  <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+          ) : (
           <button
             type="button"
             onClick={handleNext}
@@ -542,6 +683,9 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
               </>
             )}
           </button>
+          )}
+            </>
+          )}
         </div>
       </motion.div>
     </div>

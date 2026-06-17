@@ -114,7 +114,6 @@ import {
   subscribeToPosts,
   subscribeToPostsForProfile,
   subscribeToBusinesses,
-  getBusinesses,
   createPost,
   updatePost,
   deletePost,
@@ -154,6 +153,7 @@ import { ForgeLogo } from './components/ForgeLogo';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { ensureSupabaseBackend } from './lib/dataBackend';
 import { repairWorkspaceOwnership } from './lib/workspaceRepair';
+import { migrateFirestoreExportToSupabase } from './lib/firestoreToSupabase';
 import { LandingView } from './components/LandingView';
 import { OnboardingWizard } from './components/OnboardingWizard';
 
@@ -372,18 +372,7 @@ export default function App() {
   const [isAutoFillModalOpen, setIsAutoFillModalOpen] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
 
-  const isAdmin = useMemo(() => {
-    if (!user || !profile) return false;
-    const canEditBusiness = (business: Business) =>
-      business.ownerId === profile.id ||
-      business.members?.includes(user.uid) ||
-      business.memberRoles?.[user.uid] === 'admin' ||
-      business.memberRoles?.[user.uid] === 'editor';
-    if (activeBusiness && canEditBusiness(activeBusiness)) return true;
-    if (businesses.some(canEditBusiness)) return true;
-    // Signed-in user with visible workspaces (e.g. after SQL import, before member metadata loads)
-    return businesses.length > 0 && !!activeBusiness;
-  }, [user, profile, activeBusiness, businesses]);
+  const isAdmin = useMemo(() => !!(user && profile && !isViewOnly), [user, profile, isViewOnly]);
 
   const isViewer = useMemo(() => !!(user && activeBusiness && activeBusiness.memberRoles?.[user.uid] === 'viewer'), [user, activeBusiness]);
   const isGuest = !user;
@@ -847,19 +836,10 @@ export default function App() {
       return;
     }
 
-    let repairedOnce = false;
-
     const applyBusinessList = (bizList: Business[]) => {
       setBusinesses(bizList);
       setLoadingBusinesses(false);
-
-      if (!isViewOnly && !loadingBusinesses) {
-        const shouldOnboard =
-          bizList.length === 0 && userOnboardingComplete !== true;
-        setShowOnboarding(shouldOnboard);
-      } else {
-        setShowOnboarding(false);
-      }
+      setShowOnboarding(bizList.length === 0);
 
       if (bizList.length > 0) {
         const lastBizId = localStorage.getItem('last_active_business_id');
@@ -867,29 +847,13 @@ export default function App() {
         if (!activeBusiness || !bizList.find((b) => b.id === activeBusiness.id)) {
           setActiveBusiness(lastBiz || bizList[0]);
         }
-      } else if (!loading) {
-        setShowOnboarding(true);
       }
     };
 
-    const unsubscribe = subscribeToBusinesses(profile.id, async (bizList) => {
-      if (bizList.length === 0 && !repairedOnce) {
-        repairedOnce = true;
-        try {
-          await repairWorkspaceOwnership();
-          const refreshed = await getBusinesses(profile.id);
-          applyBusinessList(refreshed);
-          return;
-        } catch (error) {
-          console.warn('[businesses] repair after empty load failed:', error);
-        }
-      }
-
-      applyBusinessList(bizList);
-    });
+    const unsubscribe = subscribeToBusinesses(profile.id, applyBusinessList);
 
     return () => unsubscribe();
-  }, [profile, profileLoading, user, isViewOnly, loading, userOnboardingComplete]);
+  }, [profile, profileLoading, user, isViewOnly]);
 
   useEffect(() => {
     if (activeBusiness && !isViewOnly) {
@@ -3049,6 +3013,43 @@ export default function App() {
     }
   };
 
+  const handleOnboardingImport = async (file: File, onProgress: (stage: string) => void) => {
+    if (!user || !profile) {
+      throw new Error('Sign in required');
+    }
+
+    const text = await file.text();
+    const payload = JSON.parse(text) as {
+      collections?: Record<string, Array<{ id: string; data: Record<string, unknown> }>>;
+    };
+    if (!payload.collections) {
+      throw new Error('Invalid Forge export — expected a collections object.');
+    }
+
+    await migrateFirestoreExportToSupabase(
+      payload,
+      () => user.getIdToken(),
+      (progress) => onProgress(progress.stage),
+      {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+      }
+    );
+
+    onProgress('Linking workspaces to your account…');
+    await repairWorkspaceOwnership();
+
+    await updateProfile(profile.id, {
+      settings: { ...(profile.settings || {}), onboardingComplete: true },
+    });
+    setUserOnboardingComplete(true);
+    setShowOnboarding(false);
+    toast.success('Import complete — loading your workspace…');
+    window.location.reload();
+  };
+
   return (
     <ErrorBoundary>
       <SkipLink />
@@ -3056,6 +3057,7 @@ export default function App() {
         <OnboardingWizard
           userEmail={user.email || ''}
           onComplete={handleOnboardingComplete}
+          onImportJson={handleOnboardingImport}
         />
       )}
       <AppWorkspaceProvider activeBusiness={activeBusiness}>
@@ -3470,14 +3472,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {user && !loadingBusinesses && businesses.length === 0 && (
-                          <div className="mx-4 md:mx-6 mt-4 p-4 rounded-[12px] border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
-                            <p className="text-sm text-amber-900 dark:text-amber-200">
-                              No workspaces found for this account. Sign out and sign back in, or check that your Supabase data is linked to{' '}
-                              <strong>{user.email}</strong>.
-                            </p>
-                          </div>
-                        )}
 
                         <div className={cn(
                           "flex-1 flex flex-col print:block",
