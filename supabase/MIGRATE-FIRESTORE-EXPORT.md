@@ -14,6 +14,10 @@ node scripts/generate-supabase-import-sql.mjs path/to/forge-firestore-export.jso
 
 The script wraps everything in `BEGIN` / `COMMIT` and uses `ON CONFLICT` so it is safe to re-run.
 
+Rows that reference deleted/orphan businesses (not in the export's `businesses` list) are handled automatically:
+- **Skipped:** `brand_kits`, `brand_overviews`, `categories`, `inventory_maps`, `inventory_category_counts`
+- **Imported with `business_id = NULL`:** `posts`, `inventory_products`, `notebooks`, `short_links`
+
 ### What gets imported
 
 | Table | From export collection |

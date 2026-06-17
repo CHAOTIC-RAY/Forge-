@@ -68,6 +68,28 @@ const exportData = JSON.parse(readFileSync(inputPath, 'utf8'));
 const collections = exportData.collections || {};
 const profileId = entityId('profile', FIREBASE_UID);
 
+const validBusinessIds = new Set(
+  (collections.businesses || []).map(({ id, data }) => String(data.id || id))
+);
+
+function resolveBusinessUuid(raw) {
+  if (!raw) return null;
+  return entityId('business', raw);
+}
+
+function businessIdRef(raw) {
+  const mapped = resolveBusinessUuid(raw);
+  if (!mapped || !validBusinessIds.has(mapped)) return 'NULL';
+  return sqlStr(mapped);
+}
+
+function hasValidBusiness(raw) {
+  const mapped = resolveBusinessUuid(raw);
+  return Boolean(mapped && validBusinessIds.has(mapped));
+}
+
+const skipped = { brand_kits: 0, brand_overviews: 0, categories: 0, inventory_maps: 0, inventory_category_counts: 0, notebooks: 0 };
+
 const lines = [];
 lines.push('-- Forge Firestore export → Supabase import');
 lines.push(`-- Generated from: ${inputPath}`);
@@ -156,7 +178,7 @@ for (const { id, data } of collections.posts || []) {
   lines.push(`  publish_status, platforms, content_formats, approval_status, is_ai_generated, campaign_type, analytics, created_at, updated_at`);
   lines.push(`) VALUES (`);
   lines.push(`  ${scopedId('post', rawPostId)},`);
-  lines.push(`  ${biz ? businessId(biz) : 'NULL'},`);
+  lines.push(`  ${businessIdRef(biz)},`);
   lines.push(`  ${profileSubquery()},`);
   lines.push(`  ${sqlStr(asDateOnly(data.date) || new Date().toISOString().split('T')[0])},`);
   lines.push(`  ${sqlStr(data.outlet || null)},`);
@@ -206,7 +228,7 @@ for (const { id, data } of inventoryDocs) {
   lines.push(`  id, business_id, name, sku, category, subcategory, price, outlet, description, link, image_url, priority, notes, stock_status, ai_extracted_data, created_at, updated_at`);
   lines.push(`) VALUES (`);
   lines.push(`  ${scopedId('inventory_product', rawId)},`);
-  lines.push(`  ${biz ? businessId(biz) : 'NULL'},`);
+  lines.push(`  ${businessIdRef(biz)},`);
   lines.push(`  ${sqlStr(data.name || data.title || 'Product')},`);
   lines.push(`  ${sqlStr(data.sku || null)},`);
   lines.push(`  ${sqlStr(data.category || data.type || null)},`);
@@ -231,8 +253,13 @@ lines.push('');
 lines.push('-- inventory_category_counts');
 for (const { id, data } of collections.inventory_category_counts || []) {
   const biz = data.businessId || data.business_id || id;
+  if (!hasValidBusiness(biz)) {
+    skipped.inventory_category_counts++;
+    lines.push(`-- skipped inventory_category_counts: unknown business ${biz}`);
+    continue;
+  }
   lines.push(`INSERT INTO inventory_category_counts (business_id, category, count, updated_at)`);
-  lines.push(`VALUES (${businessId(biz)}, ${sqlStr(data.category || data.name || 'Uncategorized')}, ${data.count ?? 0}, now())`);
+  lines.push(`VALUES (${sqlStr(resolveBusinessUuid(biz))}, ${sqlStr(data.category || data.name || 'Uncategorized')}, ${data.count ?? 0}, now())`);
   lines.push(`ON CONFLICT (business_id, category) DO UPDATE SET count = EXCLUDED.count, updated_at = EXCLUDED.updated_at;`);
 }
 
@@ -243,10 +270,14 @@ lines.push('-- notebooks');
 for (const { id, data } of collections.notebooks || []) {
   const rawId = String(data.id || id);
   const biz = data.businessId || data.business_id;
+  if (biz && !hasValidBusiness(biz)) {
+    skipped.notebooks++;
+    lines.push(`-- notebook ${rawId}: orphan business ${biz} → business_id NULL`);
+  }
   lines.push(`INSERT INTO notebooks (id, business_id, profile_id, title, blocks, links, folders, created_at, updated_at)`);
   lines.push(`VALUES (`);
   lines.push(`  ${scopedId('notebook', rawId)},`);
-  lines.push(`  ${biz ? businessId(biz) : 'NULL'},`);
+  lines.push(`  ${businessIdRef(biz)},`);
   lines.push(`  ${profileSubquery()},`);
   lines.push(`  ${sqlStr(data.title || 'Ideas')},`);
   lines.push(`  ${sqlJson(data.blocks || [])},`);
@@ -263,9 +294,14 @@ lines.push('');
 lines.push('-- brand_kits');
 for (const { id, data } of collections.brand_kits || []) {
   const biz = data.businessId || data.business_id || id;
+  if (!hasValidBusiness(biz)) {
+    skipped.brand_kits++;
+    lines.push(`-- skipped brand_kit ${id}: unknown business ${biz}`);
+    continue;
+  }
   lines.push(`INSERT INTO brand_kits (business_id, logo_url, brand_colors, typography, brand_voice, kit_data, created_at, updated_at)`);
   lines.push(`VALUES (`);
-  lines.push(`  ${businessId(biz)},`);
+  lines.push(`  ${sqlStr(resolveBusinessUuid(biz))},`);
   lines.push(`  ${sqlStr(data.logoUrl || data.logo_url || null)},`);
   lines.push(`  ${sqlJson(data.brandColors || data.brand_colors || {})},`);
   lines.push(`  ${sqlJson(data.typography || {})},`);
@@ -283,8 +319,13 @@ if (collections.brand_overviews?.length) {
   lines.push('-- brand_overviews');
   for (const { id, data } of collections.brand_overviews) {
     const biz = data.businessId || data.business_id || id;
+    if (!hasValidBusiness(biz)) {
+      skipped.brand_overviews++;
+      lines.push(`-- skipped brand_overview ${id}: unknown business ${biz}`);
+      continue;
+    }
     lines.push(`INSERT INTO brand_overviews (business_id, overview, updated_at)`);
-    lines.push(`VALUES (${businessId(biz)}, ${sqlStr(data.overview || data.text || null)}, now())`);
+    lines.push(`VALUES (${sqlStr(resolveBusinessUuid(biz))}, ${sqlStr(data.overview || data.text || null)}, now())`);
     lines.push(`ON CONFLICT (business_id) DO UPDATE SET overview = EXCLUDED.overview, updated_at = EXCLUDED.updated_at;`);
   }
   lines.push('');
@@ -295,8 +336,13 @@ if (collections.categories?.length) {
   lines.push('-- categories');
   for (const { id, data } of collections.categories) {
     const biz = data.businessId || data.business_id || id;
+    if (!hasValidBusiness(biz)) {
+      skipped.categories++;
+      lines.push(`-- skipped categories ${id}: unknown business ${biz}`);
+      continue;
+    }
     lines.push(`INSERT INTO categories (business_id, categories, target_platforms, titles, updated_at)`);
-    lines.push(`VALUES (${businessId(biz)}, ${sqlJson(data.categories || [])}, ${sqlJson(data.targetPlatforms || data.target_platforms || [])}, ${sqlJson(data.titles || {})}, now())`);
+    lines.push(`VALUES (${sqlStr(resolveBusinessUuid(biz))}, ${sqlJson(data.categories || [])}, ${sqlJson(data.targetPlatforms || data.target_platforms || [])}, ${sqlJson(data.titles || {})}, now())`);
     lines.push(`ON CONFLICT (business_id) DO UPDATE SET categories = EXCLUDED.categories, updated_at = EXCLUDED.updated_at;`);
   }
   lines.push('');
@@ -307,8 +353,13 @@ if (collections.inventory_maps?.length) {
   lines.push('-- inventory_maps');
   for (const { id, data } of collections.inventory_maps) {
     const biz = data.businessId || data.business_id || id;
+    if (!hasValidBusiness(biz)) {
+      skipped.inventory_maps++;
+      lines.push(`-- skipped inventory_maps ${id}: unknown business ${biz}`);
+      continue;
+    }
     lines.push(`INSERT INTO inventory_maps (business_id, links, updated_at)`);
-    lines.push(`VALUES (${businessId(biz)}, ${sqlJson(data.links || [])}, now())`);
+    lines.push(`VALUES (${sqlStr(resolveBusinessUuid(biz))}, ${sqlJson(data.links || [])}, now())`);
     lines.push(`ON CONFLICT (business_id) DO UPDATE SET links = EXCLUDED.links, updated_at = EXCLUDED.updated_at;`);
   }
   lines.push('');
@@ -322,7 +373,7 @@ for (const { id, data } of collections.short_links || []) {
   lines.push(`INSERT INTO short_links (id, business_id, profile_id, short_code, original_url, title, clicks, last_clicked_at, created_at)`);
   lines.push(`VALUES (`);
   lines.push(`  ${scopedId('short_link', rawId)},`);
-  lines.push(`  ${biz ? businessId(biz) : 'NULL'},`);
+  lines.push(`  ${businessIdRef(biz)},`);
   lines.push(`  ${profileSubquery()},`);
   lines.push(`  ${sqlStr(data.shortCode || data.short_code || id)},`);
   lines.push(`  ${sqlStr(data.originalUrl || data.original_url || data.url || '')},`);
@@ -359,4 +410,6 @@ if (process.argv.includes('--stdout')) {
   console.error(`Wrote ${outputPath} (${sql.length} bytes)`);
   console.error(`Profile ID: ${profileId}`);
   console.error(`Counts: users=${collections.users?.length || 0}, businesses=${collections.businesses?.length || 0}, posts=${collections.posts?.length || 0}, inventory=${inventoryDocs.length}`);
+  const skippedTotal = Object.values(skipped).reduce((a, b) => a + b, 0);
+  if (skippedTotal) console.error(`Skipped orphan rows:`, skipped);
 }
