@@ -32,7 +32,9 @@ import {
 } from '../lib/catalogueSupabase';
 import { mapSite } from '../lib/catalogueImportApi';
 
-export type DbMode = 'product' | 'info';
+import type { DbMode } from '../types/localDb';
+
+export type { DbMode };
 
 export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: HighStockProduct[]) => void, activeBusiness?: Business | null }) {
   const [userId, setUserId] = useState<string | null>(null);

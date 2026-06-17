@@ -2,7 +2,6 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { getGenerativeModel } from 'firebase/vertexai';
 import { vertexAI, auth } from './firebase';
 import { getBrandKit, getInventoryProducts, getCategoriesDoc } from './supabase';
-import { inventoryToHighStock } from './catalogueSupabase';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
 import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
@@ -650,8 +649,6 @@ export async function ensureBuiltinVisionReady(): Promise<void> {
     await builtInAi.initVision(visionId);
   }
 }
-
-export { ensureLocalAiEnginesReady } from './localAiBootstrap';
 
 /** Outlets / branches for vision matching (brand kit + workspace name). */
 export async function fetchBusinessOutlets(business?: Business | null): Promise<string[]> {
@@ -2392,6 +2389,7 @@ Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|st
 
     if (userId && businessId) {
       const rows = await getInventoryProducts(businessId);
+      const { inventoryToHighStock } = await import('./catalogueSupabase');
       const productsGeneral = rows.map(inventoryToHighStock);
       if (productsGeneral.length > 0) {
         const products = productsGeneral

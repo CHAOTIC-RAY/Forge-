@@ -32,7 +32,7 @@ import {
   fetchCatalogueImportState,
 } from '../lib/catalogueSupabase';
 import { Business } from '../data';
-import type { DbMode } from './LocalDb';
+import type { DbMode } from '../types/localDb';
 
 type ImportTab = 'discover' | 'fetch' | 'convert' | 'review' | 'advanced';
 

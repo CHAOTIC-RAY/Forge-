@@ -6,7 +6,7 @@ import { Image as ImageIcon, ExternalLink, Copy, Trash2, Tag, Info } from 'lucid
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
 import { toast } from 'sonner';
 
-import { DbMode } from './LocalDb';
+import type { DbMode } from '../types/localDb';
 
 export function DraggableProduct({ product, onClick, isSelected, viewMode = 'grid', onDelete, dbMode = 'product' }: { product: HighStockProduct, onClick?: () => void, isSelected?: boolean, viewMode?: 'grid' | 'list', key?: React.Key, onDelete?: (p: HighStockProduct) => void, dbMode?: DbMode }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({

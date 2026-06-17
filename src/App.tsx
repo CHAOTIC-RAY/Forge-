@@ -39,7 +39,68 @@ import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceC
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
 import { loadThemeConfig, applyThemeConfig, resetThemeConfig } from './lib/themeEngine';
-import { isGeminiKeyAvailable, fetchBrandKitDesignGuide, HighStockProduct } from './lib/gemini';
+import type { ExportSettings } from './components/modals/ExportModal';
+import {
+  generatePostContent,
+  generateMockupImage,
+  generatePostFromImage,
+  GEMINI_MODELS,
+  GROQ_MODELS,
+  getAiSettings,
+  setAiSettings,
+  getExcelMappingWithAi,
+  generateBulkPosts,
+  fetchServerConfig,
+  generateAppJson,
+  generateGenericText,
+  getEffectiveTextProvider,
+  isGeminiKeyAvailable,
+  fetchBrandKitDesignGuide,
+  type HighStockProduct,
+} from './lib/gemini';
+import { ensureLocalAiEnginesReady } from './lib/localAiBootstrap';
+import { auth, storage, googleProvider } from './lib/firebase';
+import { useSupabaseAuth } from './hooks/useSupabaseAuth';
+import {
+  subscribeToPosts,
+  subscribeToPostsForProfile,
+  subscribeToBusinesses,
+  createPost,
+  updatePost,
+  deletePost,
+  getPosts,
+  createBusiness,
+  updateBusiness,
+  deleteBusiness,
+  getBusiness,
+  getBusinessByShareToken,
+  updateProfileAiSettings,
+  updateProfile,
+  upsertCategoriesDoc,
+  getCategoriesDoc,
+  getShortLink,
+  incrementShortLinkClicks,
+  subscribeToBrandKit,
+  getNotebook,
+  upsertNotebook,
+  addBusinessMember,
+  createAccessRequest,
+  upsertBrandKit,
+} from './lib/supabase';
+import { syncCatalogueProducts, saveCategoryCounts } from './lib/catalogueSupabase';
+import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
+import { useAppStore } from './store';
+import { signInWithPopup, getRedirectResult, signOut } from 'firebase/auth';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { ref, deleteObject, getBlob } from 'firebase/storage';
+import { cn, readFileAsDataURL, createImageCollage, getAnalyticsSettings, setAnalyticsSettings } from './lib/utils';
+import { WorkspacesSettings } from './components/WorkspacesSettings';
+import { ForgeLoader } from './components/ForgeLoader';
+import { ForgeLogo } from './components/ForgeLogo';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { ensureSupabaseBackend } from './lib/dataBackend';
+import { LandingView } from './components/LandingView';
+import { OnboardingWizard } from './components/OnboardingWizard';
 import type { BuiltInAiStatus } from './lib/builtinAi';
 import { Calendar } from './components/Calendar';
 import { HomeTab } from './components/HomeTab';
@@ -48,7 +109,6 @@ import { FloatingChat } from './components/FloatingChat';
 import { CorsImage } from './components/CorsImage';
 import { NetworkStatus } from './components/NetworkStatus';
 import { SkipLink } from './components/SkipLink';
-import type { ExportSettings } from './components/modals/ExportModal';
 
 // React lazy imports for heavy components
 const PostModal = React.lazy(() => import('./components/modals/PostModal').then(m => ({ default: m.PostModal })));
@@ -90,68 +150,6 @@ function LazyTab({ active, children, className }: { active: boolean, children: (
     </div>
   );
 }
-
-import {
-  generatePostContent,
-  generateMockupImage,
-  generatePostFromImage,
-  GEMINI_MODELS,
-  GROQ_MODELS,
-  getAiSettings,
-  setAiSettings,
-  getExcelMappingWithAi,
-  generateBulkPosts,
-  fetchServerConfig,
-  generateAppJson,
-  generateGenericText,
-  ensureLocalAiEnginesReady,
-  getEffectiveTextProvider,
-} from './lib/gemini';
-import { auth, storage, googleProvider } from './lib/firebase';
-import { useSupabaseAuth } from './hooks/useSupabaseAuth';
-import {
-  subscribeToPosts,
-  subscribeToPostsForProfile,
-  subscribeToBusinesses,
-  createPost,
-  updatePost,
-  deletePost,
-  getPosts,
-  createBusiness,
-  updateBusiness,
-  deleteBusiness,
-  getBusiness,
-  getBusinessByShareToken,
-  updateProfileAiSettings,
-  updateProfile,
-  upsertCategoriesDoc,
-  getCategoriesDoc,
-  getShortLink,
-  incrementShortLinkClicks,
-  subscribeToBrandKit,
-  getNotebook,
-  upsertNotebook,
-  addBusinessMember,
-  createAccessRequest,
-  upsertBrandKit,
-} from './lib/supabase';
-import { syncCatalogueProducts, saveCategoryCounts } from './lib/catalogueSupabase';
-import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
-import { useAppStore } from './store';
-
-import { signInWithPopup, getRedirectResult, signOut } from 'firebase/auth';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { ref, deleteObject, getBlob } from 'firebase/storage';
-import { cn, readFileAsDataURL, createImageCollage, getAnalyticsSettings, setAnalyticsSettings } from './lib/utils';
-
-import { WorkspacesSettings } from './components/WorkspacesSettings';
-import { ForgeLoader } from './components/ForgeLoader';
-import { ForgeLogo } from './components/ForgeLogo';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { ensureSupabaseBackend } from './lib/dataBackend';
-import { importForgeJsonBackup } from './lib/onboardingJsonImport';
-import { LandingView } from './components/LandingView';
-import { OnboardingWizard } from './components/OnboardingWizard';
 
 type SyncLog = {
   id: string;
@@ -3016,6 +3014,7 @@ export default function App() {
       throw new Error('Sign in required');
     }
 
+    const { importForgeJsonBackup } = await import('./lib/onboardingJsonImport');
     await importForgeJsonBackup(file, onProgress);
 
     await updateProfile(profile.id, {
