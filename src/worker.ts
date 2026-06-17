@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { patchEsrganOnnxOutputDims } from "./lib/esrganOnnxPatch";
 import { discoverLinksWorker, htmlToSimpleMarkdown } from "./lib/lightweightHtml";
 import { handleSupabaseTokenExchange } from "./lib/handleSupabaseTokenExchange";
-import { handleFirestoreMigrateBatch } from "./lib/handleFirestoreMigrate";
+import { handleFirestoreMigrateBatch, handleMigratePrefetchProfiles } from "./lib/handleFirestoreMigrate";
 
 export interface Env {
   VITE_SUPABASE_URL: string;
@@ -132,6 +132,11 @@ export default {
       // POST /api/auth/supabase-token — exchange verified Firebase ID token for Supabase JWT
       if (path === '/api/auth/supabase-token') {
         return handleSupabaseTokenExchange(request, env);
+      }
+
+      // GET /api/migrate/prefetch-profiles — load existing Supabase profile IDs before migration
+      if (path === '/api/migrate/prefetch-profiles') {
+        return handleMigratePrefetchProfiles(request, env);
       }
 
       // POST /api/migrate/supabase-batch — service-role upsert for Firestore migration

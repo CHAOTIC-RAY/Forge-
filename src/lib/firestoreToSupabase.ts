@@ -1,4 +1,5 @@
 import { collection, getDocs, Firestore } from 'firebase/firestore';
+import { firestoreEntityId, isUuid } from './firestoreMigrateIds';
 
 export interface MigrationProgress {
   stage: string;
@@ -12,13 +13,36 @@ export interface MigrationResult {
 
 interface MigrationContext {
   profileByFirebaseUid: Map<string, string>;
-  profileById: Map<string, string>;
+  profileByRawId: Map<string, string>;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function registerProfile(
+  ctx: MigrationContext,
+  profileId: string,
+  firebaseUid: string,
+  rawDocId: string
+): void {
+  ctx.profileByFirebaseUid.set(firebaseUid, profileId);
+  ctx.profileByRawId.set(profileId, profileId);
+  ctx.profileByRawId.set(firebaseUid, profileId);
+  ctx.profileByRawId.set(rawDocId, profileId);
+}
 
-function isUuid(value: string): boolean {
-  return UUID_RE.test(value);
+async function fetchExistingProfiles(getToken: () => Promise<string>): Promise<Map<string, string>> {
+  const token = await getToken();
+  const response = await fetch('/api/migrate/prefetch-profiles', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Failed to prefetch profiles (${response.status})`);
+  }
+  const body = (await response.json()) as { profiles?: Array<{ id: string; firebase_uid: string }> };
+  const map = new Map<string, string>();
+  for (const profile of body.profiles || []) {
+    map.set(profile.firebase_uid, profile.id);
+  }
+  return map;
 }
 
 function asIso(value: unknown): string | undefined {
@@ -78,30 +102,43 @@ async function sendBatch(
 
 function resolveProfileId(rawId: string | undefined, ctx: MigrationContext): string | null {
   if (!rawId) return null;
-  if (ctx.profileById.has(rawId)) return rawId;
+  if (ctx.profileByRawId.has(rawId)) return ctx.profileByRawId.get(rawId)!;
   if (ctx.profileByFirebaseUid.has(rawId)) return ctx.profileByFirebaseUid.get(rawId)!;
   return null;
 }
 
-function buildProfiles(docs: Array<{ id: string; data: Record<string, unknown> }>): {
+function resolveBusinessId(rawId: string | undefined): string | null {
+  return firestoreEntityId('business', rawId);
+}
+
+function buildProfiles(
+  docs: Array<{ id: string; data: Record<string, unknown> }>,
+  existingByFirebaseUid: Map<string, string>
+): {
   rows: Record<string, unknown>[];
   ctx: MigrationContext;
 } {
   const ctx: MigrationContext = {
-    profileByFirebaseUid: new Map(),
-    profileById: new Map(),
+    profileByFirebaseUid: new Map(existingByFirebaseUid),
+    profileByRawId: new Map(),
   };
+
+  for (const [firebaseUid, profileId] of existingByFirebaseUid) {
+    registerProfile(ctx, profileId, firebaseUid, firebaseUid);
+  }
 
   const rows = docs.map(({ id, data }) => {
     const firebaseUid = String(data.firebaseUid || data.uid || data.userId || id);
-    const profileId = isUuid(String(data.id || ''))
-      ? String(data.id)
-      : isUuid(id)
-        ? id
-        : crypto.randomUUID();
+    const existingId = existingByFirebaseUid.get(firebaseUid);
+    const profileId =
+      existingId ||
+      (isUuid(String(data.id || ''))
+        ? String(data.id)
+        : isUuid(id)
+          ? id
+          : firestoreEntityId('profile', firebaseUid)!);
 
-    ctx.profileByFirebaseUid.set(firebaseUid, profileId);
-    ctx.profileById.set(profileId, profileId);
+    registerProfile(ctx, profileId, firebaseUid, id);
 
     return {
       id: profileId,
@@ -127,8 +164,9 @@ function buildBusinesses(
   return docs.map(({ id, data }) => {
     const ownerRaw = String(data.ownerId || data.owner_id || '');
     const ownerId = resolveProfileId(ownerRaw, ctx);
+    const rawBusinessId = String(data.id || id);
     return {
-      id: isUuid(id) ? id : String(data.id || id),
+      id: firestoreEntityId('business', rawBusinessId)!,
       name: String(data.name || 'Workspace'),
       owner_id: ownerId,
       description: data.description || null,
@@ -163,7 +201,7 @@ function buildBusinessMembers(
   const seen = new Set<string>();
 
   for (const { id, data } of businessDocs) {
-    const businessId = isUuid(id) ? id : String(data.id || id);
+    const businessId = firestoreEntityId('business', String(data.id || id))!;
     const members = (data.members as string[] | undefined) || [];
     const memberRoles = (data.memberRoles as Record<string, string> | undefined) || {};
 
@@ -190,11 +228,12 @@ function buildPosts(
   ctx: MigrationContext
 ): Record<string, unknown>[] {
   return docs.map(({ id, data }) => {
-    const businessId = String(data.businessId || data.business_id || '');
+    const businessId = resolveBusinessId(String(data.businessId || data.business_id || ''));
     const userRaw = String(data.userId || data.user_id || data.profileId || data.profile_id || '');
+    const rawPostId = String(data.id || id);
     return {
-      id: isUuid(id) ? id : String(data.id || id),
-      business_id: businessId || null,
+      id: firestoreEntityId('post', rawPostId)!,
+      business_id: businessId,
       profile_id: resolveProfileId(userRaw, ctx),
       date: asDateOnly(data.date) || new Date().toISOString().split('T')[0],
       outlet: data.outlet || null,
@@ -246,8 +285,8 @@ function buildInventoryProducts(docs: Array<{ id: string; data: Record<string, u
           : null;
 
     return {
-      id: isUuid(id) ? id : String(data.id || id),
-      business_id: data.businessId || data.business_id || null,
+      id: firestoreEntityId('inventory_product', String(data.id || id))!,
+      business_id: resolveBusinessId(String(data.businessId || data.business_id || '')),
       name: data.name || data.title || 'Product',
       sku: data.sku || null,
       category: data.category || data.type || null,
@@ -270,8 +309,7 @@ function buildInventoryProducts(docs: Array<{ id: string; data: Record<string, u
 
 function buildCategoryCounts(docs: Array<{ id: string; data: Record<string, unknown> }>): Record<string, unknown>[] {
   return docs.map(({ id, data }) => ({
-    id: isUuid(id) ? id : undefined,
-    business_id: data.businessId || data.business_id || id,
+    business_id: resolveBusinessId(String(data.businessId || data.business_id || id)),
     category: data.category || data.name || 'Uncategorized',
     count: data.count ?? 0,
     updated_at: asIso(data.updatedAt || data.updated_at) || new Date().toISOString(),
@@ -283,11 +321,11 @@ function buildNotebooks(
   ctx: MigrationContext
 ): Record<string, unknown>[] {
   return docs.map(({ id, data }) => {
-    const businessId = String(data.businessId || data.business_id || '');
+    const businessId = resolveBusinessId(String(data.businessId || data.business_id || ''));
     const userRaw = String(data.userId || data.user_id || data.profileId || data.profile_id || '');
     return {
-      id: isUuid(id) ? id : String(data.id || id),
-      business_id: businessId || null,
+      id: firestoreEntityId('notebook', String(data.id || id))!,
+      business_id: businessId,
       profile_id: resolveProfileId(userRaw, ctx),
       title: data.title || 'Ideas',
       blocks: data.blocks || [],
@@ -301,8 +339,7 @@ function buildNotebooks(
 
 function buildBrandKits(docs: Array<{ id: string; data: Record<string, unknown> }>): Record<string, unknown>[] {
   return docs.map(({ id, data }) => ({
-    id: isUuid(id) ? id : undefined,
-    business_id: data.businessId || data.business_id || id,
+    business_id: resolveBusinessId(String(data.businessId || data.business_id || id)),
     logo_url: data.logoUrl || data.logo_url || null,
     secondary_logo_url: data.secondaryLogoUrl || data.secondary_logo_url || null,
     brand_colors: data.brandColors || data.brand_colors || {},
@@ -321,7 +358,7 @@ function buildBrandKits(docs: Array<{ id: string; data: Record<string, unknown> 
 
 function buildBrandOverviews(docs: Array<{ id: string; data: Record<string, unknown> }>): Record<string, unknown>[] {
   return docs.map(({ id, data }) => ({
-    business_id: data.businessId || data.business_id || id,
+    business_id: resolveBusinessId(String(data.businessId || data.business_id || id)),
     overview: data.overview || data.text || null,
     updated_at: asIso(data.updatedAt || data.updated_at) || new Date().toISOString(),
   }));
@@ -329,7 +366,7 @@ function buildBrandOverviews(docs: Array<{ id: string; data: Record<string, unkn
 
 function buildCategories(docs: Array<{ id: string; data: Record<string, unknown> }>): Record<string, unknown>[] {
   return docs.map(({ id, data }) => ({
-    business_id: data.businessId || data.business_id || id,
+    business_id: resolveBusinessId(String(data.businessId || data.business_id || id)),
     categories: data.categories || [],
     target_platforms: data.targetPlatforms || data.target_platforms || [],
     titles: data.titles || {},
@@ -339,7 +376,7 @@ function buildCategories(docs: Array<{ id: string; data: Record<string, unknown>
 
 function buildInventoryMaps(docs: Array<{ id: string; data: Record<string, unknown> }>): Record<string, unknown>[] {
   return docs.map(({ id, data }) => ({
-    business_id: data.businessId || data.business_id || id,
+    business_id: resolveBusinessId(String(data.businessId || data.business_id || id)),
     links: data.links || [],
     updated_at: asIso(data.updatedAt || data.updated_at) || new Date().toISOString(),
   }));
@@ -352,8 +389,8 @@ function buildShortLinks(
   return docs.map(({ id, data }) => {
     const userRaw = String(data.userId || data.user_id || data.profileId || data.profile_id || '');
     return {
-      id: isUuid(id) ? id : String(data.id || id),
-      business_id: data.businessId || data.business_id || null,
+      id: firestoreEntityId('short_link', String(data.id || id))!,
+      business_id: resolveBusinessId(String(data.businessId || data.business_id || '')),
       profile_id: resolveProfileId(userRaw, ctx),
       short_code: data.shortCode || data.short_code || id,
       original_url: data.originalUrl || data.original_url || data.url || '',
@@ -373,8 +410,8 @@ function buildAccessRequests(
   return docs.map(({ id, data }) => {
     const userRaw = String(data.userId || data.user_id || '');
     return {
-      id: isUuid(id) ? id : String(data.id || id),
-      business_id: data.businessId || data.business_id || null,
+      id: firestoreEntityId('access_request', String(data.id || id))!,
+      business_id: resolveBusinessId(String(data.businessId || data.business_id || '')),
       profile_id: resolveProfileId(userRaw, ctx),
       status: data.status || 'pending',
       requested_role: data.requestedRole || data.requested_role || 'viewer',
@@ -434,10 +471,13 @@ export async function migrateFirestoreToSupabase(
     })),
   ];
 
-  const { rows: profileRows, ctx } = buildProfiles(raw.users || []);
+  const existingByFirebaseUid = await fetchExistingProfiles(getFirebaseIdToken);
+  onProgress?.({ stage: 'Loading existing Supabase profiles', count: existingByFirebaseUid.size });
+
+  const { rows: profileRows, ctx } = buildProfiles(raw.users || [], existingByFirebaseUid);
 
   if (currentUser && !ctx.profileByFirebaseUid.has(currentUser.uid)) {
-    const profileId = crypto.randomUUID();
+    const profileId = firestoreEntityId('profile', currentUser.uid)!;
     profileRows.push({
       id: profileId,
       firebase_uid: currentUser.uid,
@@ -450,8 +490,7 @@ export async function migrateFirestoreToSupabase(
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
-    ctx.profileByFirebaseUid.set(currentUser.uid, profileId);
-    ctx.profileById.set(profileId, profileId);
+    registerProfile(ctx, profileId, currentUser.uid, currentUser.uid);
   }
   onProgress?.({ stage: 'Migrating profiles', count: 0 });
   counts.profiles = await sendBatch('profiles', profileRows, 'firebase_uid', getFirebaseIdToken);
