@@ -150,7 +150,8 @@ import { cn, readFileAsDataURL, createImageCollage, getAnalyticsSettings, setAna
 import { WorkspacesSettings } from './components/WorkspacesSettings';
 import { ForgeLoader } from './components/ForgeLoader';
 import { ForgeLogo } from './components/ForgeLogo';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { isLegacyBackend } from './lib/dataBackend';
 import { LandingView } from './components/LandingView';
 import { OnboardingWizard } from './components/OnboardingWizard';
 
@@ -202,6 +203,7 @@ export default function App() {
   // Clean redeploy after restoring Electron, PWA, and simplifying build scripts
   const { shortCode } = useParams<{ shortCode: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Handle Short Link Resolution
   useEffect(() => {
@@ -380,6 +382,19 @@ export default function App() {
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
   const [isCheckingShare, setIsCheckingShare] = useState(true);
+
+  useEffect(() => {
+    if (
+      user &&
+      isLegacyBackend() &&
+      !isViewOnly &&
+      !shortCode &&
+      location.pathname !== '/auth'
+    ) {
+      navigate('/auth', { replace: true });
+    }
+  }, [user, isViewOnly, shortCode, navigate, location.pathname]);
+
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [userOnboardingComplete, setUserOnboardingComplete] = useState<boolean | null>(null);
 

@@ -111,6 +111,29 @@ function resolveBusinessId(rawId: string | undefined): string | null {
   return firestoreEntityId('business', rawId);
 }
 
+function filterByValidBusinessId(
+  rows: Record<string, unknown>[],
+  validBusinessIds: Set<string>
+): Record<string, unknown>[] {
+  return rows.filter((row) => {
+    const businessId = row.business_id as string | null | undefined;
+    return !businessId || validBusinessIds.has(businessId);
+  });
+}
+
+function nullifyInvalidBusinessId(
+  rows: Record<string, unknown>[],
+  validBusinessIds: Set<string>
+): Record<string, unknown>[] {
+  return rows.map((row) => {
+    const businessId = row.business_id as string | null | undefined;
+    if (businessId && !validBusinessIds.has(businessId)) {
+      return { ...row, business_id: null };
+    }
+    return row;
+  });
+}
+
 function buildProfiles(
   docs: Array<{ id: string; data: Record<string, unknown> }>,
   existingByFirebaseUid: Map<string, string>
@@ -499,19 +522,27 @@ export async function migrateFirestoreToSupabase(
   onProgress?.({ stage: 'Migrating businesses', count: 0 });
   counts.businesses = await sendBatch('businesses', businessRows, 'id', getFirebaseIdToken);
 
-  const memberRows = buildBusinessMembers(raw.businesses || [], ctx);
+  const validBusinessIds = new Set(businessRows.map((row) => String(row.id)));
+
+  const memberRows = filterByValidBusinessId(
+    buildBusinessMembers(raw.businesses || [], ctx),
+    validBusinessIds
+  );
   onProgress?.({ stage: 'Migrating business members', count: 0 });
   counts.business_members = await sendBatch('business_members', memberRows, 'business_id,profile_id', getFirebaseIdToken);
 
-  const postRows = buildPosts(raw.posts || [], ctx);
+  const postRows = nullifyInvalidBusinessId(buildPosts(raw.posts || [], ctx), validBusinessIds);
   onProgress?.({ stage: 'Migrating posts', count: 0 });
   counts.posts = await sendBatch('posts', postRows, 'id', getFirebaseIdToken);
 
-  const inventoryRows = buildInventoryProducts(inventoryDocs);
+  const inventoryRows = nullifyInvalidBusinessId(buildInventoryProducts(inventoryDocs), validBusinessIds);
   onProgress?.({ stage: 'Migrating inventory', count: 0 });
   counts.inventory_products = await sendBatch('inventory_products', inventoryRows, 'id', getFirebaseIdToken);
 
-  const categoryCountRows = buildCategoryCounts(raw.inventory_category_counts || []);
+  const categoryCountRows = filterByValidBusinessId(
+    buildCategoryCounts(raw.inventory_category_counts || []),
+    validBusinessIds
+  );
   onProgress?.({ stage: 'Migrating category counts', count: 0 });
   counts.inventory_category_counts = await sendBatch(
     'inventory_category_counts',
@@ -520,31 +551,37 @@ export async function migrateFirestoreToSupabase(
     getFirebaseIdToken
   );
 
-  const notebookRows = buildNotebooks(raw.notebooks || [], ctx);
+  const notebookRows = nullifyInvalidBusinessId(buildNotebooks(raw.notebooks || [], ctx), validBusinessIds);
   onProgress?.({ stage: 'Migrating notebooks', count: 0 });
   counts.notebooks = await sendBatch('notebooks', notebookRows, 'id', getFirebaseIdToken);
 
-  const brandKitRows = buildBrandKits(raw.brand_kits || []);
+  const brandKitRows = filterByValidBusinessId(buildBrandKits(raw.brand_kits || []), validBusinessIds);
   onProgress?.({ stage: 'Migrating brand kits', count: 0 });
   counts.brand_kits = await sendBatch('brand_kits', brandKitRows, 'business_id', getFirebaseIdToken);
 
-  const brandOverviewRows = buildBrandOverviews(raw.brand_overviews || []);
+  const brandOverviewRows = filterByValidBusinessId(
+    buildBrandOverviews(raw.brand_overviews || []),
+    validBusinessIds
+  );
   onProgress?.({ stage: 'Migrating brand overviews', count: 0 });
   counts.brand_overviews = await sendBatch('brand_overviews', brandOverviewRows, 'business_id', getFirebaseIdToken);
 
-  const categoryRows = buildCategories(raw.categories || []);
+  const categoryRows = filterByValidBusinessId(buildCategories(raw.categories || []), validBusinessIds);
   onProgress?.({ stage: 'Migrating categories', count: 0 });
   counts.categories = await sendBatch('categories', categoryRows, 'business_id', getFirebaseIdToken);
 
-  const mapRows = buildInventoryMaps(raw.inventory_maps || []);
+  const mapRows = filterByValidBusinessId(buildInventoryMaps(raw.inventory_maps || []), validBusinessIds);
   onProgress?.({ stage: 'Migrating inventory maps', count: 0 });
   counts.inventory_maps = await sendBatch('inventory_maps', mapRows, 'business_id', getFirebaseIdToken);
 
-  const shortLinkRows = buildShortLinks(raw.short_links || [], ctx);
+  const shortLinkRows = nullifyInvalidBusinessId(buildShortLinks(raw.short_links || [], ctx), validBusinessIds);
   onProgress?.({ stage: 'Migrating short links', count: 0 });
   counts.short_links = await sendBatch('short_links', shortLinkRows, 'short_code', getFirebaseIdToken);
 
-  const accessRequestRows = buildAccessRequests(raw.access_requests || [], ctx);
+  const accessRequestRows = nullifyInvalidBusinessId(
+    buildAccessRequests(raw.access_requests || [], ctx),
+    validBusinessIds
+  );
   onProgress?.({ stage: 'Migrating access requests', count: 0 });
   counts.access_requests = await sendBatch('access_requests', accessRequestRows, 'id', getFirebaseIdToken);
 
