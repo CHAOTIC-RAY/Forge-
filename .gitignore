@@ -16,3 +16,6 @@ test-results/
 !.dev.vars.example
 __pycache__/
 .env
+
+# Generated from Firestore exports (may contain API keys)
+supabase/import-forge-firestore-export.sql
