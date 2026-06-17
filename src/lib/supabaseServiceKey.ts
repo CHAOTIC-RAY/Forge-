@@ -5,6 +5,10 @@ export function resolveSupabaseServiceKey(env: SupabaseAuthEnv): string | undefi
 }
 
 export function validateSupabaseServiceKey(key: string): void {
+  if (key.startsWith('sb_secret_')) {
+    return;
+  }
+
   const parts = key.split('.');
   if (parts.length !== 3) return;
 
