@@ -3,21 +3,26 @@ import {
   verifyFirebaseIdToken,
   type VerifiedFirebaseUser,
 } from './supabaseAuthBridge';
+import { resolveSupabaseServiceKey, validateSupabaseServiceKey } from './supabaseServiceKey';
 
 export interface SupabaseAuthEnv {
   VITE_SUPABASE_URL?: string;
   SUPABASE_JWT_SECRET?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  /** Alias for SUPABASE_SERVICE_ROLE_KEY */
+  SUPABASE_SERVICE_KEY?: string;
   FIREBASE_PROJECT_ID?: string;
+  FIREBASE_API_KEY?: string;
 }
 
 async function bootstrapProfile(
   env: SupabaseAuthEnv,
   user: VerifiedFirebaseUser
 ): Promise<Record<string, unknown> | null> {
-  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRoleKey = resolveSupabaseServiceKey(env);
   const supabaseUrl = env.VITE_SUPABASE_URL;
   if (!serviceRoleKey || !supabaseUrl) return null;
+  validateSupabaseServiceKey(serviceRoleKey);
 
   const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/profiles?on_conflict=firebase_uid`, {
     method: 'POST',
@@ -67,6 +72,7 @@ export async function handleSupabaseTokenExchange(
   const jwtSecret = env.SUPABASE_JWT_SECRET;
   const supabaseUrl = env.VITE_SUPABASE_URL;
   const firebaseProjectId = env.FIREBASE_PROJECT_ID || 'gen-lang-client-0018612871';
+  const firebaseApiKey = env.FIREBASE_API_KEY;
 
   if (!jwtSecret || !supabaseUrl) {
     return new Response(
@@ -87,7 +93,7 @@ export async function handleSupabaseTokenExchange(
   }
 
   try {
-    const firebaseUser = await verifyFirebaseIdToken(firebaseToken, firebaseProjectId);
+    const firebaseUser = await verifyFirebaseIdToken(firebaseToken, firebaseProjectId, firebaseApiKey);
     const profile = await bootstrapProfile(env, firebaseUser);
     const expiresIn = 3600;
     const accessToken = await signSupabaseAccessToken(

@@ -9,7 +9,10 @@ export interface Env {
   VITE_SUPABASE_ANON_KEY: string;
   SUPABASE_JWT_SECRET?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  /** Alias for SUPABASE_SERVICE_ROLE_KEY */
+  SUPABASE_SERVICE_KEY?: string;
   FIREBASE_PROJECT_ID?: string;
+  FIREBASE_API_KEY?: string;
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_API_KEY: string;
   CLOUDINARY_API_SECRET: string;

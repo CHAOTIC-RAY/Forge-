@@ -156,10 +156,10 @@ export function MigrationTool() {
             <div>
               <p className="text-sm font-medium text-red-800 dark:text-red-300">Migration Failed</p>
               <p className="text-xs text-red-700 dark:text-red-400 mt-1">{error}</p>
-              {error?.includes('service role') && (
+              {error?.toLowerCase().includes('service') && (
                 <p className="text-xs text-red-700 dark:text-red-400 mt-2">
-                  Ask the project admin to set <code>SUPABASE_SERVICE_ROLE_KEY</code> and{' '}
-                  <code>SUPABASE_JWT_SECRET</code> on the Cloudflare Worker.
+                  Ask the project admin to set <code>SUPABASE_SERVICE_KEY</code> (service_role secret,
+                  not the anon key) and <code>SUPABASE_JWT_SECRET</code> on the Cloudflare Worker.
                 </p>
               )}
               <button

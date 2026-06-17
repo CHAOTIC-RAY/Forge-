@@ -1,5 +1,6 @@
 import type { SupabaseAuthEnv } from './handleSupabaseTokenExchange';
 import { verifyFirebaseIdToken } from './supabaseAuthBridge';
+import { resolveSupabaseServiceKey, validateSupabaseServiceKey } from './supabaseServiceKey';
 
 export interface MigrateBatchRequest {
   table: string;
@@ -13,11 +14,14 @@ export async function serviceRoleUpsert(
   rows: Record<string, unknown>[],
   onConflict?: string
 ): Promise<{ inserted: number }> {
-  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceKey = resolveSupabaseServiceKey(env);
   const supabaseUrl = env.VITE_SUPABASE_URL?.replace(/\/$/, '');
   if (!serviceKey || !supabaseUrl) {
-    throw new Error('Supabase service role is not configured on the server.');
+    throw new Error(
+      'Supabase service key is not configured on the server. Set SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) to the service_role secret from Supabase Dashboard → API.'
+    );
   }
+  validateSupabaseServiceKey(serviceKey);
   if (!rows.length) return { inserted: 0 };
 
   const conflictQuery = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : '';
@@ -61,6 +65,7 @@ export async function handleFirestoreMigrateBatch(
   }
 
   const firebaseProjectId = env.FIREBASE_PROJECT_ID || 'gen-lang-client-0018612871';
+  const firebaseApiKey = env.FIREBASE_API_KEY;
   const authHeader = request.headers.get('Authorization') || '';
   const firebaseToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!firebaseToken) {
@@ -71,7 +76,7 @@ export async function handleFirestoreMigrateBatch(
   }
 
   try {
-    await verifyFirebaseIdToken(firebaseToken, firebaseProjectId);
+    await verifyFirebaseIdToken(firebaseToken, firebaseProjectId, firebaseApiKey);
     const body = (await request.json()) as MigrateBatchRequest;
     if (!body.table || !Array.isArray(body.rows)) {
       return new Response(JSON.stringify({ error: 'Invalid migration batch payload' }), {

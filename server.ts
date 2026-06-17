@@ -124,7 +124,9 @@ export async function startServer(forcePort?: number) {
         VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
         SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
         FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+        FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
       });
       const body = await response.text();
       res.status(response.status).type("application/json").send(body);
@@ -148,7 +150,9 @@ export async function startServer(forcePort?: number) {
         VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
         SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
         FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+        FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
       });
       const body = await response.text();
       res.status(response.status).type("application/json").send(body);
