@@ -8,9 +8,17 @@ import { Post, OUTLETS, PRODUCT_CATEGORIES } from '../../data';
 import { v4 as uuidv4 } from 'uuid';
 import { generatePostContent, generateMockupImage, generatePostFromImage, generateAiImage, generateHashtagSuggestions, generatePostWithFramework, findProductsByCategory, HighStockProduct, generateSmartPost, generatePostVisuals, generateSmartBrief, getAiSettings } from '../../lib/gemini';
 import { createImageCollage, cn, getAnalyticsSettings } from '../../lib/utils';
-import { db, handleFirestoreError, OperationType } from '../../lib/firebase';
+import { auth } from '../../lib/firebase';
+import { useProfile } from '../../hooks/useSupabaseAuth';
+import {
+  subscribeToCategories,
+  normalizeCategoriesDoc,
+  subscribeToPostComments,
+  createPostComment,
+  deletePostComment,
+  type PostComment,
+} from '../../lib/supabase';
 import { RichTextEditor } from '../RichTextEditor';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { format, parseISO, isValid } from 'date-fns';
 
@@ -78,29 +86,15 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
     }
   }, [isOpen, droppedImages, onImagesConsumed]);
 
+  const profile = useProfile();
+
   useEffect(() => {
     if (isOpen && activeBusiness?.id) {
-      const docRef = doc(db, 'categories', activeBusiness.id);
-      const unsubscribe = onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setWorkspaceCategories(data.categories || []);
-          setWorkspaceTargetPlatforms(data.targetPlatforms || []);
-          if (data.titles) {
-            setWorkspaceTitles(prev => ({ ...prev, ...data.titles }));
-          }
-        } else {
-          setWorkspaceCategories([]);
-          setWorkspaceTargetPlatforms([]);
-          setWorkspaceTitles({
-            category: 'Product Category',
-            outlet: 'Outlet',
-            campaign: 'Campaign Type',
-            type: 'Type'
-          });
-        }
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
+      const unsubscribe = subscribeToCategories(activeBusiness.id, (doc) => {
+        const normalized = normalizeCategoriesDoc(doc);
+        setWorkspaceCategories(normalized.categories as any[]);
+        setWorkspaceTargetPlatforms(normalized.targetPlatforms);
+        setWorkspaceTitles((prev) => ({ ...prev, ...normalized.titles }));
       });
       return () => unsubscribe();
     }
@@ -110,23 +104,17 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
 
   useEffect(() => {
     if (isOpen && post?.id) {
-      const q = query(
-        collection(db, 'comments'),
-        where('postId', '==', post.id),
-        where('businessId', '==', post.businessId),
-        orderBy('createdAt', 'asc')
-      );
-
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const commentsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Comment[];
-        setComments(commentsData);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, 'comments');
+      const unsubscribe = subscribeToPostComments(post.id, (commentsData) => {
+        setComments(commentsData.map((c) => ({
+          id: c.id,
+          postId: c.postId,
+          userId: c.userId || '',
+          userName: c.userName || 'User',
+          userPhoto: c.userPhoto || '',
+          text: c.text,
+          createdAt: c.createdAt,
+        })));
       });
-
       return () => unsubscribe();
     }
   }, [isOpen, post?.id]);
@@ -296,15 +284,8 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
 
     setIsSubmittingComment(true);
     try {
-      await addDoc(collection(db, 'comments'), {
-        postId: post.id,
-        businessId: post.businessId,
-        userId: user?.uid || 'guest',
-        userName: user?.displayName || 'Guest User',
-        userPhoto: user?.photoURL || '',
-        text: newComment.trim(),
-        createdAt: serverTimestamp(),
-      });
+      if (!profile?.id) throw new Error('Sign in to comment');
+      await createPostComment(post.id, profile.id, newComment.trim());
       setNewComment('');
     } catch (error) {
       console.error("Failed to add comment:", error);
@@ -316,7 +297,7 @@ export function PostModal({ isOpen, onClose, post, selectedDate, onSave, onDelet
   const handleDeleteComment = async (commentId: string) => {
     if (!isAdmin) return;
     try {
-      await deleteDoc(doc(db, 'comments', commentId));
+      await deletePostComment(commentId);
     } catch (error) {
       console.error("Failed to delete comment:", error);
     }

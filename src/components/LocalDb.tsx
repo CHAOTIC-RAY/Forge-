@@ -16,10 +16,21 @@ import {
 } from '../lib/catalogueExtract';
 import { LocalDbImportPanel } from './LocalDbImportPanel';
 import { DraggableProduct } from './DraggableProduct';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, setDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Business } from '../data';
+import {
+  subscribeToCatalogue,
+  syncCatalogueProducts,
+  saveCategoryCounts,
+  saveSiteMap,
+  fetchSiteMap,
+  fetchBrandOverview,
+  saveBrandOverview,
+  fetchBrandKitCategories,
+  deleteCatalogueProduct,
+} from '../lib/catalogueSupabase';
+import { mapSite } from '../lib/catalogueImportApi';
 
 export type DbMode = 'product' | 'info';
 
@@ -236,7 +247,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     return () => unsubscribe();
   }, []);
 
-  // Sync products with Firestore
+  // Sync catalogue from Supabase
   useEffect(() => {
     if (!userId || !businessId) {
       setIsCatalogueLoading(false);
@@ -244,99 +255,41 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     }
 
     setIsCatalogueLoading(true);
-    const q = query(collection(db, 'inventory_products'), where('businessId', '==', businessId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const cloudProducts: HighStockProduct[] = [];
-      snapshot.forEach((docSnap) => {
-        cloudProducts.push(docSnap.data() as HighStockProduct);
-      });
-      setProducts(cloudProducts);
-      setHasSearched(true);
-      setIsCatalogueLoading(false);
-    }, (error) => {
-      setIsCatalogueLoading(false);
-      handleFirestoreError(error, OperationType.GET, 'rainbow_products');
-    });
-
-    return () => unsubscribe();
-  }, [userId, businessId]);
-
-  // Sync category counts with Firestore
-  useEffect(() => {
-    if (!userId || !businessId) return;
-
-    const q = query(collection(db, 'inventory_category_counts'), where('businessId', '==', businessId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const cloudCounts: CategoryCount[] = [];
-      snapshot.forEach((doc) => {
-        cloudCounts.push(doc.data() as CategoryCount);
-      });
-      
-      if (cloudCounts.length > 0) {
-        setCategoryCounts(cloudCounts);
-        setHasCheckedCounts(true);
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'rainbow_counts');
-    });
-
-    return () => unsubscribe();
-  }, [userId, businessId]);
-
-  // Sync site map with Firestore
-  useEffect(() => {
-    if (!userId || !businessId) return;
-
-    const mapRef = doc(db, 'inventory_maps', businessId);
-    const unsubscribe = onSnapshot(mapRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        if (data.links && Array.isArray(data.links)) {
-          setSiteMap(data.links);
-          addLog(`📦 Loaded site map from cloud (${data.links.length} links).`);
+    const unsub = subscribeToCatalogue(
+      businessId,
+      (items) => {
+        setProducts(items);
+        setHasSearched(true);
+        setIsCatalogueLoading(false);
+      },
+      (counts) => {
+        if (counts.length > 0) {
+          setCategoryCounts(counts);
+          setHasCheckedCounts(true);
         }
       }
-    }, (error) => {
-      console.warn("Map sync failed (might not exist yet):", error);
-    });
-
-    return () => unsubscribe();
+    );
+    return () => unsub();
   }, [userId, businessId]);
 
-
-  // Sync brand overview with Firestore
-  useEffect(() => {
-    if (!userId || !businessId) return;
-
-    const overviewRef = doc(db, 'brand_overviews', businessId);
-    const unsubscribe = onSnapshot(overviewRef, (doc) => {
-      if (doc.exists()) {
-        setBrandOverview(doc.data().overview);
-      }
-    }, (error) => {
-      console.warn("Overview sync failed:", error);
-    });
-
-    return () => unsubscribe();
-  }, [userId, businessId]);
-
-  // Fetch Brand Kit Categories
+  // Load site map + brand overview from Supabase
   useEffect(() => {
     if (!businessId) return;
-    const unsubscribe = onSnapshot(doc(db, 'categories', businessId), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        if (data.categories && Array.isArray(data.categories)) {
-          const names = data.categories
-            .filter((c: any) => c.enabled !== false)
-            .map((c: any) => c.name);
-          setBrandKitCategories(names);
-        }
+    void fetchSiteMap(businessId).then((links) => {
+      if (links.length > 0) {
+        setSiteMap(links);
+        addLog(`📦 Loaded site map from cloud (${links.length} links).`);
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `categories/${businessId}`);
     });
-    return () => unsubscribe();
+    void fetchBrandOverview(businessId).then((overview) => {
+      if (overview) setBrandOverview(overview);
+    });
+  }, [businessId]);
+
+  // Brand Kit categories from Supabase
+  useEffect(() => {
+    if (!businessId) return;
+    void fetchBrandKitCategories(businessId).then(setBrandKitCategories);
   }, [businessId]);
 
   // Save to local storage on mount
@@ -417,59 +370,31 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       }
 
       addLog(`🗺️ Fetching map for ${urlToMap}...`);
-      const mapRes = await fetch('/api/map', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlToMap, limit: 5000, apiKey: aiSettings.firecrawlApiKey })
-      });
+      const mapData = await mapSite(urlToMap, aiSettings.firecrawlApiKey, 5000);
       
-      const mapData = await mapRes.json();
-      
-      if (!mapRes.ok) {
-        const errMsg = mapData.error || mapData.details || "Unknown mapping error";
+      if (!mapData.success || !mapData.links) {
+        const errMsg = mapData.error || "Unknown mapping error";
         addLog(`⚠️ Map error: ${errMsg}`);
-        if (errMsg.includes("API key is not configured")) {
-          toast.error("Firecrawl API key is missing. Please add it in Settings.");
-        } else {
-          toast.error(`Map failed: ${errMsg}`);
-        }
+        toast.error(`Map failed: ${errMsg}`);
         return;
       }
 
-      if (mapData.success && mapData.links) {
-        const classified = classifySiteMapLinks(mapData.links);
-        const newCounts: CategoryCount[] = buildCategoryCountsFromClassified(classified, urlToMap);
+      const classified = classifySiteMapLinks(mapData.links);
+      const newCounts: CategoryCount[] = buildCategoryCountsFromClassified(classified, urlToMap);
 
-        setCategoryCounts(newCounts);
-        setSiteMap(mapData.links);
-        setHasCheckedCounts(true);
+      setCategoryCounts(newCounts);
+      setSiteMap(mapData.links);
+      setHasCheckedCounts(true);
 
-        // Save to Firestore
-        if (userId && businessId) {
-          addLog(`💾 Saving site map to cloud...`);
-          const mapRef = doc(db, 'inventory_maps', businessId);
-          await setDoc(mapRef, {
-            links: mapData.links,
-            businessId,
-            userId,
-            updatedAt: new Date().toISOString()
-          });
-
-          // Also save counts to their respective documents
-          const batch = writeBatch(db);
-          newCounts.forEach((c) => {
-            const docId = c.category.replace(/[^a-zA-Z0-9]/g, '_');
-            const docRef = doc(db, 'inventory_category_counts', `${businessId}_${docId}`);
-            batch.set(docRef, { ...c, userId, businessId, updatedAt: new Date().toISOString() });
-          });
-          await batch.commit();
-        }
-
-        toast.success(`Mapped ${mapData.links.length} URLs into ${newCounts.length} categories.`);
-        addLog(`✅ Map completed. Found ${mapData.links.length} links, grouped into ${newCounts.length} categories.`);
-      } else {
-        throw new Error(mapData.error || "Failed to map website");
+      if (userId && businessId) {
+        addLog(`💾 Saving site map to Supabase...`);
+        await saveSiteMap(businessId, mapData.links);
+        await saveCategoryCounts(businessId, newCounts);
       }
+
+      const providerNote = mapData.provider === 'local' ? ' (local discovery)' : '';
+      toast.success(`Mapped ${mapData.links.length} URLs into ${newCounts.length} buckets${providerNote}.`);
+      addLog(`✅ Map completed. Found ${mapData.links.length} links, grouped into ${newCounts.length} categories.`);
     } catch (error: any) {
       console.error("Failed to get category counts:", error);
       toast.error(`Failed to map website: ${error.message}`);
@@ -791,39 +716,16 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     }
   };
 
-  // Helper to sync products to Firestore in batches
   const syncProductsToFirestore = async (items: HighStockProduct[], counts?: CategoryCount[]) => {
     if (!userId || !businessId || items.length === 0) return;
-    
     try {
-      const CHUNK_SIZE = 100; // Smaller chunk size for more reliability
-      for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-        const batch = writeBatch(db);
-        const chunk = items.slice(i, i + CHUNK_SIZE);
-        
-        chunk.forEach((p) => {
-          const title = p.title || 'Untitled';
-          const docId = title.replace(/[^a-zA-Z0-9]/g, '_');
-          const docRef = doc(db, 'inventory_products', `${businessId}_${docId}`);
-          batch.set(docRef, { ...p, title, userId, businessId, updatedAt: new Date().toISOString() });
-        });
-        
-        await batch.commit();
-        // Delay to avoid rate limiting and exhaustion
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-
+      await syncCatalogueProducts(businessId, items);
       if (counts && counts.length > 0) {
-        const batch = writeBatch(db);
-        counts.forEach((c) => {
-          const docId = c.category.replace(/[^a-zA-Z0-9]/g, '_');
-          const docRef = doc(db, 'inventory_category_counts', `${businessId}_${docId}`);
-          batch.set(docRef, { ...c, userId, businessId, updatedAt: new Date().toISOString() });
-        });
-        await batch.commit();
+        await saveCategoryCounts(businessId, counts);
       }
     } catch (e) {
-      console.error("Manual sync failed", e);
+      console.error('Catalogue sync failed', e);
+      toast.error('Failed to save catalogue to cloud.');
     }
   };
 
@@ -894,13 +796,7 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       const overview = await generateGenericText(prompt);
       if (overview) {
         setBrandOverview(overview);
-        // Save to Firestore
-        await setDoc(doc(db, 'brand_overviews', businessId), {
-          overview,
-          businessId,
-          userId,
-          updatedAt: new Date().toISOString()
-        });
+        await saveBrandOverview(businessId, overview);
         toast.success("Brand Identity Overview generated!");
         addLog("✨ Brand Identity Overview successfully updated.");
       }
@@ -1078,9 +974,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
     setSelectedProducts(prev => prev.filter(p => p.title !== product.title));
     if (detailItem?.title === product.title) setDetailItem(null);
     if (userId && businessId) {
-      const docId = (product.title || 'Untitled').replace(/[^a-zA-Z0-9]/g, '_');
       try {
-        await deleteDoc(doc(db, 'inventory_products', `${businessId}_${docId}`));
+        await deleteCatalogueProduct(businessId, product.title);
       } catch (e) {
         console.error('Delete failed', e);
         toast.error('Could not remove item from cloud sync.');

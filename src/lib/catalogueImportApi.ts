@@ -81,7 +81,13 @@ export async function mapSite(
   url: string,
   apiKey?: string,
   limit = 5000
-): Promise<{ success?: boolean; links?: Array<{ url: string; title?: string }>; error?: string }> {
+): Promise<{
+  success?: boolean;
+  links?: Array<{ url: string; title?: string }>;
+  error?: string;
+  provider?: 'firecrawl' | 'local';
+  message?: string;
+}> {
   const res = await fetch('/api/map', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

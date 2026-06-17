@@ -22,8 +22,7 @@ import { toast } from 'sonner';
 import { motion } from 'motion/react';
 
 import { Post, Business } from '../data';
-import { writeBatch, doc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { subscribeToCategories, normalizeCategoriesDoc, createPostsBatch } from '../lib/supabase';
 import { useWorkspaceConfig } from '../lib/workspaceConfig';
 import {
   generateWidgetBulkPosts,
@@ -35,7 +34,6 @@ import {
 } from '../lib/gemini';
 import { CheckCircle2, Search } from 'lucide-react';
 import { AutoSuggest } from './AutoSuggest';
-import { onSnapshot } from 'firebase/firestore';
 import { PRODUCT_CATEGORIES } from '../data';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
@@ -391,18 +389,12 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
   // Fetch Brand Kit Categories
   useEffect(() => {
     if (!activeBusiness?.id) return;
-    const unsubscribe = onSnapshot(doc(db, 'categories', activeBusiness.id), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        if (data.categories && Array.isArray(data.categories)) {
-          const names = data.categories
-            .filter((c: any) => c.enabled !== false && c.type === 'category')
-            .map((c: any) => c.name);
-          setBrandKitCategories(names);
-        }
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
+    const unsubscribe = subscribeToCategories(activeBusiness.id, (doc) => {
+      const normalized = normalizeCategoriesDoc(doc);
+      const names = (normalized.categories as any[])
+        .filter((c) => c.enabled !== false && c.type === 'category')
+        .map((c) => c.name);
+      setBrandKitCategories(names);
     });
     return () => unsubscribe();
   }, [activeBusiness?.id]);
@@ -480,12 +472,7 @@ export function WidgetsTab({ onSavePost, onDraftPost, userId, activeBusiness }: 
       });
 
       if (userId && activeBusiness?.id && postsToSave.length > 0) {
-        const batch = writeBatch(db);
-        postsToSave.forEach(post => {
-          const postRef = doc(db, 'posts', post.id);
-          batch.set(postRef, { ...post, userId, businessId: activeBusiness.id });
-        });
-        await batch.commit();
+        await createPostsBatch(postsToSave, activeBusiness.id, userId);
       } else {
         for (const post of postsToSave) {
           await onSavePost(post);

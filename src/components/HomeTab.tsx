@@ -28,8 +28,8 @@ import { generateDailyGreetings, HighStockProduct, generateTaskIdeas } from '../
 import { saveTextToIdeasInbox } from '../lib/ideasInbox';
 import { toast } from 'sonner';
 import { User } from 'firebase/auth';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { subscribeToInventory } from '../lib/supabase';
+import { inventoryToHighStock } from '../lib/catalogueSupabase';
 
 interface HomeTabProps {
   posts: Post[];
@@ -115,19 +115,12 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
     }
   };
 
-  // Sync products with Firestore
+  // Sync products from Supabase catalogue
   useEffect(() => {
     if (!activeBusiness?.id) return;
 
-    const q = query(collection(db, 'inventory_products'), where('businessId', '==', activeBusiness.id));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const cloudProducts: HighStockProduct[] = [];
-      snapshot.forEach((doc) => {
-        cloudProducts.push(doc.data() as HighStockProduct);
-      });
-      setProducts(cloudProducts);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'rainbow_products');
+    const unsubscribe = subscribeToInventory(activeBusiness.id, (rows) => {
+      setProducts(rows.map(inventoryToHighStock));
     });
 
     return () => unsubscribe();

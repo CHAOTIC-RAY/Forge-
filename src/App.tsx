@@ -108,7 +108,35 @@ import {
   ensureLocalAiEnginesReady,
   getEffectiveTextProvider,
 } from './lib/gemini';
-import { db, auth, storage, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
+import { auth, storage, googleProvider } from './lib/firebase';
+import { useSupabaseAuth } from './hooks/useSupabaseAuth';
+import {
+  subscribeToPosts,
+  subscribeToPostsForProfile,
+  subscribeToBusinesses,
+  createPost,
+  updatePost,
+  deletePost,
+  getPosts,
+  createBusiness,
+  updateBusiness,
+  deleteBusiness,
+  getBusiness,
+  getBusinessByShareToken,
+  updateProfileAiSettings,
+  updateProfile,
+  upsertCategoriesDoc,
+  getCategoriesDoc,
+  getShortLink,
+  incrementShortLinkClicks,
+  subscribeToBrandKit,
+  getNotebook,
+  upsertNotebook,
+  addBusinessMember,
+  createAccessRequest,
+  upsertBrandKit,
+} from './lib/supabase';
+import { syncCatalogueProducts, saveCategoryCounts } from './lib/catalogueSupabase';
 import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
 import { useAppStore } from './store';
 
@@ -116,22 +144,6 @@ const initialAiSettings = getAiSettings();
 const initialAnalyticsSettings = getAnalyticsSettings();
 import { signInWithPopup, getRedirectResult, signOut } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  setDoc,
-  getDoc,
-  deleteDoc,
-  getDocs,
-  writeBatch,
-  serverTimestamp,
-  limit,
-  updateDoc,
-  or
-} from 'firebase/firestore';
 import { ref, deleteObject, getBlob } from 'firebase/storage';
 import { cn, readFileAsDataURL, createImageCollage, getAnalyticsSettings, setAnalyticsSettings } from './lib/utils';
 
@@ -197,31 +209,24 @@ export default function App() {
       console.log("[App] Resolving short link code:", shortCode);
       const resolveShortCode = async () => {
         try {
-          const q = query(collection(db, 'short_links'), where('shortCode', '==', shortCode), limit(1));
-          const snapshot = await getDocs(q);
+          const link = await getShortLink(shortCode);
           
-          if (!snapshot.empty) {
-            const data = snapshot.docs[0].data();
-            console.log("[App] Short link found. Original URL:", data.originalUrl);
+          if (link) {
+            console.log("[App] Short link found. Original URL:", link.original_url);
             
-            if (data.originalUrl) {
-              // Increment click count (fire and forget)
-              updateDoc(doc(db, 'short_links', snapshot.docs[0].id), {
-                clicks: (data.clicks || 0) + 1,
-                lastClickedAt: new Date().toISOString()
-              }).catch(err => console.error("Error updating click count", err));
+            if (link.original_url) {
+              void incrementShortLinkClicks(link.id).catch((err) => console.error("Error updating click count", err));
 
-              // Resolve long URL
               try {
-                const url = new URL(data.originalUrl);
+                const url = new URL(link.original_url);
                 // If it's a share URL, we can navigate internally or just use href
                 if (url.origin === window.location.origin) {
                   const internalPath = url.pathname + url.search;
                   console.log("[App] Redirecting to internal path:", internalPath);
                   navigate(internalPath, { replace: true });
                 } else {
-                  console.log("[App] Redirecting to external URL:", data.originalUrl);
-                  window.location.href = data.originalUrl;
+                  console.log("[App] Redirecting to external URL:", link.original_url);
+                  window.location.href = link.original_url;
                 }
               } catch (urlErr) {
                 console.error("Invalid original URL in short link", urlErr);
@@ -243,6 +248,7 @@ export default function App() {
   }, [shortCode, navigate]);
 
   const [user, loading, authError] = useAuthState(auth);
+  const { profile } = useSupabaseAuth();
   const [authTimeout, setAuthTimeout] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
@@ -364,11 +370,11 @@ export default function App() {
   const [isAutoFillModalOpen, setIsAutoFillModalOpen] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
 
-  const isAdmin = useMemo(() => !!(user && activeBusiness && (
-    activeBusiness.ownerId === user.uid ||
+  const isAdmin = useMemo(() => !!(user && profile && activeBusiness && (
+    activeBusiness.ownerId === profile.id ||
     activeBusiness.memberRoles?.[user.uid] === 'admin' ||
     activeBusiness.memberRoles?.[user.uid] === 'editor'
-  )), [user, activeBusiness]);
+  )), [user, profile, activeBusiness]);
 
   const isViewer = useMemo(() => !!(user && activeBusiness && activeBusiness.memberRoles?.[user.uid] === 'viewer'), [user, activeBusiness]);
   const isGuest = !user;
@@ -388,15 +394,9 @@ export default function App() {
       setBrandKit(null);
       return;
     }
-    const brandKitRef = doc(db, 'brand_kits', activeBusiness.id);
-    const unsubscribe = onSnapshot(brandKitRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setBrandKit(docSnap.data());
-      } else {
-        setBrandKit(null);
-      }
+    return subscribeToBrandKit(activeBusiness.id, (data) => {
+      setBrandKit(data);
     });
-    return () => unsubscribe();
   }, [activeBusiness, isViewOnly]);
 
   const products = useAppStore(state => state.products);
@@ -429,10 +429,9 @@ export default function App() {
     const newSettings = { ...aiSettings, [key]: value };
     setAiSettingsState(newSettings);
     setAiSettings(newSettings);
-    if (user) {
-      const userRef = doc(db, 'users', user.uid);
-      setDoc(userRef, { aiSettings: newSettings }, { merge: true }).catch(err => {
-        console.error("Failed to sync AI settings to Firebase", err);
+    if (user && profile) {
+      void updateProfileAiSettings(profile.id, newSettings as Record<string, unknown>).catch((err) => {
+        console.error('Failed to sync AI settings to Supabase', err);
       });
     }
   };
@@ -486,39 +485,13 @@ export default function App() {
       }
 
       // 2. Add Notes / Quick Notes
-      if ((event.data?.type === 'FORGE_ADD_NOTE' || event.data?.type === 'FORGE_QUICK_NOTE') && user) {
+      if ((event.data?.type === 'FORGE_ADD_NOTE' || event.data?.type === 'FORGE_QUICK_NOTE') && user && profile) {
         try {
-          // Fallback to activeBusiness if workspaceId wasn't passed by the extension
           const targetWorkspaceId = event.data.workspaceId || activeBusiness?.id;
-
           if (!targetWorkspaceId) throw new Error("No active workspace to route into.");
-          // Find the notebook for this business
-          const q = query(
-            collection(db, 'notebooks'),
-            where('businessId', '==', targetWorkspaceId),
-            where('userId', '==', user.uid)
-          );
-          const snapshot = await getDocs(q);
 
-          let notebookId: string;
-          let currentBlocks: any[] = [];
-
-          if (!snapshot.empty) {
-            notebookId = snapshot.docs[0].id;
-            currentBlocks = snapshot.docs[0].data().blocks || [];
-          } else {
-            notebookId = uuidv4();
-            await setDoc(doc(db, 'notebooks', notebookId), {
-              id: notebookId,
-              businessId: targetWorkspaceId,
-              userId: user.uid,
-              title: 'Creative Strategy',
-              blocks: [],
-              links: [],
-              folders: [],
-              updatedAt: serverTimestamp()
-            });
-          }
+          const existing = await getNotebook(targetWorkspaceId, profile.id);
+          const currentBlocks = existing?.blocks || [];
 
           let newBlock: any;
           if (event.data.type === 'FORGE_ADD_NOTE') {
@@ -532,7 +505,6 @@ export default function App() {
               createdAt: Date.now()
             };
           } else {
-            // FORGE_QUICK_NOTE
             newBlock = {
               id: uuidv4(),
               type: 'text',
@@ -543,9 +515,11 @@ export default function App() {
             };
           }
 
-          await updateDoc(doc(db, 'notebooks', notebookId), {
+          await upsertNotebook(targetWorkspaceId, profile.id, {
+            title: existing?.title || 'Creative Strategy',
             blocks: [newBlock, ...currentBlocks],
-            updatedAt: serverTimestamp()
+            links: existing?.links || [],
+            folders: existing?.folders || [],
           });
 
           toast.success(event.data.type === 'FORGE_ADD_NOTE' ? "Note clipped to Ideas!" : "Quick idea added!");
@@ -560,10 +534,7 @@ export default function App() {
         try {
           const targetWorkspaceId = event.data.workspaceId || activeBusiness?.id;
           if (!targetWorkspaceId) return;
-
-          const q = query(collection(db, 'posts'), where('businessId', '==', targetWorkspaceId));
-          const snapshot = await getDocs(q);
-          const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          const data = await getPosts(targetWorkspaceId);
           window.postMessage({ type: 'FORGE_CALENDAR_DATA', data }, '*');
         } catch (error) {
           console.error("Error fetching calendar for extension:", error);
@@ -679,23 +650,12 @@ export default function App() {
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
   const userProfileSynced = useRef<string | null>(null);
 
-  // Sync AI settings from Firestore
+  // Sync AI settings from Supabase profile
   useEffect(() => {
-    if (!user) return;
-
-    const userRef = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.aiSettings) {
-          setAiSettingsState(data.aiSettings);
-          setAiSettings(data.aiSettings); // Sync to localStorage for lib/gemini.ts
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user]);
+    if (!profile?.ai_settings) return;
+    setAiSettingsState(profile.ai_settings as typeof aiSettings);
+    setAiSettings(profile.ai_settings as typeof aiSettings);
+  }, [profile?.id, profile?.ai_settings]);
 
   // Preload local text + vision models after sign-in (default provider is built-in)
   useEffect(() => {
@@ -741,18 +701,14 @@ export default function App() {
     // Update analytics
     try {
       const newViews = (bizData.shareAnalytics?.views || 0) + 1;
-      await updateDoc(doc(db, 'businesses', bizData.id), {
-        'shareAnalytics.views': newViews,
-        'shareAnalytics.lastViewedAt': new Date().toISOString()
-      });
+      await updateBusiness(bizData.id, {
+        shareAnalytics: { ...bizData.shareAnalytics, views: newViews, lastViewedAt: new Date().toISOString() },
+      } as Partial<Business>);
     } catch (e) {
       console.error("Error updating share analytics", e);
     }
 
-    // Fetch posts
-    const q = query(collection(db, 'posts'), where('businessId', '==', bizData.id));
-    const snapshot = await getDocs(q);
-    const sharedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+    const sharedPosts = await getPosts(bizData.id);
 
     // Apply filters
     let filteredPosts = sharedPosts;
@@ -793,15 +749,10 @@ export default function App() {
       if (pathParts[1] === 's' && pathParts[2]) {
         const shortCode = pathParts[2];
         try {
-          const q = query(collection(db, 'short_links'), where('shortCode', '==', shortCode));
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-            const linkDoc = snapshot.docs[0];
-            const linkData = linkDoc.data();
-            await updateDoc(doc(db, 'short_links', linkDoc.id), {
-              clicks: (linkData.clicks || 0) + 1
-            });
-            window.location.href = linkData.originalUrl;
+          const link = await getShortLink(shortCode);
+          if (link?.original_url) {
+            void incrementShortLinkClicks(link.id);
+            window.location.href = link.original_url;
             return;
           }
         } catch (e) {
@@ -809,24 +760,15 @@ export default function App() {
         }
       }
 
-      // 2. Handle Workspace Auto-Join
       const joinId = params.get('join');
-      if (joinId && user) {
+      if (joinId && user && profile) {
         try {
-          const bizRef = doc(db, 'businesses', joinId);
-          const bizSnap = await getDoc(bizRef);
-          if (bizSnap.exists()) {
-            const bizData = bizSnap.data();
-            const members = bizData.members || [];
-            if (!members.includes(user.uid) && bizData.ownerId !== user.uid) {
-              await updateDoc(bizRef, {
-                members: [...members, user.uid]
-              });
-              toast.success(`Joined workspace: ${bizData.name}`);
-              // Remove join param from URL
-              const newUrl = window.location.pathname;
-              window.history.replaceState({}, '', newUrl);
-            }
+          const bizData = await getBusiness(joinId);
+          if (bizData && bizData.ownerId !== profile.id) {
+            await addBusinessMember(joinId, profile.id, 'viewer');
+            toast.success(`Joined workspace: ${bizData.name}`);
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
           }
         } catch (e) {
           console.error("Auto-join error", e);
@@ -847,10 +789,8 @@ export default function App() {
 
       if (shareToken && bizId) {
         try {
-          const bizDoc = await getDoc(doc(db, 'businesses', bizId!));
-          if (bizDoc.exists()) {
-            const bizData = { id: bizDoc.id, ...bizDoc.data() } as Business;
-            if (bizData.shareToken === shareToken) {
+          const bizData = await getBusiness(bizId!);
+          if (bizData && bizData.shareToken === shareToken) {
               if (bizData.shareExpiresAt && isAfter(new Date(), parseISO(bizData.shareExpiresAt))) {
                 toast.error("This share link has expired.");
                 setIsCheckingShare(false);
@@ -864,7 +804,6 @@ export default function App() {
               }
               await completeShareAccess(bizData);
             }
-          }
         } catch (e) {
           console.error("Error fetching shared business", e);
         } finally {
@@ -878,17 +817,11 @@ export default function App() {
     handleUrlActions();
   }, [user]);
 
-  // Fetch User's Businesses (Owned or Member)
+  // Fetch user's workspaces from Supabase
   useEffect(() => {
-    if (!user || isViewOnly) return;
+    if (!profile || isViewOnly) return;
 
-    const q = query(
-      collection(db, 'businesses'),
-      or(where('ownerId', '==', user.uid), where('members', 'array-contains', user.uid))
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const bizList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Business));
+    const unsubscribe = subscribeToBusinesses(profile.id, (bizList) => {
       setBusinesses(bizList);
       setLoadingBusinesses(false);
 
@@ -900,25 +833,19 @@ export default function App() {
         setShowOnboarding(false);
       }
 
-      // Auto-select business
       if (bizList.length > 0) {
         const lastBizId = localStorage.getItem('last_active_business_id');
-        const lastBiz = bizList.find(b => b.id === lastBizId);
-        if (!activeBusiness || !bizList.find(b => b.id === activeBusiness.id)) {
+        const lastBiz = bizList.find((b) => b.id === lastBizId);
+        if (!activeBusiness || !bizList.find((b) => b.id === activeBusiness.id)) {
           setActiveBusiness(lastBiz || bizList[0]);
         }
       } else if (!loading) {
-        // If user has no businesses, show onboarding wizard
         setShowOnboarding(true);
       }
-    }, (error) => {
-      console.error("[Businesses] onSnapshot error:", error);
-      setLoadingBusinesses(false);
-      handleFirestoreError(error, OperationType.GET, 'businesses');
     });
 
     return () => unsubscribe();
-  }, [user, isViewOnly, loading, userOnboardingComplete]);
+  }, [profile, isViewOnly, loading, userOnboardingComplete]);
 
   useEffect(() => {
     if (activeBusiness && !isViewOnly) {
@@ -956,32 +883,22 @@ export default function App() {
   };
 
   const handleCreateBusiness = async (name: string, industry: string, position: string) => {
-    if (!user) return;
+    if (!user || !profile) return;
     try {
-      const newBiz: Business = {
-        id: uuidv4(),
-        name,
-        ownerId: user.uid,
-        industry,
-        position,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        shareToken: uuidv4() + '-' + uuidv4()
-      };
-      await setDoc(doc(db, 'businesses', newBiz.id), newBiz);
+      const newBiz = await createBusiness({ name, industry, position }, profile.id);
+      setBusinesses([...businesses, newBiz]);
       setActiveBusiness(newBiz);
-      setIsBusinessModalOpen(false);
-      toast.success(`Business "${name}" created!`);
+      setShowOnboarding(false);
+      toast.success(`Workspace "${name}" created!`);
     } catch (e) {
-      console.error("Error creating business", e);
-      toast.error("Failed to create business profile.");
+      console.error('Failed to create business', e);
+      toast.error('Failed to create workspace.');
     }
   };
-
   const handleDeleteBusiness = async (bizId: string) => {
     if (!user) return;
     try {
-      await deleteDoc(doc(db, 'businesses', bizId));
+      await deleteBusiness(bizId);
       if (activeBusiness?.id === bizId) {
         setActiveBusiness(businesses.find(b => b.id !== bizId) || null);
       }
@@ -993,18 +910,9 @@ export default function App() {
   };
 
   const handleRequestAccess = async () => {
-    if (!user || !activeBusiness) return;
+    if (!user || !activeBusiness || !profile) return;
     try {
-      const requestId = uuidv4();
-      await setDoc(doc(db, 'access_requests', requestId), {
-        id: requestId,
-        businessId: activeBusiness.id,
-        userId: user.uid,
-        userEmail: user.email,
-        userName: user.displayName || 'User',
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      });
+      await createAccessRequest(activeBusiness.id, profile.id, 'viewer', 'Requesting access to workspace');
       toast.success("Access request sent to admin!");
     } catch (e) {
       console.error("Error requesting access:", e);
@@ -1149,34 +1057,32 @@ export default function App() {
         }
       }
 
-      const postWithUser = {
+      const businessIdForPost =
+        calendarMode === 'personal'
+          ? undefined
+          : post.businessId || activeBusiness?.id;
+
+      const postPayload: Post = {
         ...post,
-        userId: user.uid,
-        businessId: post.businessId || (calendarMode === 'personal' ? 'personal' : (activeBusiness?.id || '')),
+        userId: profile?.id || user.uid,
+        businessId: businessIdForPost,
         images: imageUrls,
       };
 
-      // Find any old images that were removed and delete them
       const existingPost = posts.find((p) => p.id === post.id);
-      if (existingPost?.images) {
-        const removedImages = existingPost.images.filter((img) => !imageUrls.includes(img) && !post.images?.includes(img));
-        for (const removedImg of removedImages) {
-          await deleteAppStorageFile(removedImg);
-        }
+      if (existingPost) {
+        await updatePost(post.id, postPayload);
+      } else if (businessIdForPost) {
+        await createPost(postPayload, businessIdForPost, profile?.id);
+      } else {
+        await createPost(postPayload, activeBusiness?.id || '', profile?.id);
       }
-
-      await setDoc(doc(db, 'posts', post.id), postWithUser);
       addSyncLog(`Successfully saved post: ${post.title || 'Untitled'}`, 'success');
 
-      // Auto-sync categories to Brand Kit
       if (activeBusiness?.id) {
         try {
-          const catRef = doc(db, 'categories', activeBusiness.id);
-          const catSnap = await getDoc(catRef);
-          let currentCats: any[] = [];
-          if (catSnap.exists()) {
-            currentCats = catSnap.data().categories || [];
-          }
+          const catDoc = await getCategoriesDoc(activeBusiness.id);
+          const currentCats: any[] = (catDoc?.categories as any[]) || [];
 
           const existingNames = new Set(currentCats.map(c => `${c.type}:${c.name}`));
           const newCats: any[] = [];
@@ -1203,7 +1109,7 @@ export default function App() {
           }
 
           if (newCats.length > 0) {
-            await setDoc(catRef, { categories: [...currentCats, ...newCats] }, { merge: true });
+            await upsertCategoriesDoc(activeBusiness.id, { categories: [...currentCats, ...newCats] });
             addSyncLog(`Auto-synced ${newCats.length} new categories to Brand Kit`, 'info');
           }
         } catch (e) {
@@ -1274,7 +1180,7 @@ export default function App() {
       }
 
       // Save updated status to Firestore
-      await setDoc(doc(db, 'posts', post.id), { ...post, ...update });
+      await updatePost(post.id, { ...post, ...update });
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, ...update } : p));
 
     } catch (error: any) {
@@ -1324,9 +1230,6 @@ export default function App() {
         );
 
         if (repeatPosts.length > 0) {
-          let batch = writeBatch(db);
-          let batchCount = 0;
-
           for (const post of repeatPosts) {
             const lastDate = new Date(post.lastRepeatDate || post.publishedAt!);
             const intervalDays = post.repeatInterval === 'weekly' ? 7 : post.repeatInterval === 'biweekly' ? 14 : 30;
@@ -1334,7 +1237,6 @@ export default function App() {
 
             if (nextDate <= now) {
               const nowIso = now.toISOString();
-              // Create a fresh copy of this post for the new date
               const newPostId = uuidv4();
               const newPost: Post = {
                 ...post,
@@ -1348,21 +1250,13 @@ export default function App() {
                 lastRepeatDate: nowIso,
               };
 
-              batch.set(doc(db, 'posts', newPostId), { ...newPost, userId: user.uid });
-              // Update the original post's lastRepeatDate
-              batch.update(doc(db, 'posts', post.id), { lastRepeatDate: nowIso });
-              batchCount += 2;
-
-              if (batchCount >= 40) { // Firestore batch limit is 500, but we stay safe
-                await batch.commit();
-                batch = writeBatch(db);
-                batchCount = 0;
-              }
+              await createPost(
+                { ...newPost, userId: profile?.id || user.uid },
+                post.businessId || activeBusiness?.id || '',
+                profile?.id
+              );
+              await updatePost(post.id, { lastRepeatDate: nowIso });
             }
-          }
-
-          if (batchCount > 0) {
-            await batch.commit();
           }
         }
       } catch (err) {
@@ -1480,7 +1374,7 @@ export default function App() {
         }
       }
 
-      await deleteDoc(doc(db, 'posts', id));
+      await deletePost(id);
       addSyncLog(`Successfully deleted post: ${postToDelete?.title || id}`, 'success');
     } catch (error) {
       console.error("Failed to delete post:", error);
@@ -1493,109 +1387,52 @@ export default function App() {
 
   const prevDeps = useRef<any>({});
   useEffect(() => {
-    if (loading) return; // Wait for auth to finish loading
+    if (loading || !profile) return;
 
-    const currentDeps = { user: user?.uid, activeBusiness: activeBusiness?.id, sharedBusiness: sharedBusiness?.id, isViewOnly, calendarMode };
+    const currentDeps = { profileId: profile.id, activeBusiness: activeBusiness?.id, sharedBusiness: sharedBusiness?.id, isViewOnly, calendarMode };
     const changedDeps = Object.keys(currentDeps).filter(k => (currentDeps as any)[k] !== prevDeps.current[k]);
-
     if (changedDeps.length > 0) {
       console.log(`[Sync] Dependencies changed: ${changedDeps.join(', ')}`);
     }
     prevDeps.current = currentDeps;
 
     setIsSyncing(true);
-    const context = calendarMode === 'personal' ? 'personal (all workspaces)' : (activeBusiness ? `business ${activeBusiness.id}` : (isViewOnly && sharedBusiness ? `shared business ${sharedBusiness.id}` : 'no context'));
-    addSyncLog(`Connecting to cloud (${context})...`, 'info');
-    console.log(`[Sync] Starting sync for ${context}. User: ${user?.uid}`);
+    const context = calendarMode === 'personal' ? 'personal' : (activeBusiness ? `business ${activeBusiness.id}` : 'shared/none');
+    addSyncLog(`Connecting to Supabase (${context})...`, 'info');
 
-    let q;
-    if (isViewOnly && sharedBusiness && sharedBusiness.id) {
-      // Shared view: ONLY show posts for that business, NEVER personal
-      q = query(collection(db, 'posts'), where('businessId', '==', sharedBusiness.id));
-    } else if (calendarMode === 'personal' && user) {
-      // Personal view: show EVERYTHING for this user
-      q = query(collection(db, 'posts'), where('userId', '==', user.uid));
-    } else if (activeBusiness && activeBusiness.id) {
-      // Work view: show ONLY active business
-      q = query(collection(db, 'posts'), where('businessId', '==', activeBusiness.id));
+    let unsubscribe: () => void;
+    const onPosts = (fetchedPosts: Post[]) => {
+      addSyncLog(`Received ${fetchedPosts.length} posts`, 'info');
+      setPosts(fetchedPosts);
+      setIsSyncing(false);
+    };
+
+    if (isViewOnly && sharedBusiness?.id) {
+      unsubscribe = subscribeToPosts(sharedBusiness.id, onPosts);
+    } else if (calendarMode === 'personal') {
+      unsubscribe = subscribeToPostsForProfile(profile.id, onPosts);
+    } else if (activeBusiness?.id) {
+      unsubscribe = subscribeToPosts(activeBusiness.id, onPosts);
     } else {
-      // No business context, clear posts
-      console.log(`[Sync] No business context, clearing posts`);
       setPosts([]);
       setIsSyncing(false);
       return;
     }
 
-    console.log(`[Sync] Attaching onSnapshot listener for ${context}`);
-
-    // Test with getDocs first to see if it's an onSnapshot specific issue
-    getDocs(query(q, limit(1))).then(() => {
-      console.log(`[Sync] getDocs test successful for ${context}`);
-    }).catch(err => {
-      console.error(`[Sync] getDocs test failed for ${context}:`, err);
-    });
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      console.log(`[Sync] Snapshot received for ${context}, metadata.fromCache: ${snapshot.metadata.fromCache}`);
-      const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Post);
-      addSyncLog(`Received update from cloud: ${fetchedPosts.length} posts`, 'info');
-      console.log(`[Sync] Received ${fetchedPosts.length} posts from Firestore`);
-
-      setPosts(fetchedPosts);
-      console.log(`[Sync] Setting setIsSyncing(false)`);
-      setIsSyncing(false);
-    }, (error) => {
-      console.error("[Sync] onSnapshot error:", error);
-      addSyncLog(`Cloud sync error: ${error.message}`, 'error');
-      setIsSyncing(false);
-      handleFirestoreError(error, OperationType.GET, 'posts');
-    });
-
-    // Add a timeout to prevent infinite "Connecting to cloud..." state
-    const timeoutId = setTimeout(() => {
-      console.log(`[Sync] Sync timeout reached for ${context}`);
-      addSyncLog(`Sync taking longer than expected...`, 'info');
-      setIsSyncing(false); // Force it to false so user can at least use the app
-    }, 15000);
-
+    const timeoutId = setTimeout(() => setIsSyncing(false), 15000);
     return () => {
-      console.log(`[Sync] Cleaning up sync for ${context}`);
       unsubscribe();
       clearTimeout(timeoutId);
     };
-  }, [user, activeBusiness, sharedBusiness, isViewOnly, calendarMode]);
+  }, [profile, activeBusiness, sharedBusiness, isViewOnly, calendarMode, loading]);
 
   useEffect(() => {
-    if (user && userProfileSynced.current !== user.uid) {
-      const userRef = doc(db, 'users', user.uid);
-
-      // Load AI Settings
-      getDoc(userRef).then(docSnap => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.aiSettings) {
-            setAiSettingsState(data.aiSettings);
-            setAiSettings(data.aiSettings);
-          }
-          setUserOnboardingComplete(data.onboardingComplete === true);
-        } else {
-          setUserOnboardingComplete(false);
-        }
-      }).catch(err => console.error("Failed to load AI settings", err));
-
-      setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        updatedAt: serverTimestamp()
-      }, { merge: true }).then(() => {
-        userProfileSynced.current = user.uid;
-      }).catch(err => {
-        console.error("Failed to sync user profile", err);
-      });
+    if (profile) {
+      const settings = profile.settings as { onboardingComplete?: boolean } | undefined;
+      setUserOnboardingComplete(settings?.onboardingComplete === true);
+      userProfileSynced.current = profile.firebase_uid;
     }
-  }, [user]);
+  }, [profile]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -2105,7 +1942,7 @@ export default function App() {
       date,
     };
     try {
-      await setDoc(doc(db, 'posts', newPost.id), newPost);
+      await createPost(newPost, newPost.businessId || activeBusiness?.id || '', profile?.id);
       toast.success('Post copied');
     } catch (error) {
       console.error('Error copying post:', error);
@@ -2117,7 +1954,7 @@ export default function App() {
     if (!activeBusiness) return;
     const token = activeBusiness.shareToken || crypto.randomUUID();
     if (!activeBusiness.shareToken) {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), { shareToken: token });
+      await updateBusiness(activeBusiness.id, { shareToken: token } as Partial<Business>);
     }
     const shareUrl = `${window.location.origin}/share/${activeBusiness.id}/${token}`;
     navigator.clipboard.writeText(shareUrl);
@@ -2221,7 +2058,7 @@ export default function App() {
             createdAt: new Date().toISOString()
           };
           
-          await setDoc(doc(db, 'posts', newPost.id), newPost);
+          await createPost(newPost, newPost.businessId || activeBusiness?.id || '', profile?.id);
           
           // Increment date for the next post
           currentDate.setDate(currentDate.getDate() + 1);
@@ -2270,7 +2107,7 @@ export default function App() {
           createdAt: new Date().toISOString()
         };
 
-        await setDoc(doc(db, 'posts', newPost.id), newPost);
+        await createPost(newPost, newPost.businessId || activeBusiness?.id || '', profile?.id);
         toast.dismiss(loadingToast);
         toast.success("AI generated a new post for " + format(parseISO(targetDate), 'MMM d') + "!");
 
@@ -2369,9 +2206,9 @@ export default function App() {
 
       let titles = { type: 'FORMAT', platforms: 'PLATFORM', campaign: 'CAMPAIGN', outlet: 'OUTLET' };
       if (activeBusiness?.id) {
-        const catDoc = await getDoc(doc(db, 'categories', activeBusiness.id));
-        if (catDoc.exists() && catDoc.data().titles) {
-          titles = { ...titles, ...catDoc.data().titles };
+        const catDoc = await getCategoriesDoc(activeBusiness.id);
+        if (catDoc?.titles) {
+          titles = { ...titles, ...(catDoc.titles as typeof titles) };
         }
       }
 
@@ -2718,15 +2555,8 @@ export default function App() {
             }
 
             addSyncLog(`Saving ${processedPosts.length} posts to cloud...`, 'info');
-            const BATCH_SIZE = 400;
-            for (let i = 0; i < processedPosts.length; i += BATCH_SIZE) {
-              const batch = writeBatch(db);
-              const chunk = processedPosts.slice(i, i + BATCH_SIZE);
-              chunk.forEach((post) => {
-                const postRef = doc(db, 'posts', post.id);
-                batch.set(postRef, post);
-              });
-              await batch.commit();
+            for (const post of processedPosts) {
+              await createPost(post, post.businessId || activeBusiness?.id || '', profile?.id);
             }
             addSyncLog(`Successfully imported ${processedPosts.length} posts from Excel`, 'success');
             toast.success('Excel schedule imported and synced successfully!');
@@ -2838,19 +2668,10 @@ export default function App() {
               }
 
               addSyncLog(`All images processed. Saving ${processedPosts.length} posts to cloud...`, 'info');
-              // Firestore batches have a limit of 500 writes
-              const BATCH_SIZE = 400;
-              for (let i = 0; i < processedPosts.length; i += BATCH_SIZE) {
-                const batch = writeBatch(db);
-                const chunk = processedPosts.slice(i, i + BATCH_SIZE);
-                chunk.forEach((post) => {
-                  if (post.id) {
-                    const postRef = doc(db, 'posts', post.id);
-                    batch.set(postRef, post);
-                  }
-                });
-                await batch.commit();
-                addSyncLog(`Saved batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(processedPosts.length / BATCH_SIZE)}`, 'info');
+              for (const post of processedPosts) {
+                if (post.id) {
+                  await createPost(post, post.businessId || activeBusiness?.id || '', profile?.id);
+                }
               }
               addSyncLog(`Successfully imported and synced ${processedPosts.length} posts`, 'success');
               toast.success('Schedule imported and synced successfully!');
@@ -3078,45 +2899,18 @@ export default function App() {
           localStorage.setItem(`rainbowStockCheck_${activeBusiness?.id || 'default'}`, JSON.stringify(data.products));
 
           if (user && activeBusiness?.id) {
-            const syncToFirestore = async () => {
-              try {
-                const CHUNK_SIZE = 100;
-                for (let i = 0; i < data.products.length; i += CHUNK_SIZE) {
-                  const batch = writeBatch(db);
-                  const chunk = data.products.slice(i, i + CHUNK_SIZE);
-                  chunk.forEach((p: any) => {
-                    const docId = p.title.replace(/[^a-zA-Z0-9]/g, '_');
-                    const docRef = doc(db, 'inventory_products', `${activeBusiness.id}_${docId}`);
-                    batch.set(docRef, { ...p, userId: user.uid, businessId: activeBusiness.id, updatedAt: new Date().toISOString() });
-                  });
-                  await batch.commit();
-                  await new Promise(resolve => setTimeout(resolve, 200));
-                }
-              } catch (e) {
-                console.error("Failed to sync products to firestore", e);
-              }
-            };
-            syncToFirestore();
+            void syncCatalogueProducts(activeBusiness.id, data.products).catch((e) =>
+              console.error('Failed to sync products to Supabase', e)
+            );
           }
         }
         if (data.categoryCounts && Array.isArray(data.categoryCounts)) {
           localStorage.setItem(`rainbowCategoryCounts_${activeBusiness?.id || 'default'}`, JSON.stringify(data.categoryCounts));
 
           if (user && activeBusiness?.id) {
-            const syncCounts = async () => {
-              try {
-                const batch = writeBatch(db);
-                data.categoryCounts.forEach((c: any) => {
-                  const docId = c.category.replace(/[^a-zA-Z0-9]/g, '_');
-                  const docRef = doc(db, 'inventory_category_counts', `${activeBusiness.id}_${docId}`);
-                  batch.set(docRef, { ...c, userId: user.uid, businessId: activeBusiness.id, updatedAt: new Date().toISOString() });
-                });
-                await batch.commit();
-              } catch (e) {
-                console.error("Failed to sync category counts to firestore", e);
-              }
-            };
-            syncCounts();
+            void saveCategoryCounts(activeBusiness.id, data.categoryCounts).catch((e) =>
+              console.error('Failed to sync category counts', e)
+            );
           }
         }
         toast.success('Product data imported successfully! Please refresh or switch tabs to see changes.');
@@ -3138,67 +2932,50 @@ export default function App() {
       outletNames?: string;
     }
   ) => {
-    if (!user) return;
+    if (!user || !profile) return;
     try {
-      const bizId = uuidv4();
-      const newBiz: Business = {
-        id: bizId,
-        name: data.name || 'My Business',
-        industry: data.industry || 'Retail',
-        description: data.description || '',
-        ownerId: user.uid,
-        members: [user.uid],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        shareToken: uuidv4(),
-        status: 'active',
-        targetUrl: data.targetUrl,
-      };
-
-      await setDoc(doc(db, 'businesses', bizId), newBiz);
+      const newBiz = await createBusiness(
+        {
+          name: data.name || 'My Business',
+          industry: data.industry || 'Retail',
+          description: data.description || '',
+          targetUrl: data.targetUrl,
+        },
+        profile.id
+      );
 
       const outletNames = (data.outletNames || data.name || 'Main Store')
         .split(/[,;\n]+/)
         .map((s) => s.trim())
         .filter(Boolean);
       const uniqueOutlets = [...new Set(outletNames)];
-      await setDoc(doc(db, 'categories', bizId), {
-        businessId: bizId,
+      await upsertCategoriesDoc(newBiz.id, {
         categories: uniqueOutlets.map((name) => ({
           id: uuidv4(),
           name,
           type: 'outlet',
           enabled: true,
         })),
-        updatedAt: new Date().toISOString(),
       });
 
-      // Initialize Brand Kit
-      await setDoc(doc(db, 'brand_kits', bizId), {
-        businessId: bizId,
-        colors: [
-          { name: 'Primary', hex: (data as any).brandColors?.primary || '#3b82f6' },
-          { name: 'Secondary', hex: (data as any).brandColors?.secondary || '#1e293b' },
-          { name: 'Accent', hex: (data as any).brandColors?.accent || '#f59e0b' }
-        ],
-        fonts: {
-          heading: 'Inter',
-          body: 'Inter'
+      await upsertBrandKit(newBiz.id, {
+        brand_colors: {
+          primary: (data as { brandColors?: { primary?: string } }).brandColors?.primary || '#3b82f6',
+          secondary: (data as { brandColors?: { secondary?: string } }).brandColors?.secondary || '#1e293b',
+          accent: (data as { brandColors?: { accent?: string } }).brandColors?.accent || '#f59e0b',
         },
-        designGuide: `Brand Voice: Professional and engaging.\nIndustry: ${data.industry}.\nDescription: ${data.description}.`,
-        updatedAt: new Date().toISOString()
+        ai_generated_guide: `Brand Voice: Professional and engaging.\nIndustry: ${data.industry}.\nDescription: ${data.description}.`,
       });
 
-      // Update AI Settings & Theme
       if (data.targetUrl || data.geminiApiKey) {
         const newSettings = {
           ...aiSettings,
           targetUrl: data.targetUrl || aiSettings.targetUrl,
-          geminiApiKey: data.geminiApiKey || aiSettings.geminiApiKey
+          geminiApiKey: data.geminiApiKey || aiSettings.geminiApiKey,
         };
         setAiSettingsState(newSettings);
-        setAiSettings(newSettings); // Sync to localStorage
-        await setDoc(doc(db, 'users', user.uid), { aiSettings: newSettings }, { merge: true });
+        setAiSettings(newSettings);
+        await updateProfileAiSettings(profile.id, newSettings as Record<string, unknown>);
       }
 
       if (data.theme) {
@@ -3211,11 +2988,9 @@ export default function App() {
         localStorage.setItem('forge_theme_mode', data.theme);
       }
 
-      await setDoc(
-        doc(db, 'users', user.uid),
-        { onboardingComplete: true, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
+      await updateProfile(profile.id, {
+        settings: { ...(profile.settings || {}), onboardingComplete: true },
+      });
       setUserOnboardingComplete(true);
       setActiveBusiness(newBiz);
       setShowOnboarding(false);
@@ -3819,13 +3594,7 @@ export default function App() {
                               syncLogs={syncLogs}
                               signOut={signOut}
                               auth={auth}
-                              db={db}
                               setPosts={setPosts}
-                              query={query}
-                              collection={collection}
-                              where={where}
-                              getDocs={getDocs}
-                              writeBatch={writeBatch}
                               industryConfig={industryConfig}
                               setActiveTab={setActiveTab}
                             />
@@ -3843,9 +3612,9 @@ export default function App() {
                                 <button
                                   onClick={async () => {
                                     if(confirm(`Delete the applet ${applet.name}?`)) {
-                                      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-                                        applets: activeBusiness.applets?.filter(a => a.id !== applet.id)
-                                      });
+                                      await updateBusiness(activeBusiness.id, {
+                                        applets: activeBusiness.applets?.filter((a) => a.id !== applet.id),
+                                      } as Partial<Business>);
                                       if(activeTab === `applet_${applet.id}`) setActiveTab('home');
                                     }
                                   }}

@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Business } from '../data';
-import { doc, updateDoc, collection, query, where, onSnapshot, arrayRemove, deleteField } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import {
+  subscribeToAccessRequests,
+  updateAccessRequest,
+  addBusinessMember,
+  updateMemberRoleByFirebaseUid,
+  removeMemberByFirebaseUid,
+  getProfile,
+} from '../lib/supabase';
 import { toast } from 'sonner';
 import { Users, Shield, UserPlus, Check, XCircle, Clock, Trash2, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -30,9 +36,16 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
   useEffect(() => {
     if (!activeBusiness) return;
     setLoadingRequests(true);
-    const q = query(collection(db, 'access_requests'), where('businessId', '==', activeBusiness.id), where('status', '==', 'pending'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reqs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
+    const unsubscribe = subscribeToAccessRequests(activeBusiness.id, (rows) => {
+      const reqs = rows.map((r: any) => ({
+        id: r.id,
+        businessId: r.business_id,
+        userId: r.profiles?.firebase_uid || r.profile_id,
+        userEmail: r.profiles?.email || '',
+        userName: r.profiles?.display_name || 'User',
+        status: r.status,
+        createdAt: r.created_at,
+      })) as AccessRequest[];
       setRequests(reqs);
       setLoadingRequests(false);
     });
@@ -42,9 +55,7 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
   const handleUpdateRole = async (userId: string, role: 'admin' | 'editor' | 'viewer') => {
     if (!activeBusiness) return;
     try {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-        [`memberRoles.${userId}`]: role
-      });
+      await updateMemberRoleByFirebaseUid(activeBusiness.id, userId, role);
       onUpdateBusiness({
         ...activeBusiness,
         memberRoles: { ...(activeBusiness.memberRoles || {}), [userId]: role }
@@ -60,11 +71,7 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
     if (!activeBusiness) return;
     if (!window.confirm("Remove this member from the workspace?")) return;
     try {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-        members: arrayRemove(userId),
-        [`memberRoles.${userId}`]: deleteField()
-      });
-      
+      await removeMemberByFirebaseUid(activeBusiness.id, userId);
       const updatedMembers = activeBusiness.members?.filter((m: string) => m !== userId) || [];
       const updatedRoles = { ...activeBusiness.memberRoles };
       delete updatedRoles[userId];
@@ -85,11 +92,11 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
   const handleHandleRequest = async (requestId: string, userId: string, status: 'approved' | 'rejected') => {
     if (!activeBusiness) return;
     try {
-      await updateDoc(doc(db, 'access_requests', requestId), { status });
+      const profile = await getProfile(userId);
+      if (!profile) throw new Error('Profile not found');
+      await updateAccessRequest(requestId, status, profile.id);
       if (status === 'approved') {
-        await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-          [`memberRoles.${userId}`]: 'editor' // Upgrade to editor on approval
-        });
+        await addBusinessMember(activeBusiness.id, profile.id, 'editor');
         toast.success("Access request approved!");
       } else {
         toast.info("Access request rejected.");
@@ -190,8 +197,8 @@ export function WorkspaceManagementTab({ activeBusiness, onUpdateBusiness, setAc
           <div className="bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] overflow-hidden">
             <div className="divide-y divide-[#E9E9E7] dark:divide-[#2E2E2E]">
               {activeBusiness.members?.map((memberId: string) => {
-                const role = activeBusiness.memberRoles?.[memberId] || (activeBusiness.ownerId === memberId ? 'admin' : 'viewer');
-                const isOwner = activeBusiness.ownerId === memberId;
+                const role = activeBusiness.memberRoles?.[memberId] || 'viewer';
+                const isOwner = role === 'admin' && memberId === activeBusiness.members?.[0];
                 
                 return (
                   <div key={memberId} className="flex items-center justify-between p-4 hover:bg-[#F7F7F5] dark:hover:bg-[#202020] transition-colors">

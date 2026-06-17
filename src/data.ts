@@ -129,6 +129,7 @@ export interface Business {
     icon?: string;
     createdAt: string;
   }[];
+  appletData?: Record<string, unknown>;
 }
 
 export const OUTLETS = [

@@ -12,16 +12,15 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { scrapeWooCommerce, HighStockProduct } from '../lib/gemini';
 import { 
-  doc, 
-  setDoc, 
-  query, 
-  collection, 
-  where, 
-  getDocs, 
-  writeBatch, 
-  onSnapshot 
-} from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+  subscribeToBrandKit,
+  subscribeToCategories,
+  upsertCategoriesDoc,
+  upsertBrandKit,
+  getPosts,
+  updatePost,
+  getBrandKit,
+  normalizeCategoriesDoc,
+} from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Post, Business, OUTLETS, PRODUCT_CATEGORIES } from '../data';
 import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
@@ -113,9 +112,9 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
       const updatedCategories = [...categories, ...newCats];
       setCategories(updatedCategories);
 
-      await setDoc(doc(db, 'categories', activeBusiness.id), { 
+      await upsertCategoriesDoc(activeBusiness.id, { 
         categories: updatedCategories
-      }, { merge: true });
+      });
 
       toast.success(`Successfully scraped ${newCats.length} new categories!`);
     } catch (error) {
@@ -198,10 +197,10 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
       setCategories(updatedCategories);
       if (platformsChanged) setTargetPlatforms(updatedPlatforms);
 
-      await setDoc(doc(db, 'categories', activeBusiness.id), { 
+      await upsertCategoriesDoc(activeBusiness.id, { 
         categories: updatedCategories,
         targetPlatforms: updatedPlatforms
-      }, { merge: true });
+      });
 
       toast.success(`Synced ${newCats.length} new items and ${foundPlatforms.size} platforms from calendar.`);
     } catch (error) {
@@ -245,7 +244,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
       
       const updatedBrandKit = { ...brandKit, brandProfile: markdown };
       setBrandKit(updatedBrandKit);
-      await setDoc(doc(db, 'brand_kits', activeBusiness.id), updatedBrandKit);
+      await upsertBrandKit(activeBusiness.id, updatedBrandKit);
       
       setShowBrandUrlInput(false);
       setBrandUrl('');
@@ -355,7 +354,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
 
       const updatedBrandKit = { ...brandKit, designGuide: markdown };
       setBrandKit(updatedBrandKit);
-      await setDoc(doc(db, 'brand_kits', activeBusiness.id), updatedBrandKit);
+      await upsertBrandKit(activeBusiness.id, updatedBrandKit);
       
       setUploadedPostImages([]); // Clear after sync
       toast.success('AI Design Guide (design.md) generated and synced successfully!');
@@ -385,19 +384,16 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   useEffect(() => {
     if (!activeBusiness) return;
 
-    // Load Brand Kit
-    const brandKitRef = doc(db, 'brand_kits', activeBusiness.id);
-    const unsubBrandKit = onSnapshot(brandKitRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    const unsubBrandKit = subscribeToBrandKit(activeBusiness.id, (data) => {
+      if (data) {
         setBrandKit({
           ...defaultBrandKit,
           ...data,
-          colors: data.colors || defaultBrandKit.colors,
-          logos: data.logos || [],
-          designs: data.designs || [],
-          customFonts: data.customFonts || [],
-          fonts: data.fonts || defaultBrandKit.fonts
+          colors: (data.colors as BrandKit['colors']) || defaultBrandKit.colors,
+          logos: (data.logos as string[]) || [],
+          designs: (data.designs as string[]) || [],
+          customFonts: (data.customFonts as BrandKit['customFonts']) || [],
+          fonts: (data.fonts as BrandKit['fonts']) || defaultBrandKit.fonts
         } as BrandKit);
         try {
           localStorage.setItem(
@@ -413,26 +409,13 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
       } else {
         setBrandKit(defaultBrandKit);
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `brand_kits/${activeBusiness.id}`);
     });
 
-    // Load Categories & Platforms
-    const categoriesRef = doc(db, 'categories', activeBusiness.id);
-    const unsubCategories = onSnapshot(categoriesRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setCategories(data.categories || []);
-        setTargetPlatforms(data.targetPlatforms || ['instagram', 'facebook', 'viber', 'tiktok']);
-        if (data.titles) {
-          setDataTitles(prev => ({ ...prev, ...data.titles }));
-        }
-      } else {
-        setCategories([]);
-        setTargetPlatforms(['instagram', 'facebook', 'viber', 'tiktok']);
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
+    const unsubCategories = subscribeToCategories(activeBusiness.id, (docSnap) => {
+      const normalized = normalizeCategoriesDoc(docSnap);
+      setCategories(normalized.categories as typeof categories);
+      setTargetPlatforms(normalized.targetPlatforms);
+      setDataTitles((prev) => ({ ...prev, ...normalized.titles }));
     });
 
     return () => {
@@ -469,9 +452,9 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
   const saveTitles = async (newTitles: Record<string, string>) => {
     if (!activeBusiness?.id) return;
     try {
-      await setDoc(doc(db, 'categories', activeBusiness.id), { 
+      await upsertCategoriesDoc(activeBusiness.id, { 
         titles: newTitles
-      }, { merge: true });
+      });
       toast.success('Data type labels updated');
     } catch (e) {
       console.error("Error saving titles", e);
@@ -493,7 +476,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
       onAiSettingsChange?.('brandVoice', brandVoiceText);
       onAiSettingsChange?.('businessRules', businessRulesText);
       onAiSettingsChange?.('systemInstructions', instructionText);
-      await setDoc(doc(db, 'brand_kits', activeBusiness.id), brandKit, { merge: true });
+      await upsertBrandKit(activeBusiness.id, brandKit);
       toast.success('AI knowledge saved — local and cloud models will use these rules.');
     } catch {
       toast.error('Failed to save AI knowledge');
@@ -509,7 +492,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     const rest = categories.filter((c) => c.type !== selectedCategoryType);
     setCategories([...rest, ...sorted]);
     if (activeBusiness?.id) {
-      setDoc(doc(db, 'categories', activeBusiness.id), { categories: [...rest, ...sorted] }, { merge: true });
+      void upsertCategoriesDoc(activeBusiness.id, { categories: [...rest, ...sorted] });
     }
     toast.success('Sorted A–Z');
   };
@@ -520,7 +503,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     );
     setCategories(updated);
     if (activeBusiness?.id) {
-      setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+      void upsertCategoriesDoc(activeBusiness.id, { categories: updated });
     }
     toast.success(enabled ? 'All enabled for this type' : 'All disabled for this type');
   };
@@ -529,12 +512,10 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     if (!activeBusiness) return;
     setIsSaving(true);
     try {
-      const { getDoc } = await import('firebase/firestore');
-      const existingDoc = await getDoc(doc(db, 'brand_kits', activeBusiness.id));
-      if (existingDoc.exists()) {
-        const existingData = existingDoc.data();
-        const existingLogos = existingData.logos || [];
-        const existingDesigns = existingData.designs || [];
+      const existingData = await getBrandKit(activeBusiness.id);
+      if (existingData) {
+        const existingLogos = (existingData.logos as string[]) || [];
+        const existingDesigns = (existingData.designs as string[]) || [];
         
         const removedLogos = existingLogos.filter((img: string) => !brandKit.logos.includes(img));
         const removedDesigns = existingDesigns.filter((img: string) => !brandKit.designs.includes(img));
@@ -545,7 +526,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
         }
       }
 
-      await setDoc(doc(db, 'brand_kits', activeBusiness.id), brandKit);
+      await upsertBrandKit(activeBusiness.id, brandKit);
       try {
         localStorage.setItem(
           'forge_brand_kit_snapshot',
@@ -645,7 +626,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     const updated = [...categories, newCat];
     setCategories(updated);
     setNewCategoryName('');
-    await setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+    await upsertCategoriesDoc(activeBusiness.id, { categories: updated });
     toast.success(`Added ${newCategoryName}`);
   };
 
@@ -657,40 +638,34 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
 
     const updated = categories.map(c => c.id === id ? { ...c, name: newName } : c);
     setCategories(updated);
-    await setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+    await upsertCategoriesDoc(activeBusiness.id, { categories: updated });
 
     if (oldName !== newName) {
       try {
-        const q = query(collection(db, 'posts'), where('businessId', '==', activeBusiness.id));
-        const snapshot = await getDocs(q);
-        const batch = writeBatch(db);
-        let count = 0;
-        snapshot.docs.forEach((docSnap) => {
-          const data = docSnap.data();
+        const allPosts = await getPosts(activeBusiness.id);
+        for (const post of allPosts) {
+          const updates: Partial<Post> = {};
           let changed = false;
-          const updates: any = {};
-          if (oldCat.type === 'category' && data.productCategory === oldName) {
+          if (oldCat.type === 'category' && post.productCategory === oldName) {
             updates.productCategory = newName;
             changed = true;
           }
-          if (oldCat.type === 'outlet' && data.outlet === oldName) {
+          if (oldCat.type === 'outlet' && post.outlet === oldName) {
             updates.outlet = newName;
             changed = true;
           }
-          if (oldCat.type === 'campaign' && data.campaignType === oldName) {
+          if (oldCat.type === 'campaign' && post.campaignType === oldName) {
             updates.campaignType = newName;
             changed = true;
           }
-          if (oldCat.type === 'type' && data.type === oldName) {
+          if (oldCat.type === 'type' && post.type === oldName) {
             updates.type = newName;
             changed = true;
           }
-          if (changed) {
-            batch.update(docSnap.ref, updates);
-            count++;
+          if (changed && post.id) {
+            await updatePost(post.id, updates);
           }
-        });
-        if (count > 0) await batch.commit();
+        }
       } catch (error) {
         console.error("Failed to update posts:", error);
       }
@@ -705,39 +680,33 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
 
     const updated = categories.filter(c => c.id !== id);
     setCategories(updated);
-    await setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+    await upsertCategoriesDoc(activeBusiness.id, { categories: updated });
 
     try {
-      const q = query(collection(db, 'posts'), where('businessId', '==', activeBusiness.id));
-      const snapshot = await getDocs(q);
-      const batch = writeBatch(db);
-      let count = 0;
-      snapshot.docs.forEach((docSnap) => {
-        const data = docSnap.data();
+      const allPosts = await getPosts(activeBusiness.id);
+      for (const post of allPosts) {
+        const updates: Partial<Post> = {};
         let changed = false;
-        const updates: any = {};
-        if (catToDelete.type === 'category' && data.productCategory === oldName) {
+        if (catToDelete.type === 'category' && post.productCategory === oldName) {
           updates.productCategory = '';
           changed = true;
         }
-        if (catToDelete.type === 'outlet' && data.outlet === oldName) {
+        if (catToDelete.type === 'outlet' && post.outlet === oldName) {
           updates.outlet = '';
           changed = true;
         }
-        if (catToDelete.type === 'campaign' && data.campaignType === oldName) {
+        if (catToDelete.type === 'campaign' && post.campaignType === oldName) {
           updates.campaignType = '';
           changed = true;
         }
-        if (catToDelete.type === 'type' && data.type === oldName) {
+        if (catToDelete.type === 'type' && post.type === oldName) {
           updates.type = '';
           changed = true;
         }
-        if (changed) {
-          batch.update(docSnap.ref, updates);
-          count++;
+        if (changed && post.id) {
+          await updatePost(post.id, updates);
         }
-      });
-      if (count > 0) await batch.commit();
+      }
     } catch (error) {
       console.error("Failed to clear post fields:", error);
     }
@@ -749,7 +718,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     if (!activeBusiness?.id) return;
     const updated = categories.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c);
     setCategories(updated);
-    await setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+    await upsertCategoriesDoc(activeBusiness.id, { categories: updated });
   };
 
   // Platform Management
@@ -757,14 +726,14 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
     if (!platform.trim() || !activeBusiness?.id || targetPlatforms.includes(platform.trim().toLowerCase())) return;
     const updated = [...targetPlatforms, platform.trim().toLowerCase()];
     setTargetPlatforms(updated);
-    await setDoc(doc(db, 'categories', activeBusiness.id), { targetPlatforms: updated }, { merge: true });
+    await upsertCategoriesDoc(activeBusiness!.id, { targetPlatforms: updated });
   };
 
   const removeTargetPlatform = async (platform: string) => {
     if (!activeBusiness?.id) return;
     const updated = targetPlatforms.filter(p => p !== platform);
     setTargetPlatforms(updated);
-    await setDoc(doc(db, 'categories', activeBusiness.id), { targetPlatforms: updated }, { merge: true });
+    await upsertCategoriesDoc(activeBusiness!.id, { targetPlatforms: updated });
   };
 
   const populateDefaultCategories = async (isReset = false) => {
@@ -801,7 +770,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
 
     const updated = [...currentCategories, ...newCategories];
     setCategories(updated);
-    await setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+    await upsertCategoriesDoc(activeBusiness.id, { categories: updated });
     
     if (isReset) {
       toast.success("Categories reset to Rainbow defaults.");
@@ -1379,7 +1348,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
                           type: 'Clear all categories',
                           onConfirm: async () => {
                             setCategories([]);
-                            await setDoc(doc(db, 'categories', activeBusiness!.id), { categories: [] }, { merge: true });
+                            await upsertCategoriesDoc(activeBusiness!.id, { categories: [] });
                             toast.success('All categories cleared');
                           }
                         });
@@ -1579,7 +1548,7 @@ export function BrandKitTab({ activeBusiness, posts, aiSettings, onAiSettingsCha
                                   const newCat = { ...cat, id: uuidv4(), name: `${cat.name} (Copy)` };
                                   const newCats = [...categories, newCat];
                                   setCategories(newCats);
-                                  setDoc(doc(db, 'categories', activeBusiness!.id), { categories: newCats }, { merge: true });
+                                  void upsertCategoriesDoc(activeBusiness!.id, { categories: newCats });
                                   toast.success("Duplicated successfully");
                                 }
                               },

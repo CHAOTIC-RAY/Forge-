@@ -25,17 +25,9 @@ import { useIsMobile } from './Calendar';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  updateDoc, 
-  setDoc,
-  doc, 
-  serverTimestamp
-} from 'firebase/firestore';
+import { auth } from '../lib/firebase';
+import { useProfile } from '../hooks/useSupabaseAuth';
+import { getNotebook, upsertNotebook, subscribeToNotebook } from '../lib/supabase';
 import {
   generateTextWithCascade,
   safeParseJSON,
@@ -251,6 +243,7 @@ function DraggableBlock({ block, children, isSelected, onClick }: { block: Block
 }
 
 export function IdeasTab({ activeBusiness, onAddToCalendar }: IdeasTabProps) {
+  const profile = useProfile();
   const isMobile = useIsMobile();
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -271,113 +264,93 @@ export function IdeasTab({ activeBusiness, onAddToCalendar }: IdeasTabProps) {
   const [collectionFilter, setCollectionFilter] = useState<string | 'all'>('all');
 
   useEffect(() => {
-    if (!activeBusiness?.id || !auth.currentUser) return;
+    if (!activeBusiness?.id || !profile) return;
 
     setIsReady(false);
     isInitialLoad.current = true;
 
-    const q = query(
-      collection(db, 'notebooks'),
-      where('businessId', '==', activeBusiness.id),
-      where('userId', '==', auth.currentUser.uid)
-    );
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (!snapshot.empty) {
-        const docData = snapshot.docs[0].data();
-        const docId = snapshot.docs[0].id;
-        setNotebookId(docId);
-        
-        if (isInitialLoad.current) {
-          let loadedBlocks = docData.blocks || [];
-          let hasChanges = false;
-          
-          // Auto-delete history older than 30 days
-          const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-          loadedBlocks = loadedBlocks.filter((b: Block) => {
-             if (b.status === 'history' && b.createdAt && b.createdAt < thirtyDaysAgo) {
-                hasChanges = true;
-                return false;
-             }
-             return true;
-          });
-
-          // Auto-history: move inbox items older than 7 days to history
-          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-          loadedBlocks = loadedBlocks.map((b: Block) => {
-             if (b.status === 'inbox' && b.createdAt && b.createdAt < sevenDaysAgo) {
-                hasChanges = true;
-                return { ...b, status: 'history' };
-             }
-             return b;
-          });
-
-          setBlocks(loadedBlocks);
-          setLinks(docData.links || []);
-          setFolders(docData.folders || []);
-          isInitialLoad.current = false;
-
-          if (hasChanges) {
-             try {
-               await setDoc(doc(db, 'notebooks', docId), {
-                 blocks: loadedBlocks,
-                 updatedAt: serverTimestamp()
-               }, { merge: true });
-             } catch (error) {
-               console.error("Error auto-cleaning notebook:", error);
-             }
-          }
-        }
-        setIsReady(true);
-      } else {
-        const newId = Math.random().toString(36).substr(2, 9);
-        const newNotebook = {
-          id: newId,
-          businessId: activeBusiness.id,
-          userId: auth.currentUser.uid,
+    const applyNotebook = async (docData: { id: string; blocks?: Block[]; links?: Link[]; folders?: Folder[] } | null) => {
+      if (!docData) {
+        const welcomeBlock = {
+          id: 'initial-1',
+          type: 'text' as const,
+          title: 'Welcome to Ideas',
+          content: `Capture thoughts in the bar above, generate campaigns with AI, and drag ideas to the calendar when you're ready to schedule.`,
+          status: 'organized' as const,
+          folderId: null,
+        };
+        const created = await upsertNotebook(activeBusiness.id, profile.id, {
           title: 'Creative Strategy',
-          blocks: [
-            {
-              id: 'initial-1',
-              type: 'text',
-              title: "Welcome to Ideas",
-              content: `Capture thoughts in the bar above, generate campaigns with AI, and drag ideas to the calendar when you're ready to schedule.`,
-              status: 'organized',
-              folderId: null
-            }
-          ],
+          blocks: [welcomeBlock],
           links: [],
           folders: [],
-          updatedAt: serverTimestamp()
-        };
-        
-        try {
-          setNotebookId(newId);
-          await setDoc(doc(db, 'notebooks', newId), newNotebook);
-        } catch (error) {
-          console.error('Error creating initial notebook:', error);
-          handleFirestoreError(error, OperationType.WRITE, `notebooks/${newId}`);
+        });
+        setNotebookId(created.id);
+        setBlocks([welcomeBlock]);
+        setLinks([]);
+        setFolders([]);
+        setIsReady(true);
+        isInitialLoad.current = false;
+        return;
+      }
+
+      setNotebookId(docData.id);
+      if (isInitialLoad.current) {
+        let loadedBlocks = docData.blocks || [];
+        let hasChanges = false;
+
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        loadedBlocks = loadedBlocks.filter((b: Block) => {
+          if (b.status === 'history' && b.createdAt && b.createdAt < thirtyDaysAgo) {
+            hasChanges = true;
+            return false;
+          }
+          return true;
+        });
+
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        loadedBlocks = loadedBlocks.map((b: Block) => {
+          if (b.status === 'inbox' && b.createdAt && b.createdAt < sevenDaysAgo) {
+            hasChanges = true;
+            return { ...b, status: 'history' as const };
+          }
+          return b;
+        });
+
+        setBlocks(loadedBlocks);
+        setLinks(docData.links || []);
+        setFolders(docData.folders || []);
+        isInitialLoad.current = false;
+
+        if (hasChanges) {
+          await upsertNotebook(activeBusiness.id, profile.id, {
+            blocks: loadedBlocks,
+            links: docData.links || [],
+            folders: docData.folders || [],
+          });
         }
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'notebooks');
+      setIsReady(true);
+    };
+
+    const unsubscribe = subscribeToNotebook(activeBusiness.id, profile.id, (notebook) => {
+      void applyNotebook(notebook);
     });
 
     return () => unsubscribe();
-  }, [activeBusiness?.id, auth.currentUser?.uid]);
+  }, [activeBusiness?.id, profile?.id]);
 
   const saveNotebook = async (newBlocks: Block[], newLinks: Link[], newFolders: Folder[] = folders) => {
-    if (!notebookId) return;
+    if (!activeBusiness?.id || !profile) return;
     try {
-      await updateDoc(doc(db, 'notebooks', notebookId), {
+      await upsertNotebook(activeBusiness.id, profile.id, {
         blocks: newBlocks,
         links: newLinks,
         folders: newFolders,
-        updatedAt: serverTimestamp()
       });
     } catch (error) {
       console.error('Error saving notebook:', error);
-      handleFirestoreError(error, OperationType.UPDATE, `notebooks/${notebookId}`);
+      toast.error('Failed to save ideas to cloud.');
     }
   };
 

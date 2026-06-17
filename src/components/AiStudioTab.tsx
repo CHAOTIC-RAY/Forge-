@@ -13,8 +13,7 @@ import { generateAppletCode, ChatMessage } from '../lib/gemini';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { Business } from '../data';
-import { db } from '../lib/firebase';
-import { doc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
+import { createPost, updateBusiness } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 interface AiStudioTabProps {
@@ -77,11 +76,11 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
               createdAt: new Date().toISOString(),
               ...payload
             };
-            const postRef = doc(db, 'posts', newPost.id);
-            await setDoc(postRef, {
-               ...newPost,
-               outlet: activeBusiness.name
-            });
+            await createPost(
+              { ...newPost, outlet: activeBusiness.name, businessId: activeBusiness.id },
+              activeBusiness.id,
+              userId
+            );
             respond(true, newPost);
             toast.success("Sandbox saved a post!");
             break;
@@ -101,11 +100,10 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
             // General purpose data saving for Applets
             if (!activeBusiness?.id) throw new Error("No active business");
             if (!payload || !payload.key || !payload.data) throw new Error("Missing key or data");
-            const businessRef = doc(db, 'businesses', activeBusiness.id);
-            // We can save to appletData map
-            await updateDoc(businessRef, {
-              [`appletData.${payload.key}`]: payload.data
-            });
+            const currentData = (activeBusiness as any).appletData || {};
+            await updateBusiness(activeBusiness.id, {
+              appletData: { ...currentData, [payload.key]: payload.data },
+            } as any);
             respond(true, { key: payload.key });
             toast.success("Sandbox saved data!");
             break;
@@ -238,8 +236,9 @@ export function AiStudioTab({ activeBusiness, userId, onBack }: AiStudioTabProps
         code: generatedCode,
         createdAt: new Date().toISOString()
       };
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-        applets: arrayUnion(newApplet)
+      const existingApplets = activeBusiness.applets || [];
+      await updateBusiness(activeBusiness.id, {
+        applets: [...existingApplets, newApplet],
       });
       toast.success(`${name} deployed to your workspace!`);
     } catch (e) {

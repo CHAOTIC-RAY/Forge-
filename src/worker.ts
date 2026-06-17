@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { patchEsrganOnnxOutputDims } from "./lib/esrganOnnxPatch";
+import { discoverLinksWorker, htmlToSimpleMarkdown } from "./lib/lightweightHtml";
 
 export interface Env {
   CLOUDINARY_CLOUD_NAME: string;
@@ -302,23 +303,37 @@ export default {
         if (path === '/api/map' && request.method === 'POST') {
           const body: any = await request.json();
           const { url: targetUrl, limit, apiKey } = body;
-          
-          const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
-          if (!firecrawlKey) {
-            return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
+          if (!targetUrl) {
+            return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400 });
           }
 
-          const response = await fetch('https://api.firecrawl.dev/v2/map', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${firecrawlKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: targetUrl, limit: limit || 5000, sitemap: "include" })
-          });
-          
-          const data = await response.json();
-          return new Response(JSON.stringify(data), {
+          const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
+          if (firecrawlKey) {
+            try {
+              const response = await fetch('https://api.firecrawl.dev/v2/map', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${firecrawlKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: targetUrl, limit: limit || 5000, sitemap: "include" })
+              });
+              const data = await response.json();
+              return new Response(JSON.stringify({ ...data, provider: 'firecrawl' }), {
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+              });
+            } catch (e) {
+              console.warn('[map] Firecrawl failed, using local discovery');
+            }
+          }
+
+          const links = await discoverLinksWorker(targetUrl, Math.min(limit || 500, 300), 2);
+          return new Response(JSON.stringify({
+            success: true,
+            links,
+            provider: 'local',
+            message: firecrawlKey ? 'Firecrawl map failed; used local discovery' : 'No Firecrawl key — used local discovery',
+          }), {
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
           });
         }
@@ -327,37 +342,12 @@ export default {
         if (path === '/api/firecrawl-scrape' && request.method === 'POST') {
           const body: any = await request.json();
           const { url: targetUrl, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
-          
-          const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
-          if (!firecrawlKey) {
-            return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
+          if (!targetUrl) {
+            return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400 });
           }
 
-          const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${firecrawlKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: targetUrl, formats: ["markdown"], onlyMainContent, waitFor })
-          });
-          
-          const data = await response.json();
-          return new Response(JSON.stringify(data), {
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-          });
-        }
-
-        // POST /api/firecrawl-scrape-batch
-        if (path === '/api/firecrawl-scrape-batch' && request.method === 'POST') {
-          const body: any = await request.json();
-          const { urls, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
-          if (!firecrawlKey) {
-            return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
-          }
-          const results: any[] = [];
-          for (const targetUrl of (urls || []).slice(0, 40)) {
+          if (firecrawlKey) {
             try {
               const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
                 method: 'POST',
@@ -368,11 +358,96 @@ export default {
                 body: JSON.stringify({ url: targetUrl, formats: ["markdown"], onlyMainContent, waitFor })
               });
               const data = await response.json();
-              results.push({
-                url: targetUrl,
-                markdown: data?.data?.markdown,
-                metadata: data?.data?.metadata,
-              });
+              if (data?.data?.markdown) {
+                return new Response(JSON.stringify({
+                  success: true,
+                  data: data.data,
+                  provider: 'firecrawl',
+                }), {
+                  headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+                });
+              }
+            } catch (e) {
+              console.warn('[scrape] Firecrawl failed, using fetch fallback');
+            }
+          }
+
+          try {
+            const pageRes = await fetch(targetUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; ForgeCatalogue/1.0)',
+                Accept: 'text/html',
+              },
+              redirect: 'follow',
+            });
+            if (!pageRes.ok) {
+              return new Response(JSON.stringify({ success: false, error: `HTTP ${pageRes.status}` }), { status: 500 });
+            }
+            const html = await pageRes.text();
+            const $ = cheerio.load(html);
+            const title = $('title').first().text().trim();
+            const markdown = htmlToSimpleMarkdown(html);
+            return new Response(JSON.stringify({
+              success: true,
+              data: { markdown, metadata: { title, sourceURL: targetUrl } },
+              provider: 'fetch',
+            }), {
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+            });
+          } catch (e: any) {
+            return new Response(JSON.stringify({ success: false, error: e?.message || 'Scrape failed' }), { status: 500 });
+          }
+        }
+
+        // POST /api/firecrawl-scrape-batch
+        if (path === '/api/firecrawl-scrape-batch' && request.method === 'POST') {
+          const body: any = await request.json();
+          const { urls, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
+          const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
+          const results: any[] = [];
+
+          for (const targetUrl of (urls || []).slice(0, 40)) {
+            try {
+              let markdown: string | undefined;
+              let metadata: any;
+              let provider = 'fetch';
+
+              if (firecrawlKey) {
+                const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${firecrawlKey}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ url: targetUrl, formats: ["markdown"], onlyMainContent, waitFor })
+                });
+                const data = await response.json();
+                if (data?.data?.markdown) {
+                  markdown = data.data.markdown;
+                  metadata = data.data.metadata;
+                  provider = 'firecrawl';
+                }
+              }
+
+              if (!markdown) {
+                const pageRes = await fetch(targetUrl, {
+                  headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ForgeCatalogue/1.0)', Accept: 'text/html' },
+                  redirect: 'follow',
+                });
+                if (pageRes.ok) {
+                  const html = await pageRes.text();
+                  const $ = cheerio.load(html);
+                  markdown = htmlToSimpleMarkdown(html);
+                  metadata = { title: $('title').first().text().trim(), sourceURL: targetUrl };
+                  provider = 'fetch';
+                }
+              }
+
+              if (markdown) {
+                results.push({ url: targetUrl, markdown, metadata, provider });
+              } else {
+                results.push({ url: targetUrl, error: 'Scrape failed' });
+              }
             } catch (e: any) {
               results.push({ url: targetUrl, error: e?.message || 'Scrape failed' });
             }
@@ -383,14 +458,64 @@ export default {
           });
         }
 
+        // In-memory local crawl jobs (worker isolate — best-effort)
+        const localCrawlJobs = (globalThis as any).__forgeLocalCrawlJobs ||= new Map<string, any>();
+
         // POST /api/crawl
         if (path === '/api/crawl' && request.method === 'POST') {
           const body: any = await request.json();
           const { url: targetUrl, limit, apiKey, includePaths, excludePaths } = body;
-          
+          if (!targetUrl) {
+            return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400 });
+          }
+
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
           if (!firecrawlKey) {
-            return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });
+            const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            localCrawlJobs.set(id, { id, status: 'scraping', data: [] });
+
+            (async () => {
+              const job = localCrawlJobs.get(id);
+              try {
+                const links = await discoverLinksWorker(targetUrl, Math.min(limit || 50, 80), 2);
+                let urls = links.map((l) => l.url);
+                if (Array.isArray(includePaths) && includePaths.length) {
+                  urls = urls.filter((u) => includePaths.some((p: string) => u.includes(p)));
+                }
+                if (Array.isArray(excludePaths) && excludePaths.length) {
+                  urls = urls.filter((u) => !excludePaths.some((p: string) => u.includes(p)));
+                }
+                urls = urls.slice(0, limit || 50);
+                if (!urls.length) urls = [targetUrl];
+
+                for (const pageUrl of urls) {
+                  try {
+                    const pageRes = await fetch(pageUrl, {
+                      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ForgeCatalogue/1.0)', Accept: 'text/html' },
+                      redirect: 'follow',
+                    });
+                    if (pageRes.ok) {
+                      const html = await pageRes.text();
+                      const $ = cheerio.load(html);
+                      job.data.push({
+                        url: pageUrl,
+                        markdown: htmlToSimpleMarkdown(html),
+                        metadata: { title: $('title').first().text().trim(), sourceURL: pageUrl },
+                      });
+                    }
+                  } catch { /* skip page */ }
+                  await new Promise((r) => setTimeout(r, 350));
+                }
+                job.status = 'completed';
+              } catch (e: any) {
+                job.status = 'failed';
+                job.error = e?.message;
+              }
+            })();
+
+            return new Response(JSON.stringify({ success: true, id, provider: 'local' }), {
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+            });
           }
 
           const crawlBody: Record<string, unknown> = {
@@ -420,9 +545,24 @@ export default {
 
         // GET /api/crawl/:id
         if (path.startsWith('/api/crawl/') && request.method === 'GET') {
-          const id = path.split('/').pop();
+          const id = path.split('/').pop() || '';
           const apiKey = url.searchParams.get('apiKey');
-          
+
+          if (id.startsWith('local-')) {
+            const job = localCrawlJobs.get(id);
+            if (!job) {
+              return new Response(JSON.stringify({ error: 'Local crawl job not found' }), { status: 404 });
+            }
+            return new Response(JSON.stringify({
+              status: job.status === 'scraping' ? 'scraping' : job.status,
+              data: job.data,
+              error: job.error,
+              provider: 'local',
+            }), {
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+            });
+          }
+
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
           if (!firecrawlKey) {
             return new Response(JSON.stringify({ error: "Firecrawl API key is not configured" }), { status: 500 });

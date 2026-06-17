@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 import { addMonths, subMonths } from 'date-fns';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Post, Business } from '../data';
 import { Calendar } from './Calendar';
@@ -10,9 +9,15 @@ import { PostModal } from './modals/PostModal';
 import { ImageViewer } from './ImageViewer';
 import { ForgeLogo } from './ForgeLogo';
 import { ForgeLoader } from './ForgeLoader';
-import { cn } from '../lib/utils';
-import { Plus, Check, Layout } from 'lucide-react';
+import { Plus, Layout } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  getBusinessByIdAndShareToken,
+  subscribeToPosts,
+  addBusinessMember,
+  getProfile,
+  updateBusiness,
+} from '../lib/supabase';
 
 export function PublicCalendarView() {
   const { businessId, shareToken } = useParams<{ businessId: string, shareToken: string }>();
@@ -30,13 +35,10 @@ export function PublicCalendarView() {
     if (!user || !businessId || isAdding) return;
     setIsAdding(true);
     try {
-      const bizRef = doc(db, 'businesses', businessId);
-      await updateDoc(bizRef, {
-        members: arrayUnion(user.uid),
-        [`memberRoles.${user.uid}`]: 'viewer'
-      });
+      const profile = await getProfile(user.uid);
+      if (!profile) throw new Error('Profile not found');
+      await addBusinessMember(businessId, profile.id, 'viewer');
       toast.success("Workspace added to your list! You now have viewer access.");
-      // Update local state
       setBusiness(prev => prev ? { 
         ...prev, 
         members: [...(prev.members || []), user.uid],
@@ -71,59 +73,45 @@ export function PublicCalendarView() {
   useEffect(() => {
     if (!businessId || !shareToken) return;
 
-    console.log("[PublicView] Fetching shared calendar:", businessId, "token:", shareToken);
+    let unsubscribePosts: (() => void) | undefined;
 
     const fetchData = async () => {
       try {
-        const bizDoc = await getDoc(doc(db, 'businesses', businessId));
-        if (!bizDoc.exists()) {
-          console.error("[PublicView] Business not found:", businessId);
+        const biz = await getBusinessByIdAndShareToken(businessId, shareToken);
+        if (!biz) {
           setError("Invalid or expired share link.");
           setLoading(false);
           return;
         }
 
-        const bizData = bizDoc.data();
-        if (bizData.shareToken !== shareToken) {
-          console.error("[PublicView] Token mismatch. Expected:", bizData.shareToken, "Got:", shareToken);
-          setError("Invalid or expired share link.");
-          setLoading(false);
-          return;
-        }
-        
-        console.log("[PublicView] Business data found:", bizData.name, "Restriction:", bizData.shareRestriction);
-        
-        // Check restriction
-        if (bizData.shareRestriction === 'authenticated' && !user) {
-          console.log("[PublicView] Login required for this business");
+        if (biz.shareRestriction === 'authenticated' && !user) {
           setError("You must be logged in to view this calendar.");
           setLoading(false);
           return;
         }
 
-        setBusiness({ id: bizDoc.id, ...bizData } as Business);
+        setBusiness(biz);
 
-        console.log("[PublicView] Setting up posts listener for business:", businessId);
-        const q = query(collection(db, 'posts'), where('businessId', '==', businessId));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          console.log("[PublicView] Posts snapshot received. Count:", snapshot.docs.length);
-          const postsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        void updateBusiness(biz.id, {
+          shareAnalytics: {
+            views: (biz.shareAnalytics?.views || 0) + 1,
+            lastViewedAt: new Date().toISOString(),
+          },
+        }).catch((e) => console.error('Failed to update share analytics', e));
+
+        unsubscribePosts = subscribeToPosts(businessId, (postsList) => {
           setPosts(postsList);
           setLoading(false);
-        }, (error) => {
-          console.error("[PublicView] Posts listener failed:", error.message);
-          handleFirestoreError(error, OperationType.GET, 'posts');
-          setError("Failed to sync calendar posts. Please refresh.");
-          setLoading(false);
         });
-        return unsubscribe;
       } catch (e) {
         console.error("[PublicView] Error fetching shared calendar:", e);
         setError("Failed to load shared calendar.");
         setLoading(false);
       }
     };
-    fetchData();
+
+    void fetchData();
+    return () => unsubscribePosts?.();
   }, [businessId, shareToken, user]);
 
   if (loading) return (
@@ -155,7 +143,6 @@ export function PublicCalendarView() {
   return (
     <div className="flex h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white">
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header */}
         <header className="h-14 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] flex items-center justify-between px-4 shrink-0 z-10 print:hidden">
           <div className="flex items-center gap-4">
             <ForgeLogo size={28} className="p-1" />
@@ -208,7 +195,6 @@ export function PublicCalendarView() {
           </div>
         </header>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-auto flex flex-col relative">
           <div className="flex-1 flex flex-col">
             <Calendar 
