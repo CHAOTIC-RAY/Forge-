@@ -3,6 +3,8 @@ import { patchEsrganOnnxOutputDims } from "./lib/esrganOnnxPatch";
 import { discoverLinksWorker, htmlToSimpleMarkdown } from "./lib/lightweightHtml";
 
 export interface Env {
+  VITE_SUPABASE_URL: string;
+  VITE_SUPABASE_ANON_KEY: string;
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_API_KEY: string;
   CLOUDINARY_API_SECRET: string;
@@ -30,16 +32,48 @@ function htmlResponseWithoutCoepIsolation(assetResponse: Response): Response {
     return assetResponse;
   }
   const headers = new Headers(assetResponse.headers);
-  // Remove any inherited CORP/COEP/COOP from upstream asset metadata, then set known-safe values.
   headers.delete('Cross-Origin-Embedder-Policy');
   headers.delete('Cross-Origin-Opener-Policy');
   headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none');
   headers.set('Cross-Origin-Opener-Policy', 'unsafe-none');
-  // Avoid long-lived HTML caches carrying an old COEP shell after deploys.
   headers.set('Cache-Control', 'private, no-cache, must-revalidate');
   return new Response(assetResponse.body, {
     status: assetResponse.status,
     statusText: assetResponse.statusText,
+    headers,
+  });
+}
+
+/** Inject public client env (Supabase) into HTML before the app bundle loads. */
+async function htmlResponseWithClientEnv(assetResponse: Response, env: Env): Promise<Response> {
+  const base = htmlResponseWithoutCoepIsolation(assetResponse);
+  const ct = base.headers.get('Content-Type') || '';
+  if (!ct.includes('text/html')) {
+    return base;
+  }
+
+  const supabaseUrl = env.VITE_SUPABASE_URL || '';
+  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || '';
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return base;
+  }
+
+  let html = await base.text();
+  const payload = JSON.stringify({
+    VITE_SUPABASE_URL: supabaseUrl,
+    VITE_SUPABASE_ANON_KEY: supabaseAnonKey,
+  });
+  const injection = `<script>window.__FORGE_ENV__=${payload};</script>`;
+  if (html.includes('<head>')) {
+    html = html.replace('<head>', `<head>${injection}`);
+  } else {
+    html = injection + html;
+  }
+
+  const headers = new Headers(base.headers);
+  return new Response(html, {
+    status: base.status,
+    statusText: base.statusText,
     headers,
   });
 }
@@ -74,6 +108,8 @@ export default {
           hasGeminiApiKey: !!env.GEMINI_API_KEY,
           hasGroqApiKey: !!env.GROQ_API_KEY,
           cloudinaryCloudName: env.CLOUDINARY_CLOUD_NAME || null,
+          supabaseUrl: env.VITE_SUPABASE_URL || null,
+          supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || null,
           _missingCloudinary: missingCloudinary,
           _missingGemini: missingGemini
         }), {
@@ -935,7 +971,7 @@ export default {
         }
 
         // Pass everything else to Assets (override HTML COEP/COOP — see htmlResponseWithoutCoepIsolation)
-        return htmlResponseWithoutCoepIsolation(await env.ASSETS.fetch(request));
+        return htmlResponseWithClientEnv(await env.ASSETS.fetch(request), env);
 
       } catch (err: any) {
         return new Response(JSON.stringify({ error: "Internal Server Error", details: err.message }), { 

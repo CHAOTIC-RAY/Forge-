@@ -1,19 +1,81 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { Post, Business } from '../data';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+declare global {
+  interface Window {
+    __FORGE_ENV__?: {
+      VITE_SUPABASE_URL?: string;
+      VITE_SUPABASE_ANON_KEY?: string;
+    };
+  }
 }
 
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    storage: localStorage,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
+function resolveSupabaseCredentials(): { url: string; anonKey: string } {
+  const buildUrl = import.meta.env.VITE_SUPABASE_URL || '';
+  const buildKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  if (buildUrl && buildKey) {
+    return { url: buildUrl, anonKey: buildKey };
+  }
+
+  const runtime = typeof window !== 'undefined' ? window.__FORGE_ENV__ : undefined;
+  const url = runtime?.VITE_SUPABASE_URL || '';
+  const anonKey = runtime?.VITE_SUPABASE_ANON_KEY || '';
+  return { url, anonKey };
+}
+
+let supabaseClient: SupabaseClient | null = null;
+
+function createSupabaseClient(): SupabaseClient {
+  const { url, anonKey } = resolveSupabaseCredentials();
+  if (!url || !anonKey) {
+    console.warn('Supabase credentials not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+  }
+  return createClient(url || 'https://placeholder.supabase.co', anonKey || 'placeholder', {
+    auth: {
+      persistSession: true,
+      storage: localStorage,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+}
+
+function getSupabaseClient(): SupabaseClient {
+  if (!supabaseClient) {
+    supabaseClient = createSupabaseClient();
+  }
+  return supabaseClient;
+}
+
+/** Ensure runtime config is loaded (Worker HTML injection or /api/config). */
+export async function ensureSupabaseConfig(): Promise<void> {
+  const { url, anonKey } = resolveSupabaseCredentials();
+  if (url && anonKey) return;
+
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (cfg.supabaseUrl && cfg.supabaseAnonKey) {
+      window.__FORGE_ENV__ = {
+        VITE_SUPABASE_URL: cfg.supabaseUrl,
+        VITE_SUPABASE_ANON_KEY: cfg.supabaseAnonKey,
+      };
+      supabaseClient = createSupabaseClient();
+    }
+  } catch (e) {
+    console.error('Failed to load Supabase config from /api/config', e);
+  }
+}
+
+export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    const client = getSupabaseClient();
+    const value = (client as unknown as Record<string | symbol, unknown>)[prop];
+    if (typeof value === 'function') {
+      return (value as (...args: unknown[]) => unknown).bind(client);
+    }
+    return value;
   },
 });
 
