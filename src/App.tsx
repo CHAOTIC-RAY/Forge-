@@ -30,7 +30,6 @@ import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import { Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, CircleAlert as AlertCircle, Cloud, User, CircleCheck as CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, ChartBar as BarChart3, Maximize, Share2, Terminal, Wand as Wand2, Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box, Boxes } from 'lucide-react';
-import { Type } from "@google/genai";
 
 import { useParams } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -140,8 +139,6 @@ import { syncCatalogueProducts, saveCategoryCounts } from './lib/catalogueSupaba
 import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
 import { useAppStore } from './store';
 
-const initialAiSettings = getAiSettings();
-const initialAnalyticsSettings = getAnalyticsSettings();
 import { signInWithPopup, getRedirectResult, signOut } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { ref, deleteObject, getBlob } from 'firebase/storage';
@@ -152,8 +149,7 @@ import { ForgeLoader } from './components/ForgeLoader';
 import { ForgeLogo } from './components/ForgeLogo';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { ensureSupabaseBackend } from './lib/dataBackend';
-import { repairWorkspaceOwnership } from './lib/workspaceRepair';
-import { migrateFirestoreExportToSupabase } from './lib/firestoreToSupabase';
+import { importForgeJsonBackup } from './lib/onboardingJsonImport';
 import { LandingView } from './components/LandingView';
 import { OnboardingWizard } from './components/OnboardingWizard';
 
@@ -328,7 +324,9 @@ export default function App() {
     return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
   }, []);
 
-  const aiSettings = useAppStore(state => state.aiSettings) || initialAiSettings;
+  const defaultAiSettings = useMemo(() => getAiSettings(), []);
+  const defaultAnalyticsSettings = useMemo(() => getAnalyticsSettings(), []);
+  const aiSettings = useAppStore(state => state.aiSettings) || defaultAiSettings;
   const setAiSettingsState = useAppStore(state => state.setAiSettings);
 
   // Skip server AI config + WebLLM preload on public landing (not signed in)
@@ -337,7 +335,7 @@ export default function App() {
     fetchServerConfig().catch(console.error);
   }, [user]);
 
-  const analyticsSettings = useAppStore(state => state.analyticsSettings) || initialAnalyticsSettings;
+  const analyticsSettings = useAppStore(state => state.analyticsSettings) || defaultAnalyticsSettings;
   const setAnalyticsSettingsState = useAppStore(state => state.setAnalyticsSettings);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -3018,28 +3016,7 @@ export default function App() {
       throw new Error('Sign in required');
     }
 
-    const text = await file.text();
-    const payload = JSON.parse(text) as {
-      collections?: Record<string, Array<{ id: string; data: Record<string, unknown> }>>;
-    };
-    if (!payload.collections) {
-      throw new Error('Invalid Forge export — expected a collections object.');
-    }
-
-    await migrateFirestoreExportToSupabase(
-      payload,
-      () => user.getIdToken(),
-      (progress) => onProgress(progress.stage),
-      {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-      }
-    );
-
-    onProgress('Linking workspaces to your account…');
-    await repairWorkspaceOwnership();
+    await importForgeJsonBackup(file, onProgress);
 
     await updateProfile(profile.id, {
       settings: { ...(profile.settings || {}), onboardingComplete: true },
