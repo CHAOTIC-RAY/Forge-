@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
   Sparkles,
@@ -631,9 +632,7 @@ const ScribbleIcon = ({ Icon, className }: { Icon: any, className?: string }) =>
   );
 };
 
-interface LandingViewProps {
-  onLogin: () => void;
-}
+interface LandingViewProps {}
 
 type LandingSection = {
   id: string;
@@ -857,7 +856,9 @@ const SECTIONS: LandingSection[] = [
   },
 ];
 
-export function LandingView({ onLogin }: LandingViewProps) {
+export function LandingView(_props: LandingViewProps) {
+  const navigate = useNavigate();
+  const goAuth = () => navigate('/auth');
   const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1017,13 +1018,13 @@ export function LandingView({ onLogin }: LandingViewProps) {
         )}
       >
         <button
-          onClick={onLogin}
+          onClick={goAuth}
           className="px-4 py-2 text-sm font-bold text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors"
         >
           Log In
         </button>
         <button
-          onClick={onLogin}
+          onClick={goAuth}
           className="px-4 py-2 text-sm font-bold bg-[#2383E2] hover:bg-[#1a6fc4] text-white rounded-xl shadow-md transition-colors"
         >
           Sign Up
@@ -1067,7 +1068,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
           </div>
           <motion.button
             type="button"
-            onClick={onLogin}
+            onClick={goAuth}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-colors shadow-xl min-h-[48px]"
@@ -1137,7 +1138,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
                 icon: s.icon!,
                 title: s.title,
               })),
-              { id: 'login', icon: LogIn, title: 'Log In', action: onLogin },
+              { id: 'login', icon: LogIn, title: 'Log In', action: goAuth },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = 'action' in tab ? false : activeSection === tab.id;
@@ -1168,7 +1169,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
 
         <div className="hidden md:flex mt-auto md:pt-4 flex-col gap-0 px-2 md:px-2 shrink-0 items-center border-t border-[#E9E9E7] dark:border-[#2E2E2E] py-4">
           <button
-            onClick={onLogin}
+            onClick={goAuth}
             className="flex p-2.5 rounded-xl items-center justify-center text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] md:hover:bg-[#E9E9E7] md:dark:hover:bg-[#2E2E2E] transition-colors"
             title="Sign Up / Log In"
           >
@@ -1225,7 +1226,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
               <div className="pt-2 flex flex-col sm:flex-row flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={onLogin}
+                  onClick={goAuth}
                   className="interactive focus-ring px-8 py-4 bg-brand hover:bg-brand-hover text-white rounded-xl font-bold text-lg shadow-lg shadow-brand/25 min-h-[48px]"
                 >
                   Get started free
@@ -1393,7 +1394,7 @@ export function LandingView({ onLogin }: LandingViewProps) {
               </div>
               <button
                 type="button"
-                onClick={onLogin}
+                onClick={goAuth}
                 className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-all shadow-xl min-h-[48px]"
               >
                 Sign Up Now

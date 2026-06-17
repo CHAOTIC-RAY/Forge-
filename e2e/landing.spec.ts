@@ -14,8 +14,10 @@ test.describe('landing', () => {
 
   test('exposes a sign-in entry point', async ({ page }) => {
     await page.goto('/');
-    const signIn = page.getByRole('button', { name: /sign in|log in|get started/i }).first();
+    const signIn = page.getByRole('button', { name: /sign in|log in|get started|sign up/i }).first();
     await expect(signIn).toBeVisible();
+    await signIn.click();
+    await expect(page).toHaveURL(/\/auth/);
   });
 });
 

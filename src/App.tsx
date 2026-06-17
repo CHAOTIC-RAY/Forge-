@@ -32,7 +32,7 @@ import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import { Menu, Plus, Download, Calendar as CalendarIcon, Database, Notebook, LayoutGrid, Trash2, RefreshCw, Save, Upload, Smartphone, X, Info, Globe, Printer, CircleAlert as AlertCircle, Cloud, User, CircleCheck as CheckCircle2, FileSpreadsheet, MessageSquare, Sparkles, Newspaper, Lightbulb, Palette, ChartBar as BarChart3, Maximize, Share2, Terminal, Wand as Wand2, Settings, ListTodo, LogOut, Bell, Building2, Search as SearchIcon, Moon, Sun, Lock, Box, Boxes } from 'lucide-react';
 import { Type } from "@google/genai";
 
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster, toast } from 'sonner';
 import { Post, initialPosts, Business, OUTLETS } from './data';
@@ -150,7 +150,7 @@ import { cn, readFileAsDataURL, createImageCollage, getAnalyticsSettings, setAna
 import { WorkspacesSettings } from './components/WorkspacesSettings';
 import { ForgeLoader } from './components/ForgeLoader';
 import { ForgeLogo } from './components/ForgeLogo';
-import { Login } from './components/Login';
+import { useNavigate, Link } from 'react-router-dom';
 import { LandingView } from './components/LandingView';
 import { OnboardingWizard } from './components/OnboardingWizard';
 
@@ -250,7 +250,6 @@ export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const { profile, loading: profileLoading } = useSupabaseAuth();
   const [authTimeout, setAuthTimeout] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     // Explicitly log auth state changes for debugging
@@ -268,7 +267,6 @@ export default function App() {
     const unsubscribe = auth.onAuthStateChanged((u) => {
       if (u) {
         console.log("[Auth] onAuthStateChanged: Logged in as", u.email);
-        setShowLogin(false);
       } else {
         console.log("[Auth] onAuthStateChanged: Not logged in");
       }
@@ -2772,8 +2770,7 @@ export default function App() {
   }
 
   if (!user && !isCheckingShare && !isViewOnly) {
-    if (showLogin) return <Login />;
-    return <LandingView onLogin={() => setShowLogin(true)} />;
+    return <LandingView />;
   }
 
   if (isGuest && (loading || isCheckingShare) && !isViewOnly) {
@@ -3075,6 +3072,7 @@ export default function App() {
                   onClick: () => setIsExportModalOpen(true)
                 },
                 { label: 'Manage Workspaces', icon: <Settings className="w-3.5 h-3.5" />, onClick: () => setIsBusinessModalOpen(true) },
+                { label: 'Import / Account', icon: <Database className="w-3.5 h-3.5" />, onClick: () => navigate('/auth') },
                 { label: 'Sign Out', icon: <LogOut className="w-3.5 h-3.5" />, variant: 'danger', onClick: () => signOut(auth) },
               ]}>
                 <div className="flex flex-1 w-full relative">
@@ -3305,7 +3303,7 @@ export default function App() {
                         ) : null}
                         {isGuest && (
                           <button
-                            onClick={handleLogin}
+                            onClick={() => navigate('/auth')}
                             disabled={isSigningIn}
                             title="Sign In (Admin)"
                             className="w-full flex items-center justify-center p-2.5 rounded-[12px] transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400 disabled:opacity-50"
@@ -3437,6 +3435,18 @@ export default function App() {
                             )}
                           </div>
                         </div>
+
+                        {user && !loadingBusinesses && businesses.length === 0 && (
+                          <div className="mx-4 md:mx-6 mt-4 p-4 rounded-[12px] border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+                            <p className="text-sm text-amber-900 dark:text-amber-200">
+                              No workspaces loaded yet.{' '}
+                              <Link to="/auth" className="font-semibold underline hover:no-underline">
+                                Go to /auth to import your Firestore data
+                              </Link>
+                              , then reload this page.
+                            </p>
+                          </div>
+                        )}
 
                         <div className={cn(
                           "flex-1 flex flex-col print:block",
@@ -3810,9 +3820,8 @@ export default function App() {
 
                     {isGuest && (
                       <button
-                        onClick={handleLogin}
-                        disabled={isSigningIn}
-                        className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-[12px] font-medium text-sm active:scale-95 transition-transform disabled:opacity-50"
+                        onClick={() => navigate('/auth')}
+                        className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-[12px] font-medium text-sm active:scale-95 transition-transform"
                       >
                         <Smartphone className="w-4 h-4" />
                         {isSigningIn ? '...' : 'Sign In'}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, CheckCircle2, Lightbulb, Lock, Mail, Sparkles, Wrench } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
@@ -13,6 +14,11 @@ import { MigrationTool } from './MigrationTool';
 import { toast } from 'sonner';
 
 type AuthMode = 'signIn' | 'signUp';
+
+interface LoginProps {
+  /** Navigate to dashboard only after an explicit sign-in action on this page */
+  redirectOnSignIn?: boolean;
+}
 
 function getAuthErrorMessage(error: unknown): string {
   const err = error as { code?: string; message?: string };
@@ -42,7 +48,8 @@ function getAuthErrorMessage(error: unknown): string {
   }
 }
 
-export function Login() {
+export function Login({ redirectOnSignIn = false }: LoginProps) {
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
@@ -51,6 +58,12 @@ export function Login() {
   const [authMode, setAuthMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const goToAppAfterSignIn = () => {
+    if (redirectOnSignIn) {
+      navigate('/', { replace: true });
+    }
+  };
 
   const handleEmailPasswordAuth = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -73,6 +86,7 @@ export function Login() {
       } else {
         await signInWithEmailAndPassword(auth, trimmedEmail, password);
       }
+      goToAppAfterSignIn();
     } catch (err) {
       console.error("[Login] email/password error:", err);
       setError(getAuthErrorMessage(err));
@@ -113,6 +127,7 @@ export function Login() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       console.log('[Login] Success! User:', result.user.email);
+      goToAppAfterSignIn();
     } catch (err: unknown) {
       console.error('[Login] Google sign-in error:', err);
       const code = (err as { code?: string })?.code;

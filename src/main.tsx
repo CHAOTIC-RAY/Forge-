@@ -1,8 +1,9 @@
 import {StrictMode, Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import App from './App.tsx';
 import { PublicCalendarView } from './components/PublicCalendarView';
+import { AuthPage } from './pages/AuthPage';
 import { ForgeLoader } from './components/ForgeLoader';
 import { ensureAuthSessionVersion } from './lib/authMigration';
 import { ensureSupabaseConfig } from './lib/supabase';
@@ -50,8 +51,10 @@ window.addEventListener('error', (e) => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<App />} />
+            <Route path="/auth" element={<AuthPage />} />
             <Route path="/s/:shortCode" element={<App />} />
             <Route path="/share/:businessId/:shareToken" element={<PublicCalendarView />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </Suspense>
