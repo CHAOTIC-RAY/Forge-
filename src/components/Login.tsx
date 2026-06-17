@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, CheckCircle2, Lightbulb, Lock, Mail, Sparkles, Wrench } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
@@ -8,7 +8,6 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
 } from 'firebase/auth';
 import { MigrationTool } from './MigrationTool';
 import { toast } from 'sonner';
@@ -49,36 +48,9 @@ export function Login() {
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
   const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
-  const [authStrategy, setAuthStrategy] = useState<'popup' | 'redirect'>(() => {
-    const host = typeof window !== 'undefined' ? window.location.hostname : '';
-    return host.includes('workers.dev') || host.includes('chaoticstudio') ? 'redirect' : 'popup';
-  });
   const [authMode, setAuthMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch(`${window.location.origin}/`, {
-          method: 'GET',
-          cache: 'no-store',
-          credentials: 'same-origin',
-        });
-        const coep = r.headers.get('Cross-Origin-Embedder-Policy') || '';
-        const isolated =
-          typeof (globalThis as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated === 'boolean'
-            ? (globalThis as unknown as { crossOriginIsolated: boolean }).crossOriginIsolated
-            : undefined;
-        const badCoep = coep.includes('require-corp') || coep.includes('credentialless');
-        if (isolated === true || badCoep) {
-          setAuthStrategy('redirect');
-        }
-      } catch {
-        /* probe optional */
-      }
-    })();
-  }, []);
 
   const handleEmailPasswordAuth = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -137,41 +109,21 @@ export function Login() {
     setIsGoogleSigningIn(true);
     setError(null);
     setNotice(null);
-    if (authStrategy === 'redirect') {
-      try {
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      } catch (redirErr: any) {
-        setError(redirErr?.message || 'Redirect sign-in failed. Add this host in Firebase Console → Authentication → Settings → Authorized domains.');
-        return;
-      } finally {
-        setIsGoogleSigningIn(false);
-      }
-    }
+
     try {
-      console.log("[Login] Starting signInWithPopup...");
       const result = await signInWithPopup(auth, googleProvider);
-      console.log("[Login] Success! User:", result.user.email);
-      // We don't need to do anything here as App.tsx will see the state change
-    } catch (err: any) {
-      console.error("[Login] error:", err);
-      const tryRedirectCodes = ['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
-      if (tryRedirectCodes.includes(err?.code)) {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        } catch (redirErr: any) {
-          setError(redirErr?.message || 'Redirect sign-in failed. Check Firebase authorized domains for this host.');
-          setIsGoogleSigningIn(false);
-          return;
-        }
-      }
-      if (err.code === 'auth/network-request-failed') {
-        setError("Network error. Please check your connection and try again.");
-      } else if (err.message?.includes('INTERNAL ASSERTION FAILED')) {
-        setError("A temporary authentication error occurred. Please try again.");
+      console.log('[Login] Success! User:', result.user.email);
+    } catch (err: unknown) {
+      console.error('[Login] Google sign-in error:', err);
+      const code = (err as { code?: string })?.code;
+      if (code === 'auth/popup-blocked') {
+        setError('Google sign-in was blocked. Allow popups for this site and try again.');
+      } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        setError('Sign-in cancelled. Please try again.');
+      } else if (code === 'auth/network-request-failed') {
+        setError('Network error. Please check your connection and try again.');
       } else {
-        setError(err.message || "Failed to sign in. Please try again.");
+        setError(getAuthErrorMessage(err));
       }
     } finally {
       setIsGoogleSigningIn(false);

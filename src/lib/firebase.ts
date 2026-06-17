@@ -1,5 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import {
+  initializeAuth,
+  GoogleAuthProvider,
+  browserLocalPersistence,
+  browserPopupRedirectResolver,
+} from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getVertexAI } from 'firebase/vertexai';
@@ -12,8 +17,10 @@ export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, firebaseConfig.firestoreDatabaseId);
 
-export const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence).catch(err => console.error("Persistence error:", err));
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence,
+  popupRedirectResolver: browserPopupRedirectResolver,
+});
 export const storage = getStorage(app);
 export const vertexAI = getVertexAI(app);
 export const googleProvider = new GoogleAuthProvider();
