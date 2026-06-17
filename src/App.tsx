@@ -102,13 +102,14 @@ import { ensureSupabaseBackend } from './lib/dataBackend';
 import { LandingView } from './components/LandingView';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import type { BuiltInAiStatus } from './lib/builtinAi';
-import { Calendar } from './components/Calendar';
-import { HomeTab } from './components/HomeTab';
-import { LocalDb } from './components/LocalDb';
-import { FloatingChat } from './components/FloatingChat';
 import { CorsImage } from './components/CorsImage';
 import { NetworkStatus } from './components/NetworkStatus';
 import { SkipLink } from './components/SkipLink';
+
+const Calendar = React.lazy(() => import('./components/Calendar').then(m => ({ default: m.Calendar })));
+const HomeTab = React.lazy(() => import('./components/HomeTab').then(m => ({ default: m.HomeTab })));
+const LocalDb = React.lazy(() => import('./components/LocalDb').then(m => ({ default: m.LocalDb })));
+const FloatingChat = React.lazy(() => import('./components/FloatingChat').then(m => ({ default: m.FloatingChat })));
 
 // React lazy imports for heavy components
 const PostModal = React.lazy(() => import('./components/modals/PostModal').then(m => ({ default: m.PostModal })));

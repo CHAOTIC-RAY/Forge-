@@ -7,6 +7,9 @@ import { getIndustryConfig } from './industryConfig';
 import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
 import { hasWebGpuApi } from './webGpu';
 import { createImageCollage } from './utils';
+import type { HighStockProduct, CategoryCount } from '../types/catalogue';
+
+export type { HighStockProduct, CategoryCount };
 
 declare const puter: any;
 
@@ -2546,22 +2549,6 @@ Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|st
     const parsed = JSON.parse(groqResponse || '{}');
     return parsed.posts || parsed || [];
   }
-}
-
-export interface HighStockProduct {
-  title: string;
-  type: string;
-  link: string;
-  stockInfo: string;
-  outlet: string;
-  sku?: string;
-  price?: string;
-  categories?: string[];
-}
-
-export interface CategoryCount {
-  category: string;
-  count: number;
 }
 
 export async function getCategoryProductCounts(targetUrlParam?: string): Promise<CategoryCount[]> {

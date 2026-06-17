@@ -1,15 +1,17 @@
-import {StrictMode, Suspense} from 'react';
+import {StrictMode, Suspense, lazy} from 'react';
 import {createRoot} from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import App from './App.tsx';
 import { PublicCalendarView } from './components/PublicCalendarView';
 import { AuthPage } from './pages/AuthPage';
+import { HomeRoute } from './pages/HomeRoute';
 import { ForgeLoader } from './components/ForgeLoader';
 import { ensureAuthSessionVersion } from './lib/authMigration';
 import { ensureSupabaseConfig } from './lib/supabase';
 import { ensureSupabaseBackend } from './lib/dataBackend';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
+
+const App = lazy(() => import('./App.tsx'));
 
 // Register service worker
 registerSW();
@@ -52,9 +54,17 @@ window.addEventListener('error', (e) => {
       }>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<App />} />
+            <Route path="/" element={<HomeRoute />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/s/:shortCode" element={<App />} />
+            <Route path="/s/:shortCode" element={
+              <Suspense fallback={
+                <div className="min-h-screen bg-white dark:bg-[#191919] flex items-center justify-center">
+                  <ForgeLoader size={48} />
+                </div>
+              }>
+                <App />
+              </Suspense>
+            } />
             <Route path="/share/:businessId/:shareToken" element={<PublicCalendarView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

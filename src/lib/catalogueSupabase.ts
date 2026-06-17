@@ -2,7 +2,7 @@
  * Catalogue (Local DB) persistence via Supabase — not Firestore.
  */
 
-import type { HighStockProduct, CategoryCount } from './gemini';
+import type { HighStockProduct, CategoryCount } from '../types/catalogue';
 import {
   supabase,
   getInventoryProducts,

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Post, Business } from './data';
-import type { HighStockProduct } from './lib/gemini';
+import type { HighStockProduct } from './types/catalogue';
 
 export interface AppState {
   aiSettings: any;

@@ -2,8 +2,13 @@
  * Catalogue extraction: URL classification, markdown chunking, local-AI JSON extraction, normalize/dedupe.
  */
 
-import { getAiSettings, generateAppJson, isLocalTextProvider, type HighStockProduct } from './gemini';
+import type { HighStockProduct } from '../types/catalogue';
 import { getContextBudget } from './localAiContext';
+
+async function getGeminiHelpers() {
+  const { getAiSettings, generateAppJson, isLocalTextProvider } = await import('./gemini');
+  return { getAiSettings, generateAppJson, isLocalTextProvider };
+}
 
 export type CatalogueMode = 'product' | 'info';
 export type UrlPageKind = 'product_list' | 'product_detail' | 'content' | 'other';
@@ -361,6 +366,7 @@ async function extractChunk(
   chunk: string,
   opts: ExtractCatalogueOptions
 ): Promise<Record<string, unknown>[]> {
+  const { getAiSettings, generateAppJson, isLocalTextProvider } = await getGeminiHelpers();
   const settings = getAiSettings();
   const forceLocal =
     opts.forceLocal ??
@@ -396,6 +402,7 @@ async function extractChunk(
 export async function extractCatalogueFromMarkdown(
   opts: ExtractCatalogueOptions
 ): Promise<ExtractCatalogueResult> {
+  const { getAiSettings, isLocalTextProvider } = await getGeminiHelpers();
   const settings = getAiSettings();
   const budget = getContextBudget(settings.builtinModelId || null);
   const maxChunk =
