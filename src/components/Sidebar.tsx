@@ -1,6 +1,5 @@
 import React from 'react';
-import { X, Copy, Check, Download, MessageSquare, Search, Calendar, FileSpreadsheet, Sparkles, ArrowRight, Hop as Home, Settings, Bell, User, LayoutDashboard, FolderOpen, ChartBar as BarChart3, Zap, Menu, Rss, Circle as HelpCircle, Bookmark, FileText, Layers, Command } from 'lucide-react';
-import { MigrationTool } from './MigrationTool';
+import { X, Copy, Check, Download, MessageSquare, Search, Calendar, FileSpreadsheet, Sparkles, ArrowRight, Hop as Home, Settings, Bell, User, LayoutDashboard, FolderOpen, ChartBar as BarChart3, Zap, Menu, Rss, Circle as HelpCircle, Bookmark, FileText, Command } from 'lucide-react';
 import { strategyNotes, hashtagBank } from '../data';
 import { cn } from '../lib/utils';
 
@@ -45,7 +44,6 @@ export function Sidebar({
   isAdmin
 }: SidebarProps) {
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
-  const [showMigration, setShowMigration] = React.useState(false);
   const [sidebarStyle, setSidebarStyle] = React.useState<SidebarStyle>('classic');
 
   React.useEffect(() => {
@@ -92,7 +90,7 @@ export function Sidebar({
   }
 
   if (sidebarStyle === 'expanded') {
-    return <ExpandedSidebar sidebarStyle={sidebarStyle} onNavClick={handleNavClick} activeTab={activeTab} isOpen={isOpen} isAdmin={isAdmin} onClose={onClose} onExport={onExport} showMigration={showMigration} setShowMigration={setShowMigration} copyToClipboard={copyToClipboard} copiedIndex={copiedIndex} />;
+    return <ExpandedSidebar sidebarStyle={sidebarStyle} onNavClick={handleNavClick} activeTab={activeTab} isOpen={isOpen} isAdmin={isAdmin} onClose={onClose} onExport={onExport} copyToClipboard={copyToClipboard} copiedIndex={copiedIndex} />;
   }
 
   return (
@@ -104,15 +102,13 @@ export function Sidebar({
       onClose={onClose}
       onExport={onExport}
       isAdmin={isAdmin}
-      showMigration={showMigration}
-      setShowMigration={setShowMigration}
       copyToClipboard={copyToClipboard}
       copiedIndex={copiedIndex}
     />
   );
 }
 
-function ClassicSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose, onExport, isAdmin, showMigration, setShowMigration, copyToClipboard, copiedIndex }: {
+function ClassicSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose, onExport, isAdmin, copyToClipboard, copiedIndex }: {
   sidebarStyle: SidebarStyle;
   onNavClick: (id: string) => void;
   activeTab: 'schedule' | 'search';
@@ -120,8 +116,6 @@ function ClassicSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose, 
   onClose: () => void;
   onExport: () => void;
   isAdmin?: boolean;
-  showMigration: boolean;
-  setShowMigration: (v: boolean) => void;
   copyToClipboard: (text: string, index: number) => void;
   copiedIndex: number | null;
 }) {
@@ -168,24 +162,6 @@ function ClassicSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose, 
           </section>
 
           <section>
-            <h3 className="text-xs font-medium text-[#757681] uppercase tracking-wider mb-3">System</h3>
-            <button
-              onClick={() => setShowMigration(!showMigration)}
-              className="w-full flex items-center justify-between px-3 py-2.5 bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] rounded-lg text-sm transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <ArrowRight className="w-4 h-4" />
-                Data Migration
-              </div>
-            </button>
-            {showMigration && (
-              <div className="mt-3">
-                <MigrationTool />
-              </div>
-            )}
-          </section>
-
-          <section>
             <h3 className="text-xs font-medium text-[#757681] uppercase tracking-wider mb-3">Strategy Notes</h3>
             <ul className="space-y-3">
               {strategyNotes.map((note, idx) => (
@@ -228,7 +204,7 @@ function ClassicSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose, 
   );
 }
 
-function ExpandedSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose, onExport, isAdmin, showMigration, setShowMigration, copyToClipboard, copiedIndex }: {
+function ExpandedSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose, onExport, isAdmin, copyToClipboard, copiedIndex }: {
   sidebarStyle: SidebarStyle;
   onNavClick: (id: string) => void;
   activeTab: 'schedule' | 'search';
@@ -236,8 +212,6 @@ function ExpandedSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose,
   onClose: () => void;
   onExport: () => void;
   isAdmin?: boolean;
-  showMigration: boolean;
-  setShowMigration: (v: boolean) => void;
   copyToClipboard: (text: string, index: number) => void;
   copiedIndex: number | null;
 }) {
@@ -295,23 +269,6 @@ function ExpandedSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, onClose,
             );
           })}
 
-          <div className="pt-3 border-t border-[#E9E9E7] dark:border-[#2E2E2E] mt-3">
-            <button
-              onClick={() => setShowMigration(!showMigration)}
-              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F7F7F5] dark:hover:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] transition-all"
-            >
-              <Layers className="w-5 h-5 text-[#6074b9]" strokeWidth={2} fill="none" />
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Migration</p>
-                <p className="text-[11px] text-[#757681]">Import & export data</p>
-              </div>
-            </button>
-            {showMigration && (
-              <div className="mt-2 p-2 bg-[#F7F7F5] dark:bg-[#202020] rounded-xl">
-                <MigrationTool />
-              </div>
-            )}
-          </div>
         </nav>
 
         <div className="p-4 border-t border-[#E9E9E7] dark:border-[#2E2E2E] space-y-4">

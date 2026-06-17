@@ -114,6 +114,7 @@ import {
   subscribeToPosts,
   subscribeToPostsForProfile,
   subscribeToBusinesses,
+  getBusinesses,
   createPost,
   updatePost,
   deletePost,
@@ -151,7 +152,8 @@ import { WorkspacesSettings } from './components/WorkspacesSettings';
 import { ForgeLoader } from './components/ForgeLoader';
 import { ForgeLogo } from './components/ForgeLogo';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { isLegacyBackend } from './lib/dataBackend';
+import { ensureSupabaseBackend } from './lib/dataBackend';
+import { repairWorkspaceOwnership } from './lib/workspaceRepair';
 import { LandingView } from './components/LandingView';
 import { OnboardingWizard } from './components/OnboardingWizard';
 
@@ -370,11 +372,18 @@ export default function App() {
   const [isAutoFillModalOpen, setIsAutoFillModalOpen] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
 
-  const isAdmin = useMemo(() => !!(user && profile && activeBusiness && (
-    activeBusiness.ownerId === profile.id ||
-    activeBusiness.memberRoles?.[user.uid] === 'admin' ||
-    activeBusiness.memberRoles?.[user.uid] === 'editor'
-  )), [user, profile, activeBusiness]);
+  const isAdmin = useMemo(() => {
+    if (!user || !profile) return false;
+    const canEditBusiness = (business: Business) =>
+      business.ownerId === profile.id ||
+      business.members?.includes(user.uid) ||
+      business.memberRoles?.[user.uid] === 'admin' ||
+      business.memberRoles?.[user.uid] === 'editor';
+    if (activeBusiness && canEditBusiness(activeBusiness)) return true;
+    if (businesses.some(canEditBusiness)) return true;
+    // Signed-in user with visible workspaces (e.g. after SQL import, before member metadata loads)
+    return businesses.length > 0 && !!activeBusiness;
+  }, [user, profile, activeBusiness, businesses]);
 
   const isViewer = useMemo(() => !!(user && activeBusiness && activeBusiness.memberRoles?.[user.uid] === 'viewer'), [user, activeBusiness]);
   const isGuest = !user;
@@ -384,16 +393,8 @@ export default function App() {
   const [isCheckingShare, setIsCheckingShare] = useState(true);
 
   useEffect(() => {
-    if (
-      user &&
-      isLegacyBackend() &&
-      !isViewOnly &&
-      !shortCode &&
-      location.pathname !== '/auth'
-    ) {
-      navigate('/auth', { replace: true });
-    }
-  }, [user, isViewOnly, shortCode, navigate, location.pathname]);
+    ensureSupabaseBackend();
+  }, []);
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [userOnboardingComplete, setUserOnboardingComplete] = useState<boolean | null>(null);
@@ -846,7 +847,9 @@ export default function App() {
       return;
     }
 
-    const unsubscribe = subscribeToBusinesses(profile.id, (bizList) => {
+    let repairedOnce = false;
+
+    const applyBusinessList = (bizList: Business[]) => {
       setBusinesses(bizList);
       setLoadingBusinesses(false);
 
@@ -867,6 +870,22 @@ export default function App() {
       } else if (!loading) {
         setShowOnboarding(true);
       }
+    };
+
+    const unsubscribe = subscribeToBusinesses(profile.id, async (bizList) => {
+      if (bizList.length === 0 && !repairedOnce) {
+        repairedOnce = true;
+        try {
+          await repairWorkspaceOwnership();
+          const refreshed = await getBusinesses(profile.id);
+          applyBusinessList(refreshed);
+          return;
+        } catch (error) {
+          console.warn('[businesses] repair after empty load failed:', error);
+        }
+      }
+
+      applyBusinessList(bizList);
     });
 
     return () => unsubscribe();
@@ -3454,11 +3473,8 @@ export default function App() {
                         {user && !loadingBusinesses && businesses.length === 0 && (
                           <div className="mx-4 md:mx-6 mt-4 p-4 rounded-[12px] border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
                             <p className="text-sm text-amber-900 dark:text-amber-200">
-                              No workspaces loaded yet.{' '}
-                              <Link to="/auth" className="font-semibold underline hover:no-underline">
-                                Go to /auth to import your Firestore data
-                              </Link>
-                              , then reload this page.
+                              No workspaces found for this account. Sign out and sign back in, or check that your Supabase data is linked to{' '}
+                              <strong>{user.email}</strong>.
                             </p>
                           </div>
                         )}

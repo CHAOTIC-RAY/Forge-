@@ -1,27 +1,22 @@
-export type DataBackend = 'legacy' | 'supabase';
+export type DataBackend = 'supabase';
 
 const STORAGE_KEY = 'forge_data_backend';
 
-export function getDataBackend(): DataBackend {
-  if (typeof window === 'undefined') return 'supabase';
-  const value = localStorage.getItem(STORAGE_KEY);
-  return value === 'legacy' ? 'legacy' : 'supabase';
+/** Forge now uses Supabase only. Clears any stale legacy mode from localStorage. */
+export function ensureSupabaseBackend(): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(STORAGE_KEY, 'supabase');
 }
 
-export function setDataBackend(backend: DataBackend): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, backend);
+export function getDataBackend(): DataBackend {
+  ensureSupabaseBackend();
+  return 'supabase';
+}
+
+export function setDataBackend(_backend: DataBackend = 'supabase'): void {
+  ensureSupabaseBackend();
 }
 
 export function isLegacyBackend(): boolean {
-  return getDataBackend() === 'legacy';
-}
-
-export function isSupabaseBackend(): boolean {
-  return getDataBackend() === 'supabase';
-}
-
-export function clearDataBackend(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(STORAGE_KEY);
+  return false;
 }

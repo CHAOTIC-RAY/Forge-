@@ -104,6 +104,10 @@ if (business) {
   lines.push(`  name = EXCLUDED.name,`);
   lines.push(`  updated_at = now();`);
   lines.push('');
+  lines.push(`INSERT INTO business_members (business_id, profile_id, role, joined_at)`);
+  lines.push(`VALUES (${sqlStr(RAINBOW_ENTERPRISES_ID)}, ${profileSubquery()}, 'admin', now())`);
+  lines.push(`ON CONFLICT (business_id, profile_id) DO UPDATE SET role = EXCLUDED.role;`);
+  lines.push('');
 }
 
 lines.push('-- calendar posts');

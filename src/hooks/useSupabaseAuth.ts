@@ -8,7 +8,7 @@ import {
   setFirebaseUidForRls,
 } from '../lib/supabase';
 import { clearSupabaseAccessToken, exchangeSupabaseAccessToken } from '../lib/supabaseSession';
-import { isLegacyBackend } from '../lib/dataBackend';
+import { repairWorkspaceOwnership } from '../lib/workspaceRepair';
 
 interface AuthState {
   firebaseUser: User | null;
@@ -29,35 +29,33 @@ export function useSupabaseAuth(): AuthState & {
   });
 
   const syncProfile = useCallback(async (firebaseUser: User): Promise<Profile> => {
-    if (isLegacyBackend()) {
-      throw new Error('Supabase profile sync is disabled in legacy Firestore mode');
-    }
-
     await exchangeSupabaseAccessToken(true);
     await setFirebaseUidForRls(firebaseUser.uid);
 
     const existing = await getProfile(firebaseUser.uid);
-    if (existing) {
-      return existing;
+    const profile =
+      existing ||
+      (await upsertProfileByFirebaseUid(
+        firebaseUser.uid,
+        firebaseUser.email || '',
+        firebaseUser.displayName || undefined,
+        firebaseUser.photoURL || undefined
+      ));
+
+    try {
+      await repairWorkspaceOwnership();
+    } catch (error) {
+      console.warn('[auth] workspace ownership repair failed:', error);
     }
 
-    return upsertProfileByFirebaseUid(
-      firebaseUser.uid,
-      firebaseUser.email || '',
-      firebaseUser.displayName || undefined,
-      firebaseUser.photoURL || undefined
-    );
+    const refreshed = await getProfile(firebaseUser.uid);
+    return refreshed || profile;
   }, []);
 
   const refreshProfile = useCallback(async () => {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) {
       setState(prev => ({ ...prev, profile: null, loading: false }));
-      return;
-    }
-
-    if (isLegacyBackend()) {
-      setState(prev => ({ ...prev, profile: null, loading: false, error: null }));
       return;
     }
 
@@ -86,16 +84,6 @@ export function useSupabaseAuth(): AuthState & {
       setState(prev => ({ ...prev, loading: true, firebaseUser }));
 
       try {
-        if (isLegacyBackend()) {
-          setState({
-            firebaseUser,
-            profile: null,
-            loading: false,
-            error: null,
-          });
-          return;
-        }
-
         const profile = await syncProfile(firebaseUser);
         setState({
           firebaseUser,

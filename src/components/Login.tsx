@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Calendar as CalendarIcon, CheckCircle2, Lightbulb, Lock, Mail, Sparkles, Wrench } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle2, Lightbulb, Lock, Mail, Sparkles } from 'lucide-react';
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { auth, googleProvider } from '../lib/firebase';
 import {
@@ -10,9 +10,6 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from 'firebase/auth';
-import { MigrationTool } from './MigrationTool';
-import { toast } from 'sonner';
-import { setDataBackend, type DataBackend } from '../lib/dataBackend';
 import { exchangeSupabaseAccessToken } from '../lib/supabaseSession';
 
 type AuthMode = 'signIn' | 'signUp';
@@ -20,8 +17,6 @@ type AuthMode = 'signIn' | 'signUp';
 interface LoginProps {
   /** Navigate to dashboard only after an explicit sign-in action on this page */
   redirectOnSignIn?: boolean;
-  /** Show separate Google buttons for legacy Firestore vs new Supabase */
-  showDualDatabase?: boolean;
 }
 
 function getAuthErrorMessage(error: unknown): string {
@@ -52,13 +47,12 @@ function getAuthErrorMessage(error: unknown): string {
   }
 }
 
-export function Login({ redirectOnSignIn = false, showDualDatabase = false }: LoginProps) {
+export function Login({ redirectOnSignIn = false }: LoginProps) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
   const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
-  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -122,24 +116,17 @@ export function Login({ redirectOnSignIn = false, showDualDatabase = false }: Lo
     }
   };
 
-  const handleGoogleLogin = async (backend: DataBackend = 'supabase') => {
+  const handleGoogleLogin = async () => {
     if (isGoogleSigningIn) return;
     setIsGoogleSigningIn(true);
     setError(null);
     setNotice(null);
 
     try {
-      setDataBackend(backend);
       const result = await signInWithPopup(auth, googleProvider);
-      console.log('[Login] Success! User:', result.user.email, 'backend:', backend);
-
-      if (backend === 'supabase') {
-        await exchangeSupabaseAccessToken(true);
-        goToAppAfterSignIn();
-      } else {
-        toast.success('Connected to legacy Firestore database.');
-        navigate('/auth', { replace: true });
-      }
+      console.log('[Login] Success! User:', result.user.email);
+      await exchangeSupabaseAccessToken(true);
+      goToAppAfterSignIn();
     } catch (err: unknown) {
       console.error('[Login] Google sign-in error:', err);
       const code = (err as { code?: string })?.code;
@@ -367,77 +354,25 @@ export function Login({ redirectOnSignIn = false, showDualDatabase = false }: Lo
                 <div className="h-px flex-1 bg-[#E9E9E7] dark:bg-[#2E2E2E]" />
               </div>
 
-              {showDualDatabase ? (
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => handleGoogleLogin('legacy')}
-                    disabled={isGoogleSigningIn}
-                    className="w-full py-4 px-6 bg-amber-50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100 rounded-[14px] font-bold flex items-center justify-center gap-3 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-[0.98] disabled:opacity-50 border border-amber-200 dark:border-amber-800"
-                  >
-                    <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                    {isGoogleSigningIn ? 'Signing in...' : 'Google — Old database (Firestore)'}
-                  </button>
-                  <p className="text-[11px] text-center text-[#787774] dark:text-[#9B9A97] leading-relaxed px-2">
-                    Export your legacy data and migrate it into Supabase.
-                  </p>
+              <button
+                onClick={() => handleGoogleLogin()}
+                disabled={isGoogleSigningIn}
+                className="w-full py-4 px-6 bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[14px] font-bold flex items-center justify-center gap-3 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all active:scale-[0.98] disabled:opacity-50 border border-[#E9E9E7] dark:border-[#2E2E2E]"
+              >
+                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                {isGoogleSigningIn ? 'Signing in...' : 'Continue with Google'}
+              </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleGoogleLogin('supabase')}
-                    disabled={isGoogleSigningIn}
-                    className="w-full py-4 px-6 bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[14px] font-bold flex items-center justify-center gap-3 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all active:scale-[0.98] disabled:opacity-50 border border-[#E9E9E7] dark:border-[#2E2E2E]"
-                  >
-                    <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                    {isGoogleSigningIn ? 'Signing in...' : 'Google — New database (Supabase)'}
-                  </button>
-                  <p className="text-[11px] text-center text-[#787774] dark:text-[#9B9A97] leading-relaxed px-2">
-                    Use the live app with workspaces, posts, and short links on Supabase.
-                  </p>
-                </div>
-              ) : (
+              <div className="mt-7 pt-5 border-t border-[#E9E9E7] dark:border-[#2E2E2E] flex justify-center">
                 <button
-                  onClick={() => handleGoogleLogin('supabase')}
-                  disabled={isGoogleSigningIn}
-                  className="w-full py-4 px-6 bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[14px] font-bold flex items-center justify-center gap-3 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all active:scale-[0.98] disabled:opacity-50 border border-[#E9E9E7] dark:border-[#2E2E2E]"
+                  onClick={() => {
+                    localStorage.clear();
+                    window.location.reload();
+                  }}
+                  className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors"
                 >
-                  <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                  {isGoogleSigningIn ? 'Signing in...' : 'Continue with Google'}
+                  Reset app cache
                 </button>
-              )}
-
-              <div className="mt-7 pt-5 border-t border-[#E9E9E7] dark:border-[#2E2E2E] flex flex-col gap-3">
-                <div className="flex items-center justify-center gap-4">
-                  <button
-                    onClick={() => {
-                      localStorage.clear();
-                      window.location.reload();
-                    }}
-                    className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors"
-                  >
-                    Reset app cache
-                  </button>
-                  
-                  <button
-                    onClick={() => setShowTroubleshooting(!showTroubleshooting)}
-                    className="text-xs font-bold text-[#787774] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <Wrench className="w-3.5 h-3.5" />
-                    Troubleshooting
-                  </button>
-                </div>
-
-                {showTroubleshooting && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-3 p-5 bg-[#F7F7F5] dark:bg-[#202020] rounded-[18px] border border-[#E9E9E7] dark:border-[#2E2E2E] text-left overflow-hidden"
-                  >
-                    <h3 className="text-xs font-black mb-3 uppercase tracking-[0.16em]">Migration Tool</h3>
-                    <p className="text-xs text-[#787774] dark:text-[#9B9A97] mb-5 leading-relaxed">If your data is missing after a system update, use this tool to restore it from the legacy database.</p>
-                    <MigrationTool />
-                  </motion.div>
-                )}
               </div>
             </div>
 

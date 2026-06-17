@@ -2,6 +2,7 @@ import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { Post, Business } from '../data';
 import { auth } from './firebase';
 import { exchangeSupabaseAccessToken, clearSupabaseAccessToken } from './supabaseSession';
+import { firestoreEntityId } from './firestoreMigrateIds';
 
 declare global {
   interface Window {
@@ -266,6 +267,7 @@ export async function upsertProfileByFirebaseUid(
   }
 
   return createProfile({
+    id: firestoreEntityId('profile', firebaseUid)!,
     firebase_uid: firebaseUid,
     email,
     display_name: displayName,
