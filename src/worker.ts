@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { patchEsrganOnnxOutputDims } from "./lib/esrganOnnxPatch";
 import { discoverLinksWorker, htmlToSimpleMarkdown } from "./lib/lightweightHtml";
 import { handleSupabaseTokenExchange } from "./lib/handleSupabaseTokenExchange";
-import { handleFirestoreMigrateBatch, handleMigratePrefetchProfiles } from "./lib/handleFirestoreMigrate";
+import { handleFirestoreMigrateBatch, handleMigratePrefetchProfiles, handleMigrateRepairOwnership } from "./lib/handleFirestoreMigrate";
 
 export interface Env {
   VITE_SUPABASE_URL: string;
@@ -137,6 +137,11 @@ export default {
       // GET /api/migrate/prefetch-profiles — load existing Supabase profile IDs before migration
       if (path === '/api/migrate/prefetch-profiles') {
         return handleMigratePrefetchProfiles(request, env);
+      }
+
+      // POST /api/migrate/repair-ownership — link migrated businesses to the signed-in profile
+      if (path === '/api/migrate/repair-ownership') {
+        return handleMigrateRepairOwnership(request, env);
       }
 
       // POST /api/migrate/supabase-batch — service-role upsert for Firestore migration

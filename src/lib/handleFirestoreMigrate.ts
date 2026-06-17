@@ -217,6 +217,127 @@ export async function handleMigratePrefetchProfiles(
   }
 }
 
+export async function repairMigratedOwnership(
+  env: SupabaseAuthEnv,
+  firebaseUid: string
+): Promise<{ repairedBusinesses: number; repairedMembers: number }> {
+  const { serviceKey, supabaseUrl } = getServiceConfig(env);
+
+  const profileRes = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?firebase_uid=eq.${encodeURIComponent(firebaseUid)}&select=id`,
+    { headers: serviceHeaders(serviceKey, { Accept: 'application/json' }) }
+  );
+  if (!profileRes.ok) {
+    const text = await profileRes.text();
+    throw new Error(`Failed to load profile for repair: ${text}`);
+  }
+  const profiles = (await profileRes.json()) as Array<{ id: string }>;
+  const profileId = profiles[0]?.id;
+  if (!profileId) {
+    throw new Error('No Supabase profile found for this Firebase user. Migrate profiles first.');
+  }
+
+  const businessesRes = await fetch(`${supabaseUrl}/rest/v1/businesses?select=id,owner_id`, {
+    headers: serviceHeaders(serviceKey, { Accept: 'application/json' }),
+  });
+  if (!businessesRes.ok) {
+    const text = await businessesRes.text();
+    throw new Error(`Failed to load businesses for repair: ${text}`);
+  }
+  const businesses = (await businessesRes.json()) as Array<{ id: string; owner_id: string | null }>;
+
+  let repairedBusinesses = 0;
+  for (const business of businesses) {
+    if (business.owner_id === profileId) continue;
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/businesses?id=eq.${encodeURIComponent(business.id)}`,
+      {
+        method: 'PATCH',
+        headers: serviceHeaders(serviceKey, {
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        }),
+        body: JSON.stringify({ owner_id: profileId }),
+      }
+    );
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to repair business ${business.id}: ${text}`);
+    }
+    repairedBusinesses++;
+  }
+
+  let repairedMembers = 0;
+  for (const business of businesses) {
+    const memberRes = await fetch(
+      `${supabaseUrl}/rest/v1/business_members?business_id=eq.${encodeURIComponent(business.id)}&profile_id=eq.${encodeURIComponent(profileId)}&select=business_id`,
+      { headers: serviceHeaders(serviceKey, { Accept: 'application/json' }) }
+    );
+    if (!memberRes.ok) continue;
+    const existing = (await memberRes.json()) as Array<{ business_id: string }>;
+    if (existing.length > 0) continue;
+
+    const response = await fetch(`${supabaseUrl}/rest/v1/business_members`, {
+      method: 'POST',
+      headers: serviceHeaders(serviceKey, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      }),
+      body: JSON.stringify({
+        business_id: business.id,
+        profile_id: profileId,
+        role: 'admin',
+        joined_at: new Date().toISOString(),
+      }),
+    });
+    if (response.ok) repairedMembers++;
+  }
+
+  return { repairedBusinesses, repairedMembers };
+}
+
+export async function handleMigrateRepairOwnership(
+  request: Request,
+  env: SupabaseAuthEnv
+): Promise<Response> {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'application/json',
+  };
+
+  const authError = await verifyMigrationRequest(request, env);
+  if (authError) return authError;
+
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: corsHeaders,
+    });
+  }
+
+  try {
+    const body = (await request.json()) as { firebase_uid?: string };
+    if (!body.firebase_uid) {
+      return new Response(JSON.stringify({ error: 'firebase_uid is required' }), {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    const result = await repairMigratedOwnership(env, body.firebase_uid);
+    return new Response(JSON.stringify({ ok: true, ...result }), {
+      status: 200,
+      headers: corsHeaders,
+    });
+  } catch (error) {
+    console.error('[migrate] repair ownership failed:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Repair failed' }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
 export async function handleFirestoreMigrateBatch(
   request: Request,
   env: SupabaseAuthEnv

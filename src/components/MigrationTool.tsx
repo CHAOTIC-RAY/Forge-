@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { auth, db } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { migrateFirestoreToSupabase, type MigrationProgress } from '../lib/firestoreToSupabase';
+import {
+  migrateFirestoreToSupabase,
+  migrateFirestoreExportToSupabase,
+  type MigrationProgress,
+} from '../lib/firestoreToSupabase';
 import { exchangeSupabaseAccessToken } from '../lib/supabaseSession';
+import { setDataBackend } from '../lib/dataBackend';
 import { ForgeLoader } from './ForgeLoader';
-import { ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 const MIGRATION_STAGES = [
@@ -23,13 +28,35 @@ const MIGRATION_STAGES = [
   'access requests',
 ];
 
+async function finishMigrationSuccess(
+  result: { counts: Record<string, number> },
+  setCounts: (counts: Record<string, number>) => void,
+  setStatus: (status: 'success') => void
+) {
+  setCounts(result.counts);
+  setStatus('success');
+  setDataBackend('supabase');
+  await exchangeSupabaseAccessToken(true);
+  toast.success('Migration complete. Opening dashboard…');
+  window.setTimeout(() => {
+    window.location.href = '/';
+  }, 1500);
+}
+
 export function MigrationTool() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<'idle' | 'migrating' | 'success' | 'error'>('idle');
   const [stage, setStage] = useState<string>('Preparing…');
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
-  const startMigration = async () => {
+  const runMigration = async (
+    runner: (
+      getToken: () => Promise<string>,
+      onProgress: (progress: MigrationProgress) => void,
+      user: { uid: string; email?: string | null; displayName?: string | null; photoURL?: string | null }
+    ) => Promise<{ counts: Record<string, number> }>
+  ) => {
     const user = auth.currentUser;
     if (!user) {
       toast.error('You must be logged in to migrate data.');
@@ -44,12 +71,9 @@ export function MigrationTool() {
     try {
       await exchangeSupabaseAccessToken(true);
 
-      const result = await migrateFirestoreToSupabase(
-        db,
+      const result = await runner(
         () => user.getIdToken(true),
-        (progress: MigrationProgress) => {
-          setStage(progress.stage);
-        },
+        (progress: MigrationProgress) => setStage(progress.stage),
         {
           uid: user.uid,
           email: user.email,
@@ -58,9 +82,7 @@ export function MigrationTool() {
         }
       );
 
-      setCounts(result.counts);
-      setStatus('success');
-      toast.success('Firestore data migrated to Supabase.');
+      await finishMigrationSuccess(result, setCounts, setStatus);
     } catch (err: unknown) {
       console.error('Migration failed:', err);
       setStatus('error');
@@ -68,6 +90,60 @@ export function MigrationTool() {
       setError(message);
       toast.error('Migration failed. See details below.');
     }
+  };
+
+  const startMigration = () =>
+    runMigration((getToken, onProgress, user) =>
+      migrateFirestoreToSupabase(db, getToken, onProgress, user)
+    );
+
+  const repairWorkspacesOnly = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      toast.error('You must be logged in.');
+      return;
+    }
+    setStatus('migrating');
+    setStage('Repairing workspace ownership links…');
+    try {
+      const token = await user.getIdToken(true);
+      const response = await fetch('/api/migrate/repair-ownership', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ firebase_uid: user.uid }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `Repair failed (${response.status})`);
+      }
+      setDataBackend('supabase');
+      await exchangeSupabaseAccessToken(true);
+      toast.success('Workspaces repaired. Reloading dashboard…');
+      window.setTimeout(() => {
+        window.location.href = '/';
+      }, 1200);
+    } catch (err) {
+      setStatus('error');
+      setError(err instanceof Error ? err.message : 'Repair failed');
+      toast.error('Repair failed.');
+    }
+  };
+
+  const importFromJson = async (file: File) => {
+    const text = await file.text();
+    const payload = JSON.parse(text) as {
+      collections?: Record<string, Array<{ id: string; data: Record<string, unknown> }>>;
+    };
+    if (!payload.collections) {
+      throw new Error('Invalid export file: missing collections object.');
+    }
+
+    await runMigration((getToken, onProgress, user) =>
+      migrateFirestoreExportToSupabase({ collections: payload.collections! }, getToken, onProgress, user)
+    );
   };
 
   return (
@@ -99,17 +175,45 @@ export function MigrationTool() {
           </div>
           <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-3">
             Migrates users, businesses, posts, inventory, notebooks, brand kits, short links, and access requests.
-            Existing Supabase rows with the same IDs are updated, not duplicated.
+            After migration, workspace ownership is repaired and you are switched to the new database automatically.
           </p>
         </div>
 
         {status === 'idle' && (
-          <button
-            onClick={startMigration}
-            className="w-full py-2.5 bg-[#37352F] dark:bg-[#FFFFFF] text-white dark:text-[#191919] rounded-[8px] font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-          >
-            Migrate Firestore to Supabase
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={startMigration}
+              className="w-full py-2.5 bg-[#37352F] dark:bg-[#FFFFFF] text-white dark:text-[#191919] rounded-[8px] font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
+              Migrate Firestore to Supabase
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void importFromJson(file);
+                event.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-[8px] font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Import exported JSON backup
+            </button>
+            <button
+              type="button"
+              onClick={repairWorkspacesOnly}
+              className="w-full py-2 text-xs font-semibold text-[#787774] dark:text-[#9B9A97] underline"
+            >
+              Already migrated? Repair workspace links only
+            </button>
+          </div>
         )}
 
         {status === 'migrating' && (
@@ -135,7 +239,7 @@ export function MigrationTool() {
             <div>
               <p className="text-sm font-medium text-green-800 dark:text-green-300">Migration Successful</p>
               <p className="text-xs text-green-700 dark:text-green-400 mt-1">
-                Your Firestore data is now in Supabase. Reload the app to load your workspaces.
+                Redirecting to your dashboard with the new Supabase database…
               </p>
               <ul className="mt-2 text-xs text-green-700 dark:text-green-400 space-y-0.5">
                 {Object.entries(counts)

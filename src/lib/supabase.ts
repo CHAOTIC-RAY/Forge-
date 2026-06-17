@@ -288,6 +288,22 @@ const BUSINESS_SELECT = `
 `;
 
 export async function getBusinesses(profileId: string): Promise<Business[]> {
+  // Rely on RLS (owner/member/guest) instead of pre-filtering by owner_id, which breaks
+  // when the signed-in profile id differs from migrated owner_id until repair runs.
+  const { data, error } = await supabase.from('businesses').select(BUSINESS_SELECT);
+
+  if (error) {
+    console.error('Error fetching businesses:', error);
+    throw error;
+  }
+
+  const businesses = (data || []).map(transformBusiness);
+
+  if (businesses.length > 0) {
+    return businesses;
+  }
+
+  // Fallback for legacy client-side filtering if RLS returns nothing
   const [ownedResult, memberResult] = await Promise.all([
     supabase.from('businesses').select(BUSINESS_SELECT).eq('owner_id', profileId),
     supabase.from('business_members').select('business_id').eq('profile_id', profileId),
@@ -309,15 +325,15 @@ export async function getBusinesses(profileId: string): Promise<Business[]> {
 
   let memberBusinesses: typeof owned = [];
   if (memberIds.length > 0) {
-    const { data, error } = await supabase
+    const { data: memberData, error: memberError } = await supabase
       .from('businesses')
       .select(BUSINESS_SELECT)
       .in('id', memberIds);
-    if (error) {
-      console.error('Error fetching member businesses:', error);
-      throw error;
+    if (memberError) {
+      console.error('Error fetching member businesses:', memberError);
+      throw memberError;
     }
-    memberBusinesses = data || [];
+    memberBusinesses = memberData || [];
   }
 
   return [...owned, ...memberBusinesses].map(transformBusiness);

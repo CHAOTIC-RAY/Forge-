@@ -461,8 +461,18 @@ const FIRESTORE_COLLECTIONS = [
   'access_requests',
 ] as const;
 
-export async function migrateFirestoreToSupabase(
-  db: Firestore,
+async function syncContextWithSupabaseProfiles(
+  ctx: MigrationContext,
+  getToken: () => Promise<string>
+): Promise<void> {
+  const existingByFirebaseUid = await fetchExistingProfiles(getToken);
+  for (const [firebaseUid, profileId] of existingByFirebaseUid) {
+    registerProfile(ctx, profileId, firebaseUid, firebaseUid);
+  }
+}
+
+export async function migrateRawCollectionsToSupabase(
+  raw: Partial<Record<string, Array<{ id: string; data: Record<string, unknown> }>>>,
   getFirebaseIdToken: () => Promise<string>,
   onProgress?: (progress: MigrationProgress) => void,
   currentUser?: {
@@ -473,18 +483,6 @@ export async function migrateFirestoreToSupabase(
   }
 ): Promise<MigrationResult> {
   const counts: Record<string, number> = {};
-  const raw: Partial<Record<string, Array<{ id: string; data: Record<string, unknown> }>>> = {};
-
-  for (const name of FIRESTORE_COLLECTIONS) {
-    onProgress?.({ stage: `Reading ${name}`, count: 0 });
-    try {
-      raw[name] = await readCollection(db, name);
-      counts[`read:${name}`] = raw[name]!.length;
-    } catch {
-      raw[name] = [];
-      counts[`read:${name}`] = 0;
-    }
-  }
 
   const inventoryDocs = [
     ...(raw.inventory_products || []),
@@ -517,6 +515,8 @@ export async function migrateFirestoreToSupabase(
   }
   onProgress?.({ stage: 'Migrating profiles', count: 0 });
   counts.profiles = await sendBatch('profiles', profileRows, 'firebase_uid', getFirebaseIdToken);
+
+  await syncContextWithSupabaseProfiles(ctx, getFirebaseIdToken);
 
   const businessRows = buildBusinesses(raw.businesses || [], ctx);
   onProgress?.({ stage: 'Migrating businesses', count: 0 });
@@ -585,5 +585,72 @@ export async function migrateFirestoreToSupabase(
   onProgress?.({ stage: 'Migrating access requests', count: 0 });
   counts.access_requests = await sendBatch('access_requests', accessRequestRows, 'id', getFirebaseIdToken);
 
+  const repairUid = currentUser?.uid || profileRows[0]?.firebase_uid;
+  if (repairUid) {
+    onProgress?.({ stage: 'Repairing workspace ownership links', count: 0 });
+    const token = await getFirebaseIdToken();
+    const repairRes = await fetch('/api/migrate/repair-ownership', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ firebase_uid: String(repairUid) }),
+    });
+    if (repairRes.ok) {
+      const repairBody = (await repairRes.json()) as {
+        repairedBusinesses?: number;
+        repairedMembers?: number;
+      };
+      counts.repaired_businesses = repairBody.repairedBusinesses ?? 0;
+      counts.repaired_members = repairBody.repairedMembers ?? 0;
+    }
+  }
+
   return { counts };
+}
+
+export async function migrateFirestoreExportToSupabase(
+  exportPayload: {
+    collections: Record<string, Array<{ id: string; data: Record<string, unknown> }>>;
+  },
+  getFirebaseIdToken: () => Promise<string>,
+  onProgress?: (progress: MigrationProgress) => void,
+  currentUser?: {
+    uid: string;
+    email?: string | null;
+    displayName?: string | null;
+    photoURL?: string | null;
+  }
+): Promise<MigrationResult> {
+  return migrateRawCollectionsToSupabase(exportPayload.collections, getFirebaseIdToken, onProgress, currentUser);
+}
+
+export async function migrateFirestoreToSupabase(
+  db: Firestore,
+  getFirebaseIdToken: () => Promise<string>,
+  onProgress?: (progress: MigrationProgress) => void,
+  currentUser?: {
+    uid: string;
+    email?: string | null;
+    displayName?: string | null;
+    photoURL?: string | null;
+  }
+): Promise<MigrationResult> {
+  const counts: Record<string, number> = {};
+  const raw: Partial<Record<string, Array<{ id: string; data: Record<string, unknown> }>>> = {};
+
+  for (const name of FIRESTORE_COLLECTIONS) {
+    onProgress?.({ stage: `Reading ${name}`, count: 0 });
+    try {
+      raw[name] = await readCollection(db, name);
+      counts[`read:${name}`] = raw[name]!.length;
+    } catch {
+      raw[name] = [];
+      counts[`read:${name}`] = 0;
+    }
+  }
+
+  const result = await migrateRawCollectionsToSupabase(raw, getFirebaseIdToken, onProgress, currentUser);
+  return { counts: { ...counts, ...result.counts } };
 }

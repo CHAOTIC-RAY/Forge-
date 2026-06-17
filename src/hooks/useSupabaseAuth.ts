@@ -5,6 +5,7 @@ import {
   Profile,
   upsertProfileByFirebaseUid,
   getProfile,
+  setFirebaseUidForRls,
 } from '../lib/supabase';
 import { clearSupabaseAccessToken, exchangeSupabaseAccessToken } from '../lib/supabaseSession';
 import { isLegacyBackend } from '../lib/dataBackend';
@@ -33,6 +34,7 @@ export function useSupabaseAuth(): AuthState & {
     }
 
     await exchangeSupabaseAccessToken(true);
+    await setFirebaseUidForRls(firebaseUser.uid);
 
     const existing = await getProfile(firebaseUser.uid);
     if (existing) {
