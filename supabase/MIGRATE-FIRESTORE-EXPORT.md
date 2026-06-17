@@ -67,6 +67,33 @@ WHERE id IN (
 3. Use **Import exported JSON backup** with your `.json` file
 4. Switch to **Google — New database (Supabase)** and reload
 
+## Option D — AI instructions + calendar only (smaller import)
+
+If you only need **AI system instructions** and **calendar posts**, use the focused generator:
+
+```bash
+node scripts/generate-ai-calendar-sql.mjs path/to/forge-firestore-export.json supabase/import-ai-and-calendar.sql
+```
+
+Then paste **`supabase/import-ai-and-calendar.sql`** into Supabase SQL Editor.
+
+**Important:** Paste the `.sql` file only — do **not** paste the `.mjs` JavaScript script (that causes `syntax error at or near "{"`).
+
+This imports:
+- `profiles.ai_settings` (system instructions, business rules, API keys)
+- 76 calendar posts for Rainbow Enterprises
+
+Verify:
+
+```sql
+SELECT ai_settings->>'systemInstructions' IS NOT NULL AS has_ai_instructions
+FROM profiles WHERE firebase_uid = 'WR31B3zXQ7Sla6Pb28sOtTatREu2';
+
+SELECT count(*) AS calendar_posts
+FROM posts WHERE business_id = '476bad32-86a2-467e-9560-0dbb78dddd18';
+-- Expected: 76
+```
+
 ## After migration
 
 Sign in with **New database (Supabase)** at `/auth`, not the legacy Firestore mode.

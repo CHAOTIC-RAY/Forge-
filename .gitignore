@@ -19,3 +19,4 @@ __pycache__/
 
 # Generated from Firestore exports (may contain API keys)
 supabase/import-forge-firestore-export.sql
+supabase/import-ai-and-calendar.sql
