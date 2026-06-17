@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import {
-  supabase,
   Profile,
   upsertProfileByFirebaseUid,
   getProfile,
+  setFirebaseUidForRls,
 } from '../lib/supabase';
 
 interface AuthState {
@@ -26,6 +26,23 @@ export function useSupabaseAuth(): AuthState & {
     error: null,
   });
 
+  const syncProfile = useCallback(async (firebaseUser: User): Promise<Profile> => {
+    await firebaseUser.getIdToken(true);
+    await setFirebaseUidForRls(firebaseUser.uid);
+
+    const existing = await getProfile(firebaseUser.uid);
+    if (existing) {
+      return existing;
+    }
+
+    return upsertProfileByFirebaseUid(
+      firebaseUser.uid,
+      firebaseUser.email || '',
+      firebaseUser.displayName || undefined,
+      firebaseUser.photoURL || undefined
+    );
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) {
@@ -34,24 +51,13 @@ export function useSupabaseAuth(): AuthState & {
     }
 
     try {
-      const profile = await getProfile(firebaseUser.uid);
-      if (profile) {
-        setState(prev => ({ ...prev, profile, loading: false }));
-      } else {
-        // Create profile if missing
-        const newProfile = await upsertProfileByFirebaseUid(
-          firebaseUser.uid,
-          firebaseUser.email || '',
-          firebaseUser.displayName || undefined,
-          firebaseUser.photoURL || undefined
-        );
-        setState(prev => ({ ...prev, profile: newProfile, loading: false }));
-      }
+      const profile = await syncProfile(firebaseUser);
+      setState(prev => ({ ...prev, profile, loading: false, error: null }));
     } catch (error) {
       console.error('Error refreshing profile:', error);
       setState(prev => ({ ...prev, error: error as Error, loading: false }));
     }
-  }, []);
+  }, [syncProfile]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
@@ -59,20 +65,7 @@ export function useSupabaseAuth(): AuthState & {
 
       if (firebaseUser) {
         try {
-          // Sync Firebase user to Supabase profile
-          const profile = await upsertProfileByFirebaseUid(
-            firebaseUser.uid,
-            firebaseUser.email || '',
-            firebaseUser.displayName || undefined,
-            firebaseUser.photoURL || undefined
-          );
-
-          // Set the Supabase session context for RLS
-          await supabase.rpc('set_config', {
-            name: 'request.jwt.firebase_uid',
-            value: firebaseUser.uid,
-          });
-
+          const profile = await syncProfile(firebaseUser);
           setState({
             firebaseUser,
             profile,
@@ -99,11 +92,10 @@ export function useSupabaseAuth(): AuthState & {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [syncProfile]);
 
   const signOut = useCallback(async () => {
     await auth.signOut();
-    await supabase.auth.signOut();
     setState({
       firebaseUser: null,
       profile: null,
@@ -128,6 +120,8 @@ export function useProfile(): Profile | null {
       }
 
       try {
+        await firebaseUser.getIdToken(false);
+        await setFirebaseUidForRls(firebaseUser.uid);
         const userProfile = await getProfile(firebaseUser.uid);
         setProfile(userProfile);
       } catch (error) {

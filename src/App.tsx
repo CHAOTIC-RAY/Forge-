@@ -248,7 +248,7 @@ export default function App() {
   }, [shortCode, navigate]);
 
   const [user, loading, authError] = useAuthState(auth);
-  const { profile } = useSupabaseAuth();
+  const { profile, loading: profileLoading } = useSupabaseAuth();
   const [authTimeout, setAuthTimeout] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
@@ -819,7 +819,19 @@ export default function App() {
 
   // Fetch user's workspaces from Supabase
   useEffect(() => {
-    if (!profile || isViewOnly) return;
+    if (isViewOnly) return;
+
+    if (!user) {
+      setLoadingBusinesses(false);
+      return;
+    }
+
+    if (!profile) {
+      if (!profileLoading) {
+        setLoadingBusinesses(false);
+      }
+      return;
+    }
 
     const unsubscribe = subscribeToBusinesses(profile.id, (bizList) => {
       setBusinesses(bizList);
@@ -845,7 +857,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [profile, isViewOnly, loading, userOnboardingComplete]);
+  }, [profile, profileLoading, user, isViewOnly, loading, userOnboardingComplete]);
 
   useEffect(() => {
     if (activeBusiness && !isViewOnly) {
@@ -2698,7 +2710,7 @@ export default function App() {
     e.target.value = '';
   };
 
-  if ((loading || (user && loadingBusinesses)) && !authTimeout) {
+  if ((loading || profileLoading || (user && profile && loadingBusinesses)) && !authTimeout) {
     return (
       <div className="min-h-screen bg-[#1A1C1E] flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">

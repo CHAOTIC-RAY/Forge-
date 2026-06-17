@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { Post, Business } from '../data';
+import { auth } from './firebase';
 
 declare global {
   interface Window {
@@ -36,6 +37,11 @@ function createSupabaseClient(): SupabaseClient {
       storage: localStorage,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+    },
+    accessToken: async () => {
+      const user = auth.currentUser;
+      if (!user) return null;
+      return user.getIdToken(false);
     },
   });
 }
@@ -267,26 +273,50 @@ export async function upsertProfileByFirebaseUid(
 // BUSINESS OPERATIONS
 // ============================================
 
-export async function getBusinesses(profileId: string): Promise<Business[]> {
-  const { data, error } = await supabase
-    .from('businesses')
-    .select(`
-      *,
-      owner:profiles!businesses_owner_id_fkey ( firebase_uid ),
-      business_members!business_members_business_id_fkey (
-        profile_id,
-        role,
-        profiles ( firebase_uid, email, display_name )
-      )
-    `)
-    .or(`owner_id.eq.${profileId},business_members.profile_id.eq.${profileId}`);
+const BUSINESS_SELECT = `
+  *,
+  owner:profiles!businesses_owner_id_fkey ( firebase_uid ),
+  business_members!business_members_business_id_fkey (
+    profile_id,
+    role,
+    profiles ( firebase_uid, email, display_name )
+  )
+`;
 
-  if (error) {
-    console.error('Error fetching businesses:', error);
-    throw error;
+export async function getBusinesses(profileId: string): Promise<Business[]> {
+  const [ownedResult, memberResult] = await Promise.all([
+    supabase.from('businesses').select(BUSINESS_SELECT).eq('owner_id', profileId),
+    supabase.from('business_members').select('business_id').eq('profile_id', profileId),
+  ]);
+
+  if (ownedResult.error) {
+    console.error('Error fetching owned businesses:', ownedResult.error);
+    throw ownedResult.error;
+  }
+  if (memberResult.error) {
+    console.error('Error fetching business memberships:', memberResult.error);
+    throw memberResult.error;
   }
 
-  return (data || []).map(transformBusiness);
+  const owned = ownedResult.data || [];
+  const memberIds = (memberResult.data || [])
+    .map((m) => m.business_id)
+    .filter((id) => !owned.some((b) => b.id === id));
+
+  let memberBusinesses: typeof owned = [];
+  if (memberIds.length > 0) {
+    const { data, error } = await supabase
+      .from('businesses')
+      .select(BUSINESS_SELECT)
+      .in('id', memberIds);
+    if (error) {
+      console.error('Error fetching member businesses:', error);
+      throw error;
+    }
+    memberBusinesses = data || [];
+  }
+
+  return [...owned, ...memberBusinesses].map(transformBusiness);
 }
 
 export async function getBusinessByIdAndShareToken(
@@ -699,7 +729,12 @@ export function subscribeToBusinesses(
   callback: (businesses: Business[]) => void
 ): () => void {
   const refresh = () => {
-    void getBusinesses(profileId).then(callback).catch((e) => console.error('[businesses]', e));
+    void getBusinesses(profileId)
+      .then(callback)
+      .catch((e) => {
+        console.error('[businesses]', e);
+        callback([]);
+      });
   };
   const channel = supabase
     .channel(`businesses:${profileId}`)
@@ -872,18 +907,29 @@ export async function upsertNotebook(
 // ============================================
 
 export async function getShortLink(shortCode: string): Promise<ShortLink | null> {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.rpc('resolve_short_link', { p_short_code: shortCode });
+
+  if (!error && data) {
+    const row = Array.isArray(data) ? data[0] : data;
+    return (row as ShortLink) ?? null;
+  }
+
+  if (error && error.code !== 'PGRST202') {
+    console.error('Error resolving short link via RPC:', error);
+  }
+
+  const { data: fallback, error: fallbackError } = await supabase
     .from('short_links')
     .select('*')
     .eq('short_code', shortCode)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    console.error('Error fetching short link:', error);
-    throw error;
+  if (fallbackError) {
+    if (fallbackError.code === 'PGRST116') return null;
+    console.error('Error fetching short link:', fallbackError);
+    throw fallbackError;
   }
-  return data;
+  return fallback;
 }
 
 export async function createShortLink(
@@ -1491,10 +1537,7 @@ function generateShortCode(length: number = 6): string {
 export async function setFirebaseUidForRls(firebaseUid: string): Promise<void> {
   const { error } = await supabase.rpc('set_firebase_uid', { uid: firebaseUid });
   if (error) {
-    await supabase.rpc('set_config', {
-      name: 'request.jwt.firebase_uid',
-      value: firebaseUid,
-    });
+    console.warn('[supabase] set_firebase_uid RPC unavailable:', error.message);
   }
 }
 
