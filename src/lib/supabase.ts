@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { Post, Business } from '../data';
 import { auth } from './firebase';
+import { exchangeSupabaseAccessToken, clearSupabaseAccessToken } from './supabaseSession';
 
 declare global {
   interface Window {
@@ -39,9 +40,12 @@ function createSupabaseClient(): SupabaseClient {
       detectSessionInUrl: true,
     },
     accessToken: async () => {
-      const user = auth.currentUser;
-      if (!user) return null;
-      return user.getIdToken(false);
+      try {
+        return await exchangeSupabaseAccessToken();
+      } catch (error) {
+        console.warn('[supabase] access token exchange failed:', error);
+        return null;
+      }
     },
   });
 }

@@ -1,10 +1,15 @@
 import * as cheerio from "cheerio";
 import { patchEsrganOnnxOutputDims } from "./lib/esrganOnnxPatch";
 import { discoverLinksWorker, htmlToSimpleMarkdown } from "./lib/lightweightHtml";
+import { handleSupabaseTokenExchange } from "./lib/handleSupabaseTokenExchange";
+import { handleFirestoreMigrateBatch } from "./lib/handleFirestoreMigrate";
 
 export interface Env {
   VITE_SUPABASE_URL: string;
   VITE_SUPABASE_ANON_KEY: string;
+  SUPABASE_JWT_SECRET?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+  FIREBASE_PROJECT_ID?: string;
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_API_KEY: string;
   CLOUDINARY_API_SECRET: string;
@@ -110,6 +115,7 @@ export default {
           cloudinaryCloudName: env.CLOUDINARY_CLOUD_NAME || null,
           supabaseUrl: env.VITE_SUPABASE_URL || null,
           supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || null,
+          hasSupabaseAuthBridge: !!env.SUPABASE_JWT_SECRET,
           _missingCloudinary: missingCloudinary,
           _missingGemini: missingGemini
         }), {
@@ -118,6 +124,16 @@ export default {
             'Access-Control-Allow-Origin': '*'
           }
         });
+      }
+
+      // POST /api/auth/supabase-token — exchange verified Firebase ID token for Supabase JWT
+      if (path === '/api/auth/supabase-token') {
+        return handleSupabaseTokenExchange(request, env);
+      }
+
+      // POST /api/migrate/supabase-batch — service-role upsert for Firestore migration
+      if (path === '/api/migrate/supabase-batch') {
+        return handleFirestoreMigrateBatch(request, env);
       }
 
       // Proxy for Gemini API

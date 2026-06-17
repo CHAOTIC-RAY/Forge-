@@ -1,71 +1,72 @@
 import React, { useState } from 'react';
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import { initializeFirestore, collection, getDocs, doc, setDoc, query, limit } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { migrateFirestoreToSupabase, type MigrationProgress } from '../lib/firestoreToSupabase';
+import { exchangeSupabaseAccessToken } from '../lib/supabaseSession';
 import { ForgeLoader } from './ForgeLoader';
 import { ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const COLLECTIONS = [
+const MIGRATION_STAGES = [
+  'profiles',
   'businesses',
+  'business members',
   'posts',
-  'users',
-  'priority_products',
-  'inventory_products',
-  'inventory_category_counts',
-  'todos'
+  'inventory',
+  'category counts',
+  'notebooks',
+  'brand kits',
+  'brand overviews',
+  'categories',
+  'inventory maps',
+  'short links',
+  'access requests',
 ];
-
-const OLD_DATABASE_ID = 'ai-studio-13c56c0d-2443-4ce5-8f01-68a0684e05e5';
 
 export function MigrationTool() {
   const [status, setStatus] = useState<'idle' | 'migrating' | 'success' | 'error'>('idle');
-  const [progress, setProgress] = useState<{ [key: string]: number }>({});
+  const [stage, setStage] = useState<string>('Preparing…');
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
   const startMigration = async () => {
-    if (!auth.currentUser) {
-      toast.error("You must be logged in to migrate data.");
+    const user = auth.currentUser;
+    if (!user) {
+      toast.error('You must be logged in to migrate data.');
       return;
     }
 
     setStatus('migrating');
     setError(null);
-    const newProgress: { [key: string]: number } = {};
-    COLLECTIONS.forEach(c => newProgress[c] = 0);
-    setProgress(newProgress);
+    setCounts({});
+    setStage('Connecting to Supabase…');
 
     try {
-      // Initialize source app
-      const sourceConfig = { ...firebaseConfig, firestoreDatabaseId: OLD_DATABASE_ID };
-      const sourceApp = getApps().find(app => app.name === 'source') || initializeApp(sourceConfig, 'source');
-      const sourceDb = initializeFirestore(sourceApp, { experimentalForceLongPolling: true }, OLD_DATABASE_ID);
+      await exchangeSupabaseAccessToken(true);
 
-      // Destination app is the default one - use the existing db instance
-      const destDb = db;
-
-      for (const collectionName of COLLECTIONS) {
-        console.log(`Migrating collection: ${collectionName}`);
-        const sourceCol = collection(sourceDb, collectionName);
-        const snapshot = await getDocs(sourceCol);
-        
-        let count = 0;
-        for (const document of snapshot.docs) {
-          const data = document.data();
-          await setDoc(doc(destDb, collectionName, document.id), data);
-          count++;
-          setProgress(prev => ({ ...prev, [collectionName]: count }));
+      const result = await migrateFirestoreToSupabase(
+        db,
+        () => user.getIdToken(true),
+        (progress: MigrationProgress) => {
+          setStage(progress.stage);
+        },
+        {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
         }
-      }
+      );
 
+      setCounts(result.counts);
       setStatus('success');
-      toast.success("Migration completed successfully!");
-    } catch (err: any) {
-      console.error("Migration failed:", err);
+      toast.success('Firestore data migrated to Supabase.');
+    } catch (err: unknown) {
+      console.error('Migration failed:', err);
       setStatus('error');
-      setError(err.message || "An unknown error occurred during migration.");
-      toast.error("Migration failed. See details below.");
+      const message = err instanceof Error ? err.message : 'An unknown error occurred during migration.';
+      setError(message);
+      toast.error('Migration failed. See details below.');
     }
   };
 
@@ -76,9 +77,9 @@ export function MigrationTool() {
           <ArrowRight className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-[#37352F] dark:text-[#FFFFFF]">Data Migration</h2>
+          <h2 className="text-lg font-semibold text-[#37352F] dark:text-[#FFFFFF]">Firestore → Supabase Migration</h2>
           <p className="text-sm text-[#757681] dark:text-[#9B9A97]">
-            Move your data from the old Rainbow database to the new Forge project.
+            Copy your existing Forge data from Firestore into Supabase so workspaces, posts, and short links work again.
           </p>
         </div>
       </div>
@@ -86,16 +87,20 @@ export function MigrationTool() {
       <div className="space-y-4">
         <div className="p-4 bg-[#F7F6F3] dark:bg-[#252525] rounded-[8px] border border-[#E9E9E7] dark:border-[#2F2F2F]">
           <h3 className="text-sm font-medium mb-2">Migration Details</h3>
-          <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div>
-              <span className="text-[#757681] dark:text-[#9B9A97]">Source Database:</span>
-              <p className="font-mono mt-1 truncate">{OLD_DATABASE_ID}</p>
+              <span className="text-[#757681] dark:text-[#9B9A97]">Source:</span>
+              <p className="font-mono mt-1 truncate">Firestore ({firebaseConfig.firestoreDatabaseId})</p>
             </div>
             <div>
-              <span className="text-[#757681] dark:text-[#9B9A97]">Destination Database:</span>
-              <p className="font-mono mt-1">(default)</p>
+              <span className="text-[#757681] dark:text-[#9B9A97]">Destination:</span>
+              <p className="font-mono mt-1">Supabase (forge)</p>
             </div>
           </div>
+          <p className="text-xs text-[#757681] dark:text-[#9B9A97] mt-3">
+            Migrates users, businesses, posts, inventory, notebooks, brand kits, short links, and access requests.
+            Existing Supabase rows with the same IDs are updated, not duplicated.
+          </p>
         </div>
 
         {status === 'idle' && (
@@ -103,7 +108,7 @@ export function MigrationTool() {
             onClick={startMigration}
             className="w-full py-2.5 bg-[#37352F] dark:bg-[#FFFFFF] text-white dark:text-[#191919] rounded-[8px] font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
           >
-            Start Migration
+            Migrate Firestore to Supabase
           </button>
         )}
 
@@ -111,13 +116,13 @@ export function MigrationTool() {
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2 py-4">
               <ForgeLoader size={20} />
-              <span className="text-sm font-medium">Migrating data...</span>
+              <span className="text-sm font-medium">{stage}</span>
             </div>
             <div className="space-y-1">
-              {COLLECTIONS.map(col => (
-                <div key={col} className="flex justify-between text-xs">
-                  <span className="text-[#757681] dark:text-[#9B9A97] capitalize">{col.replace(/_/g, ' ')}</span>
-                  <span className="font-medium">{progress[col] || 0} items</span>
+              {MIGRATION_STAGES.map((label) => (
+                <div key={label} className="flex justify-between text-xs">
+                  <span className="text-[#757681] dark:text-[#9B9A97] capitalize">{label}</span>
+                  <span className="font-medium">{counts[label.replace(/ /g, '_')] ?? '…'}</span>
                 </div>
               ))}
             </div>
@@ -130,8 +135,17 @@ export function MigrationTool() {
             <div>
               <p className="text-sm font-medium text-green-800 dark:text-green-300">Migration Successful</p>
               <p className="text-xs text-green-700 dark:text-green-400 mt-1">
-                All data has been moved to the new project. You can now use the app normally.
+                Your Firestore data is now in Supabase. Reload the app to load your workspaces.
               </p>
+              <ul className="mt-2 text-xs text-green-700 dark:text-green-400 space-y-0.5">
+                {Object.entries(counts)
+                  .filter(([key]) => !key.startsWith('read:'))
+                  .map(([key, value]) => (
+                    <li key={key}>
+                      {key.replace(/_/g, ' ')}: {value}
+                    </li>
+                  ))}
+              </ul>
             </div>
           </div>
         )}
@@ -141,9 +155,13 @@ export function MigrationTool() {
             <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-red-800 dark:text-red-300">Migration Failed</p>
-              <p className="text-xs text-red-700 dark:text-red-400 mt-1">
-                {error}
-              </p>
+              <p className="text-xs text-red-700 dark:text-red-400 mt-1">{error}</p>
+              {error?.includes('service role') && (
+                <p className="text-xs text-red-700 dark:text-red-400 mt-2">
+                  Ask the project admin to set <code>SUPABASE_SERVICE_ROLE_KEY</code> and{' '}
+                  <code>SUPABASE_JWT_SECRET</code> on the Cloudflare Worker.
+                </p>
+              )}
               <button
                 onClick={startMigration}
                 className="mt-2 text-xs font-semibold text-red-800 dark:text-red-300 underline"

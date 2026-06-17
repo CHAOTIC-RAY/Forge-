@@ -49,7 +49,10 @@ export function Login() {
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
   const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
-  const [authStrategy, setAuthStrategy] = useState<'popup' | 'redirect'>('popup');
+  const [authStrategy, setAuthStrategy] = useState<'popup' | 'redirect'>(() => {
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    return host.includes('workers.dev') || host.includes('chaoticstudio') ? 'redirect' : 'popup';
+  });
   const [authMode, setAuthMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

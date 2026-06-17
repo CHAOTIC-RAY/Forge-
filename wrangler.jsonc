@@ -17,6 +17,7 @@
   "vars": {
     "VITE_SUPABASE_URL": "https://tpjiowcovqfvmuockpop.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwamlvd2NvdnFmdm11b2NrcG9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MzgzODEsImV4cCI6MjA5MzAxNDM4MX0.zBekCebjsFzOyRxhiD1Rj8c2453by9Z87RKJQjAAjsk",
+    "FIREBASE_PROJECT_ID": "gen-lang-client-0018612871",
     "GEMINI_API_KEY": "",
     "GROQ_API_KEY": "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",
     "CLOUDINARY_CLOUD_NAME": "djy0axo3u",

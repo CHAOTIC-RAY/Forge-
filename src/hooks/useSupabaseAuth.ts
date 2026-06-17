@@ -1,29 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { isSupabaseAuthFailure } from '../lib/authMigration';
 import {
   Profile,
   upsertProfileByFirebaseUid,
   getProfile,
-  setFirebaseUidForRls,
 } from '../lib/supabase';
+import { clearSupabaseAccessToken, exchangeSupabaseAccessToken } from '../lib/supabaseSession';
 
 interface AuthState {
   firebaseUser: User | null;
   profile: Profile | null;
   loading: boolean;
   error: Error | null;
-}
-
-async function signOutAfterSupabaseFailure(error: unknown): Promise<void> {
-  if (!isSupabaseAuthFailure(error)) return;
-  console.warn('[auth] Supabase rejected session; signing out of Firebase');
-  try {
-    await auth.signOut();
-  } catch (signOutError) {
-    console.warn('[auth] Firebase sign-out failed:', signOutError);
-  }
 }
 
 export function useSupabaseAuth(): AuthState & {
@@ -38,8 +27,7 @@ export function useSupabaseAuth(): AuthState & {
   });
 
   const syncProfile = useCallback(async (firebaseUser: User): Promise<Profile> => {
-    await firebaseUser.getIdToken(false);
-    await setFirebaseUidForRls(firebaseUser.uid);
+    await exchangeSupabaseAccessToken(true);
 
     const existing = await getProfile(firebaseUser.uid);
     if (existing) {
@@ -65,16 +53,6 @@ export function useSupabaseAuth(): AuthState & {
       const profile = await syncProfile(firebaseUser);
       setState(prev => ({ ...prev, profile, loading: false, error: null }));
     } catch (error) {
-      await signOutAfterSupabaseFailure(error);
-      if (isSupabaseAuthFailure(error)) {
-        setState({
-          firebaseUser: null,
-          profile: null,
-          loading: false,
-          error: null,
-        });
-        return;
-      }
       console.error('Error refreshing profile:', error);
       setState(prev => ({ ...prev, error: error as Error, loading: false }));
     }
@@ -83,6 +61,7 @@ export function useSupabaseAuth(): AuthState & {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (!firebaseUser) {
+        clearSupabaseAccessToken();
         setState({
           firebaseUser: null,
           profile: null,
@@ -103,17 +82,8 @@ export function useSupabaseAuth(): AuthState & {
           error: null,
         });
       } catch (error) {
-        await signOutAfterSupabaseFailure(error);
-        if (isSupabaseAuthFailure(error)) {
-          setState({
-            firebaseUser: null,
-            profile: null,
-            loading: false,
-            error: null,
-          });
-          return;
-        }
         console.error('Error syncing user to Supabase:', error);
+        clearSupabaseAccessToken();
         setState({
           firebaseUser,
           profile: null,
@@ -127,6 +97,7 @@ export function useSupabaseAuth(): AuthState & {
   }, [syncProfile]);
 
   const signOut = useCallback(async () => {
+    clearSupabaseAccessToken();
     await auth.signOut();
     setState({
       firebaseUser: null,
@@ -139,7 +110,6 @@ export function useSupabaseAuth(): AuthState & {
   return { ...state, refreshProfile, signOut };
 }
 
-// Export a simple hook for just getting the profile
 export function useProfile(): Profile | null {
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -152,12 +122,11 @@ export function useProfile(): Profile | null {
       }
 
       try {
-        await firebaseUser.getIdToken(false);
-        await setFirebaseUidForRls(firebaseUser.uid);
+        await exchangeSupabaseAccessToken(false);
         const userProfile = await getProfile(firebaseUser.uid);
         setProfile(userProfile);
       } catch (error) {
-        await signOutAfterSupabaseFailure(error);
+        console.error('Error loading profile:', error);
         setProfile(null);
       }
     };
@@ -166,7 +135,10 @@ export function useProfile(): Profile | null {
 
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) loadProfile();
-      else setProfile(null);
+      else {
+        clearSupabaseAccessToken();
+        setProfile(null);
+      }
     });
 
     return () => unsubscribe();

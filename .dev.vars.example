@@ -1,0 +1,7 @@
+# Supabase auth bridge (required for Firebase login → Supabase RLS)
+# Get JWT Secret: Supabase Dashboard → Project Settings → API → JWT Secret
+SUPABASE_JWT_SECRET=
+# Get Service Role: Supabase Dashboard → Project Settings → API → service_role key
+SUPABASE_SERVICE_ROLE_KEY=
+FIREBASE_PROJECT_ID=gen-lang-client-0018612871
+VITE_SUPABASE_URL=https://tpjiowcovqfvmuockpop.supabase.co

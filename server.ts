@@ -8,6 +8,8 @@ import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { scraperRouter } from "./server/routes/api";
 import { patchEsrganOnnxOutputDims } from "./src/lib/esrganOnnxPatch";
+import { handleSupabaseTokenExchange } from "./src/lib/handleSupabaseTokenExchange";
+import { handleFirestoreMigrateBatch } from "./src/lib/handleFirestoreMigrate";
 
 console.log("[Server] Starting initialization...");
 console.log("[Server] Environment:", process.env.NODE_ENV);
@@ -106,6 +108,53 @@ export async function startServer(forcePort?: number) {
     } catch (error: any) {
       console.error("[Server] Error in /api/config:", error);
       res.status(500).json({ error: "Internal Server Error", details: error.message });
+    }
+  });
+
+  app.post("/api/auth/supabase-token", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "POST",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+      });
+      const response = await handleSupabaseTokenExchange(request, {
+        VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+        SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+      });
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/auth/supabase-token error:", error);
+      res.status(500).json({ error: error.message || "Token exchange failed" });
+    }
+  });
+
+  app.post("/api/migrate/supabase-batch", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "POST",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleFirestoreMigrateBatch(request, {
+        VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+        SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+      });
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/migrate/supabase-batch error:", error);
+      res.status(500).json({ error: error.message || "Migration batch failed" });
     }
   });
 
