@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 import { addMonths, subMonths } from 'date-fns';
 import { motion } from 'motion/react';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Post, Business } from '../data';
 import { Calendar } from './Calendar';
@@ -15,6 +14,13 @@ import { ChaoticStudioCredits } from './ChaoticStudioCredits';
 import { Plus, Layout, Lock, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { applyShareFilters, isShareExpired } from '../lib/shareUtils';
+import {
+  getBusinessByIdAndShareToken,
+  subscribeToPosts,
+  addBusinessMember,
+  getProfile,
+  updateBusiness,
+} from '../lib/supabase';
 
 type AccessState = 'loading' | 'password' | 'error' | 'ready';
 
@@ -37,10 +43,11 @@ export function PublicCalendarView() {
     async (biz: Business) => {
       if (analyticsRecorded || !businessId) return;
       try {
-        const newViews = (biz.shareAnalytics?.views || 0) + 1;
-        await updateDoc(doc(db, 'businesses', businessId), {
-          'shareAnalytics.views': newViews,
-          'shareAnalytics.lastViewedAt': new Date().toISOString(),
+        await updateBusiness(businessId, {
+          shareAnalytics: {
+            views: (biz.shareAnalytics?.views || 0) + 1,
+            lastViewedAt: new Date().toISOString(),
+          },
         });
         setAnalyticsRecorded(true);
       } catch (e) {
@@ -54,11 +61,9 @@ export function PublicCalendarView() {
     if (!user || !businessId || isAdding) return;
     setIsAdding(true);
     try {
-      const bizRef = doc(db, 'businesses', businessId);
-      await updateDoc(bizRef, {
-        members: arrayUnion(user.uid),
-        [`memberRoles.${user.uid}`]: 'viewer',
-      });
+      const profile = await getProfile(user.uid);
+      if (!profile) throw new Error('Profile not found');
+      await addBusinessMember(businessId, profile.id, 'viewer');
       toast.success('Workspace added to your list! You now have viewer access.');
       setBusiness((prev) =>
         prev
@@ -113,42 +118,34 @@ export function PublicCalendarView() {
 
     const validateShare = async () => {
       try {
-        const bizDoc = await getDoc(doc(db, 'businesses', businessId));
-        if (!bizDoc.exists()) {
+        const biz = await getBusinessByIdAndShareToken(businessId, shareToken);
+        if (!biz) {
           setError('Invalid or expired share link.');
           setAccessState('error');
           return;
         }
 
-        const bizData = { id: bizDoc.id, ...bizDoc.data() } as Business;
-
-        if (bizData.shareToken !== shareToken) {
-          setError('Invalid or expired share link.');
-          setAccessState('error');
-          return;
-        }
-
-        if (isShareExpired(bizData.shareExpiresAt)) {
+        if (isShareExpired(biz.shareExpiresAt)) {
           setError('This share link has expired.');
           setAccessState('error');
           return;
         }
 
-        if (bizData.shareRestriction === 'authenticated' && !user) {
+        if (biz.shareRestriction === 'authenticated' && !user) {
           setError('You must be logged in to view this calendar.');
           setAccessState('error');
           return;
         }
 
-        if (bizData.sharePassword) {
-          setPendingBusiness(bizData);
+        if (biz.sharePassword) {
+          setPendingBusiness(biz);
           setAccessState('password');
           return;
         }
 
-        setBusiness(bizData);
+        setBusiness(biz);
         setAccessState('ready');
-        void recordShareView(bizData);
+        void recordShareView(biz);
       } catch (e) {
         console.error('[PublicView] Error validating share link:', e);
         setError('Failed to load shared calendar.');
@@ -162,20 +159,9 @@ export function PublicCalendarView() {
   useEffect(() => {
     if (accessState !== 'ready' || !businessId || !business) return;
 
-    const q = query(collection(db, 'posts'), where('businessId', '==', businessId));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const postsList = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Post));
-        setPosts(applyShareFilters(postsList, business.shareFilters));
-      },
-      (err) => {
-        console.error('[PublicView] Posts listener failed:', err.message);
-        handleFirestoreError(err, OperationType.GET, 'posts');
-        setError('Failed to sync calendar posts. Please refresh.');
-        setAccessState('error');
-      }
-    );
+    const unsubscribe = subscribeToPosts(businessId, (postsList) => {
+      setPosts(applyShareFilters(postsList, business.shareFilters));
+    });
 
     return () => unsubscribe();
   }, [accessState, businessId, business]);

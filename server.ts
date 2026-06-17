@@ -299,31 +299,45 @@ export async function startServer(forcePort?: number) {
 
     const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
     const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
-    if (!FIRECRAWL_API_KEY) {
-      return res.status(500).json({ error: "Firecrawl API key is not configured" });
+
+    if (FIRECRAWL_API_KEY) {
+      try {
+        const response = await axios.post(
+          "https://api.firecrawl.dev/v2/map",
+          {
+            url: url,
+            limit: limit,
+            sitemap: "include"
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        return res.json({ ...response.data, provider: 'firecrawl' });
+      } catch (error: any) {
+        console.error("Firecrawl map failed, trying local discovery:", error.response?.data || error.message);
+      }
     }
 
     try {
-      const response = await axios.post(
-        "https://api.firecrawl.dev/v2/map",
-        {
-          url: url,
-          limit: limit,
-          sitemap: "include"
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      res.json(response.data);
+      const { discoverSiteLinks } = await import("./server/scrapers/localSiteDiscover.js");
+      const links = await discoverSiteLinks(url, { limit: Math.min(limit, 500) });
+      return res.json({
+        success: true,
+        links,
+        provider: 'local',
+        message: FIRECRAWL_API_KEY
+          ? 'Firecrawl map failed; used local link discovery'
+          : 'No Firecrawl key — used local link discovery',
+      });
     } catch (error: any) {
-      console.error("Firecrawl map failed:", error.response?.data || error.message);
-      res.status(500).json({ 
-        error: "Firecrawl map failed", 
-        details: error.response?.data || error.message 
+      console.error("Local map failed:", error.message);
+      res.status(500).json({
+        error: "Site map failed",
+        details: error.message,
       });
     }
   });
@@ -336,8 +350,21 @@ export async function startServer(forcePort?: number) {
 
     const rawKey = apiKey || process.env.FIRECRAWL_API_KEY;
     const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
+
     if (!FIRECRAWL_API_KEY) {
-      return res.status(500).json({ error: "Firecrawl API key is not configured" });
+      try {
+        const { startLocalCrawl } = await import("./server/scrapers/localCrawlJobs.js");
+        const id = startLocalCrawl({
+          url,
+          limit: limit || 50,
+          includePaths,
+          excludePaths,
+          apiKey,
+        });
+        return res.json({ success: true, id, provider: 'local' });
+      } catch (error: any) {
+        return res.status(500).json({ error: "Local crawl failed", details: error.message });
+      }
     }
 
     try {
@@ -371,7 +398,7 @@ export async function startServer(forcePort?: number) {
           }
         }
       );
-      res.json(response.data);
+      res.json({ ...response.data, provider: 'firecrawl' });
     } catch (error: any) {
       console.error("Firecrawl crawl failed:", error.response?.data || error.message);
       res.status(500).json({ 
@@ -384,6 +411,21 @@ export async function startServer(forcePort?: number) {
   app.get("/api/crawl/:id", async (req, res) => {
     const { id } = req.params;
     const { apiKey } = req.query;
+
+    if (id.startsWith('local-')) {
+      const { getLocalCrawlJob } = await import("./server/scrapers/localCrawlJobs.js");
+      const job = getLocalCrawlJob(id);
+      if (!job) {
+        return res.status(404).json({ error: "Local crawl job not found" });
+      }
+      return res.json({
+        status: job.status === 'scraping' ? 'scraping' : job.status,
+        data: job.data,
+        error: job.error,
+        provider: 'local',
+      });
+    }
+
     const rawKey = apiKey as string || process.env.FIRECRAWL_API_KEY;
     const FIRECRAWL_API_KEY = typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
 

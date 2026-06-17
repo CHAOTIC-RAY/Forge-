@@ -34,8 +34,9 @@ export function useIsMobile() {
   return isMobile;
 }
 
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth } from '../lib/firebase';
+import { useProfile } from '../hooks/useSupabaseAuth';
+import { subscribeToTodos, type TodoItem } from '../lib/supabase';
 
 interface Todo {
   id: string;
@@ -81,26 +82,14 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; dateStr: string } | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
 
+  const profile = useProfile();
+
   useEffect(() => {
-    if (!auth.currentUser) return;
-
-    const q = query(
-      collection(db, 'todos'),
-      where('userId', '==', auth.currentUser.uid)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const todosData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Todo[];
-      setTodos(todosData);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'todos');
+    if (!profile) return;
+    return subscribeToTodos(profile.id, (items: TodoItem[]) => {
+      setTodos(items as Todo[]);
     });
-
-    return () => unsubscribe();
-  }, []);
+  }, [profile?.id]);
   
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);

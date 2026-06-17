@@ -25,8 +25,12 @@ import {
   pickBestUrlForCategory,
 } from '../lib/catalogueExtract';
 import { mapSite, startCrawlJob, pollCrawlJob, scrapeUrlBatch } from '../lib/catalogueImportApi';
-import { doc, setDoc, writeBatch, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import {
+  saveSiteMap,
+  saveCategoryCounts,
+  saveCatalogueImportState,
+  fetchCatalogueImportState,
+} from '../lib/catalogueSupabase';
 import { Business } from '../data';
 import type { DbMode } from './LocalDb';
 
@@ -133,15 +137,13 @@ export function LocalDbImportPanel({
   }, [siteMap, classified.length]);
 
   useEffect(() => {
-    if (!userId || !businessId) return;
-    return onSnapshot(doc(db, 'catalogue_import_state', businessId), (docSnap) => {
-      if (docSnap.exists()) {
-        const d = docSnap.data();
-        if (d.crawlJobId != null) setCrawlJobId(d.crawlJobId);
-        if (typeof d.processedCount === 'number') setCrawlProcessedCount(d.processedCount);
-      }
+    if (!businessId) return;
+    void fetchCatalogueImportState(businessId).then((state) => {
+      if (!state) return;
+      if (state.crawlJobId != null) setCrawlJobId(state.crawlJobId);
+      if (typeof state.processedCount === 'number') setCrawlProcessedCount(state.processedCount);
     });
-  }, [userId, businessId]);
+  }, [businessId]);
 
   const filteredQueue = useMemo(() => {
     if (queueFilter === 'all') return classified;
@@ -186,25 +188,11 @@ export function LocalDbImportPanel({
       setSelectedUrls(new Set(defaultImportQueue(c)));
 
       if (userId && businessId) {
-        await setDoc(doc(db, 'inventory_maps', businessId), {
-          links,
-          businessId,
-          userId,
-          updatedAt: new Date().toISOString(),
-        });
-        const batch = writeBatch(db);
-        counts.forEach((cnt) => {
-          const docId = cnt.category.replace(/[^a-zA-Z0-9]/g, '_');
-          batch.set(doc(db, 'inventory_category_counts', `${businessId}_${docId}`), {
-            ...cnt,
-            userId,
-            businessId,
-            updatedAt: new Date().toISOString(),
-          });
-        });
-        await batch.commit();
+        await saveSiteMap(businessId, links);
+        await saveCategoryCounts(businessId, counts);
       }
-      toast.success(`Mapped ${links.length} URLs`);
+      const providerNote = mapData.provider === 'local' ? ' (no Firecrawl — local discovery)' : '';
+      toast.success(`Mapped ${links.length} URLs${providerNote}`);
       addLog(`Map complete: ${links.length} URLs classified.`);
       setImportTab('discover');
     } catch (e: any) {
@@ -390,12 +378,9 @@ export function LocalDbImportPanel({
       setCrawlJobId(data.id);
       addLog(`Crawl job ${data.id} started.`);
       if (userId && businessId) {
-        await setDoc(doc(db, 'catalogue_import_state', businessId), {
+        await saveCatalogueImportState(businessId, {
           crawlJobId: data.id,
           processedCount: 0,
-          businessId,
-          userId,
-          updatedAt: new Date().toISOString(),
         });
       }
       pollCrawl(data.id);
@@ -418,12 +403,9 @@ export function LocalDbImportPanel({
           processed += batch.length;
           setCrawlProcessedCount(processed);
           if (userId && businessId) {
-            await setDoc(doc(db, 'catalogue_import_state', businessId), {
+            await saveCatalogueImportState(businessId, {
               crawlJobId: jobId,
               processedCount: processed,
-              businessId,
-              userId,
-              updatedAt: new Date().toISOString(),
             });
           }
         }

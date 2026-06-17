@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Business } from '../data';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { updateBusiness, deleteBusiness } from '../lib/supabase';
 import { toast } from 'sonner';
 import { Trash2, Edit2, Save, Shield, Settings, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -37,7 +36,7 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
 
   const handleSave = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'businesses', id), {
+      await updateBusiness(id, {
         name: editName,
         industry: editIndustry,
         brandColors: {
@@ -47,7 +46,6 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
         },
         logoUrl: editLogoUrl,
         targetUrl: editTargetUrl,
-        updatedAt: new Date().toISOString()
       });
       onUpdateBusiness({ 
         ...businesses.find(b => b.id === id)!, 
@@ -68,7 +66,7 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
   const handleDelete = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this workspace? This action cannot be undone.")) return;
     try {
-      await deleteDoc(doc(db, 'businesses', id));
+      await deleteBusiness(id);
       toast.success("Workspace deleted!");
     } catch (e) {
       console.error("Error deleting business", e);
@@ -200,4 +198,3 @@ export function WorkspacesSettings({ businesses, activeBusiness, onUpdateBusines
     </div>
   );
 }
-

@@ -10,10 +10,12 @@ const samplePosts: Post[] = [
     date: '2026-05-01',
     outlet: 'Main Store',
     title: 'A',
+    type: 'post',
+    brief: '',
     caption: '',
+    hashtags: '',
     status: 'draft',
     createdAt: '',
-    updatedAt: '',
   },
   {
     id: '2',
@@ -22,10 +24,12 @@ const samplePosts: Post[] = [
     date: '2026-05-15',
     outlet: 'Online Shop',
     title: 'B',
+    type: 'post',
+    brief: '',
     caption: '',
+    hashtags: '',
     status: 'draft',
     createdAt: '',
-    updatedAt: '',
   },
 ];
 

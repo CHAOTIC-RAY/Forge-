@@ -210,9 +210,11 @@ export async function getBusinesses(profileId: string): Promise<Business[]> {
     .from('businesses')
     .select(`
       *,
+      owner:profiles!businesses_owner_id_fkey ( firebase_uid ),
       business_members!business_members_business_id_fkey (
         profile_id,
-        role
+        role,
+        profiles ( firebase_uid, email, display_name )
       )
     `)
     .or(`owner_id.eq.${profileId},business_members.profile_id.eq.${profileId}`);
@@ -223,6 +225,25 @@ export async function getBusinesses(profileId: string): Promise<Business[]> {
   }
 
   return (data || []).map(transformBusiness);
+}
+
+export async function getBusinessByIdAndShareToken(
+  businessId: string,
+  shareToken: string
+): Promise<Business | null> {
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('*')
+    .eq('id', businessId)
+    .eq('share_token', shareToken)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching business by share token:', error);
+    throw error;
+  }
+  if (!data) return null;
+  return transformBusiness(data);
 }
 
 export async function getBusiness(id: string): Promise<Business | null> {
@@ -298,22 +319,29 @@ export async function createBusiness(business: Partial<Business>, profileId: str
 }
 
 export async function updateBusiness(id: string, updates: Partial<Business>): Promise<Business> {
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.name !== undefined) patch.name = updates.name;
+  if (updates.description !== undefined) patch.description = updates.description;
+  if (updates.industry !== undefined) patch.industry = updates.industry;
+  if (updates.position !== undefined) patch.position = updates.position;
+  if (updates.targetUrl !== undefined) patch.target_url = updates.targetUrl;
+  if (updates.brandColors !== undefined) patch.brand_colors = updates.brandColors;
+  if (updates.logoUrl !== undefined) patch.logo_url = updates.logoUrl;
+  if (updates.themePreset !== undefined) patch.theme_preset = updates.themePreset;
+  if (updates.oneDriveCredentials !== undefined) patch.onedrive_credentials = updates.oneDriveCredentials;
+  if (updates.applets !== undefined) patch.applets = updates.applets;
+  if (updates.shareToken !== undefined) patch.share_token = updates.shareToken;
+  if (updates.shareShortCode !== undefined) patch.share_short_code = updates.shareShortCode;
+  if (updates.shareRestriction !== undefined) patch.share_restriction = updates.shareRestriction;
+  if (updates.sharePassword !== undefined) patch.share_password = updates.sharePassword;
+  if (updates.shareExpiresAt !== undefined) patch.share_expires_at = updates.shareExpiresAt;
+  if (updates.shareFilters !== undefined) patch.share_filters = updates.shareFilters;
+  if (updates.shareAnalytics !== undefined) patch.share_analytics = updates.shareAnalytics;
+  if ((updates as any).appletData !== undefined) patch.applet_data = (updates as any).appletData;
+
   const { data, error } = await supabase
     .from('businesses')
-    .update({
-      name: updates.name,
-      description: updates.description,
-      industry: updates.industry,
-      brand_colors: updates.brandColors,
-      logo_url: updates.logoUrl,
-      theme_preset: updates.themePreset,
-      onedrive_credentials: updates.oneDriveCredentials,
-      applets: updates.applets,
-      share_restriction: updates.shareRestriction,
-      share_password: updates.sharePassword,
-      share_expires_at: updates.shareExpiresAt,
-      share_filters: updates.shareFilters,
-    })
+    .update(patch)
     .eq('id', id)
     .select()
     .single();
@@ -418,6 +446,25 @@ export async function removeBusinessMember(
     console.error('Error removing business member:', error);
     throw error;
   }
+}
+
+export async function updateMemberRoleByFirebaseUid(
+  businessId: string,
+  firebaseUid: string,
+  role: 'admin' | 'editor' | 'viewer'
+): Promise<void> {
+  const profile = await getProfile(firebaseUid);
+  if (!profile) throw new Error('Profile not found');
+  await updateBusinessMemberRole(businessId, profile.id, role);
+}
+
+export async function removeMemberByFirebaseUid(
+  businessId: string,
+  firebaseUid: string
+): Promise<void> {
+  const profile = await getProfile(firebaseUid);
+  if (!profile) throw new Error('Profile not found');
+  await removeBusinessMember(businessId, profile.id);
 }
 
 // ============================================
@@ -569,6 +616,52 @@ export async function deleteAllPosts(businessId: string): Promise<void> {
     console.error('Error deleting all posts:', error);
     throw error;
   }
+}
+
+export async function getPostsByProfileId(profileId: string): Promise<Post[]> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('date', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching posts by profile:', error);
+    throw error;
+  }
+  return (data || []).map(transformPost);
+}
+
+export function subscribeToBusinesses(
+  profileId: string,
+  callback: (businesses: Business[]) => void
+): () => void {
+  const refresh = () => {
+    void getBusinesses(profileId).then(callback).catch((e) => console.error('[businesses]', e));
+  };
+  const channel = supabase
+    .channel(`businesses:${profileId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, refresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'business_members' }, refresh)
+    .subscribe();
+  refresh();
+  return () => supabase.removeChannel(channel);
+}
+
+export function subscribeToPostsForProfile(
+  profileId: string,
+  callback: (posts: Post[]) => void
+): () => void {
+  const channel = supabase
+    .channel(`posts-profile:${profileId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'posts', filter: `profile_id=eq.${profileId}` },
+      async () => callback(await getPostsByProfileId(profileId))
+    )
+    .subscribe();
+  void getPostsByProfileId(profileId).then(callback);
+  return () => supabase.removeChannel(channel);
 }
 
 // ============================================
@@ -792,6 +885,220 @@ export async function getShortLinks(businessId: string): Promise<ShortLink[]> {
   return data || [];
 }
 
+export async function deleteShortLink(id: string): Promise<void> {
+  const { error } = await supabase.from('short_links').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateShortLink(
+  id: string,
+  updates: { original_url?: string; title?: string }
+): Promise<void> {
+  const { error } = await supabase.from('short_links').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function getShortLinkByCode(shortCode: string): Promise<ShortLink | null> {
+  const { data, error } = await supabase
+    .from('short_links')
+    .select('*')
+    .eq('short_code', shortCode)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export function subscribeToShortLinks(
+  businessId: string,
+  callback: (links: ShortLink[]) => void
+): () => void {
+  const channel = supabase
+    .channel(`short-links:${businessId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'short_links', filter: `business_id=eq.${businessId}` },
+      async () => callback(await getShortLinks(businessId))
+    )
+    .subscribe();
+  void getShortLinks(businessId).then(callback);
+  return () => supabase.removeChannel(channel);
+}
+
+export async function createShortLinkWithTitle(
+  shortCode: string,
+  originalUrl: string,
+  businessId?: string,
+  profileId?: string,
+  title?: string,
+  id?: string
+): Promise<ShortLink> {
+  const { data, error } = await supabase
+    .from('short_links')
+    .insert({
+      id,
+      short_code: shortCode,
+      original_url: originalUrl,
+      business_id: businessId,
+      profile_id: profileId,
+      title,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ============================================
+// COMMENTS
+// ============================================
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  profileId?: string;
+  userId?: string;
+  userName?: string;
+  userPhoto?: string;
+  text: string;
+  createdAt: string;
+}
+
+export async function getPostComments(postId: string): Promise<PostComment[]> {
+  const { data, error } = await supabase
+    .from('comments')
+    .select(`
+      *,
+      profiles ( firebase_uid, display_name, photo_url )
+    `)
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((c: any) => ({
+    id: c.id,
+    postId: c.post_id,
+    profileId: c.profile_id,
+    userId: c.profiles?.firebase_uid,
+    userName: c.profiles?.display_name || 'User',
+    userPhoto: c.profiles?.photo_url || '',
+    text: c.content,
+    createdAt: c.created_at,
+  }));
+}
+
+export async function createPostComment(
+  postId: string,
+  profileId: string,
+  text: string
+): Promise<PostComment> {
+  const { data, error } = await supabase
+    .from('comments')
+    .insert({ post_id: postId, profile_id: profileId, content: text })
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    postId: data.post_id,
+    profileId: data.profile_id,
+    text: data.content,
+    createdAt: data.created_at,
+  };
+}
+
+export async function deletePostComment(id: string): Promise<void> {
+  const { error } = await supabase.from('comments').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export function subscribeToPostComments(
+  postId: string,
+  callback: (comments: PostComment[]) => void
+): () => void {
+  const channel = supabase
+    .channel(`comments:${postId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` },
+      async () => callback(await getPostComments(postId))
+    )
+    .subscribe();
+  void getPostComments(postId).then(callback);
+  return () => supabase.removeChannel(channel);
+}
+
+export async function createPostsBatch(
+  posts: Partial<Post>[],
+  businessId: string,
+  profileId?: string
+): Promise<void> {
+  if (!posts.length) return;
+  const rows = posts.map((post) => ({
+    id: post.id,
+    business_id: businessId,
+    profile_id: profileId || post.userId,
+    date: post.date || new Date().toISOString().split('T')[0],
+    outlet: post.outlet,
+    product_category: post.productCategory,
+    type: post.type,
+    title: post.title,
+    brief: post.brief,
+    caption: post.caption,
+    hashtags: post.hashtags,
+    images: post.images || [],
+    link: post.link,
+    publish_status: post.publishStatus || post.status || 'draft',
+    platforms: post.platforms,
+    is_ai_generated: post.isAiGenerated,
+    approval_status: post.approvalStatus,
+  }));
+  const { error } = await supabase.from('posts').insert(rows);
+  if (error) throw error;
+}
+
+export function subscribeToAccessRequests(
+  businessId: string,
+  callback: (requests: AccessRequest[]) => void
+): () => void {
+  const channel = supabase
+    .channel(`access-requests:${businessId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'access_requests', filter: `business_id=eq.${businessId}` },
+      async () => callback(await getAccessRequests(businessId))
+    )
+    .subscribe();
+  void getAccessRequests(businessId).then(callback);
+  return () => supabase.removeChannel(channel);
+}
+
+export async function upsertTodo(
+  profileId: string,
+  todo: TodoItem & { businessId?: string }
+): Promise<void> {
+  const { error } = await supabase.from('todos').upsert({
+    id: todo.id,
+    profile_id: profileId,
+    business_id: todo.businessId || null,
+    text: todo.text,
+    completed: todo.completed,
+    due_date: todo.dueDate || null,
+    due_time: todo.dueTime || null,
+    priority: todo.priority,
+    project: todo.project || null,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
+export async function deleteTodo(id: string): Promise<void> {
+  const { error } = await supabase.from('todos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function getProfileByFirebaseUid(firebaseUid: string): Promise<Profile | null> {
+  return getProfile(firebaseUid);
+}
+
 // ============================================
 // BRAND KIT OPERATIONS
 // ============================================
@@ -801,14 +1108,19 @@ export async function getBrandKit(businessId: string): Promise<Record<string, an
     .from('brand_kits')
     .select('*')
     .eq('business_id', businessId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    if (error.code === 'PGRST116') return null;
     console.error('Error fetching brand kit:', error);
     throw error;
   }
-  return data;
+  if (!data) return null;
+  const kitData = (data.kit_data as Record<string, unknown>) || {};
+  return {
+    ...kitData,
+    designGuide: kitData.designGuide || data.ai_generated_guide || '',
+    brandProfile: kitData.brandProfile || '',
+  };
 }
 
 export async function upsertBrandKit(businessId: string, updates: Record<string, any>): Promise<Record<string, any>> {
@@ -816,7 +1128,9 @@ export async function upsertBrandKit(businessId: string, updates: Record<string,
     .from('brand_kits')
     .upsert({
       business_id: businessId,
-      ...updates,
+      kit_data: updates,
+      ai_generated_guide: updates.designGuide || updates.ai_generated_guide || null,
+      updated_at: new Date().toISOString(),
     }, { onConflict: 'business_id' })
     .select()
     .single();
@@ -825,7 +1139,24 @@ export async function upsertBrandKit(businessId: string, updates: Record<string,
     console.error('Error upserting brand kit:', error);
     throw error;
   }
-  return data;
+  const kitData = (data.kit_data as Record<string, unknown>) || updates;
+  return { ...kitData, designGuide: updates.designGuide || data.ai_generated_guide || '' };
+}
+
+export function subscribeToBrandKit(
+  businessId: string,
+  callback: (data: Record<string, unknown> | null) => void
+): () => void {
+  const channel = supabase
+    .channel(`brandkit:${businessId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'brand_kits', filter: `business_id=eq.${businessId}` },
+      async () => callback(await getBrandKit(businessId))
+    )
+    .subscribe();
+  void getBrandKit(businessId).then(callback);
+  return () => supabase.removeChannel(channel);
 }
 
 // ============================================
@@ -847,7 +1178,10 @@ export interface AccessRequest {
 export async function getAccessRequests(businessId: string): Promise<AccessRequest[]> {
   const { data, error } = await supabase
     .from('access_requests')
-    .select('*')
+    .select(`
+      *,
+      profiles ( firebase_uid, email, display_name )
+    `)
     .eq('business_id', businessId)
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
@@ -994,6 +1328,23 @@ export function subscribeToNotebook(
 // ============================================
 
 function transformBusiness(data: any): Business {
+  const members: string[] = [];
+  const memberRoles: Record<string, 'admin' | 'editor' | 'viewer'> = {};
+
+  const ownerUid = data.owner?.firebase_uid;
+  if (ownerUid) {
+    members.push(ownerUid);
+    memberRoles[ownerUid] = 'admin';
+  }
+
+  for (const m of data.business_members || []) {
+    const uid = m.profiles?.firebase_uid;
+    if (uid && !members.includes(uid)) {
+      members.push(uid);
+      memberRoles[uid] = m.role;
+    }
+  }
+
   return {
     id: data.id,
     name: data.name,
@@ -1016,6 +1367,9 @@ function transformBusiness(data: any): Business {
     updatedAt: data.updated_at,
     oneDriveCredentials: data.onedrive_credentials,
     applets: data.applets,
+    appletData: data.applet_data,
+    members,
+    memberRoles,
   };
 }
 
@@ -1073,5 +1427,145 @@ function generateShortCode(length: number = 6): string {
 
 // Set the Firebase UID for RLS policies
 export async function setFirebaseUidForRls(firebaseUid: string): Promise<void> {
-  await supabase.rpc('set_config', { name: 'request.jwt.claims', value: JSON.stringify({ sub: firebaseUid }) });
+  const { error } = await supabase.rpc('set_firebase_uid', { uid: firebaseUid });
+  if (error) {
+    await supabase.rpc('set_config', {
+      name: 'request.jwt.firebase_uid',
+      value: firebaseUid,
+    });
+  }
+}
+
+// ============================================
+// CATEGORIES (Brand Kit product categories)
+// ============================================
+
+export async function getCategoriesDoc(businessId: string): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('business_id', businessId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function upsertCategoriesDoc(
+  businessId: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const row: Record<string, unknown> = {
+    business_id: businessId,
+    updated_at: new Date().toISOString(),
+  };
+  if (payload.categories !== undefined) row.categories = payload.categories;
+  if (payload.targetPlatforms !== undefined) row.target_platforms = payload.targetPlatforms;
+  if (payload.target_platforms !== undefined) row.target_platforms = payload.target_platforms;
+  if (payload.titles !== undefined) row.titles = payload.titles;
+  const { error } = await supabase.from('categories').upsert(row, { onConflict: 'business_id' });
+  if (error) throw error;
+}
+
+export function subscribeToCategories(
+  businessId: string,
+  callback: (data: Record<string, unknown> | null) => void
+): () => void {
+  const channel = supabase
+    .channel(`categories:${businessId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'categories', filter: `business_id=eq.${businessId}` },
+      async () => callback(await getCategoriesDoc(businessId))
+    )
+    .subscribe();
+  void getCategoriesDoc(businessId).then(callback);
+  return () => supabase.removeChannel(channel);
+}
+
+export function normalizeCategoriesDoc(
+  doc: Record<string, unknown> | null
+): { categories: unknown[]; targetPlatforms: string[]; titles: Record<string, string> } {
+  if (!doc) {
+    return {
+      categories: [],
+      targetPlatforms: ['instagram', 'facebook', 'viber', 'tiktok'],
+      titles: {
+        category: 'Product Category',
+        outlet: 'Outlet',
+        campaign: 'Campaign Type',
+        type: 'Type',
+      },
+    };
+  }
+  return {
+    categories: (doc.categories as unknown[]) || [],
+    targetPlatforms:
+      (doc.target_platforms as string[]) ||
+      (doc.targetPlatforms as string[]) ||
+      ['instagram', 'facebook', 'viber', 'tiktok'],
+    titles: (doc.titles as Record<string, string>) || {
+      category: 'Product Category',
+      outlet: 'Outlet',
+      campaign: 'Campaign Type',
+      type: 'Type',
+    },
+  };
+}
+
+// ============================================
+// TODOS
+// ============================================
+
+export interface TodoItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  dueDate?: string;
+  dueTime?: string;
+  priority: 'low' | 'medium' | 'high';
+  project?: string;
+}
+
+export async function getTodos(profileId: string): Promise<TodoItem[]> {
+  const { data, error } = await supabase
+    .from('todos')
+    .select('*')
+    .eq('profile_id', profileId);
+  if (error) throw error;
+  return (data || []).map((t) => ({
+    id: t.id,
+    text: t.text,
+    completed: t.completed,
+    dueDate: t.due_date,
+    dueTime: t.due_time,
+    priority: t.priority,
+    project: t.project,
+  }));
+}
+
+export function subscribeToTodos(
+  profileId: string,
+  callback: (todos: TodoItem[]) => void
+): () => void {
+  const channel = supabase
+    .channel(`todos:${profileId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'todos', filter: `profile_id=eq.${profileId}` },
+      async () => callback(await getTodos(profileId))
+    )
+    .subscribe();
+  void getTodos(profileId).then(callback);
+  return () => supabase.removeChannel(channel);
+}
+
+export async function updateProfileAiSettings(
+  profileId: string,
+  aiSettings: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ ai_settings: aiSettings, updated_at: new Date().toISOString() })
+    .eq('id', profileId);
+  if (error) throw error;
 }

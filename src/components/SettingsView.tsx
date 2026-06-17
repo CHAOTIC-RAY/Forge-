@@ -17,9 +17,16 @@ import { ChaoticStudioCredits } from './ChaoticStudioCredits';
 import { ForgeLoader } from './ForgeLoader';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth } from '../lib/firebase';
+import {
+  subscribeToCategories,
+  upsertCategoriesDoc,
+  updateBusiness,
+  getPosts,
+  updatePost,
+  deleteAllPosts,
+} from '../lib/supabase';
 import { OneDriveSetup } from './OneDriveSetup';
 import { BuiltInAiStatus, BUILTIN_MODELS, BUILTIN_VISION_MODELS } from '../lib/builtinAi';
 import { getContextBudget, LOCAL_KNOWLEDGE_MAX_CHARS } from '../lib/localAiContext';
@@ -218,13 +225,7 @@ export function SettingsView({
   syncLogs,
   signOut,
   auth,
-  db,
   setPosts,
-  query,
-  collection,
-  where,
-  getDocs,
-  writeBatch,
   industryConfig,
   setActiveTab,
   onThemePresetChange,
@@ -380,13 +381,10 @@ export function SettingsView({
 
   useEffect(() => {
     if (user && activeBusiness?.id) {
-      const docRef = doc(db, 'categories', activeBusiness.id);
-      const unsubscribe = onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setCategories(docSnap.data().categories || []);
+      const unsubscribe = subscribeToCategories(activeBusiness.id, (docSnap) => {
+        if (docSnap) {
+          setCategories((docSnap.categories as any[]) || []);
         }
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, `categories/${activeBusiness.id}`);
       });
       return () => unsubscribe();
     } else {
@@ -395,7 +393,7 @@ export function SettingsView({
         setCategories(JSON.parse(saved));
       }
     }
-  }, [user, activeBusiness?.id, db]);
+  }, [user, activeBusiness?.id]);
 
   const addCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -405,7 +403,7 @@ export function SettingsView({
     setNewCategoryName('');
     
     if (user && activeBusiness?.id) {
-      await setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+      await upsertCategoriesDoc(activeBusiness.id, { categories: updated });
     } else {
       localStorage.setItem(`rainbowCategories_${activeBusiness?.id || 'default'}`, JSON.stringify(updated));
     }
@@ -420,43 +418,39 @@ export function SettingsView({
     setCategories(updated);
     
     if (user && activeBusiness?.id) {
-      await setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+      await upsertCategoriesDoc(activeBusiness.id, { categories: updated });
       
       // Update posts that use this category
       setIsSyncing(true);
       addSyncLog(`Updating category name from "${oldName}" to "${newName}"...`, 'info');
       try {
-        const q = query(collection(db, 'posts'), where('businessId', '==', activeBusiness.id));
-        const snapshot = await getDocs(q);
-        const batch = writeBatch(db);
+        const allPosts = await getPosts(activeBusiness.id);
         let count = 0;
-        snapshot.docs.forEach((docSnap: any) => {
-          const data = docSnap.data();
+        for (const post of allPosts) {
+          const updates: Partial<typeof post> = {};
           let changed = false;
-          const updates: any = {};
-          if (oldCat.type === 'category' && data.productCategory === oldName) {
+          if (oldCat.type === 'category' && post.productCategory === oldName) {
             updates.productCategory = newName;
             changed = true;
           }
-          if (oldCat.type === 'outlet' && data.outlet === oldName) {
+          if (oldCat.type === 'outlet' && post.outlet === oldName) {
             updates.outlet = newName;
             changed = true;
           }
-          if (oldCat.type === 'campaign' && data.campaignType === oldName) {
+          if (oldCat.type === 'campaign' && post.campaignType === oldName) {
             updates.campaignType = newName;
             changed = true;
           }
-          if (oldCat.type === 'type' && data.type === oldName) {
+          if (oldCat.type === 'type' && post.type === oldName) {
             updates.type = newName;
             changed = true;
           }
-          if (changed) {
-            batch.update(docSnap.ref, updates);
+          if (changed && post.id) {
+            await updatePost(post.id, updates);
             count++;
           }
-        });
+        }
         if (count > 0) {
-          await batch.commit();
           addSyncLog(`Updated ${count} posts with new category name.`, 'success');
         }
       } catch (err) {
@@ -474,7 +468,7 @@ export function SettingsView({
     const updated = categories.filter(c => c.id !== id);
     setCategories(updated);
     if (user && activeBusiness?.id) {
-      await setDoc(doc(db, 'categories', activeBusiness.id), { categories: updated }, { merge: true });
+      await upsertCategoriesDoc(activeBusiness.id, { categories: updated });
     } else {
       localStorage.setItem(`rainbowCategories_${activeBusiness?.id || 'default'}`, JSON.stringify(updated));
     }
@@ -491,10 +485,7 @@ export function SettingsView({
         ...credentials,
         connectedAt: new Date().toISOString()
       };
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-        oneDriveCredentials,
-        updatedAt: new Date().toISOString()
-      });
+      await updateBusiness(activeBusiness.id, { oneDriveCredentials });
       
       const updatedBiz = { ...activeBusiness, oneDriveCredentials };
       setBusinesses((prev: any) => prev.map((b: any) => b.id === updatedBiz.id ? updatedBiz : b));
@@ -511,10 +502,7 @@ export function SettingsView({
   const handleDisconnectOneDrive = async () => {
     if (!activeBusiness) return;
     try {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-        oneDriveCredentials: null,
-        updatedAt: new Date().toISOString()
-      });
+      await updateBusiness(activeBusiness.id, { oneDriveCredentials: null as any });
       
       const updatedBiz = { ...activeBusiness, oneDriveCredentials: null };
       setBusinesses((prev: any) => prev.map((b: any) => b.id === updatedBiz.id ? updatedBiz : b));
@@ -2673,16 +2661,8 @@ export function SettingsView({
                         setIsSyncing(true);
                         addSyncLog('Clearing all posts from cloud...', 'info');
                         try {
-                          const q = query(collection(db, 'posts'), where('businessId', '==', activeBusiness?.id || ''));
-                          const snapshot = await getDocs(q);
-                          if (!snapshot.empty) {
-                            const batchSize = 450;
-                            const docs = snapshot.docs;
-                            for (let i = 0; i < docs.length; i += batchSize) {
-                              const batch = writeBatch(db);
-                              docs.slice(i, i + batchSize).forEach((d: any) => batch.delete(d.ref));
-                              await batch.commit();
-                            }
+                          if (activeBusiness?.id) {
+                            await deleteAllPosts(activeBusiness.id);
                           }
                           localStorage.setItem('rainbow_initialized', 'true');
                         } catch (err) {

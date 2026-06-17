@@ -1,7 +1,8 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { getGenerativeModel } from 'firebase/vertexai';
-import { vertexAI, auth, db } from './firebase';
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { vertexAI, auth } from './firebase';
+import { getBrandKit, getInventoryProducts, getCategoriesDoc } from './supabase';
+import { inventoryToHighStock } from './catalogueSupabase';
 import { Post, Business } from '../data';
 import { getIndustryConfig } from './industryConfig';
 import { LOCAL_KNOWLEDGE_MAX_CHARS } from './localAiContext';
@@ -277,12 +278,9 @@ export function generateCacheKey(model: string, contents: any, config?: any) {
 
 export async function fetchBrandKitDesignGuide(businessId: string): Promise<string> {
   try {
-    const docRef = doc(db, 'brand_kits', businessId);
-    const docSnap = await getDocs(query(collection(db, 'brand_kits'), where('__name__', '==', businessId)));
-
-    if (!docSnap.empty) {
-      const data = docSnap.docs[0].data();
-      return data.designGuide || '';
+    const data = await getBrandKit(businessId);
+    if (data) {
+      return (data.designGuide as string) || '';
     }
   } catch (error) {
     console.error("Error fetching design guide:", error);
@@ -666,9 +664,9 @@ export async function fetchBusinessOutlets(business?: Business | null): Promise<
   add(business?.name);
   if (business?.id) {
     try {
-      const snap = await getDoc(doc(db, 'categories', business.id));
-      if (snap.exists()) {
-        const cats = snap.data().categories as
+      const catDoc = await getCategoriesDoc(business.id);
+      if (catDoc) {
+        const cats = catDoc.categories as
           | Array<{ name: string; type?: string; enabled?: boolean }>
           | undefined;
         cats?.forEach((c) => {
@@ -2393,10 +2391,8 @@ Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|st
     const businessId = business?.id;
 
     if (userId && businessId) {
-      // Fetch some general products for variety
-      const qGeneral = query(collection(db, 'inventory_products'), where('businessId', '==', businessId));
-      const snapshotGeneral = await getDocs(qGeneral);
-      const productsGeneral = snapshotGeneral.docs.map(doc => doc.data());
+      const rows = await getInventoryProducts(businessId);
+      const productsGeneral = rows.map(inventoryToHighStock);
       if (productsGeneral.length > 0) {
         const products = productsGeneral
           .sort(() => 0.5 - Math.random())
@@ -2908,7 +2904,7 @@ export async function findProductsByCategory(
 
   let aiProducts: HighStockProduct[] = [];
 
-  if (scrapedProducts.length < 15) {
+  if (scrapedProducts.length < 15 && settings.catalogueImportLocalOnly === false) {
     scraperLogs.push(`ℹ️ Firecrawl found few results (${scrapedProducts.length}). Asking AI to supplement...`);
 
     const recentTitles = existingTitles.slice(-50);
@@ -2985,7 +2981,7 @@ export async function findProductsByCategory(
 
   let allProducts = [...scrapedProducts, ...aiProducts];
 
-  if (allProducts.length === 0) {
+  if (allProducts.length === 0 && settings.catalogueImportLocalOnly === false) {
     scraperLogs.push(`🚨 CRITICAL: All search methods failed. Providing emergency static fallback.`);
     const baseUrl = targetUrlParam || settings.targetUrl || 'https://example.com';
     allProducts = [
@@ -2995,6 +2991,8 @@ export async function findProductsByCategory(
       { title: "Ceramic Floor Tiles (60x60)", type: "Building Materials", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 450/sqm", outlet: "Buildware" },
       { title: "Emulsion Wall Paint (20L)", type: "Building Materials", link: `${baseUrl}/shop/`, stockInfo: "In Stock — MVR 1,850", outlet: "Buildware" }
     ].filter(p => category === "All Products" || p.type === category || category === "Furniture" || category === "Building Materials");
+  } else if (allProducts.length === 0) {
+    scraperLogs.push(`ℹ️ No products extracted. Try Import & sync → Discover → map more URLs, or paste JSON in Advanced.`);
   }
 
   const uniqueMap = new Map(allProducts.map(p => [p.title.toLowerCase(), p]));

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Business } from '../data';
-import { doc, updateDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { updateBusiness, createShortLinkWithTitle, getShortLinkByCode } from '../lib/supabase';
 import { toast } from 'sonner';
 import {
   Share2,
@@ -52,9 +51,8 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
 
       while (!isUnique && attempts < 5) {
         shortCode = Math.random().toString(36).substring(2, 8);
-        const q = query(collection(db, 'short_links'), where('shortCode', '==', shortCode));
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
+        const existing = await getShortLinkByCode(shortCode);
+        if (!existing) {
           isUnique = true;
         }
         attempts++;
@@ -65,20 +63,16 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
       }
 
       const id = uuidv4();
-
-      await setDoc(doc(db, 'short_links', id), {
-        id,
-        title: `Calendar Share: ${activeBusiness.name}`,
-        originalUrl: longUrl,
+      await createShortLinkWithTitle(
         shortCode,
-        businessId: activeBusiness.id,
-        clicks: 0,
-        createdAt: new Date().toISOString(),
-      });
+        longUrl,
+        activeBusiness.id,
+        undefined,
+        `Calendar Share: ${activeBusiness.name}`,
+        id
+      );
 
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), {
-        shareShortCode: shortCode,
-      });
+      await updateBusiness(activeBusiness.id, { shareShortCode: shortCode });
 
       onUpdateBusiness({ ...activeBusiness, shareShortCode: shortCode });
       return shortCode;
@@ -99,8 +93,7 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
         shareRestriction: activeBusiness.shareRestriction || 'guest',
         shareAnalytics: { views: 0, lastViewedAt: undefined },
       };
-
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), updates);
+      await updateBusiness(activeBusiness.id, updates);
 
       const shortCode = await generateShortLink(longUrl);
       if (shortCode) {
@@ -117,7 +110,7 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
 
   const handleUpdateField = async (field: string, value: unknown) => {
     try {
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), { [field]: value });
+      await updateBusiness(activeBusiness.id, { [field]: value } as Partial<Business>);
       onUpdateBusiness({ ...activeBusiness, [field]: value } as Business);
       toast.success('Settings updated!');
     } catch (e) {
@@ -132,7 +125,7 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
         shareToken: null,
         shareShortCode: null,
       };
-      await updateDoc(doc(db, 'businesses', activeBusiness.id), updates);
+      await updateBusiness(activeBusiness.id, updates);
       onUpdateBusiness({ ...activeBusiness, ...updates });
       toast.success('Access revoked');
     } catch (e) {
