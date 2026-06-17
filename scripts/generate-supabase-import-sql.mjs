@@ -54,6 +54,10 @@ function businessId(raw) {
   return sqlStr(entityId('business', raw));
 }
 
+function scopedId(scope, rawId) {
+  return sqlStr(entityId(scope, rawId));
+}
+
 const inputPath = process.argv[2];
 if (!inputPath) {
   console.error('Usage: node scripts/generate-supabase-import-sql.mjs <export.json> [output.sql]');
@@ -151,7 +155,7 @@ for (const { id, data } of collections.posts || []) {
   lines.push(`  id, business_id, profile_id, date, outlet, type, title, brief, caption, hashtags, images,`);
   lines.push(`  publish_status, platforms, content_formats, approval_status, is_ai_generated, campaign_type, analytics, created_at, updated_at`);
   lines.push(`) VALUES (`);
-  lines.push(`  ${sqlStr(rawPostId)},`);
+  lines.push(`  ${scopedId('post', rawPostId)},`);
   lines.push(`  ${biz ? businessId(biz) : 'NULL'},`);
   lines.push(`  ${profileSubquery()},`);
   lines.push(`  ${sqlStr(asDateOnly(data.date) || new Date().toISOString().split('T')[0])},`);
@@ -201,7 +205,7 @@ for (const { id, data } of inventoryDocs) {
   lines.push(`INSERT INTO inventory_products (`);
   lines.push(`  id, business_id, name, sku, category, subcategory, price, outlet, description, link, image_url, priority, notes, stock_status, ai_extracted_data, created_at, updated_at`);
   lines.push(`) VALUES (`);
-  lines.push(`  ${sqlStr(rawId)},`);
+  lines.push(`  ${scopedId('inventory_product', rawId)},`);
   lines.push(`  ${biz ? businessId(biz) : 'NULL'},`);
   lines.push(`  ${sqlStr(data.name || data.title || 'Product')},`);
   lines.push(`  ${sqlStr(data.sku || null)},`);
@@ -241,7 +245,7 @@ for (const { id, data } of collections.notebooks || []) {
   const biz = data.businessId || data.business_id;
   lines.push(`INSERT INTO notebooks (id, business_id, profile_id, title, blocks, links, folders, created_at, updated_at)`);
   lines.push(`VALUES (`);
-  lines.push(`  ${sqlStr(rawId)},`);
+  lines.push(`  ${scopedId('notebook', rawId)},`);
   lines.push(`  ${biz ? businessId(biz) : 'NULL'},`);
   lines.push(`  ${profileSubquery()},`);
   lines.push(`  ${sqlStr(data.title || 'Ideas')},`);
@@ -317,7 +321,7 @@ for (const { id, data } of collections.short_links || []) {
   const biz = data.businessId || data.business_id;
   lines.push(`INSERT INTO short_links (id, business_id, profile_id, short_code, original_url, title, clicks, last_clicked_at, created_at)`);
   lines.push(`VALUES (`);
-  lines.push(`  ${sqlStr(rawId)},`);
+  lines.push(`  ${scopedId('short_link', rawId)},`);
   lines.push(`  ${biz ? businessId(biz) : 'NULL'},`);
   lines.push(`  ${profileSubquery()},`);
   lines.push(`  ${sqlStr(data.shortCode || data.short_code || id)},`);
@@ -339,6 +343,13 @@ lines.push('-- Verify:');
 lines.push(`-- SELECT count(*) FROM businesses WHERE owner_id = (SELECT id FROM profiles WHERE firebase_uid = '${FIREBASE_UID}');`);
 
 const sql = lines.join('\n');
+
+// Sanity check: no raw Firestore short IDs in UUID columns
+const badUuid = sql.match(/VALUES \(\s*'[0-9a-z]{6,12}'/gi);
+if (badUuid?.length) {
+  console.error('Warning: possible unmapped Firestore IDs in output:', badUuid.slice(0, 5));
+}
+
 const outputPath = process.argv[3] || 'supabase/import-forge-firestore-export.sql';
 
 if (process.argv.includes('--stdout')) {
