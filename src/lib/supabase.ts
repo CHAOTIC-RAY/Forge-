@@ -215,9 +215,9 @@ export async function getProfile(firebaseUid: string): Promise<Profile | null> {
     .maybeSingle();
 
   if (error) {
-    if (error.code === 'PGRST116') return null;
+    if (error.code === 'PGRST301' || error.code === 'PGRST116') return null;
     console.error('Error fetching profile:', error);
-    throw error;
+    return null;
   }
   return data;
 }

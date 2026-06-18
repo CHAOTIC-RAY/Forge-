@@ -8,6 +8,25 @@ import {
   setFirebaseUidForRls,
 } from '../lib/supabase';
 import { clearSupabaseAccessToken, exchangeSupabaseAccessToken } from '../lib/supabaseSession';
+import { firestoreEntityId } from '../lib/firestoreMigrateIds';
+
+function buildFallbackProfile(firebaseUser: User): Profile {
+  const id =
+    firestoreEntityId('profile', firebaseUser.uid) ||
+    crypto.randomUUID();
+  const now = new Date().toISOString();
+  return {
+    id,
+    firebase_uid: firebaseUser.uid,
+    email: firebaseUser.email || '',
+    display_name: firebaseUser.displayName || undefined,
+    photo_url: firebaseUser.photoURL || undefined,
+    created_at: now,
+    updated_at: now,
+    settings: {},
+    ai_settings: {},
+  };
+}
 
 interface AuthState {
   firebaseUser: User | null;
@@ -89,7 +108,7 @@ export function useSupabaseAuth(): AuthState & {
         clearSupabaseAccessToken();
         setState({
           firebaseUser,
-          profile: null,
+          profile: buildFallbackProfile(firebaseUser),
           loading: false,
           error: error as Error,
         });

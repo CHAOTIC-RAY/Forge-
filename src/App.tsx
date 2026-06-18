@@ -85,11 +85,10 @@ import { ensureSupabaseBackend } from './lib/dataBackend';
 import { LandingView } from './components/LandingView';
 import { LocalAiTabLoader } from './components/LocalAiTabLoader';
 import { CorsImage } from './components/CorsImage';
-
-const getGemini = () => import('./lib/gemini');
-import { CorsImage } from './components/CorsImage';
 import { NetworkStatus } from './components/NetworkStatus';
 import { SkipLink } from './components/SkipLink';
+
+const getGemini = () => import('./lib/gemini');
 
 const Calendar = React.lazy(() => import('./components/Calendar').then(m => ({ default: m.Calendar })));
 const HomeTab = React.lazy(() => import('./components/HomeTab').then(m => ({ default: m.HomeTab })));
@@ -233,7 +232,7 @@ export default function App() {
   }, [shortCode, navigate]);
 
   const [user, loading, authError] = useAuthState(auth);
-  const { profile, loading: profileLoading } = useSupabaseAuth();
+  const { profile, loading: profileLoading, error: profileSyncError, refreshProfile } = useSupabaseAuth();
   const [authTimeout, setAuthTimeout] = useState(false);
 
   useEffect(() => {
@@ -360,7 +359,7 @@ export default function App() {
   const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
   const [isCheckingShare, setIsCheckingShare] = useState(true);
 
-  const isAdmin = useMemo(() => !!(user && profile && !isViewOnly), [user, profile, isViewOnly]);
+  const isAdmin = useMemo(() => !!(user && !isViewOnly), [user, isViewOnly]);
 
   const isViewer = useMemo(() => !!(user && activeBusiness && activeBusiness.memberRoles?.[user.uid] === 'viewer'), [user, activeBusiness]);
   const isGuest = !user;
@@ -787,6 +786,7 @@ export default function App() {
     if (!profile) {
       if (!profileLoading) {
         setLoadingBusinesses(false);
+        setShowOnboarding(true);
       }
       return;
     }
@@ -3010,6 +3010,22 @@ export default function App() {
       <AppWorkspaceProvider activeBusiness={activeBusiness}>
         <ConfigWorkspaceProvider activeBusiness={activeBusiness}>
           <NetworkStatus />
+          {profileSyncError && user && (
+            <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-sm text-amber-900 dark:text-amber-100 flex flex-wrap items-center justify-between gap-2 z-50 relative">
+              <span>
+                Cloud sync failed (JWT). Tabs work locally, but workspaces need Supabase auth fixed.
+                Set <code className="text-xs bg-black/10 px-1 rounded">SUPABASE_JWT_SECRET</code> in Cloudflare to match
+                Supabase → Project Settings → API → JWT Settings → <strong>Legacy JWT secret</strong>.
+              </span>
+              <button
+                type="button"
+                onClick={() => void refreshProfile()}
+                className="shrink-0 px-3 py-1 rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600"
+              >
+                Retry sync
+              </button>
+            </div>
+          )}
           <DndContext
             sensors={sensors}
             collisionDetection={pointerWithin}
