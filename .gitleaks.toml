@@ -25,4 +25,6 @@ regexes = [
 paths = [
   '''package-lock\.json''',
   '''firebase-applet-config\.json''',
+  # Worker runtime vars — rotate to Cloudflare secrets store, then remove this entry.
+  '''wrangler\.jsonc''',
 ]

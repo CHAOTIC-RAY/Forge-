@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getAiSettings, getDefaultAiSettings, setAiSettings } from './gemini';
+import { getAiSettings, getDefaultAiSettings, setAiSettings } from './aiSettings';
 
 beforeEach(() => {
   localStorage.clear();
