@@ -1,4 +1,4 @@
-import { getAiSettings, setAiSettings } from './gemini';
+import { getAiSettings, setAiSettings } from './aiSettings';
 
 export type BrandKnowledgeInput = {
   brandVoice?: string;

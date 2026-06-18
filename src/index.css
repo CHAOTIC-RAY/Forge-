@@ -7,11 +7,11 @@
   --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Poppins", var(--font-sans);
   
-  --color-brand: var(--brand-color, #2665fd);
-  --color-brand-hover: var(--brand-color-hover, #1e52d0);
-  --color-brand-bg: var(--brand-color-bg, rgba(38, 101, 253, 0.1));
-  --color-brand-border: var(--brand-color-border, rgba(38, 101, 253, 0.2));
-  --color-brand-ring: var(--brand-color-ring, rgba(38, 101, 253, 0.4));
+  --color-brand: var(--brand-color, #f472b6);
+  --color-brand-hover: var(--brand-color-hover, #ec4899);
+  --color-brand-bg: var(--brand-color-bg, rgba(244, 114, 182, 0.12));
+  --color-brand-border: var(--brand-color-border, rgba(244, 114, 182, 0.28));
+  --color-brand-ring: var(--brand-color-ring, rgba(244, 114, 182, 0.45));
   
   --color-secondary: #6074b9;
   --color-tertiary: #bd3800;
@@ -64,11 +64,11 @@
   --text-secondary: #5c5d66;
   --text-muted: #5c5d66;
   --border-main: #e9e9e7;
-  --brand-color: #2665fd;
-  --brand-color-hover: #1e52d0;
-  --brand-color-bg: rgba(38, 101, 253, 0.1);
-  --brand-color-border: rgba(38, 101, 253, 0.2);
-  --brand-color-ring: rgba(38, 101, 253, 0.4);
+  --brand-color: #f472b6;
+  --brand-color-hover: #ec4899;
+  --brand-color-bg: rgba(244, 114, 182, 0.12);
+  --brand-color-border: rgba(244, 114, 182, 0.28);
+  --brand-color-ring: rgba(244, 114, 182, 0.45);
   --forge-radius: 16px;
   --forge-glass-blur: 8px;
   --forge-glass-bg: rgba(255, 255, 255, 0.88);

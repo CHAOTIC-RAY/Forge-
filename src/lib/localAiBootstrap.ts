@@ -1,9 +1,3 @@
-import {
-  canUseBuiltinWebGpuVision,
-  ensureBuiltinVisionReady,
-  ensureLocalTextEngineReady,
-} from './gemini';
-
 export type LocalAiBootstrapResult = {
   textReady: boolean;
   visionReady: boolean;
@@ -12,6 +6,12 @@ export type LocalAiBootstrapResult = {
 
 /** Download and warm both local text and vision WebLLM engines when WebGPU is available. */
 export async function ensureLocalAiEnginesReady(): Promise<LocalAiBootstrapResult> {
+  const {
+    ensureLocalTextEngineReady,
+    canUseBuiltinWebGpuVision,
+    ensureBuiltinVisionReady,
+  } = await import('./gemini');
+
   await ensureLocalTextEngineReady();
   let visionReady = false;
   const visionSkipped = !canUseBuiltinWebGpuVision();

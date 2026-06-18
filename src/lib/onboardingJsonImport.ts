@@ -21,7 +21,7 @@ export async function importForgeJsonBackup(
   const { migrateFirestoreExportToSupabase } = await import('./firestoreToSupabase');
 
   await migrateFirestoreExportToSupabase(
-    payload,
+    { collections: payload.collections },
     () => user.getIdToken(),
     (progress) => onProgress(progress.stage),
     {

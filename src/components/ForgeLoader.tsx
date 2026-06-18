@@ -11,7 +11,7 @@ interface ForgeLoaderProps {
   progress?: number;
 }
 
-const CYCLE_COLORS = ['#2383E2', '#E2234D', '#E2A123', '#23E25D', '#9333EA'];
+const CYCLE_COLORS = ['#ffffff', '#fbcfe8', '#f9a8d4', '#f472b6', '#ec4899'];
 
 export function ForgeLoader({
   size = 40,

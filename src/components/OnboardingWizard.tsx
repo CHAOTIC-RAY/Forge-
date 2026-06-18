@@ -20,7 +20,7 @@ import { cn } from '../lib/utils';
 import { Business } from '../data';
 import { builtInAi, type BuiltInAiStatus } from '../lib/builtinAi';
 import { ensureLocalAiEnginesReady } from '../lib/localAiBootstrap';
-import { canUseBuiltinWebGpuVision } from '../lib/gemini';
+import { canUseBuiltinWebGpuVision } from '../lib/webGpu';
 
 interface OnboardingWizardProps {
   onComplete: (data: Partial<Business> & {

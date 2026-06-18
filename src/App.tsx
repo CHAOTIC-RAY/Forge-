@@ -40,25 +40,8 @@ import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceCon
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
 import { loadThemeConfig, applyThemeConfig, resetThemeConfig } from './lib/themeEngine';
 import type { ExportSettings } from './components/modals/ExportModal';
-import {
-  generatePostContent,
-  generateMockupImage,
-  generatePostFromImage,
-  GEMINI_MODELS,
-  GROQ_MODELS,
-  getAiSettings,
-  setAiSettings,
-  getExcelMappingWithAi,
-  generateBulkPosts,
-  fetchServerConfig,
-  generateAppJson,
-  generateGenericText,
-  getEffectiveTextProvider,
-  isGeminiKeyAvailable,
-  fetchBrandKitDesignGuide,
-  type HighStockProduct,
-} from './lib/gemini';
-import { ensureLocalAiEnginesReady } from './lib/localAiBootstrap';
+import { getAiSettings, setAiSettings } from './lib/aiSettings';
+import type { HighStockProduct } from './types/catalogue';
 import { auth, storage, googleProvider } from './lib/firebase';
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 import {
@@ -100,8 +83,10 @@ import { ForgeLogo } from './components/ForgeLogo';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { ensureSupabaseBackend } from './lib/dataBackend';
 import { LandingView } from './components/LandingView';
-import { OnboardingWizard } from './components/OnboardingWizard';
-import type { BuiltInAiStatus } from './lib/builtinAi';
+import { LocalAiTabLoader } from './components/LocalAiTabLoader';
+import { CorsImage } from './components/CorsImage';
+
+const getGemini = () => import('./lib/gemini');
 import { CorsImage } from './components/CorsImage';
 import { NetworkStatus } from './components/NetworkStatus';
 import { SkipLink } from './components/SkipLink';
@@ -110,6 +95,7 @@ const Calendar = React.lazy(() => import('./components/Calendar').then(m => ({ d
 const HomeTab = React.lazy(() => import('./components/HomeTab').then(m => ({ default: m.HomeTab })));
 const LocalDb = React.lazy(() => import('./components/LocalDb').then(m => ({ default: m.LocalDb })));
 const FloatingChat = React.lazy(() => import('./components/FloatingChat').then(m => ({ default: m.FloatingChat })));
+const OnboardingWizard = React.lazy(() => import('./components/OnboardingWizard').then(m => ({ default: m.OnboardingWizard })));
 
 // React lazy imports for heavy components
 const PostModal = React.lazy(() => import('./components/modals/PostModal').then(m => ({ default: m.PostModal })));
@@ -331,7 +317,9 @@ export default function App() {
   // Skip server AI config + WebLLM preload on public landing (not signed in)
   useEffect(() => {
     if (!user) return;
-    fetchServerConfig().catch(console.error);
+    void import('./lib/gemini').then(({ fetchServerConfig }) => {
+      fetchServerConfig().catch(console.error);
+    });
   }, [user]);
 
   const analyticsSettings = useAppStore(state => state.analyticsSettings) || defaultAnalyticsSettings;
@@ -368,15 +356,15 @@ export default function App() {
   const [isBusinessModalOpen, setIsBusinessModalOpen] = useState(false);
   const [isAutoFillModalOpen, setIsAutoFillModalOpen] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [isViewOnly, setIsViewOnly] = useState(false);
+  const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
+  const [isCheckingShare, setIsCheckingShare] = useState(true);
 
   const isAdmin = useMemo(() => !!(user && profile && !isViewOnly), [user, profile, isViewOnly]);
 
   const isViewer = useMemo(() => !!(user && activeBusiness && activeBusiness.memberRoles?.[user.uid] === 'viewer'), [user, activeBusiness]);
   const isGuest = !user;
   const [calendarMode, setCalendarMode] = useState<'work' | 'personal'>('work');
-  const [isViewOnly, setIsViewOnly] = useState(false);
-  const [sharedBusiness, setSharedBusiness] = useState<Business | null>(null);
-  const [isCheckingShare, setIsCheckingShare] = useState(true);
 
   useEffect(() => {
     ensureSupabaseBackend();
@@ -566,17 +554,6 @@ export default function App() {
     setSyncLogs(prev => [{ id: uuidv4(), time: new Date(), message, type }, ...prev].slice(0, 100));
   };
 
-  const [builtInStatus, setBuiltInStatus] = useState<BuiltInAiStatus>({
-    isLoaded: false,
-    isLoading: false,
-    isProcessing: false,
-    progress: 0,
-    message: '',
-    error: null,
-    modelId: null,
-  });
-  // Do not import builtInAi/WebLLM on mount — that chunk caused startup TDZ crashes.
-
   // Modal states
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [initialProductsForModal, setInitialProductsForModal] = useState<HighStockProduct[]>([]);
@@ -660,30 +637,11 @@ export default function App() {
   // Preload local text + vision models after sign-in (default provider is built-in)
   useEffect(() => {
     if (!user) return;
-    ensureLocalAiEnginesReady().catch((err) => {
-      console.warn('[App] Local AI preload failed:', err);
-    });
-  }, [user, aiSettings.builtinModelId, aiSettings.builtinVisionModelId]);
-
-  useEffect(() => {
-    if (!user) {
-      setBuiltInStatus({
-        isLoaded: false,
-        isLoading: false,
-        isProcessing: false,
-        progress: 0,
-        message: '',
-        error: null,
-        modelId: null,
-      });
-      return;
-    }
-    let unsub: (() => void) | undefined;
-    void import('./lib/builtinAi').then(({ builtInAi }) => {
-      setBuiltInStatus(builtInAi.getStatus());
-      unsub = builtInAi.onStatusChange(setBuiltInStatus);
-    });
-    return () => unsub?.();
+    void import('./lib/localAiBootstrap').then(({ ensureLocalAiEnginesReady }) =>
+      ensureLocalAiEnginesReady().catch((err) => {
+        console.warn('[App] Local AI preload failed:', err);
+      })
+    );
   }, [user, aiSettings.builtinModelId, aiSettings.builtinVisionModelId]);
 
   // Migration logic for 2003ray.dark@gmail.com
@@ -948,6 +906,7 @@ export default function App() {
 
       for (let i = 0; i < uncategorized.length; i += batchSize) {
         const batch = uncategorized.slice(i, i + batchSize);
+        const { generateAppJson } = await getGemini();
         const categoriesMap = await generateAppJson(`Categorize the following products into one of these categories: Furniture, Building Materials, Home Appliances, Kitchenware, Electronics, Lighting, Bathroom Fittings, Hardware.
           
           Products:
@@ -1825,6 +1784,7 @@ export default function App() {
         }
         const mimeType = match[1];
         const base64Data = match[2];
+        const { generatePostFromImage } = await getGemini();
         const generatedData = await generatePostFromImage(
           base64Data,
           mimeType,
@@ -1883,6 +1843,7 @@ export default function App() {
           }
           const mimeType = match[1];
           const base64Data = match[2];
+          const { generatePostFromImage } = await getGemini();
           const generatedData = await generatePostFromImage(
             base64Data,
             mimeType,
@@ -1925,6 +1886,7 @@ export default function App() {
 
   const handleRegeneratePost = async (post: Post) => {
     try {
+      const { generatePostContent } = await getGemini();
       const content = await generatePostContent(post.outlet, post.productCategory, post.title, activeBusiness || undefined);
       const updatedPost: Post = {
         ...post,
@@ -2032,6 +1994,7 @@ export default function App() {
       const promptText = `Generate ${count} different social media posts based on this campaign prompt: "${prompt}". Make sure they are varied (promotional, educational, engaging). 
       Return them as JSON array of objects with keys: title, brief, type (e.g. 🔴 Promotional, 🟢 Educational).`;
       
+      const { generateAppJson } = await getGemini();
       const generatedPostsRaw = await generateAppJson(
         `${promptText}\n\nYou are a social media manager for ${activeBusiness.name}. Follow their brand voice if provided.`,
         { expectArray: true }
@@ -2095,6 +2058,7 @@ export default function App() {
     const loadingToast = toast.loading("AI is brainstorming a post for you...");
 
     try {
+      const { generateBulkPosts } = await getGemini();
       const generatedPosts = await generateBulkPosts("General", 1, activeBusiness);
       if (generatedPosts && generatedPosts.length > 0) {
         const newPost: Post = {
@@ -2155,6 +2119,7 @@ export default function App() {
       return;
     }
     try {
+      const { generateMockupImage } = await getGemini();
       const result = await generateMockupImage(post.title, post.brief, post.caption, post.images?.[0], activeBusiness);
       const updatedPost = {
         ...post,
@@ -2435,6 +2400,7 @@ export default function App() {
         const { preferredProvider } = getAiSettings();
         if (preferredProvider === 'groq' || preferredProvider === 'gemini') {
           addSyncLog('Using AI to map Excel columns properly...', 'info');
+          const { getExcelMappingWithAi } = await getGemini();
           const mapping = await getExcelMappingWithAi(jsonData);
 
           if (mapping && Object.keys(mapping).length > 0) {
@@ -2999,9 +2965,11 @@ export default function App() {
       setActiveBusiness(newBiz);
       setShowOnboarding(false);
 
-      ensureLocalAiEnginesReady()
-        .then(() => toast.success('Workspace ready — local AI models loaded.'))
-        .catch(() => toast.success('Workspace created — open Settings to finish loading local AI.'));
+      void import('./lib/localAiBootstrap').then(({ ensureLocalAiEnginesReady }) =>
+        ensureLocalAiEnginesReady()
+          .then(() => toast.success('Workspace ready — local AI models loaded.'))
+          .catch(() => toast.success('Workspace created — open Settings to finish loading local AI.'))
+      );
 
       toast.success('Welcome to Forge!');
     } catch (error) {
@@ -3031,11 +2999,13 @@ export default function App() {
     <ErrorBoundary>
       <SkipLink />
       {showOnboarding && user && (
-        <OnboardingWizard
-          userEmail={user.email || ''}
-          onComplete={handleOnboardingComplete}
-          onImportJson={handleOnboardingImport}
-        />
+        <React.Suspense fallback={null}>
+          <OnboardingWizard
+            userEmail={user.email || ''}
+            onComplete={handleOnboardingComplete}
+            onImportJson={handleOnboardingImport}
+          />
+        </React.Suspense>
       )}
       <AppWorkspaceProvider activeBusiness={activeBusiness}>
         <ConfigWorkspaceProvider activeBusiness={activeBusiness}>
@@ -3329,18 +3299,7 @@ export default function App() {
 
                     {/* Bottom section: User & Sync */}
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center px-2 mt-4 lg:mt-0 pb-4 shrink-0">
-                      {builtInStatus.isLoading && (
-                        <div
-                          className="mb-1"
-                          title={builtInStatus.message || 'Downloading local AI models…'}
-                        >
-                          <ForgeLoader
-                            size={26}
-                            variant="monochrome"
-                            progress={builtInStatus.progress}
-                          />
-                        </div>
-                      )}
+                      <LocalAiTabLoader className="mb-1" />
 
                       <div className="relative group flex justify-center w-full cursor-help mb-2">
                         {isSyncing ? (
@@ -3719,7 +3678,8 @@ export default function App() {
                     ) : null}
                   </DragOverlay>
                   {isAdmin && (
-                    <FloatingChat
+                    <React.Suspense fallback={null}>
+                      <FloatingChat
                       posts={posts}
                       activeBusiness={activeBusiness}
                       brandKit={brandKit}
@@ -3754,6 +3714,7 @@ export default function App() {
                       onClose={() => setActiveTab('schedule')}
                       onFullScreen={() => setActiveTab('chat')}
                     />
+                    </React.Suspense>
                   )}
                 </div>
               </ContextMenu>

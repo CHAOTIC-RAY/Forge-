@@ -75,6 +75,11 @@ export function hasWebGpuApi(): boolean {
   return typeof navigator !== 'undefined' && 'gpu' in navigator;
 }
 
+/** True when the browser exposes WebGPU (required for built-in vision models). */
+export function canUseBuiltinWebGpuVision(): boolean {
+  return hasWebGpuApi();
+}
+
 export async function ensureWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
   const info = await probeWebGpuAdapter();
   if (!info.available) {

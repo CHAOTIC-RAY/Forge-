@@ -1,6 +1,6 @@
 // Storage utility using Cloudinary via client-side direct upload
 
-import { getAiSettings, getServerConfig, fetchServerConfig } from './gemini';
+import { getAiSettings } from './aiSettings';
 
 // Simple IndexedDB helper for large files
 const DB_NAME = 'ForgeStorageDB';
@@ -64,6 +64,7 @@ export async function uploadBase64Image(base64Data: string, path: string): Promi
   }
 
   const settings = getAiSettings();
+  const { getServerConfig, fetchServerConfig } = await import('./gemini');
   let serverConfig = getServerConfig();
   
   if (!serverConfig) {
@@ -198,7 +199,6 @@ export async function deleteAppStorageFile(url: string): Promise<void> {
       let publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf('.'));
       if(!publicId) publicId = publicIdWithExt; // fallback if no extension
       
-      const { getAiSettings } = await import('./gemini');
       const settings = getAiSettings();
       
       await fetch('/api/media/delete', {

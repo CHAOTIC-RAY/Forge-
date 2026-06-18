@@ -19,8 +19,13 @@ export function ForgeLogo({ className, size = 32 }: ForgeLogoProps) {
       height={size * (339.18 / 210.06)}
     >
       <defs>
+        <radialGradient id="forge-logo-gradient" cx="50%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="55%" stopColor="#fce7f3" />
+          <stop offset="100%" stopColor="#f472b6" />
+        </radialGradient>
         <style>
-          {`.cls-1 { fill: currentColor; }`}
+          {`.cls-1 { fill: url(#forge-logo-gradient); }`}
         </style>
       </defs>
       <g id="Layer_1-2" data-name="Layer 1">
