@@ -2997,13 +2997,17 @@ export default function App() {
     }
   };
 
-  const handleOnboardingImport = async (file: File, onProgress: (stage: string) => void) => {
+  const handleOnboardingImport = async (
+    file: File,
+    selection: import('./lib/migrationTypes').MigrationSelection,
+    onProgress: (stage: string) => void
+  ) => {
     if (!user || !profile) {
       throw new Error('Sign in required');
     }
 
     const { importForgeJsonBackup } = await import('./lib/onboardingJsonImport');
-    await importForgeJsonBackup(file, onProgress);
+    await importForgeJsonBackup(file, onProgress, selection);
 
     const { completeOnboardingViaApi } = await import('./lib/profileApi');
     await completeOnboardingViaApi();
