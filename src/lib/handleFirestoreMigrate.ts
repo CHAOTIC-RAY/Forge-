@@ -1,6 +1,8 @@
 import type { SupabaseAuthEnv } from './handleSupabaseTokenExchange';
-import { verifyFirebaseIdToken } from './supabaseAuthBridge';
-import { resolveSupabaseServiceKey, validateSupabaseServiceKey } from './supabaseServiceKey';
+import { getServiceConfig, serviceHeaders, verifyFirebaseBearer } from './supabaseServiceHttp';
+import { markOnboardingComplete } from './handleSupabaseProfile';
+
+export { getServiceConfig, serviceHeaders };
 
 export interface MigrateBatchRequest {
   table: string;
@@ -13,24 +15,13 @@ export interface ExistingProfile {
   firebase_uid: string;
 }
 
-function getServiceConfig(env: SupabaseAuthEnv): { serviceKey: string; supabaseUrl: string } {
-  const serviceKey = resolveSupabaseServiceKey(env);
-  const supabaseUrl = env.VITE_SUPABASE_URL?.replace(/\/$/, '');
-  if (!serviceKey || !supabaseUrl) {
-    throw new Error(
-      'Supabase service key is not configured on the server. Set SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) to the service_role secret from Supabase Dashboard → API.'
-    );
-  }
-  validateSupabaseServiceKey(serviceKey);
-  return { serviceKey, supabaseUrl };
-}
-
-function serviceHeaders(serviceKey: string, extra: Record<string, string> = {}): Record<string, string> {
-  return {
-    apikey: serviceKey,
-    Authorization: `Bearer ${serviceKey}`,
-    ...extra,
-  };
+async function verifyMigrationRequest(
+  request: Request,
+  env: SupabaseAuthEnv
+): Promise<Response | null> {
+  const auth = await verifyFirebaseBearer(request, env);
+  if (auth instanceof Response) return auth;
+  return null;
 }
 
 export async function fetchExistingProfiles(env: SupabaseAuthEnv): Promise<ExistingProfile[]> {
@@ -151,41 +142,6 @@ export async function serviceRoleUpsert(
   return { inserted: rows.length };
 }
 
-async function verifyMigrationRequest(
-  request: Request,
-  env: SupabaseAuthEnv
-): Promise<Response | null> {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  };
-
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
-
-  const firebaseProjectId = env.FIREBASE_PROJECT_ID || 'gen-lang-client-0018612871';
-  const firebaseApiKey = env.FIREBASE_API_KEY;
-  const authHeader = request.headers.get('Authorization') || '';
-  const firebaseToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (!firebaseToken) {
-    return new Response(JSON.stringify({ error: 'Missing Firebase ID token' }), {
-      status: 401,
-      headers: corsHeaders,
-    });
-  }
-
-  try {
-    await verifyFirebaseIdToken(firebaseToken, firebaseProjectId, firebaseApiKey);
-    return null;
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Invalid Firebase ID token' }),
-      { status: 401, headers: corsHeaders }
-    );
-  }
-}
-
 export async function handleMigratePrefetchProfiles(
   request: Request,
   env: SupabaseAuthEnv
@@ -291,6 +247,12 @@ export async function repairMigratedOwnership(
       }),
     });
     if (response.ok) repairedMembers++;
+  }
+
+  try {
+    await markOnboardingComplete(env, firebaseUid);
+  } catch (err) {
+    console.warn('[migrate] mark onboarding complete failed:', err);
   }
 
   return { repairedBusinesses, repairedMembers };

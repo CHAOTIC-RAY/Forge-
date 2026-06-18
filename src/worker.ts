@@ -2,7 +2,16 @@ import * as cheerio from "cheerio";
 import { patchEsrganOnnxOutputDims } from "./lib/esrganOnnxPatch";
 import { discoverLinksWorker, htmlToSimpleMarkdown } from "./lib/lightweightHtml";
 import { handleSupabaseTokenExchange } from "./lib/handleSupabaseTokenExchange";
-import { handleFirestoreMigrateBatch, handleMigratePrefetchProfiles, handleMigrateRepairOwnership } from "./lib/handleFirestoreMigrate";
+import {
+  handleFirestoreMigrateBatch,
+  handleMigratePrefetchProfiles,
+  handleMigrateRepairOwnership,
+} from "./lib/handleFirestoreMigrate";
+import {
+  handleProfileSync,
+  handleProfileCompleteOnboarding,
+  handleBusinessesMine,
+} from "./lib/handleSupabaseProfile";
 
 export interface Env {
   VITE_SUPABASE_URL: string;
@@ -147,6 +156,17 @@ export default {
       // POST /api/migrate/supabase-batch — service-role upsert for Firestore migration
       if (path === '/api/migrate/supabase-batch') {
         return handleFirestoreMigrateBatch(request, env);
+      }
+
+      // Profile & businesses via service role (bypasses client JWT)
+      if (path === '/api/profile/sync') {
+        return handleProfileSync(request, env);
+      }
+      if (path === '/api/profile/complete-onboarding') {
+        return handleProfileCompleteOnboarding(request, env);
+      }
+      if (path === '/api/businesses/mine') {
+        return handleBusinessesMine(request, env);
       }
 
       // Proxy for Gemini API

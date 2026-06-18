@@ -3,12 +3,10 @@ import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import {
   Profile,
-  upsertProfileByFirebaseUid,
-  getProfile,
-  setFirebaseUidForRls,
 } from '../lib/supabase';
-import { clearSupabaseAccessToken, exchangeSupabaseAccessToken } from '../lib/supabaseSession';
+import { clearSupabaseAccessToken } from '../lib/supabaseSession';
 import { firestoreEntityId } from '../lib/firestoreMigrateIds';
+import { syncProfileViaApi } from '../lib/profileApi';
 
 function buildFallbackProfile(firebaseUser: User): Profile {
   const id =
@@ -46,22 +44,8 @@ export function useSupabaseAuth(): AuthState & {
     error: null,
   });
 
-  const syncProfile = useCallback(async (firebaseUser: User): Promise<Profile> => {
-    await exchangeSupabaseAccessToken(true);
-    await setFirebaseUidForRls(firebaseUser.uid);
-
-    const existing = await getProfile(firebaseUser.uid);
-    const profile =
-      existing ||
-      (await upsertProfileByFirebaseUid(
-        firebaseUser.uid,
-        firebaseUser.email || '',
-        firebaseUser.displayName || undefined,
-        firebaseUser.photoURL || undefined
-      ));
-
-    const refreshed = await getProfile(firebaseUser.uid);
-    return refreshed || profile;
+  const syncProfile = useCallback(async (_firebaseUser: User): Promise<Profile> => {
+    return syncProfileViaApi();
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -144,8 +128,7 @@ export function useProfile(): Profile | null {
       }
 
       try {
-        await exchangeSupabaseAccessToken(false);
-        const userProfile = await getProfile(firebaseUser.uid);
+        const userProfile = await syncProfileViaApi();
         setProfile(userProfile);
       } catch (error) {
         console.error('Error loading profile:', error);

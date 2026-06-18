@@ -10,6 +10,22 @@ import { scraperRouter } from "./server/routes/api";
 import { patchEsrganOnnxOutputDims } from "./src/lib/esrganOnnxPatch";
 import { handleSupabaseTokenExchange } from "./src/lib/handleSupabaseTokenExchange";
 import { handleFirestoreMigrateBatch, handleMigratePrefetchProfiles, handleMigrateRepairOwnership } from "./src/lib/handleFirestoreMigrate";
+import {
+  handleProfileSync,
+  handleProfileCompleteOnboarding,
+  handleBusinessesMine,
+} from "./src/lib/handleSupabaseProfile";
+
+function supabaseWorkerEnv() {
+  return {
+    VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+    SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
+    FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+    FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
+  };
+}
 
 console.log("[Server] Starting initialization...");
 console.log("[Server] Environment:", process.env.NODE_ENV);
@@ -196,19 +212,65 @@ export async function startServer(forcePort?: number) {
         },
         body: JSON.stringify(req.body),
       });
-      const response = await handleFirestoreMigrateBatch(request, {
-        VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
-        SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
-        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-        SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
-        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-        FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
-      });
+      const response = await handleFirestoreMigrateBatch(request, supabaseWorkerEnv());
       const body = await response.text();
       res.status(response.status).type("application/json").send(body);
     } catch (error: any) {
       console.error("[Server] /api/migrate/supabase-batch error:", error);
       res.status(500).json({ error: error.message || "Migration batch failed" });
+    }
+  });
+
+  app.post("/api/profile/sync", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "POST",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+      });
+      const response = await handleProfileSync(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/profile/sync error:", error);
+      res.status(500).json({ error: error.message || "Profile sync failed" });
+    }
+  });
+
+  app.post("/api/profile/complete-onboarding", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "POST",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+      });
+      const response = await handleProfileCompleteOnboarding(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/profile/complete-onboarding error:", error);
+      res.status(500).json({ error: error.message || "Complete onboarding failed" });
+    }
+  });
+
+  app.get("/api/businesses/mine", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "GET",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+        },
+      });
+      const response = await handleBusinessesMine(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/businesses/mine error:", error);
+      res.status(500).json({ error: error.message || "Load businesses failed" });
     }
   });
 

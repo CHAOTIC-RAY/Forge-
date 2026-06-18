@@ -805,9 +805,25 @@ export default function App() {
       }
     };
 
-    const unsubscribe = subscribeToBusinesses(profile.id, applyBusinessList);
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
 
-    return () => unsubscribe();
+    void import('./lib/profileApi')
+      .then(({ fetchBusinessesViaApi }) => fetchBusinessesViaApi())
+      .then((bizList) => {
+        if (!cancelled) applyBusinessList(bizList);
+      })
+      .catch((err) => {
+        console.warn('[businesses] API load failed, using client subscription', err);
+        if (!cancelled) {
+          unsubscribe = subscribeToBusinesses(profile.id, applyBusinessList);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [profile, profileLoading, user, isViewOnly]);
 
   useEffect(() => {
@@ -2960,6 +2976,9 @@ export default function App() {
 
       await updateProfile(profile.id, {
         settings: { ...(profile.settings || {}), onboardingComplete: true },
+      }).catch(async () => {
+        const { completeOnboardingViaApi } = await import('./lib/profileApi');
+        await completeOnboardingViaApi();
       });
       setUserOnboardingComplete(true);
       setActiveBusiness(newBiz);
@@ -2986,9 +3005,8 @@ export default function App() {
     const { importForgeJsonBackup } = await import('./lib/onboardingJsonImport');
     await importForgeJsonBackup(file, onProgress);
 
-    await updateProfile(profile.id, {
-      settings: { ...(profile.settings || {}), onboardingComplete: true },
-    });
+    const { completeOnboardingViaApi } = await import('./lib/profileApi');
+    await completeOnboardingViaApi();
     setUserOnboardingComplete(true);
     setShowOnboarding(false);
     toast.success('Import complete — loading your workspace…');
