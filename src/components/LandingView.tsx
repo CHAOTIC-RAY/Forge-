@@ -896,16 +896,11 @@ export function LandingView(_props: LandingViewProps) {
     container: containerRef,
   });
 
-  const calloutScale = useTransform(scrollYProgress, [0, 0.4, 0.72, 1], [0.92, 0.98, 1, 1]);
-  const calloutRadius = useTransform(scrollYProgress, [0, 0.55, 0.8, 1], ['28px', '16px', '0px', '0px']);
-  const sectionPadX = useTransform(scrollYProgress, [0, 0.72, 1], ['1.25rem', '0.75rem', '0px']);
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.5, 0.72, 1], [1, 1, 0, 0]);
-  const fullBleedOpacity = useTransform(scrollYProgress, [0, 0.38, 0.58, 0.82, 1], [0, 0, 0.7, 1, 1]);
-  const headlineScale = useTransform(scrollYProgress, [0, 0.7, 1], [1, 1, 1.15]);
-  const contentY = useTransform(scrollYProgress, [0, 0.7, 1], [16, 16, 0]);
+  const fullBleedOpacity = useTransform(scrollYProgress, [0, 0.2, 0.55, 1], [0, 0.35, 1, 1]);
+  const headlineScale = useTransform(scrollYProgress, [0, 0.7, 1], [0.96, 1, 1.08]);
+  const contentY = useTransform(scrollYProgress, [0, 0.55, 1], [24, 12, 0]);
   const sidebarOpacity = useTransform(scrollYProgress, [0.48, 0.72], [1, 0]);
   const sidebarX = useTransform(scrollYProgress, [0.48, 0.72], ['0%', '-110%']);
-  const decorOpacity = useTransform(scrollYProgress, [0.45, 0.7], [1, 0]);
 
   const scribbleX = useTransform(pageProgress, [0, 0.85], ['0%', '30%']);
   const scribbleScale = useTransform(pageProgress, [0, 0.85], [1, 0.78]);
@@ -921,7 +916,7 @@ export function LandingView(_props: LandingViewProps) {
   const hideScribbleDecor = isAutoScrolling || !!tourFocusId || footerImmersive;
 
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    const immersive = v >= 0.65;
+    const immersive = v >= 0.45;
     setCtaImmersive(immersive);
     if (immersive) setActiveSection('footer-cta');
   });
@@ -1376,57 +1371,12 @@ export function LandingView(_props: LandingViewProps) {
           </div>
         </div>
 
-        <motion.section
+        <section
           id="footer-cta"
           ref={footerRef}
-          className={cn(
-            'relative z-10 min-h-[100dvh] w-full flex items-center justify-center snap-center snap-always overflow-hidden',
-            footerImmersive ? 'py-0 px-0' : 'py-16 md:py-24'
-          )}
-          style={
-            footerImmersive
-              ? undefined
-              : { paddingLeft: sectionPadX, paddingRight: sectionPadX }
-          }
-        >
-          {/* Bordered card — zooms in then fades out as full-bleed takes over */}
-          <motion.div
-            style={{
-              scale: calloutScale,
-              borderRadius: calloutRadius,
-              opacity: cardOpacity,
-            }}
-            className={cn(
-              'relative z-[20] w-full max-w-4xl lg:max-w-5xl mx-auto',
-              'bg-brand text-white overflow-hidden',
-              'border border-white/25 shadow-[0_24px_80px_rgba(0,0,0,0.28)]',
-              'ring-1 ring-inset ring-white/10',
-              footerImmersive && 'pointer-events-none'
-            )}
-          >
-            <FooterCtaGrid className="opacity-[0.12]" />
-            <div className="relative z-10 flex flex-col items-center text-center px-8 py-12 sm:px-12 sm:py-14 md:px-16 md:py-16 gap-8 md:gap-10">
-              <div className="space-y-4 md:space-y-5 max-w-2xl">
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-[1.08]">
-                  Ready to ship your next month of content?
-                </h2>
-                <p className="text-base sm:text-lg md:text-xl text-blue-100/95 leading-relaxed">
-                  Sign in to map your site into a {landingTerms.products.toLowerCase()}, plan on the{' '}
-                  {landingTerms.calendar.toLowerCase()}, draft with local AI widgets, and share a live calendar when you
-                  are ready.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={goAuth}
-                className="interactive focus-ring w-full sm:w-auto px-10 py-4 md:py-5 bg-white text-brand hover:bg-blue-50 rounded-xl font-bold text-lg md:text-xl transition-all shadow-xl min-h-[48px]"
-              >
-                Sign Up Now
-              </button>
-            </div>
-          </motion.div>
-
-        </motion.section>
+          className="relative z-10 min-h-[100dvh] w-full snap-center snap-always"
+          aria-hidden
+        />
       </main>
 
       {/* Auto-scroll Controls */}
