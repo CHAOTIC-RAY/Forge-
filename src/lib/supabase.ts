@@ -11,6 +11,7 @@ import {
   fetchWorkspaceSnapshotViaApi,
   fetchNotebookViaApi,
   upsertNotebookViaApi,
+  upsertCategoriesViaApi,
   updatePostViaApi,
 } from './dataAccessApi';
 import { transformPostFromDb } from './postDbMapper';
@@ -767,20 +768,23 @@ export async function upsertInventoryProducts(products: Partial<InventoryProduct
 }
 
 export async function getCategoryCounts(businessId: string): Promise<Record<string, number>> {
-  const { data, error } = await supabase
-    .from('inventory_category_counts')
-    .select('category, count')
-    .eq('business_id', businessId);
-
-  if (error) {
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    if (snapshot.categoryCounts?.length) {
+      return snapshot.categoryCounts.reduce((acc, item) => {
+        if (item.category) acc[item.category] = item.count;
+        return acc;
+      }, {} as Record<string, number>);
+    }
+    return snapshot.inventory.reduce((acc, item) => {
+      const category = item.category || 'Uncategorized';
+      acc[category] = (acc[category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  } catch (error) {
     console.error('Error fetching category counts:', error);
-    throw error;
+    return {};
   }
-
-  return (data || []).reduce((acc, item) => {
-    acc[item.category] = item.count;
-    return acc;
-  }, {} as Record<string, number>);
 }
 
 // ============================================
@@ -1459,16 +1463,7 @@ export async function upsertCategoriesDoc(
   businessId: string,
   payload: Record<string, unknown>
 ): Promise<void> {
-  const row: Record<string, unknown> = {
-    business_id: businessId,
-    updated_at: new Date().toISOString(),
-  };
-  if (payload.categories !== undefined) row.categories = payload.categories;
-  if (payload.targetPlatforms !== undefined) row.target_platforms = payload.targetPlatforms;
-  if (payload.target_platforms !== undefined) row.target_platforms = payload.target_platforms;
-  if (payload.titles !== undefined) row.titles = payload.titles;
-  const { error } = await supabase.from('categories').upsert(row, { onConflict: 'business_id' });
-  if (error) throw error;
+  await upsertCategoriesViaApi(businessId, payload);
 }
 
 export function subscribeToCategories(

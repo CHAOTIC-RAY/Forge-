@@ -23,6 +23,8 @@ import {
   handleDataPostsBatchImport,
   handleDataWorkspace,
   handleDataNotebook,
+  handleDataCategories,
+  handleDataBrandOverview,
 } from "./src/lib/handleSupabaseDataAccess";
 
 function supabaseWorkerEnv() {
@@ -482,6 +484,44 @@ export async function startServer(forcePort?: number) {
     } catch (error: any) {
       console.error("[Server] /api/data/notebook PUT error:", error);
       res.status(500).json({ error: error.message || "Save notebook failed" });
+    }
+  });
+
+  app.put("/api/data/categories", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "PUT",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleDataCategories(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/categories PUT error:", error);
+      res.status(500).json({ error: error.message || "Save categories failed" });
+    }
+  });
+
+  app.put("/api/data/brand-overview", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "PUT",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleDataBrandOverview(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/brand-overview PUT error:", error);
+      res.status(500).json({ error: error.message || "Save brand overview failed" });
     }
   });
 

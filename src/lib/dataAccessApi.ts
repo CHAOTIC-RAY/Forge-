@@ -96,7 +96,40 @@ export interface WorkspaceSnapshot {
   inventory: InventoryProduct[];
   inventoryMaps: unknown;
   brandOverview: unknown;
+  categoryCounts: Array<{ category: string; count: number }>;
   todos: TodoItem[];
+}
+
+export async function upsertCategoriesViaApi(
+  businessId: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const headers = await firebaseAuthHeader();
+  const response = await fetch(
+    `/api/data/categories?businessId=${encodeURIComponent(businessId)}`,
+    {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) await parseError(response, 'Failed to save categories');
+}
+
+export async function upsertBrandOverviewViaApi(
+  businessId: string,
+  overview: string
+): Promise<void> {
+  const headers = await firebaseAuthHeader();
+  const response = await fetch(
+    `/api/data/brand-overview?businessId=${encodeURIComponent(businessId)}`,
+    {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overview }),
+    }
+  );
+  if (!response.ok) await parseError(response, 'Failed to save brand overview');
 }
 
 export async function fetchWorkspaceSnapshotViaApi(businessId: string): Promise<WorkspaceSnapshot> {

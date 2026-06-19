@@ -350,7 +350,7 @@ export async function handleDataWorkspace(request: Request, env: SupabaseAuthEnv
     const { serviceKey, supabaseUrl } = getServiceConfig(env);
     const headers = serviceHeaders(serviceKey, { Accept: 'application/json' });
 
-    const [brandKitRes, categoriesRes, inventoryRes, mapsRes, overviewRes, todosRes] =
+    const [brandKitRes, categoriesRes, inventoryRes, mapsRes, overviewRes, countsRes, todosRes] =
       await Promise.all([
         fetch(
           `${supabaseUrl}/rest/v1/brand_kits?business_id=eq.${encodeURIComponent(businessId)}&select=*`,
@@ -373,6 +373,10 @@ export async function handleDataWorkspace(request: Request, env: SupabaseAuthEnv
           { headers }
         ),
         fetch(
+          `${supabaseUrl}/rest/v1/inventory_category_counts?business_id=eq.${encodeURIComponent(businessId)}&select=category,count`,
+          { headers }
+        ),
+        fetch(
           `${supabaseUrl}/rest/v1/todos?profile_id=eq.${encodeURIComponent(access.profileId)}&select=*`,
           { headers }
         ),
@@ -384,6 +388,7 @@ export async function handleDataWorkspace(request: Request, env: SupabaseAuthEnv
     const inventory = await readJson(inventoryRes);
     const mapsRows = (await readJson(mapsRes)) as Array<{ links?: unknown }>;
     const overviewRows = (await readJson(overviewRes)) as Array<{ overview?: unknown }>;
+    const countRows = (await readJson(countsRes)) as Array<{ category?: string; count?: number }>;
     const todoRows = (await readJson(todosRes)) as Array<Record<string, unknown>>;
 
     const brandKitRow = brandKitRows[0];
@@ -414,6 +419,10 @@ export async function handleDataWorkspace(request: Request, env: SupabaseAuthEnv
         inventory,
         inventoryMaps: mapsRows[0]?.links ?? null,
         brandOverview: overviewRows[0]?.overview ?? null,
+        categoryCounts: countRows.map((row) => ({
+          category: String(row.category || ''),
+          count: Number(row.count || 0),
+        })),
         todos,
       }),
       { status: 200, headers: corsHeaders }
@@ -519,6 +528,115 @@ export async function handleDataNotebook(request: Request, env: SupabaseAuthEnv)
   } catch (error) {
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Notebook request failed' }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
+export async function handleDataCategories(request: Request, env: SupabaseAuthEnv): Promise<Response> {
+  const auth = await verifyFirebaseBearer(request, env);
+  if (auth instanceof Response) return auth;
+
+  if (request.method !== 'PUT') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: corsHeaders,
+    });
+  }
+
+  const businessId = new URL(request.url).searchParams.get('businessId') || '';
+  if (!businessId) {
+    return new Response(JSON.stringify({ error: 'businessId is required' }), {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
+
+  try {
+    const access = await assertBusinessAccess(env, auth.uid, businessId);
+    if (access instanceof Response) return access;
+
+    const payload = (await request.json()) as Record<string, unknown>;
+    const { serviceKey, supabaseUrl } = getServiceConfig(env);
+    const row: Record<string, unknown> = {
+      business_id: businessId,
+      updated_at: new Date().toISOString(),
+    };
+    if (payload.categories !== undefined) row.categories = payload.categories;
+    if (payload.targetPlatforms !== undefined) row.target_platforms = payload.targetPlatforms;
+    if (payload.target_platforms !== undefined) row.target_platforms = payload.target_platforms;
+    if (payload.titles !== undefined) row.titles = payload.titles;
+
+    const response = await fetch(`${supabaseUrl}/rest/v1/categories?on_conflict=business_id`, {
+      method: 'POST',
+      headers: serviceHeaders(serviceKey, {
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      }),
+      body: JSON.stringify(row),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to save categories: ${text}`);
+    }
+
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: corsHeaders });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to save categories' }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
+export async function handleDataBrandOverview(request: Request, env: SupabaseAuthEnv): Promise<Response> {
+  const auth = await verifyFirebaseBearer(request, env);
+  if (auth instanceof Response) return auth;
+
+  if (request.method !== 'PUT') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: corsHeaders,
+    });
+  }
+
+  const businessId = new URL(request.url).searchParams.get('businessId') || '';
+  if (!businessId) {
+    return new Response(JSON.stringify({ error: 'businessId is required' }), {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
+
+  try {
+    const access = await assertBusinessAccess(env, auth.uid, businessId);
+    if (access instanceof Response) return access;
+
+    const body = (await request.json()) as { overview?: string };
+    const overview = body.overview ?? '';
+    const { serviceKey, supabaseUrl } = getServiceConfig(env);
+
+    const response = await fetch(`${supabaseUrl}/rest/v1/brand_overviews?on_conflict=business_id`, {
+      method: 'POST',
+      headers: serviceHeaders(serviceKey, {
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      }),
+      body: JSON.stringify({
+        business_id: businessId,
+        overview,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to save brand overview: ${text}`);
+    }
+
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: corsHeaders });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to save brand overview' }),
       { status: 500, headers: corsHeaders }
     );
   }

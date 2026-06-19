@@ -20,6 +20,8 @@ import {
   handleDataPostsBatchImport,
   handleDataWorkspace,
   handleDataNotebook,
+  handleDataCategories,
+  handleDataBrandOverview,
 } from "./lib/handleSupabaseDataAccess";
 
 export interface Env {
@@ -198,6 +200,12 @@ export default {
       }
       if (path === '/api/data/notebook') {
         return handleDataNotebook(request, env);
+      }
+      if (path === '/api/data/categories') {
+        return handleDataCategories(request, env);
+      }
+      if (path === '/api/data/brand-overview') {
+        return handleDataBrandOverview(request, env);
       }
 
       // Proxy for Gemini API

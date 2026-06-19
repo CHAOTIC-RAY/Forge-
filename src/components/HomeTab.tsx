@@ -19,17 +19,18 @@ import {
   Eye,
   Heart,
   Boxes,
+  Link2,
 } from 'lucide-react';
 import { format, isToday, parseISO, isAfter, startOfDay } from 'date-fns';
 import { Post, Business } from '../data';
 import { cn } from '../lib/utils';
 import { HomeDashboardSkeleton } from './ui/Skeleton';
-import { generateDailyGreetings, HighStockProduct, generateTaskIdeas } from '../lib/gemini';
+import { generateDailyGreetings, HighStockProduct, generateDailyStrategyIdea, resolveDailyStrategySource } from '../lib/gemini';
 import { saveTextToIdeasInbox } from '../lib/ideasInbox';
 import { toast } from 'sonner';
 import { User } from 'firebase/auth';
-import { subscribeToInventory } from '../lib/supabase';
-import { inventoryToHighStock } from '../lib/catalogueSupabase';
+import { getCategoriesDoc, normalizeCategoriesDoc, subscribeToInventory } from '../lib/supabase';
+import { fetchBrandOverview, inventoryToHighStock } from '../lib/catalogueSupabase';
 
 function getGreetingName(user: User | null | undefined, activeBusiness: Business | null): string {
   const fromProfile = user?.displayName?.trim();
@@ -57,9 +58,22 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
   const [recommendedIdea, setRecommendedIdea] = useState<any>(null);
   const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
   const [isSavingIdea, setIsSavingIdea] = useState(false);
+  const [strategySetupRequired, setStrategySetupRequired] = useState(false);
+  const [strategySource, setStrategySource] = useState<'database' | 'website' | null>(null);
 
   const loadRecommendedIdea = async (forceRefresh = false) => {
     if (!activeBusiness?.id) return;
+
+    const { source, websiteUrl } = resolveDailyStrategySource(activeBusiness, products.length);
+    if (source === 'none') {
+      setStrategySetupRequired(true);
+      setStrategySource(null);
+      setRecommendedIdea(null);
+      return;
+    }
+
+    setStrategySetupRequired(false);
+    setStrategySource(source);
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const cacheKey = `daily_inspiration_${activeBusiness.id}`;
@@ -69,7 +83,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
-          if (parsed.date === todayStr) {
+          if (parsed.date === todayStr && parsed.source === source) {
             setRecommendedIdea(parsed.idea);
             return;
           }
@@ -83,25 +97,35 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
 
     setIsGeneratingIdea(true);
     try {
-      const ideas = await generateTaskIdeas(
-        activeBusiness,
-        undefined,
-        undefined,
-        'Generate 1 single, highly creative and actionable content idea for today.'
-      );
-      if (ideas && ideas.length > 0) {
-        const idea = ideas[0];
+      const [brandOverview, categoriesDoc] = await Promise.all([
+        fetchBrandOverview(activeBusiness.id),
+        getCategoriesDoc(activeBusiness.id),
+      ]);
+      const normalizedCategories = normalizeCategoriesDoc(categoriesDoc);
+
+      const idea = await generateDailyStrategyIdea(activeBusiness, {
+        products: source === 'database' ? products : [],
+        websiteUrl,
+        brandOverview,
+        brandKitCategories: normalizedCategories.categories as any[],
+      });
+
+      if (idea) {
         setRecommendedIdea(idea);
         localStorage.setItem(
           cacheKey,
           JSON.stringify({
             date: todayStr,
+            source,
             idea,
           })
         );
+      } else {
+        setRecommendedIdea(null);
       }
     } catch (error) {
       console.warn('Failed to fetch recommended idea:', error);
+      setRecommendedIdea(null);
       if (forceRefresh) {
         toast.error('Could not refresh inspiration right now.');
       }
@@ -178,8 +202,9 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
   }, [user?.uid, user?.displayName, activeBusiness?.id, activeBusiness?.name]);
 
   useEffect(() => {
+    if (!activeBusiness?.id) return;
     loadRecommendedIdea(false);
-  }, [activeBusiness?.id]);
+  }, [activeBusiness?.id, products.length, activeBusiness?.targetUrl]);
 
   const todayPosts = useMemo(() => {
     return posts.filter(post => isToday(parseISO(post.date)));
@@ -287,11 +312,17 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
         <div className="relative z-10">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-5 md:mb-6">
             <div className="px-3 py-1.5 bg-brand text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg shadow-brand/20">
-              Daily Inspiration
+              Daily Strategy
             </div>
             <div className="flex items-center gap-1.5 text-[#757681] dark:text-[#9B9A97] text-[11px] sm:text-xs font-bold">
               <Clock className="w-3.5 h-3.5" />
-              <span className="line-clamp-1">Freshly generated for {activeBusiness?.name || 'you'}</span>
+              <span className="line-clamp-1">
+                {strategySource === 'database'
+                  ? `Based on ${products.length} products in your database`
+                  : strategySource === 'website'
+                    ? `Based on your website link`
+                    : `Freshly generated for ${activeBusiness?.name || 'you'}`}
+              </span>
             </div>
           </div>
 
@@ -299,6 +330,30 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
             <div className="flex items-center gap-4 py-6">
               <div className="w-6 h-6 border-3 border-brand border-t-transparent rounded-full animate-spin" />
               <span className="text-base font-bold text-[#757681] animate-pulse">AI is crafting your daily strategy...</span>
+            </div>
+          ) : strategySetupRequired ? (
+            <div className="py-6 space-y-4 max-w-2xl">
+              <p className="text-sm sm:text-base text-[#757681] dark:text-[#9B9A97] leading-relaxed">
+                Set up your product database or add your website link to generate a daily strategy.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('search')}
+                  className="px-5 py-3 bg-brand hover:bg-brand-hover text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 min-h-[48px]"
+                >
+                  <Database className="w-4 h-4" />
+                  Set up Local DB
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('more')}
+                  className="px-5 py-3 bg-white dark:bg-[#252525] border border-[#E9E9E7] dark:border-[#333333] text-[#37352F] dark:text-[#EBE9ED] rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all flex items-center justify-center gap-2 min-h-[48px]"
+                >
+                  <Link2 className="w-4 h-4" />
+                  Add Website Link
+                </button>
+              </div>
             </div>
           ) : recommendedIdea ? (
             <div className="space-y-6">

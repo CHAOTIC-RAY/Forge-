@@ -2236,6 +2236,71 @@ function normalizeTaskIdea(item: any, business?: Business) {
   };
 }
 
+export function getBusinessWebsiteUrl(business?: Business | null, settings = getAiSettings()): string {
+  return (business?.targetUrl?.trim() || settings.targetUrl?.trim() || '');
+}
+
+export type DailyStrategySource = 'database' | 'website' | 'none';
+
+export function resolveDailyStrategySource(
+  business: Business | null | undefined,
+  productCount: number,
+  settings = getAiSettings()
+): { source: DailyStrategySource; websiteUrl: string } {
+  const websiteUrl = getBusinessWebsiteUrl(business, settings);
+  if (productCount > 0) return { source: 'database', websiteUrl };
+  if (websiteUrl) return { source: 'website', websiteUrl };
+  return { source: 'none', websiteUrl: '' };
+}
+
+export async function generateDailyStrategyIdea(
+  business: Business,
+  options: {
+    products?: HighStockProduct[];
+    websiteUrl?: string;
+    brandOverview?: string | null;
+    brandKitCategories?: any[];
+  }
+): Promise<any | null> {
+  const productList = options.products || [];
+  const websiteUrl = options.websiteUrl?.trim() || getBusinessWebsiteUrl(business);
+  const hasDatabase = productList.length > 0;
+  const hasWebsite = !!websiteUrl;
+
+  if (!hasDatabase && !hasWebsite) return null;
+
+  const contextParts: string[] = [];
+  if (hasDatabase) {
+    contextParts.push(
+      `PRODUCTS FROM LOCAL DATABASE (${productList.length} items): ${productList
+        .slice(0, 20)
+        .map((p) => `${p.title}${p.type ? ` [${p.type}]` : ''}`)
+        .join(', ')}`
+    );
+  }
+  if (hasWebsite) {
+    contextParts.push(`BUSINESS WEBSITE: ${websiteUrl}`);
+    if (!hasDatabase) {
+      contextParts.push(
+        'There is no product database yet. Infer offerings, audience, and positioning from this website URL when creating the idea.'
+      );
+    }
+  }
+  if (options.brandOverview?.trim()) {
+    contextParts.push(`BRAND OVERVIEW:\n${options.brandOverview.trim().slice(0, 2500)}`);
+  }
+
+  const ideas = await generateTaskIdeas(
+    business,
+    options.brandKitCategories,
+    undefined,
+    'Generate 1 single, highly creative and actionable content idea for today.',
+    contextParts.join('\n\n')
+  );
+
+  return ideas?.[0] ?? null;
+}
+
 export async function generateTaskIdeas(
   business?: Business,
   brandKitCategories?: any[],

@@ -4,11 +4,14 @@
 
 import type { HighStockProduct, CategoryCount } from '../types/catalogue';
 import {
-  supabase,
   getInventoryProducts,
   upsertInventoryProducts,
   type InventoryProduct,
 } from './supabase';
+import {
+  fetchWorkspaceSnapshotViaApi,
+  upsertBrandOverviewViaApi,
+} from './dataAccessApi';
 
 export interface SiteMapLink {
   url: string;
@@ -91,17 +94,30 @@ export async function deleteCatalogueProduct(businessId: string, title: string):
   const existing = await getInventoryProducts(businessId);
   const row = existing.find((r) => r.name === title);
   if (!row) return;
+  const { supabase } = await import('./supabase');
   const { error } = await supabase.from('inventory_products').delete().eq('id', row.id);
   if (error) throw error;
 }
 
 export async function fetchCategoryCounts(businessId: string): Promise<CategoryCount[]> {
-  const { data, error } = await supabase
-    .from('inventory_category_counts')
-    .select('category, count')
-    .eq('business_id', businessId);
-  if (error) throw error;
-  return (data || []).map((r) => ({ category: r.category, count: r.count }));
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    if (snapshot.categoryCounts?.length) {
+      return snapshot.categoryCounts.map((row) => ({
+        category: row.category,
+        count: row.count,
+      }));
+    }
+    const derived = snapshot.inventory.reduce((acc, item) => {
+      const category = item.category || 'Uncategorized';
+      acc[category] = (acc[category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(derived).map(([category, count]) => ({ category, count }));
+  } catch (error) {
+    console.warn('[fetchCategoryCounts] failed:', error);
+    return [];
+  }
 }
 
 export async function saveCategoryCounts(
@@ -109,6 +125,7 @@ export async function saveCategoryCounts(
   counts: CategoryCount[]
 ): Promise<void> {
   if (!counts.length) return;
+  const { supabase } = await import('./supabase');
   const rows = counts.map((c) => ({
     business_id: businessId,
     category: c.category,
@@ -122,16 +139,18 @@ export async function saveCategoryCounts(
 }
 
 export async function fetchSiteMap(businessId: string): Promise<SiteMapLink[]> {
-  const { data, error } = await supabase
-    .from('inventory_maps')
-    .select('links')
-    .eq('business_id', businessId)
-    .maybeSingle();
-  if (error) throw error;
-  return (data?.links as SiteMapLink[]) || [];
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    const links = snapshot.inventoryMaps;
+    return Array.isArray(links) ? (links as SiteMapLink[]) : [];
+  } catch (error) {
+    console.warn('[fetchSiteMap] failed:', error);
+    return [];
+  }
 }
 
 export async function saveSiteMap(businessId: string, links: SiteMapLink[]): Promise<void> {
+  const { supabase } = await import('./supabase');
   const { error } = await supabase.from('inventory_maps').upsert(
     {
       business_id: businessId,
@@ -144,25 +163,18 @@ export async function saveSiteMap(businessId: string, links: SiteMapLink[]): Pro
 }
 
 export async function fetchBrandOverview(businessId: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('brand_overviews')
-    .select('overview')
-    .eq('business_id', businessId)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.overview || null;
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    const overview = snapshot.brandOverview;
+    return typeof overview === 'string' && overview.trim() ? overview : null;
+  } catch (error) {
+    console.warn('[fetchBrandOverview] failed:', error);
+    return null;
+  }
 }
 
 export async function saveBrandOverview(businessId: string, overview: string): Promise<void> {
-  const { error } = await supabase.from('brand_overviews').upsert(
-    {
-      business_id: businessId,
-      overview,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'business_id' }
-  );
-  if (error) throw error;
+  await upsertBrandOverviewViaApi(businessId, overview);
 }
 
 export interface CatalogueImportState {
@@ -173,6 +185,7 @@ export interface CatalogueImportState {
 export async function fetchCatalogueImportState(
   businessId: string
 ): Promise<CatalogueImportState | null> {
+  const { supabase } = await import('./supabase');
   const { data, error } = await supabase
     .from('catalogue_import_state')
     .select('crawl_job_id, processed_count')
@@ -190,6 +203,7 @@ export async function saveCatalogueImportState(
   businessId: string,
   state: CatalogueImportState
 ): Promise<void> {
+  const { supabase } = await import('./supabase');
   const { error } = await supabase.from('catalogue_import_state').upsert(
     {
       business_id: businessId,
@@ -207,40 +221,43 @@ export function subscribeToCatalogue(
   onProducts: (items: HighStockProduct[]) => void,
   onCounts?: (counts: CategoryCount[]) => void
 ): () => void {
-  const channel = supabase
-    .channel(`catalogue:${businessId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'inventory_products', filter: `business_id=eq.${businessId}` },
-      async () => onProducts(await fetchCatalogueProducts(businessId))
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'inventory_category_counts', filter: `business_id=eq.${businessId}` },
-      async () => {
-        if (onCounts) onCounts(await fetchCategoryCounts(businessId));
-      }
-    )
-    .subscribe();
+  let cancelled = false;
 
-  void fetchCatalogueProducts(businessId).then(onProducts);
-  if (onCounts) void fetchCategoryCounts(businessId).then(onCounts);
+  const refresh = async () => {
+    try {
+      const products = await fetchCatalogueProducts(businessId);
+      if (!cancelled) onProducts(products);
+      if (onCounts) {
+        const counts = await fetchCategoryCounts(businessId);
+        if (!cancelled) onCounts(counts);
+      }
+    } catch (error) {
+      console.warn('[subscribeToCatalogue] refresh failed:', error);
+      if (!cancelled) onProducts([]);
+      if (onCounts && !cancelled) onCounts([]);
+    }
+  };
+
+  void refresh();
+  const intervalId = window.setInterval(refresh, 15000);
 
   return () => {
-    supabase.removeChannel(channel);
+    cancelled = true;
+    window.clearInterval(intervalId);
   };
 }
 
 export async function fetchBrandKitCategories(businessId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('categories')
-    .select('categories')
-    .eq('business_id', businessId)
-    .maybeSingle();
-  if (error) throw error;
-  const list = data?.categories;
-  if (!Array.isArray(list)) return [];
-  return list
-    .filter((c: { enabled?: boolean; name?: string }) => c.enabled !== false && c.name)
-    .map((c: { name: string }) => c.name);
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    const doc = snapshot.categories as { categories?: Array<{ enabled?: boolean; name?: string }> } | null;
+    const list = doc?.categories;
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((c) => c.enabled !== false && c.name)
+      .map((c) => c.name as string);
+  } catch (error) {
+    console.warn('[fetchBrandKitCategories] failed:', error);
+    return [];
+  }
 }
