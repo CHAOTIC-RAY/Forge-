@@ -179,7 +179,7 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-[2px] z-[60]"
+              className="fixed inset-0 z-[60] bg-black/40 md:bg-transparent"
               onClick={() => setIsOpen(false)}
               aria-hidden
             />
@@ -196,7 +196,7 @@ export function CalendarSharing({ activeBusiness, onUpdateBusiness }: CalendarSh
                 'w-full md:w-[420px]',
                 'rounded-t-3xl md:rounded-2xl',
                 'border border-[#E9E9E7] dark:border-[#2E2E2E]',
-                'glass-card shadow-2xl'
+                'bg-white dark:bg-[#191919] shadow-2xl'
               )}
             >
               <div className="md:hidden flex justify-center pt-3 pb-1">

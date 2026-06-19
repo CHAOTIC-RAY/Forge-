@@ -3465,8 +3465,6 @@ export default function App() {
                               calendarMode={calendarMode}
                               onCalendarModeChange={setCalendarMode}
                               isSyncing={isSyncing}
-                              showCalendarImport={isAdmin}
-                              onImportCalendar={importScheduleJson}
                             />
                           </div>
                         </div>
@@ -3738,7 +3736,7 @@ export default function App() {
 
               {/* Mobile Bottom Navigation */}
               <div className={cn(
-                "md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-[#E9E9E7] dark:border-[#2E2E2E] min-h-[72px] pb-[env(safe-area-inset-bottom)] flex items-center px-2"
+                "forge-mobile-tab-bar md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-[#E9E9E7] dark:border-[#2E2E2E] min-h-[72px] pb-[env(safe-area-inset-bottom)] flex items-center px-2"
               )}>
                 {isAdmin ? (
                   <nav className="flex-1 flex flex-row justify-between w-full h-[72px] items-stretch" aria-label="Primary mobile navigation">

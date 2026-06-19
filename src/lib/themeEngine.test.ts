@@ -87,6 +87,7 @@ describe('applyThemeConfig', () => {
   it('injects a glass override style tag', () => {
     applyThemeConfig({ ...DEFAULT_THEME_CONFIG, glassIntensity: 'glassy' });
     expect(document.getElementById('forge-glass-override')).not.toBeNull();
+    expect(document.documentElement.getAttribute('data-glass-intensity')).toBe('glassy');
   });
 
   it('skips light surface tokens while dark mode is active', () => {

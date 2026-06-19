@@ -267,6 +267,7 @@ export function applyPublicTheme(): void {
   root.classList.remove('dark');
   root.setAttribute('data-theme', 'default');
   root.removeAttribute('data-sidebar-style');
+  root.removeAttribute('data-glass-intensity');
   root.removeAttribute('data-forge-themed');
   clearRuntimeThemeOverrides(root);
 }
@@ -316,10 +317,12 @@ export function applyThemeConfig(config: ThemeConfig, options: ApplyThemeOptions
   const radius = BORDER_RADIUS_MAP[config.borderRadius] ?? '16px';
   root.style.setProperty('--forge-radius', radius);
 
-  const glass = GLASS_MAP[config.glassIntensity] ?? GLASS_MAP.soft;
+  const glassIntensity = config.glassIntensity ?? 'soft';
+  const glass = GLASS_MAP[glassIntensity] ?? GLASS_MAP.soft;
   root.style.setProperty('--forge-glass-blur', glass.blur);
   root.style.setProperty('--forge-glass-bg', glass.bg);
   root.style.setProperty('--forge-glass-dark-bg', glass.darkBg);
+  root.setAttribute('data-glass-intensity', glassIntensity);
 
   // Font: Tailwind v4 @theme vars are compile-time only, so we inject a style tag
   // to override font-family at runtime for all elements globally.
@@ -372,12 +375,18 @@ export function applyThemeConfig(config: ThemeConfig, options: ApplyThemeOptions
     glassStyleEl.id = 'forge-glass-override';
     document.head.appendChild(glassStyleEl);
   }
+  const glassSurfaces = [
+    '.glass-panel',
+    '.glass-card',
+    '.forge-sidebar-rail',
+    '.forge-mobile-tab-bar',
+    '.forge-dock-nav',
+  ].join(', ');
+  const darkGlassSurfaces = glassSurfaces.split(',').map((selector) => `.dark ${selector.trim()}`).join(', ');
   glassStyleEl.textContent = [
     `:root { --forge-glass-blur: ${glass.blur}; --forge-glass-bg: ${glass.bg}; --forge-glass-dark-bg: ${glass.darkBg}; }`,
-    `.glass-panel { background: ${glass.bg} !important; backdrop-filter: blur(${glass.blur}) !important; -webkit-backdrop-filter: blur(${glass.blur}) !important; }`,
-    `.dark .glass-panel { background: ${glass.darkBg} !important; }`,
-    `.glass-card { background: ${glass.bg} !important; backdrop-filter: blur(${glass.blur}) !important; -webkit-backdrop-filter: blur(${glass.blur}) !important; }`,
-    `.dark .glass-card { background: ${glass.darkBg} !important; }`,
+    `${glassSurfaces} { background: ${glass.bg} !important; backdrop-filter: blur(${glass.blur}) !important; -webkit-backdrop-filter: blur(${glass.blur}) !important; }`,
+    `${darkGlassSurfaces} { background: ${glass.darkBg} !important; }`,
   ].join('\n');
 
   if (config.sidebarStyle) {
@@ -429,6 +438,7 @@ export function resetThemeConfig(): void {
   const root = document.documentElement;
   clearRuntimeThemeOverrides(root);
   root.removeAttribute('data-sidebar-style');
+  root.removeAttribute('data-glass-intensity');
   root.removeAttribute('data-forge-themed');
   clearThemeConfig();
 }

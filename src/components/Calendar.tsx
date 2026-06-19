@@ -17,7 +17,7 @@ import {
   Image as ImageIcon, RefreshCw, Wand2, LayoutList, Grid, 
   List as ListIcon, ChevronLeft, ChevronRight, Search, 
   X as CloseIcon, Plus, Calendar as CalendarIcon, Share2,
-  Edit2, Trash2, Copy, ExternalLink, Download, Upload
+  Edit2, Trash2, Copy, ExternalLink, Download
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
@@ -75,14 +75,11 @@ interface CalendarProps {
   onCalendarModeChange?: (mode: 'work' | 'personal') => void;
   isSyncing?: boolean;
   showCalendarExport?: boolean;
-  showCalendarImport?: boolean;
   onExportCalendar?: () => void;
-  onImportCalendar?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange, isSyncing, showCalendarExport, showCalendarImport, onExportCalendar, onImportCalendar }: CalendarProps) {
+export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePost, onCopyPost, onImageClick, onRegeneratePost, onGenerateMockup, onUpdatePost, onPrevMonth, onNextMonth, onFileDrop, onGenerateWithAi, isAdmin, isGuest, activeBusiness, onUpdateBusiness, isDarkMode, toggleDarkMode, calendarMode = 'work', onCalendarModeChange, isSyncing, showCalendarExport, onExportCalendar }: CalendarProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const calendarImportInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(currentDate);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; dateStr: string } | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -205,26 +202,6 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
                   <Download className="w-4 h-4" />
                   Export calendar
                 </button>
-              )}
-              {showCalendarImport && onImportCalendar && (
-                <>
-                  <input
-                    ref={calendarImportInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    className="hidden"
-                    onChange={onImportCalendar}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => calendarImportInputRef.current?.click()}
-                    className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 rounded-[8px] text-sm font-medium transition-colors border border-emerald-200 dark:border-emerald-800 min-h-[44px]"
-                    title="Import calendar posts from JSON backup"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Import calendar
-                  </button>
-                </>
               )}
               <div className="hidden md:block">
                 <CalendarSharing activeBusiness={activeBusiness} onUpdateBusiness={onUpdateBusiness} />

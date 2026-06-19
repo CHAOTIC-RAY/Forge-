@@ -207,16 +207,16 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .glass-card {
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: var(--forge-glass-bg, rgba(255, 255, 255, 0.92));
+    backdrop-filter: blur(var(--forge-glass-blur, 10px));
+    -webkit-backdrop-filter: blur(var(--forge-glass-blur, 10px));
     border: 1px solid var(--border-main);
-    border-radius: 16px;
-    transition: border-color 200ms ease, box-shadow 200ms ease;
+    border-radius: var(--forge-radius, 16px);
+    transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, backdrop-filter 200ms ease;
   }
 
   .dark .glass-card {
-    background: rgba(26, 26, 26, 0.92);
+    background: var(--forge-glass-dark-bg, rgba(26, 26, 26, 0.92));
   }
 
   .glass-card:hover {
@@ -428,15 +428,15 @@ h1, h2, h3, h4, h5, h6 {
   margin: 1rem;
   height: calc(100vh - 2rem) !important;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--forge-glass-bg, rgba(255, 255, 255, 0.85)) !important;
+  backdrop-filter: blur(var(--forge-glass-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--forge-glass-blur, 14px));
   border: 1px solid rgba(233, 233, 231, 0.6);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
 .dark [data-sidebar-style="island"] .forge-sidebar-rail {
-  background: rgba(26, 26, 26, 0.85) !important;
+  background: var(--forge-glass-dark-bg, rgba(26, 26, 26, 0.85)) !important;
   border-color: rgba(46, 46, 46, 0.6);
 }
 
@@ -476,6 +476,65 @@ h1, h2, h3, h4, h5, h6 {
 
 [data-sidebar-style="dock"] .forge-dock-nav {
   display: flex !important;
+}
+
+@media (max-width: 767px) {
+  [data-sidebar-style="dock"] .forge-mobile-tab-bar {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: calc(100% - 1.5rem);
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    border-radius: 9999px;
+    border: 1px solid rgba(233, 233, 231, 0.7);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .dark [data-sidebar-style="dock"] .forge-mobile-tab-bar {
+    border-color: rgba(46, 46, 46, 0.8);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  [data-sidebar-style="dock"] .forge-dock-nav {
+    display: none !important;
+  }
+
+  [data-sidebar-style="dock"] #main-content {
+    padding-bottom: 6.5rem !important;
+  }
+
+  [data-sidebar-style="island"] #main-content {
+    padding-bottom: 6.5rem !important;
+  }
+
+  [data-sidebar-style="island"] .forge-mobile-tab-bar {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    width: auto;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(233, 233, 231, 0.7);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .dark [data-sidebar-style="island"] .forge-mobile-tab-bar {
+    border-color: rgba(46, 46, 46, 0.8);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  [data-sidebar-style="expanded"] .forge-mobile-tab-bar nav button span {
+    font-size: 11px;
+  }
+
+  [data-sidebar-style="classic"] .forge-mobile-tab-bar,
+  [data-sidebar-style="expanded"] .forge-mobile-tab-bar {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    border-radius: 0;
+  }
 }
 
 /* Reserve space at the bottom so the floating dock never covers content. */
