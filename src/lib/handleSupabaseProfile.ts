@@ -1,5 +1,6 @@
 import type { SupabaseAuthEnv } from './handleSupabaseTokenExchange';
 import { firestoreEntityId } from './firestoreMigrateIds';
+import { transformBusinessFromApi } from './supabaseBusinessTransform';
 import {
   getServiceConfig,
   profileCorsHeaders,
@@ -255,6 +256,277 @@ export async function handleProfileCompleteOnboarding(
     console.error('[profile] complete onboarding failed:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to complete onboarding' }),
+      { status: 500, headers: profileCorsHeaders }
+    );
+  }
+}
+
+function generateShortCode(length: number = 6): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+export async function createBusinessForProfile(
+  env: SupabaseAuthEnv,
+  profileId: string,
+  business: {
+    name?: string;
+    industry?: string;
+    description?: string;
+    targetUrl?: string;
+    position?: string;
+    brandColors?: Record<string, unknown>;
+    logoUrl?: string;
+  }
+): Promise<unknown> {
+  const { serviceKey, supabaseUrl } = getServiceConfig(env);
+  const now = new Date().toISOString();
+  const row = {
+    name: business.name || 'My Business',
+    owner_id: profileId,
+    description: business.description ?? null,
+    industry: business.industry ?? null,
+    position: business.position ?? null,
+    target_url: business.targetUrl ?? null,
+    brand_colors: business.brandColors ?? null,
+    logo_url: business.logoUrl ?? null,
+    share_token: crypto.randomUUID(),
+    share_short_code: generateShortCode(),
+    created_at: now,
+    updated_at: now,
+  };
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/businesses`, {
+    method: 'POST',
+    headers: serviceHeaders(serviceKey, {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    }),
+    body: JSON.stringify(row),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to create business: ${text}`);
+  }
+  const rows = (await response.json()) as unknown[];
+  return rows[0];
+}
+
+async function upsertCategoriesForBusiness(
+  env: SupabaseAuthEnv,
+  businessId: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const { serviceKey, supabaseUrl } = getServiceConfig(env);
+  const row: Record<string, unknown> = {
+    business_id: businessId,
+    updated_at: new Date().toISOString(),
+  };
+  if (payload.categories !== undefined) row.categories = payload.categories;
+  if (payload.targetPlatforms !== undefined) row.target_platforms = payload.targetPlatforms;
+  if (payload.target_platforms !== undefined) row.target_platforms = payload.target_platforms;
+  if (payload.titles !== undefined) row.titles = payload.titles;
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/categories?on_conflict=business_id`, {
+    method: 'POST',
+    headers: serviceHeaders(serviceKey, {
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal',
+    }),
+    body: JSON.stringify(row),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to save categories: ${text}`);
+  }
+}
+
+async function upsertBrandKitForBusiness(
+  env: SupabaseAuthEnv,
+  businessId: string,
+  updates: Record<string, unknown>
+): Promise<void> {
+  const { serviceKey, supabaseUrl } = getServiceConfig(env);
+  const row = {
+    business_id: businessId,
+    kit_data: updates,
+    ai_generated_guide:
+      (updates.designGuide as string | undefined) ||
+      (updates.ai_generated_guide as string | undefined) ||
+      null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/brand_kits?on_conflict=business_id`, {
+    method: 'POST',
+    headers: serviceHeaders(serviceKey, {
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal',
+    }),
+    body: JSON.stringify(row),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to save brand kit: ${text}`);
+  }
+}
+
+async function updateProfileFields(
+  env: SupabaseAuthEnv,
+  profileId: string,
+  patch: Record<string, unknown>
+): Promise<void> {
+  const { serviceKey, supabaseUrl } = getServiceConfig(env);
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(profileId)}`,
+    {
+      method: 'PATCH',
+      headers: serviceHeaders(serviceKey, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      }),
+      body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
+    }
+  );
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to update profile: ${text}`);
+  }
+}
+
+export async function handleBusinessCreate(
+  request: Request,
+  env: SupabaseAuthEnv
+): Promise<Response> {
+  const auth = await verifyFirebaseBearer(request, env);
+  if (auth instanceof Response) return auth;
+
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: profileCorsHeaders,
+    });
+  }
+
+  try {
+    const body = (await request.json()) as {
+      name?: string;
+      industry?: string;
+      description?: string;
+      targetUrl?: string;
+      position?: string;
+      brandColors?: Record<string, unknown>;
+      logoUrl?: string;
+    };
+    const profile = await fetchProfileByFirebaseUid(env, auth.uid);
+    if (!profile) {
+      return new Response(JSON.stringify({ error: 'Profile not found' }), {
+        status: 404,
+        headers: profileCorsHeaders,
+      });
+    }
+
+    const row = await createBusinessForProfile(env, profile.id, body);
+    const business = transformBusinessFromApi(row);
+    return new Response(JSON.stringify({ business }), {
+      status: 200,
+      headers: profileCorsHeaders,
+    });
+  } catch (error) {
+    console.error('[profile] create business failed:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create business' }),
+      { status: 500, headers: profileCorsHeaders }
+    );
+  }
+}
+
+export async function handleOnboardingComplete(
+  request: Request,
+  env: SupabaseAuthEnv
+): Promise<Response> {
+  const auth = await verifyFirebaseBearer(request, env);
+  if (auth instanceof Response) return auth;
+
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: profileCorsHeaders,
+    });
+  }
+
+  try {
+    const body = (await request.json()) as {
+      name?: string;
+      industry?: string;
+      description?: string;
+      targetUrl?: string;
+      brandColors?: { primary?: string; secondary?: string; accent?: string };
+      outletNames?: string;
+      geminiApiKey?: string;
+      aiSettings?: Record<string, unknown>;
+    };
+
+    const profile = await upsertProfileForFirebaseUser(env, auth);
+    const businessRow = await createBusinessForProfile(env, profile.id, {
+      name: body.name || 'My Business',
+      industry: body.industry || 'Retail',
+      description: body.description || '',
+      targetUrl: body.targetUrl,
+    });
+    const businessId = (businessRow as { id: string }).id;
+
+    const outletNames = (body.outletNames || body.name || 'Main Store')
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const uniqueOutlets = [...new Set(outletNames)];
+    await upsertCategoriesForBusiness(env, businessId, {
+      categories: uniqueOutlets.map((name) => ({
+        id: crypto.randomUUID(),
+        name,
+        type: 'outlet',
+        enabled: true,
+      })),
+    });
+
+    await upsertBrandKitForBusiness(env, businessId, {
+      brand_colors: {
+        primary: body.brandColors?.primary || '#2665fd',
+        secondary: body.brandColors?.secondary || '#0f172a',
+        accent: body.brandColors?.accent || '#60a5fa',
+      },
+      ai_generated_guide: `Brand Voice: Professional and engaging.\nIndustry: ${body.industry || 'Retail'}.\nDescription: ${body.description || ''}.`,
+    });
+
+    const profilePatch: Record<string, unknown> = {
+      settings: { ...(profile.settings || {}), onboardingComplete: true },
+    };
+    if (body.targetUrl || body.geminiApiKey || body.aiSettings) {
+      profilePatch.ai_settings = {
+        ...(profile.ai_settings || {}),
+        ...(body.aiSettings || {}),
+        ...(body.targetUrl ? { targetUrl: body.targetUrl } : {}),
+        ...(body.geminiApiKey ? { geminiApiKey: body.geminiApiKey } : {}),
+      };
+    }
+    await updateProfileFields(env, profile.id, profilePatch);
+
+    const business = transformBusinessFromApi(businessRow);
+    return new Response(JSON.stringify({ business }), {
+      status: 200,
+      headers: profileCorsHeaders,
+    });
+  } catch (error) {
+    console.error('[profile] onboarding complete failed:', error);
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to complete onboarding',
+      }),
       { status: 500, headers: profileCorsHeaders }
     );
   }

@@ -2937,37 +2937,24 @@ export default function App() {
   ) => {
     if (!user || !profile) return;
     try {
-      const newBiz = await createBusiness(
-        {
-          name: data.name || 'My Business',
-          industry: data.industry || 'Retail',
-          description: data.description || '',
-          targetUrl: data.targetUrl,
-        },
-        profile.id
-      );
-
-      const outletNames = (data.outletNames || data.name || 'Main Store')
-        .split(/[,;\n]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const uniqueOutlets = [...new Set(outletNames)];
-      await upsertCategoriesDoc(newBiz.id, {
-        categories: uniqueOutlets.map((name) => ({
-          id: uuidv4(),
-          name,
-          type: 'outlet',
-          enabled: true,
-        })),
-      });
-
-      await upsertBrandKit(newBiz.id, {
-        brand_colors: {
-          primary: (data as { brandColors?: { primary?: string } }).brandColors?.primary || '#2665fd',
-          secondary: (data as { brandColors?: { secondary?: string } }).brandColors?.secondary || '#0f172a',
-          accent: (data as { brandColors?: { accent?: string } }).brandColors?.accent || '#60a5fa',
-        },
-        ai_generated_guide: `Brand Voice: Professional and engaging.\nIndustry: ${data.industry}.\nDescription: ${data.description}.`,
+      const { completeOnboardingSetupViaApi } = await import('./lib/profileApi');
+      const newBiz = await completeOnboardingSetupViaApi({
+        name: data.name || 'My Business',
+        industry: data.industry || 'Retail',
+        description: data.description || '',
+        targetUrl: data.targetUrl,
+        brandColors: (data as { brandColors?: { primary?: string; secondary?: string; accent?: string } })
+          .brandColors,
+        outletNames: data.outletNames,
+        geminiApiKey: data.geminiApiKey,
+        aiSettings:
+          data.targetUrl || data.geminiApiKey
+            ? {
+                ...aiSettings,
+                targetUrl: data.targetUrl || aiSettings.targetUrl,
+                geminiApiKey: data.geminiApiKey || aiSettings.geminiApiKey,
+              }
+            : undefined,
       });
 
       if (data.targetUrl || data.geminiApiKey) {
@@ -2978,7 +2965,6 @@ export default function App() {
         };
         setAiSettingsState(newSettings);
         setAiSettings(newSettings);
-        await updateProfileAiSettings(profile.id, newSettings as Record<string, unknown>);
       }
 
       if (data.theme) {
@@ -2991,14 +2977,9 @@ export default function App() {
         localStorage.setItem('forge_theme_mode', data.theme);
       }
 
-      await updateProfile(profile.id, {
-        settings: { ...(profile.settings || {}), onboardingComplete: true },
-      }).catch(async () => {
-        const { completeOnboardingViaApi } = await import('./lib/profileApi');
-        await completeOnboardingViaApi();
-      });
       setUserOnboardingComplete(true);
       setActiveBusiness(newBiz);
+      setBusinesses([...businesses, newBiz]);
       setShowOnboarding(false);
 
       void import('./lib/localAiBootstrap').then(({ ensureLocalAiEnginesReady }) =>

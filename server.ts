@@ -14,6 +14,8 @@ import {
   handleProfileSync,
   handleProfileCompleteOnboarding,
   handleBusinessesMine,
+  handleBusinessCreate,
+  handleOnboardingComplete,
 } from "./src/lib/handleSupabaseProfile";
 import {
   handleDataPosts,
@@ -277,6 +279,44 @@ export async function startServer(forcePort?: number) {
     } catch (error: any) {
       console.error("[Server] /api/businesses/mine error:", error);
       res.status(500).json({ error: error.message || "Load businesses failed" });
+    }
+  });
+
+  app.post("/api/businesses/create", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "POST",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleBusinessCreate(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/businesses/create error:", error);
+      res.status(500).json({ error: error.message || "Create business failed" });
+    }
+  });
+
+  app.post("/api/onboarding/complete", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "POST",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleOnboardingComplete(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/onboarding/complete error:", error);
+      res.status(500).json({ error: error.message || "Complete onboarding failed" });
     }
   });
 

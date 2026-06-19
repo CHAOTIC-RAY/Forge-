@@ -11,6 +11,8 @@ import {
   handleProfileSync,
   handleProfileCompleteOnboarding,
   handleBusinessesMine,
+  handleBusinessCreate,
+  handleOnboardingComplete,
 } from "./lib/handleSupabaseProfile";
 import {
   handleDataPosts,
@@ -173,6 +175,12 @@ export default {
       }
       if (path === '/api/businesses/mine') {
         return handleBusinessesMine(request, env);
+      }
+      if (path === '/api/businesses/create') {
+        return handleBusinessCreate(request, env);
+      }
+      if (path === '/api/onboarding/complete') {
+        return handleOnboardingComplete(request, env);
       }
       if (path === '/api/data/posts/batch-import') {
         return handleDataPostsBatchImport(request, env);

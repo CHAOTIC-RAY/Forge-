@@ -424,28 +424,17 @@ export async function getBusinessByShortCode(shortCode: string): Promise<Busines
   return transformBusiness(data);
 }
 
-export async function createBusiness(business: Partial<Business>, profileId: string): Promise<Business> {
-  const { data, error } = await supabase
-    .from('businesses')
-    .insert({
-      name: business.name,
-      owner_id: profileId,
-      description: business.description,
-      industry: business.industry,
-      brand_colors: business.brandColors,
-      logo_url: business.logoUrl,
-      share_token: crypto.randomUUID(),
-      share_short_code: generateShortCode(),
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating business:', error);
-    throw error;
-  }
-
-  return transformBusiness(data);
+export async function createBusiness(business: Partial<Business>, _profileId: string): Promise<Business> {
+  const { createBusinessViaApi } = await import('./profileApi');
+  return createBusinessViaApi({
+    name: business.name,
+    industry: business.industry,
+    description: business.description,
+    targetUrl: business.targetUrl,
+    position: business.position,
+    brandColors: business.brandColors as Record<string, unknown> | undefined,
+    logoUrl: business.logoUrl,
+  });
 }
 
 export async function updateBusiness(id: string, updates: Partial<Business>): Promise<Business> {
