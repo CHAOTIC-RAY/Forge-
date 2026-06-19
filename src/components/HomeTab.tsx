@@ -101,8 +101,10 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
         );
       }
     } catch (error) {
-      console.error('Failed to fetch recommended idea:', error);
-      toast.error('Could not refresh inspiration. Check AI settings.');
+      console.warn('Failed to fetch recommended idea:', error);
+      if (forceRefresh) {
+        toast.error('Could not refresh inspiration right now.');
+      }
     } finally {
       setIsGeneratingIdea(false);
     }

@@ -80,12 +80,35 @@ export const fetchServerConfig = async () => {
 
 export const isGeminiKeyAvailable = () => {
   const settings = getAiSettings();
-  const apiKey = settings.geminiApiKey ||
-    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
-    (import.meta.env && (import.meta.env as any).VITE_GEMINI_API_KEY);
-
-  return (!!apiKey && apiKey !== 'undefined') || !!serverConfig?.hasGeminiApiKey;
+  if (hasUserGeminiKey(settings)) return true;
+  if (isCloudAiFallbackEnabled(settings) && !!serverConfig?.hasGeminiApiKey) return true;
+  return false;
 };
+
+export function hasUserGeminiKey(settings = getAiSettings()): boolean {
+  const apiKey =
+    settings.geminiApiKey ||
+    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
+    (import.meta.env && (import.meta.env as { VITE_GEMINI_API_KEY?: string }).VITE_GEMINI_API_KEY);
+  return !!apiKey && apiKey !== 'undefined';
+}
+
+export function hasUserGroqKey(settings = getAiSettings()): boolean {
+  const userKey = settings.groqApiKey?.trim();
+  if (userKey) return true;
+  const envKey =
+    (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) ||
+    (import.meta.env && (import.meta.env as { VITE_GROQ_API_KEY?: string }).VITE_GROQ_API_KEY);
+  return !!envKey;
+}
+
+export function canAttemptGemini(settings = getAiSettings()): boolean {
+  return hasUserGeminiKey(settings) || (isCloudAiFallbackEnabled(settings) && !!serverConfig?.hasGeminiApiKey);
+}
+
+export function canAttemptGroq(settings = getAiSettings()): boolean {
+  return hasUserGroqKey(settings) || (isCloudAiFallbackEnabled(settings) && !!serverConfig?.hasGroqApiKey);
+}
 
 export const isPuterSignedIn = async (): Promise<boolean> => {
   if (typeof window === 'undefined') return false;
@@ -112,7 +135,10 @@ export const getAi = () => {
   }
 
   // If the user hasn't provided a custom key but the server has one, use the proxy
-  const useProxy = apiKey === 'missing_api_key' && serverConfig?.hasGeminiApiKey;
+  const useProxy =
+    apiKey === 'missing_api_key' &&
+    isCloudAiFallbackEnabled(settings) &&
+    !!serverConfig?.hasGeminiApiKey;
 
   const options: any = { apiKey: useProxy ? 'proxy-key' : apiKey };
 
@@ -660,7 +686,10 @@ export async function generateAppText(
     try {
       await ensureLocalTextEngineReady();
       const resp = await (await getBuiltInAi()).generate(fullPrompt);
-      if (resp) return resp;
+      if (resp?.trim()) return resp.trim();
+      if (!cloudAllowed || effectiveProvider === 'builtin') {
+        throw new Error('Local AI returned an empty response.');
+      }
     } catch (e) {
       console.error('Built-in AI failed:', e);
       if (!cloudAllowed) {
@@ -688,6 +717,9 @@ export async function generateAppText(
       console.warn('Puter failed, cascading...');
     }
   } else if (effectiveProvider === 'groq') {
+    if (!canAttemptGroq(settings)) {
+      throw new Error('Groq API key is not configured. Add one in Settings.');
+    }
     try {
       const resp = await fetchFromGroq(fullPrompt);
       if (resp) return resp;
@@ -727,7 +759,7 @@ export async function generateAppText(
       }
     }
 
-    if (allowed.includes('groq')) {
+    if (allowed.includes('groq') && canAttemptGroq(settings)) {
       try {
         return await fetchFromGroq(fullPrompt);
       } catch (e) {
@@ -736,8 +768,16 @@ export async function generateAppText(
     }
   }
 
+  if (!cloudAllowed || !canAttemptGemini(settings)) {
+    throw new Error('Local AI could not complete this request.');
+  }
+
   if (!isGeminiKeyAvailable()) {
     await fetchServerConfig();
+  }
+
+  if (!canAttemptGemini(settings)) {
+    throw new Error('Gemini is not configured. Add an API key in Settings or enable cloud fallback.');
   }
 
   try {
@@ -950,11 +990,12 @@ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType
   }
 
   const userKey = settings.groqApiKey?.trim();
-  const canUseServerProxy = !userKey && !!serverConfig?.hasGroqApiKey;
+  const canUseServerProxy =
+    !userKey && isCloudAiFallbackEnabled(settings) && !!serverConfig?.hasGroqApiKey;
   const canUseUserKey = !!userKey;
 
   if (!canUseUserKey && !canUseServerProxy) {
-    throw new Error('Groq API key is not configured. Add one in Settings or set GROQ_API_KEY on the server.');
+    throw new Error('Groq API key is not configured. Add one in Settings.');
   }
 
   const messages: any[] = [];
@@ -2180,6 +2221,21 @@ export async function analyzeDesignImages(images: string[], business?: Business)
   }
 }
 
+function normalizeTaskIdea(item: any, business?: Business) {
+  return {
+    ...item,
+    title: item.title || item.name || 'New Idea',
+    caption: item.caption || item.description || item.content || 'Exciting new content coming soon!',
+    brief: item.brief || item.description || `Visual showing ${item.title || 'the idea'}`,
+    hashtags: item.hashtags || '#brand #update',
+    type: item.type || 'General',
+    outlet: item.outlet || business?.name || 'Main Channel',
+    format: item.format || item.type || 'Post',
+    feasibility: item.feasibility || item.score || 5,
+    impact: item.impact || item.score || 5,
+  };
+}
+
 export async function generateTaskIdeas(
   business?: Business,
   brandKitCategories?: any[],
@@ -2222,52 +2278,61 @@ export async function generateTaskIdeas(
   if (settings.preferredProvider === 'builtin') {
     try {
       console.log("[GenerateTaskIdeas] Strict Local AI Mode active.");
+      const wantsSingleIdea = /1 single|one idea|single.*idea/i.test(systemInstruction || '');
       const fields = `{"title": "...", "brief": "...", "caption": "...", "hashtags": "...", "type": "...", "outlet": "...", "format": "...", "feasibility": 5, "impact": 5}`;
-      const localPrompt = `<|begin_of_text|><|start_of_turn|>system
+      const localPrompt = wantsSingleIdea
+        ? `Return ONE JSON object only with fields: ${fields}
+Creative social post idea for ${business?.name || 'this brand'} (${business?.industry || 'general'}).
+${systemInstruction || ''}`
+        : `<|begin_of_text|><|start_of_turn|>system
 Role: Creative Strategist for ${business?.name || 'this brand'}.
 Task: Generate 10 high-impact creative post ideas.
 Format: RAW JSON ARRAY ONLY.
 Schema: [${fields}, ...]<|end_of_turn|><|start_of_turn|>user
 Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|start_of_turn|>assistant
 [`;
-      
-      const localText = await (await getBuiltInAi()).generate(localPrompt);
-      
-      // Scavenge JSON array from potential conversation
-      const scavenged = localText.trim();
-      const startIndex = scavenged.indexOf('[');
-      let fullResponse = startIndex !== -1 ? scavenged.substring(startIndex) : '[' + scavenged;
-      if (!fullResponse.startsWith('[')) fullResponse = '[' + fullResponse;
-      
-      // Find the last ']' to handle trailing text
-      const endIndex = fullResponse.lastIndexOf(']');
-      if (endIndex !== -1) {
-        fullResponse = fullResponse.substring(0, endIndex + 1);
-      } else {
-        fullResponse += ']';
-      }
 
-      const parsed = safeParseJSONArray(fullResponse);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map(item => ({
-          ...item,
-          // Handle model using different keys (hallucination safeguard)
-          title: item.title || item.name || "New Idea",
-          caption: item.caption || item.description || item.content || "Exciting new content coming soon!",
-          brief: item.brief || item.description || "Visual showing " + (item.title || "the idea"),
-          hashtags: item.hashtags || "#brand #update",
-          type: item.type || "General",
-          outlet: item.outlet || business?.name || "Main Channel",
-          format: item.format || item.type || "Post",
-          feasibility: item.feasibility || item.score || 5,
-          impact: item.impact || item.score || 5
-        }));
+      const localText = await (await getBuiltInAi()).generate(localPrompt);
+
+      if (wantsSingleIdea) {
+        const parsedObject = safeParseJSON(localText);
+        if (parsedObject && typeof parsedObject === 'object' && !Array.isArray(parsedObject)) {
+          return [normalizeTaskIdea(parsedObject, business)];
+        }
+        const arrayParsed = safeParseJSONArray(localText);
+        if (Array.isArray(arrayParsed) && arrayParsed.length > 0) {
+          return [normalizeTaskIdea(arrayParsed[0], business)];
+        }
+      } else {
+        const scavenged = localText.trim();
+        const startIndex = scavenged.indexOf('[');
+        let fullResponse = startIndex !== -1 ? scavenged.substring(startIndex) : '[' + scavenged;
+        if (!fullResponse.startsWith('[')) fullResponse = '[' + fullResponse;
+
+        const endIndex = fullResponse.lastIndexOf(']');
+        if (endIndex !== -1) {
+          fullResponse = fullResponse.substring(0, endIndex + 1);
+        } else {
+          fullResponse += ']';
+        }
+
+        const parsed = safeParseJSONArray(fullResponse);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item) => normalizeTaskIdea(item, business));
+        }
       }
       throw new Error("Invalid local ideas format");
     } catch (e) {
-      console.warn("[GenerateTaskIdeas] Local AI failed, falling back to Gemini:", e);
-      // Continue to Gemini fallback
+      console.warn("[GenerateTaskIdeas] Local AI failed:", e);
+      if (!canUseCloudAiProviders(settings)) {
+        return [];
+      }
+      console.warn("[GenerateTaskIdeas] Falling back to cloud providers.");
     }
+  }
+
+  if (!canUseCloudAiProviders(settings)) {
+    return [];
   }
 
   const industryConfig = getIndustryConfig(business?.industry);
@@ -2382,23 +2447,29 @@ Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|st
   }
 
   if (settings.preferredProvider === 'groq' || settings.preferredProvider === 'auto') {
-    try {
-      // In auto mode, try Puter first if signed in, otherwise try Groq
-      if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
-        try {
-          const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
-          const parsed = safeParseJSON(puterResponse || '{}');
-          if (parsed.posts) return parsed.posts;
-        } catch (pe) {
-          console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+    if (canAttemptGroq(settings)) {
+      try {
+        // In auto mode, try Puter first if signed in, otherwise try Groq
+        if (settings.preferredProvider === 'auto' && await isPuterSignedIn()) {
+          try {
+            const puterResponse = await fetchFromPuter(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
+            const parsed = safeParseJSON(puterResponse || '{}');
+            if (parsed.posts) return parsed.posts;
+          } catch (pe) {
+            console.warn("Auto mode: Puter failed, falling back to Groq:", pe);
+          }
         }
+        const groqResponse = await fetchFromGroq(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
+        const parsed = JSON.parse(groqResponse || '{}');
+        return parsed.posts || parsed || [];
+      } catch (error) {
+        console.warn("Groq failed, falling back to AI:", error);
       }
-      const groqResponse = await fetchFromGroq(promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}");
-      const parsed = JSON.parse(groqResponse || '{}');
-      return parsed.posts || parsed || [];
-    } catch (error) {
-      console.warn("Groq failed, falling back to AI:", error);
     }
+  }
+
+  if (!canAttemptGemini(settings)) {
+    return [];
   }
 
   try {
@@ -2434,7 +2505,7 @@ Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|st
     return JSON.parse(response.text || '[]');
   } catch (error) {
     console.warn('Gemini failed for task ideas:', error);
-    if (!isGroqDisabledForSession && (settings.groqApiKey || serverConfig?.hasGroqApiKey)) {
+    if (!isGroqDisabledForSession && canAttemptGroq(settings)) {
       try {
         const groqResponse = await fetchFromGroq(
           promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}"
@@ -2444,6 +2515,9 @@ Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|st
       } catch (groqError) {
         console.warn('Groq fallback for task ideas also failed:', groqError);
       }
+    }
+    if (!canUseCloudAiProviders(settings)) {
+      return [];
     }
     throw error;
   }
@@ -3669,17 +3743,67 @@ export async function generateGreeting(userName: string, timeOfDay: string): Pro
   - DO NOT use standard phrases like "Good morning", "Good afternoon", "Good evening", or "Hello".
   - Keep it under 12 words. Do not include quotes.`;
 
+  const settings = getAiSettings();
+  if (isLocalTextProvider(settings) && !isCloudAiFallbackEnabled(settings)) {
+    try {
+      await ensureLocalTextEngineReady();
+      const text = await (await getBuiltInAi()).generate(`${prompt}\n\nReturn ONLY the greeting text.`);
+      return text.replace(/["']/g, '').trim() || `Ready to create, ${firstName}.`;
+    } catch (error) {
+      console.warn('Local greeting generation failed, using default:', error);
+      return `Ready to create, ${firstName}.`;
+    }
+  }
+
   try {
     const text = await generateAppText(`${prompt}\n\nReturn ONLY the greeting text.`);
     return text.replace(/["']/g, '').trim() || `Ready to create, ${firstName}.`;
   } catch (error) {
-    console.error("Failed to generate greeting:", error);
+    console.warn("Failed to generate greeting:", error);
     return `Ready to create, ${firstName}.`;
   }
 }
 
+function defaultDailyGreetings(firstName: string) {
+  return {
+    morning: `Ready to create, ${firstName}.`,
+    evening: `Keep the momentum going, ${firstName}.`,
+    night: `Still at it, ${firstName}? You've got this.`,
+    midnight: `Late session, ${firstName} — make it count.`,
+  };
+}
+
+async function generateLocalDailyGreetings(firstName: string) {
+  await ensureLocalTextEngineReady();
+  const prompt = `Return JSON only:
+{"morning":"...","evening":"...","night":"...","midnight":"..."}
+Write 4 short creative greetings for "${firstName}".
+Rules: use the first name exactly, do not use "Good morning/evening/hello", max 12 words each.`;
+  const text = await (await getBuiltInAi()).generate(prompt);
+  const parsed = safeParseJSON(text);
+  if (parsed?.morning) return parsed;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (match) {
+    const nested = safeParseJSON(match[0]);
+    if (nested?.morning) return nested;
+  }
+  throw new Error('Invalid local greeting format');
+}
+
 export async function generateDailyGreetings(userName: string): Promise<{ morning: string, evening: string, night: string, midnight: string }> {
   const firstName = userName.trim().split(/\s+/)[0] || 'there';
+  const fallback = defaultDailyGreetings(firstName);
+  const settings = getAiSettings();
+
+  if (isLocalTextProvider(settings) && !isCloudAiFallbackEnabled(settings)) {
+    try {
+      return await generateLocalDailyGreetings(firstName);
+    } catch (error) {
+      console.warn('Local greeting generation failed, using defaults:', error);
+      return fallback;
+    }
+  }
+
   const prompt = `Generate 4 unique, creative greetings for someone whose first name is "${firstName}".
   One for each time of day: morning, evening, night, and midnight.
   
@@ -3695,13 +3819,8 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
     if (parsed && parsed.morning) return parsed;
     throw new Error("Invalid greeting format");
   } catch (error) {
-    console.error("Failed to generate daily greetings:", error);
-    return {
-      morning: `Ready to create, ${firstName}.`,
-      evening: `Keep the momentum going, ${firstName}.`,
-      night: `Still at it, ${firstName}? You've got this.`,
-      midnight: `Late session, ${firstName} — make it count.`
-    };
+    console.warn("Failed to generate daily greetings:", error);
+    return fallback;
   }
 }
 
