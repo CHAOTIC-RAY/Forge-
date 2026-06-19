@@ -550,7 +550,7 @@ function AnalyticsLandingPreview() {
     { label: 'Top day', value: 'Tuesday', delta: '6 posts' },
     { label: 'Top format', value: 'Carousel', delta: '42%' },
   ];
-  const linePath = 'M 4 52 L 20 44 L 36 40 L 52 24 L 68 30 L 84 12 L 96 18';
+  const barAnimationDoneMs = (bars.length - 1) * 80 + 550;
 
   return (
     <div className={LANDING_PREVIEW_SHELL}>
@@ -585,47 +585,16 @@ function AnalyticsLandingPreview() {
       <div className="flex-1 flex gap-2 min-h-[100px]">
         <div
           ref={chartRef}
-          className="flex-[1.2] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 flex items-end gap-1.5 relative overflow-hidden"
+          className="flex-[1.2] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 flex items-end gap-1.5 min-h-[120px]"
         >
-          <svg
-            className="absolute inset-3 bottom-8 pointer-events-none"
-            viewBox="0 0 100 60"
-            preserveAspectRatio="none"
-            aria-hidden
-          >
-            <motion.path
-              d={linePath}
-              fill="none"
-              stroke="rgb(16 185 129 / 0.55)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={chartInView ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
-              transition={{ duration: 1.2, ease: 'easeOut', delay: 0.15 }}
-            />
-            <motion.path
-              d={`${linePath} L 96 60 L 4 60 Z`}
-              fill="url(#landingAnalyticsFill)"
-              initial={{ opacity: 0 }}
-              animate={chartInView ? { opacity: 0.18 } : { opacity: 0 }}
-              transition={{ duration: 0.8, delay: 0.9 }}
-            />
-            <defs>
-              <linearGradient id="landingAnalyticsFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgb(16 185 129)" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="rgb(16 185 129)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-          </svg>
           {bars.map((h, i) => (
-            <div key={i} className="flex-1 flex flex-col justify-end gap-1 min-w-0 relative z-[1]">
+            <div key={i} className="flex-1 flex flex-col justify-end gap-1 min-w-0 h-full">
               <motion.div
-                className="w-full bg-emerald-500/80 rounded-t-md origin-bottom"
-                initial={{ scaleY: 0 }}
-                animate={chartInView ? { scaleY: 1 } : { scaleY: 0 }}
+                className="w-full rounded-t-md origin-bottom bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_-2px_8px_rgba(16,185,129,0.25)]"
+                initial={{ scaleY: 0, opacity: 0.4 }}
+                animate={chartInView ? { scaleY: 1, opacity: 1 } : { scaleY: 0, opacity: 0.4 }}
                 transition={{ duration: 0.55, delay: 0.08 * i, ease: [0.22, 1, 0.36, 1] }}
-                style={{ height: `${h}%`, minHeight: 4 }}
+                style={{ height: `${h}%`, minHeight: 8 }}
               />
               <span className="text-[7px] text-center text-[#787774] dark:text-[#9B9A97] font-bold">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}
@@ -644,7 +613,7 @@ function AnalyticsLandingPreview() {
             className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1"
             initial={{ opacity: 0, y: 4 }}
             animate={chartInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
-            transition={{ duration: 0.4, delay: 1.1 }}
+            transition={{ duration: 0.4, delay: barAnimationDoneMs / 1000 }}
           >
             <TrendingUp className="w-3 h-3" /> From your calendar
           </motion.span>
