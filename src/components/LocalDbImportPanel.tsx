@@ -99,7 +99,12 @@ export function LocalDbImportPanel({
   const aiSettings = getAiSettings();
   const scrapeKeys = useMemo(
     () => scrapeKeysFromSettings(aiSettings),
-    [aiSettings.firecrawlApiKey, aiSettings.scrapegraphApiKey]
+    [
+      aiSettings.firecrawlApiKey,
+      aiSettings.scrapegraphApiKey,
+      aiSettings.catalogueScrapeUseCrawl4ai,
+      aiSettings.catalogueScrapeUseLlmReader,
+    ]
   );
   const [importTab, setImportTab] = useState<ImportTab>('discover');
   const [logs, setLogs] = useState<string[]>([]);
@@ -372,8 +377,10 @@ export function LocalDbImportPanel({
       const data = await startCrawlJob({
         url: manualUrl,
         limit: crawlLimit,
-        apiKey: aiSettings.firecrawlApiKey,
-        scrapegraphApiKey: aiSettings.scrapegraphApiKey,
+        apiKey: scrapeKeys.firecrawlApiKey,
+        scrapegraphApiKey: scrapeKeys.scrapegraphApiKey,
+        useCrawl4ai: scrapeKeys.useCrawl4ai,
+        useLlmReader: scrapeKeys.useLlmReader,
         includePaths,
         excludePaths,
       });

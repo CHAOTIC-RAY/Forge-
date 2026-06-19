@@ -53,6 +53,8 @@ async function runLocalCrawl(
     excludePaths?: string[];
     apiKey?: string;
     scrapegraphApiKey?: string;
+    useCrawl4ai?: boolean;
+    useLlmReader?: boolean;
   }
 ) {
   const job = jobs.get(id);
@@ -75,6 +77,8 @@ async function runLocalCrawl(
       const result = await scrapeWithProviders(pageUrl, {
         apiKey: opts.apiKey,
         scrapegraphApiKey: opts.scrapegraphApiKey,
+        useCrawl4ai: opts.useCrawl4ai,
+        useLlmReader: opts.useLlmReader,
         skipFirecrawl: !opts.apiKey,
       });
       if (result.markdown) {
@@ -104,6 +108,8 @@ export function startLocalCrawl(opts: {
   excludePaths?: string[];
   apiKey?: string;
   scrapegraphApiKey?: string;
+  useCrawl4ai?: boolean;
+  useLlmReader?: boolean;
 }): string {
   pruneOldJobs();
   const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

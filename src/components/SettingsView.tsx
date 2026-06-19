@@ -2537,6 +2537,48 @@ export function SettingsView({
               </div>
               <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                 <div>
+                  <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Built-in crawl4ai scraper</p>
+                  <p className="text-[10px] text-secondary-safe mt-0.5">Open-source browser crawl → markdown (requires Python + crawl4ai on server)</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAiSettingChange('catalogueScrapeUseCrawl4ai', aiSettings.catalogueScrapeUseCrawl4ai === false)}
+                  className={cn(
+                    'w-10 h-6 rounded-full relative transition-colors shrink-0',
+                    aiSettings.catalogueScrapeUseCrawl4ai !== false ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
+                      aiSettings.catalogueScrapeUseCrawl4ai !== false ? 'left-5' : 'left-1'
+                    )}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div>
+                  <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Built-in llm-reader scraper</p>
+                  <p className="text-[10px] text-secondary-safe mt-0.5">Playwright fetch + LLM-ready text cleanup (requires Python + llm-reader)</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAiSettingChange('catalogueScrapeUseLlmReader', aiSettings.catalogueScrapeUseLlmReader === false)}
+                  className={cn(
+                    'w-10 h-6 rounded-full relative transition-colors shrink-0',
+                    aiSettings.catalogueScrapeUseLlmReader !== false ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
+                      aiSettings.catalogueScrapeUseLlmReader !== false ? 'left-5' : 'left-1'
+                    )}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
+                <div>
                   <p className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED]">Catalogue import: local AI only</p>
                   <p className="text-[10px] text-secondary-safe mt-0.5">Markdown → catalogue uses browser AI first</p>
                 </div>

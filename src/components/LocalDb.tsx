@@ -445,6 +445,8 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
           limit: 50,
           apiKey: aiSettings.firecrawlApiKey,
           scrapegraphApiKey: aiSettings.scrapegraphApiKey,
+          useCrawl4ai: aiSettings.catalogueScrapeUseCrawl4ai !== false,
+          useLlmReader: aiSettings.catalogueScrapeUseLlmReader !== false,
         })
       });
       

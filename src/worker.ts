@@ -77,6 +77,7 @@ export interface Env {
   GROQ_API_KEY: string;
   FIRECRAWL_API_KEY: string;
   SCRAPEGRAPH_API_KEY?: string;
+  BUILTIN_SCRAPER_URL?: string;
   ONEDRIVE_CLIENT_ID: string;
   ONEDRIVE_CLIENT_SECRET: string;
   ONEDRIVE_REDIRECT_URI: string;
@@ -84,6 +85,37 @@ export interface Env {
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_REDIRECT_URI: string;
   ASSETS: { fetch: typeof fetch };
+}
+
+async function trySidecarBuiltinScrape(
+  env: Env,
+  targetUrl: string,
+  provider: 'crawl4ai' | 'llm-reader',
+  waitFor: number
+): Promise<{ markdown: string; metadata?: unknown; provider: string } | null> {
+  const base = env.BUILTIN_SCRAPER_URL?.trim();
+  if (!base) return null;
+  try {
+    const res = await fetch(`${base.replace(/\/$/, '')}/api/builtin-scrape`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: targetUrl, provider, waitFor }),
+    });
+    const data = (await res.json()) as {
+      success?: boolean;
+      data?: { markdown?: string; metadata?: unknown };
+    };
+    if (data?.success && data.data?.markdown) {
+      return {
+        markdown: data.data.markdown,
+        metadata: data.data.metadata,
+        provider,
+      };
+    }
+  } catch {
+    console.warn(`[${provider}] sidecar unavailable`);
+  }
+  return null;
 }
 
 /**
@@ -519,7 +551,7 @@ export default {
         // POST /api/firecrawl-scrape
         if (path === '/api/firecrawl-scrape' && request.method === 'POST') {
           const body: any = await request.json();
-          const { url: targetUrl, apiKey, scrapegraphApiKey, onlyMainContent = true, waitFor = 5000 } = body;
+          const { url: targetUrl, apiKey, scrapegraphApiKey, useCrawl4ai, useLlmReader, onlyMainContent = true, waitFor = 5000 } = body;
           if (!targetUrl) {
             return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400 });
           }
@@ -564,6 +596,32 @@ export default {
             }
           }
 
+          if (useCrawl4ai !== false) {
+            const c4 = await trySidecarBuiltinScrape(env, targetUrl, 'crawl4ai', waitFor);
+            if (c4?.markdown) {
+              return new Response(JSON.stringify({
+                success: true,
+                data: { markdown: c4.markdown, metadata: c4.metadata },
+                provider: c4.provider,
+              }), {
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+              });
+            }
+          }
+
+          if (useLlmReader !== false) {
+            const lr = await trySidecarBuiltinScrape(env, targetUrl, 'llm-reader', waitFor);
+            if (lr?.markdown) {
+              return new Response(JSON.stringify({
+                success: true,
+                data: { markdown: lr.markdown, metadata: lr.metadata },
+                provider: lr.provider,
+              }), {
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+              });
+            }
+          }
+
           try {
             const pageRes = await fetch(targetUrl, {
               headers: {
@@ -594,7 +652,7 @@ export default {
         // POST /api/firecrawl-scrape-batch
         if (path === '/api/firecrawl-scrape-batch' && request.method === 'POST') {
           const body: any = await request.json();
-          const { urls, apiKey, scrapegraphApiKey, onlyMainContent = true, waitFor = 5000 } = body;
+          const { urls, apiKey, scrapegraphApiKey, useCrawl4ai, useLlmReader, onlyMainContent = true, waitFor = 5000 } = body;
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
           const scrapegraphKey = scrapegraphApiKey || env.SCRAPEGRAPH_API_KEY;
           const results: any[] = [];
@@ -628,6 +686,24 @@ export default {
                   markdown = sg.markdown;
                   metadata = sg.metadata;
                   provider = 'scrapegraph';
+                }
+              }
+
+              if (!markdown && useCrawl4ai !== false) {
+                const c4 = await trySidecarBuiltinScrape(env, targetUrl, 'crawl4ai', waitFor);
+                if (c4?.markdown) {
+                  markdown = c4.markdown;
+                  metadata = c4.metadata;
+                  provider = c4.provider;
+                }
+              }
+
+              if (!markdown && useLlmReader !== false) {
+                const lr = await trySidecarBuiltinScrape(env, targetUrl, 'llm-reader', waitFor);
+                if (lr?.markdown) {
+                  markdown = lr.markdown;
+                  metadata = lr.metadata;
+                  provider = lr.provider;
                 }
               }
 
@@ -666,7 +742,7 @@ export default {
         // POST /api/crawl
         if (path === '/api/crawl' && request.method === 'POST') {
           const body: any = await request.json();
-          const { url: targetUrl, limit, apiKey, scrapegraphApiKey, includePaths, excludePaths } = body;
+          const { url: targetUrl, limit, apiKey, scrapegraphApiKey, useCrawl4ai, useLlmReader, includePaths, excludePaths } = body;
           if (!targetUrl) {
             return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400 });
           }
@@ -701,6 +777,22 @@ export default {
                       if (sg?.markdown) {
                         markdown = sg.markdown;
                         metadata = sg.metadata;
+                      }
+                    }
+
+                    if (!markdown && useCrawl4ai !== false) {
+                      const c4 = await trySidecarBuiltinScrape(env, pageUrl, 'crawl4ai', 5000);
+                      if (c4?.markdown) {
+                        markdown = c4.markdown;
+                        metadata = c4.metadata as { title?: string; sourceURL?: string };
+                      }
+                    }
+
+                    if (!markdown && useLlmReader !== false) {
+                      const lr = await trySidecarBuiltinScrape(env, pageUrl, 'llm-reader', 5000);
+                      if (lr?.markdown) {
+                        markdown = lr.markdown;
+                        metadata = lr.metadata as { title?: string; sourceURL?: string };
                       }
                     }
 

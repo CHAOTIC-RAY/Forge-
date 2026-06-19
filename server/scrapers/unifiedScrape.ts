@@ -2,7 +2,14 @@ import axios from 'axios';
 import { htmlToMarkdown } from './htmlToMarkdown.js';
 import { resolveScrapegraphApiKey, scrapegraphScrapeMarkdown } from './scrapegraphScrape.js';
 
-export type ScrapeProvider = 'firecrawl' | 'scrapegraph' | 'crawlee' | 'cloudscraper' | 'cheerio';
+export type ScrapeProvider =
+  | 'firecrawl'
+  | 'scrapegraph'
+  | 'crawl4ai'
+  | 'llm-reader'
+  | 'crawlee'
+  | 'cloudscraper'
+  | 'cheerio';
 
 export interface UnifiedScrapeResult {
   markdown?: string;
@@ -65,7 +72,7 @@ async function firecrawlScrape(
 
 /**
  * Scrape a URL for catalogue markdown:
- * Firecrawl → ScrapeGraphAI → Crawlee → cloudscraper → cheerio.
+ * Firecrawl → ScrapeGraphAI → crawl4ai → llm-reader → Crawlee → cloudscraper → cheerio.
  */
 export async function scrapeWithProviders(
   url: string,
@@ -76,10 +83,14 @@ export async function scrapeWithProviders(
     waitFor?: number;
     skipFirecrawl?: boolean;
     skipScrapegraph?: boolean;
+    useCrawl4ai?: boolean;
+    useLlmReader?: boolean;
   } = {}
 ): Promise<UnifiedScrapeResult> {
   const onlyMainContent = opts.onlyMainContent ?? true;
   const waitFor = opts.waitFor ?? 5000;
+  const useCrawl4ai = opts.useCrawl4ai !== false;
+  const useLlmReader = opts.useLlmReader !== false;
   const rawKey = opts.apiKey || process.env.FIRECRAWL_API_KEY;
   const firecrawlKey =
     typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
@@ -98,6 +109,30 @@ export async function scrapeWithProviders(
         metadata: sg.metadata,
         provider: 'scrapegraph',
       };
+    }
+  }
+
+  if (useCrawl4ai) {
+    try {
+      const { crawl4aiScrapeMarkdown } = await import('./pythonBuiltinScrape.js');
+      const c4 = await crawl4aiScrapeMarkdown(url, waitFor);
+      if (c4?.markdown) {
+        return { markdown: c4.markdown, metadata: c4.metadata, provider: 'crawl4ai' };
+      }
+    } catch (err) {
+      console.warn('[crawl4ai] failed:', (err as Error).message);
+    }
+  }
+
+  if (useLlmReader) {
+    try {
+      const { llmReaderScrapeMarkdown } = await import('./pythonBuiltinScrape.js');
+      const lr = await llmReaderScrapeMarkdown(url, waitFor);
+      if (lr?.markdown) {
+        return { markdown: lr.markdown, metadata: lr.metadata, provider: 'llm-reader' };
+      }
+    } catch (err) {
+      console.warn('[llm-reader] failed:', (err as Error).message);
     }
   }
 
@@ -131,6 +166,7 @@ export async function scrapeWithProviders(
   }
 
   return {
-    error: 'All scrape providers failed (Firecrawl, ScrapeGraphAI, Crawlee, cloudscraper, cheerio)',
+    error:
+      'All scrape providers failed (Firecrawl, ScrapeGraphAI, crawl4ai, llm-reader, Crawlee, cloudscraper, cheerio)',
   };
 }

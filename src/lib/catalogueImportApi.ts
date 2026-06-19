@@ -7,6 +7,8 @@ export interface CrawlStartOptions {
   limit?: number;
   apiKey?: string;
   scrapegraphApiKey?: string;
+  useCrawl4ai?: boolean;
+  useLlmReader?: boolean;
   includePaths?: string[];
   excludePaths?: string[];
 }
@@ -14,13 +16,23 @@ export interface CrawlStartOptions {
 export interface ScrapeRequestKeys {
   firecrawlApiKey?: string;
   scrapegraphApiKey?: string;
+  useCrawl4ai?: boolean;
+  useLlmReader?: boolean;
 }
 
 export interface ScrapePageResult {
   url: string;
   markdown?: string;
   metadata?: { title?: string };
-  provider?: 'firecrawl' | 'scrapegraph' | 'crawlee' | 'cloudscraper' | 'cheerio' | 'fetch';
+  provider?:
+    | 'firecrawl'
+    | 'scrapegraph'
+    | 'crawl4ai'
+    | 'llm-reader'
+    | 'crawlee'
+    | 'cloudscraper'
+    | 'cheerio'
+    | 'fetch';
   error?: string;
 }
 
@@ -40,6 +52,8 @@ function buildScrapePayload(
     ...payload,
     apiKey: resolved.firecrawlApiKey,
     scrapegraphApiKey: resolved.scrapegraphApiKey,
+    useCrawl4ai: resolved.useCrawl4ai,
+    useLlmReader: resolved.useLlmReader,
   };
 }
 
@@ -126,9 +140,13 @@ export async function mapSite(
 export function scrapeKeysFromSettings(settings: {
   firecrawlApiKey?: string;
   scrapegraphApiKey?: string;
+  catalogueScrapeUseCrawl4ai?: boolean;
+  catalogueScrapeUseLlmReader?: boolean;
 }): ScrapeRequestKeys {
   return {
     firecrawlApiKey: settings.firecrawlApiKey || undefined,
     scrapegraphApiKey: settings.scrapegraphApiKey || undefined,
+    useCrawl4ai: settings.catalogueScrapeUseCrawl4ai !== false,
+    useLlmReader: settings.catalogueScrapeUseLlmReader !== false,
   };
 }

@@ -1,1 +1,4 @@
 cloudscraper>=1.2.71
+crawl4ai>=0.7.0
+playwright>=1.40.0
+git+https://github.com/m92vyas/llm-reader.git

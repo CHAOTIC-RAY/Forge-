@@ -33,6 +33,8 @@ export interface AiSettings {
   catalogueImportLocalOnly: boolean;
   catalogueImportCloudFallback: boolean;
   catalogueCrawlLimit: number;
+  catalogueScrapeUseCrawl4ai: boolean;
+  catalogueScrapeUseLlmReader: boolean;
   fallbackToCloudAi: boolean;
   [key: string]: unknown;
 }
@@ -73,6 +75,8 @@ export function getDefaultAiSettings(): AiSettings {
     catalogueImportLocalOnly: true,
     catalogueImportCloudFallback: true,
     catalogueCrawlLimit: 100,
+    catalogueScrapeUseCrawl4ai: true,
+    catalogueScrapeUseLlmReader: true,
     fallbackToCloudAi: false,
   };
 }
@@ -115,6 +119,8 @@ export const getAiSettings = (): AiSettings => {
       if (parsed.catalogueImportLocalOnly === undefined) parsed.catalogueImportLocalOnly = true;
       if (parsed.catalogueImportCloudFallback === undefined) parsed.catalogueImportCloudFallback = true;
       if (!parsed.catalogueCrawlLimit) parsed.catalogueCrawlLimit = 100;
+      if (parsed.catalogueScrapeUseCrawl4ai === undefined) parsed.catalogueScrapeUseCrawl4ai = true;
+      if (parsed.catalogueScrapeUseLlmReader === undefined) parsed.catalogueScrapeUseLlmReader = true;
       if (parsed.fallbackToCloudAi === undefined) parsed.fallbackToCloudAi = false;
       return { ...getDefaultAiSettings(), ...parsed } as AiSettings;
     } catch {
