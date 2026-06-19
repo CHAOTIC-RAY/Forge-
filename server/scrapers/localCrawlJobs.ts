@@ -52,6 +52,7 @@ async function runLocalCrawl(
     includePaths?: string[];
     excludePaths?: string[];
     apiKey?: string;
+    scrapegraphApiKey?: string;
   }
 ) {
   const job = jobs.get(id);
@@ -73,6 +74,7 @@ async function runLocalCrawl(
     for (const pageUrl of urls) {
       const result = await scrapeWithProviders(pageUrl, {
         apiKey: opts.apiKey,
+        scrapegraphApiKey: opts.scrapegraphApiKey,
         skipFirecrawl: !opts.apiKey,
       });
       if (result.markdown) {
@@ -101,6 +103,7 @@ export function startLocalCrawl(opts: {
   includePaths?: string[];
   excludePaths?: string[];
   apiKey?: string;
+  scrapegraphApiKey?: string;
 }): string {
   pruneOldJobs();
   const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

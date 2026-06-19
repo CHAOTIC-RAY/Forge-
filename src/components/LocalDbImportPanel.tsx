@@ -24,7 +24,7 @@ import {
   type UrlPageKind,
   pickBestUrlForCategory,
 } from '../lib/catalogueExtract';
-import { mapSite, startCrawlJob, pollCrawlJob, scrapeUrlBatch } from '../lib/catalogueImportApi';
+import { mapSite, startCrawlJob, pollCrawlJob, scrapeUrlBatch, scrapeKeysFromSettings } from '../lib/catalogueImportApi';
 import {
   saveSiteMap,
   saveCategoryCounts,
@@ -97,6 +97,10 @@ export function LocalDbImportPanel({
   onJsonFileUpload,
 }: LocalDbImportPanelProps) {
   const aiSettings = getAiSettings();
+  const scrapeKeys = useMemo(
+    () => scrapeKeysFromSettings(aiSettings),
+    [aiSettings.firecrawlApiKey, aiSettings.scrapegraphApiKey]
+  );
   const [importTab, setImportTab] = useState<ImportTab>('discover');
   const [logs, setLogs] = useState<string[]>([]);
   const [isCheckingCounts, setIsCheckingCounts] = useState(false);
@@ -272,7 +276,7 @@ export function LocalDbImportPanel({
     try {
       const results = await scrapeUrlBatch(
         urls,
-        aiSettings.firecrawlApiKey,
+        scrapeKeys,
         (done, total) => setFetchProgress({ done, total })
       );
       const pages = results
@@ -369,6 +373,7 @@ export function LocalDbImportPanel({
         url: manualUrl,
         limit: crawlLimit,
         apiKey: aiSettings.firecrawlApiKey,
+        scrapegraphApiKey: aiSettings.scrapegraphApiKey,
         includePaths,
         excludePaths,
       });
@@ -441,7 +446,7 @@ export function LocalDbImportPanel({
     if (url && classified.length > 0) {
       setIsFetching(true);
       try {
-        const results = await scrapeUrlBatch([url], aiSettings.firecrawlApiKey);
+        const results = await scrapeUrlBatch([url], scrapeKeys);
         const page = results[0];
         if (page?.markdown) {
           const { items } = await extractCatalogueFromMarkdown({

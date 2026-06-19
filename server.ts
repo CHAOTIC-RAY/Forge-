@@ -759,7 +759,7 @@ export async function startServer(forcePort?: number) {
   });
 
   app.post("/api/crawl", async (req, res) => {
-    const { url, limit = 10, apiKey, includePaths, excludePaths, scrapeOptions: clientScrapeOptions } = req.body;
+    const { url, limit = 10, apiKey, scrapegraphApiKey, includePaths, excludePaths, scrapeOptions: clientScrapeOptions } = req.body;
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
@@ -776,6 +776,7 @@ export async function startServer(forcePort?: number) {
           includePaths,
           excludePaths,
           apiKey,
+          scrapegraphApiKey,
         });
         return res.json({ success: true, id, provider: 'local' });
       } catch (error: any) {
@@ -866,14 +867,14 @@ export async function startServer(forcePort?: number) {
   });
 
   app.post("/api/firecrawl-scrape", async (req, res) => {
-    const { url, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
+    const { url, apiKey, scrapegraphApiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
 
     try {
       const { scrapeWithProviders } = await import("./server/scrapers/unifiedScrape.js");
-      const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+      const result = await scrapeWithProviders(url, { apiKey, scrapegraphApiKey, onlyMainContent, waitFor });
       if (result.markdown) {
         return res.json({
           success: true,
@@ -897,12 +898,12 @@ export async function startServer(forcePort?: number) {
   });
 
   app.post("/api/catalogue-scrape", async (req, res) => {
-    const { url, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
+    const { url, apiKey, scrapegraphApiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
     const { scrapeWithProviders } = await import("./server/scrapers/unifiedScrape.js");
-    const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+    const result = await scrapeWithProviders(url, { apiKey, scrapegraphApiKey, onlyMainContent, waitFor });
     if (result.markdown) {
       return res.json({
         success: true,
@@ -918,7 +919,7 @@ export async function startServer(forcePort?: number) {
   });
 
   app.post("/api/firecrawl-scrape-batch", async (req, res) => {
-    const { urls, apiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
+    const { urls, apiKey, scrapegraphApiKey, onlyMainContent = true, waitFor = 5000 } = req.body;
     if (!Array.isArray(urls) || urls.length === 0) {
       return res.status(400).json({ error: "urls array is required" });
     }
@@ -934,7 +935,7 @@ export async function startServer(forcePort?: number) {
     const batch = urls.slice(0, 40);
 
     for (const url of batch) {
-      const result = await scrapeWithProviders(url, { apiKey, onlyMainContent, waitFor });
+      const result = await scrapeWithProviders(url, { apiKey, scrapegraphApiKey, onlyMainContent, waitFor });
       if (result.markdown) {
         results.push({
           url,

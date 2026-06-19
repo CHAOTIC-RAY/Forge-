@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { htmlToMarkdown } from './htmlToMarkdown.js';
+import { resolveScrapegraphApiKey, scrapegraphScrapeMarkdown } from './scrapegraphScrape.js';
 
-export type ScrapeProvider = 'firecrawl' | 'crawlee' | 'cloudscraper' | 'cheerio';
+export type ScrapeProvider = 'firecrawl' | 'scrapegraph' | 'crawlee' | 'cloudscraper' | 'cheerio';
 
 export interface UnifiedScrapeResult {
   markdown?: string;
@@ -63,15 +64,18 @@ async function firecrawlScrape(
 }
 
 /**
- * Scrape a URL for catalogue markdown: Firecrawl → Crawlee → cloudscraper → cheerio.
+ * Scrape a URL for catalogue markdown:
+ * Firecrawl → ScrapeGraphAI → Crawlee → cloudscraper → cheerio.
  */
 export async function scrapeWithProviders(
   url: string,
   opts: {
     apiKey?: string;
+    scrapegraphApiKey?: string;
     onlyMainContent?: boolean;
     waitFor?: number;
     skipFirecrawl?: boolean;
+    skipScrapegraph?: boolean;
   } = {}
 ): Promise<UnifiedScrapeResult> {
   const onlyMainContent = opts.onlyMainContent ?? true;
@@ -79,10 +83,22 @@ export async function scrapeWithProviders(
   const rawKey = opts.apiKey || process.env.FIRECRAWL_API_KEY;
   const firecrawlKey =
     typeof rawKey === 'string' ? rawKey.replace(/[^\x21-\x7E]/g, '') : undefined;
+  const scrapegraphKey = resolveScrapegraphApiKey(opts.scrapegraphApiKey);
 
   if (!opts.skipFirecrawl && firecrawlKey) {
     const fc = await firecrawlScrape(url, firecrawlKey, onlyMainContent, waitFor);
     if (fc?.markdown) return fc;
+  }
+
+  if (!opts.skipScrapegraph && scrapegraphKey) {
+    const sg = await scrapegraphScrapeMarkdown(url, scrapegraphKey, waitFor);
+    if (sg?.markdown) {
+      return {
+        markdown: sg.markdown,
+        metadata: sg.metadata,
+        provider: 'scrapegraph',
+      };
+    }
   }
 
   try {
@@ -115,6 +131,6 @@ export async function scrapeWithProviders(
   }
 
   return {
-    error: 'All scrape providers failed (Firecrawl, Crawlee, cloudscraper, cheerio)',
+    error: 'All scrape providers failed (Firecrawl, ScrapeGraphAI, Crawlee, cloudscraper, cheerio)',
   };
 }

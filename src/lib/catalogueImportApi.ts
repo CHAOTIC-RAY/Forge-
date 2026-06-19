@@ -6,16 +6,41 @@ export interface CrawlStartOptions {
   url: string;
   limit?: number;
   apiKey?: string;
+  scrapegraphApiKey?: string;
   includePaths?: string[];
   excludePaths?: string[];
+}
+
+export interface ScrapeRequestKeys {
+  firecrawlApiKey?: string;
+  scrapegraphApiKey?: string;
 }
 
 export interface ScrapePageResult {
   url: string;
   markdown?: string;
   metadata?: { title?: string };
-  provider?: 'firecrawl' | 'crawlee' | 'cloudscraper' | 'cheerio';
+  provider?: 'firecrawl' | 'scrapegraph' | 'crawlee' | 'cloudscraper' | 'cheerio' | 'fetch';
   error?: string;
+}
+
+function resolveScrapeKeys(keys?: ScrapeRequestKeys | string): ScrapeRequestKeys {
+  if (typeof keys === 'string') {
+    return { firecrawlApiKey: keys };
+  }
+  return keys || {};
+}
+
+function buildScrapePayload(
+  payload: Record<string, unknown>,
+  keys?: ScrapeRequestKeys | string
+) {
+  const resolved = resolveScrapeKeys(keys);
+  return {
+    ...payload,
+    apiKey: resolved.firecrawlApiKey,
+    scrapegraphApiKey: resolved.scrapegraphApiKey,
+  };
 }
 
 export async function startCrawlJob(opts: CrawlStartOptions): Promise<{ id?: string; success?: boolean; error?: string }> {
@@ -38,13 +63,13 @@ export async function pollCrawlJob(
 
 export async function scrapePageMarkdown(
   url: string,
-  apiKey?: string,
+  keys?: ScrapeRequestKeys | string,
   options?: { onlyMainContent?: boolean; waitFor?: number }
 ): Promise<ScrapePageResult> {
   const res = await fetch('/api/firecrawl-scrape', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, apiKey, ...options }),
+    body: JSON.stringify(buildScrapePayload({ url, ...options }, keys)),
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
@@ -60,13 +85,15 @@ export async function scrapePageMarkdown(
 
 export async function scrapeUrlBatch(
   urls: string[],
-  apiKey?: string,
+  keys?: ScrapeRequestKeys | string,
   onProgress?: (done: number, total: number, lastUrl: string) => void
 ): Promise<ScrapePageResult[]> {
   const res = await fetch('/api/firecrawl-scrape-batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ urls, apiKey, onlyMainContent: true, waitFor: 5000 }),
+    body: JSON.stringify(
+      buildScrapePayload({ urls, onlyMainContent: true, waitFor: 5000 }, keys)
+    ),
   });
   const data = await res.json();
   if (!res.ok) {
@@ -94,4 +121,14 @@ export async function mapSite(
     body: JSON.stringify({ url, limit, apiKey }),
   });
   return res.json();
+}
+
+export function scrapeKeysFromSettings(settings: {
+  firecrawlApiKey?: string;
+  scrapegraphApiKey?: string;
+}): ScrapeRequestKeys {
+  return {
+    firecrawlApiKey: settings.firecrawlApiKey || undefined,
+    scrapegraphApiKey: settings.scrapegraphApiKey || undefined,
+  };
 }

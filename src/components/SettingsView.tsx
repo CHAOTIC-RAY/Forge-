@@ -2500,7 +2500,7 @@ export function SettingsView({
         <BentoCard
           id="crawl"
           title="Crawl Options"
-          subtitle="Configure web scraping and Firecrawl API"
+          subtitle="Configure web scraping, Firecrawl, and ScrapeGraphAI"
           icon={Search}
           iconBg="bg-orange-100 dark:bg-orange-900/30"
           iconColor="text-orange-600 dark:text-orange-400"
@@ -2520,6 +2520,19 @@ export function SettingsView({
                 />
                 <p className="text-[10px] text-secondary-safe">
                   Fetches page markdown from websites (map, crawl, scrape). Catalogue conversion uses your local AI model separately.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">ScrapeGraphAI API Key</label>
+                <input
+                  type="password"
+                  value={aiSettings.scrapegraphApiKey || ''}
+                  onChange={(e) => handleAiSettingChange('scrapegraphApiKey', e.target.value)}
+                  placeholder="sgai-… (optional fallback scraper)"
+                  className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] text-sm outline-none focus:border-brand"
+                />
+                <p className="text-[10px] text-secondary-safe">
+                  Used by Local DB import when Firecrawl is unavailable. Runs after Firecrawl in the scrape chain.
                 </p>
               </div>
               <div className="flex items-center justify-between gap-4 p-3 bg-[#F7F7F5] dark:bg-[#202020] rounded-[12px] border border-[#E9E9E7] dark:border-[#2E2E2E]">

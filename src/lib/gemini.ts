@@ -2715,7 +2715,7 @@ export async function generateBrandProfile(url: string, business?: Business): Pr
     const firecrawlRes = await fetch('/api/firecrawl-scrape', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, apiKey: settings.firecrawlApiKey })
+      body: JSON.stringify({ url, apiKey: settings.firecrawlApiKey, scrapegraphApiKey: settings.scrapegraphApiKey })
     });
 
     const firecrawlData = await firecrawlRes.json();
@@ -2774,7 +2774,7 @@ export async function scrapeWooCommerce(
     const firecrawlRes = await fetch('/api/firecrawl-scrape', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: targetUrl, apiKey: settings.firecrawlApiKey })
+      body: JSON.stringify({ url: targetUrl, apiKey: settings.firecrawlApiKey, scrapegraphApiKey: settings.scrapegraphApiKey })
     });
     const firecrawlData = await firecrawlRes.json();
 

@@ -1,6 +1,43 @@
 import * as cheerio from "cheerio";
 import { patchEsrganOnnxOutputDims } from "./lib/esrganOnnxPatch";
 import { discoverLinksWorker, htmlToSimpleMarkdown } from "./lib/lightweightHtml";
+
+async function scrapegraphMarkdownFromUrl(
+  targetUrl: string,
+  apiKey: string,
+  waitFor = 5000
+): Promise<{ markdown: string; metadata?: { sourceURL: string; title?: string } } | null> {
+  const key = apiKey.trim();
+  if (!key) return null;
+  try {
+    const response = await fetch('https://v2-api.scrapegraphai.com/api/scrape', {
+      method: 'POST',
+      headers: {
+        'SGAI-APIKEY': key,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: targetUrl,
+        formats: [{ type: 'markdown', mode: 'reader' }],
+        fetch_config: { wait: Math.min(Math.max(waitFor, 0), 30000), mode: 'js' },
+      }),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      results?: { markdown?: { data?: unknown[] } };
+      metadata?: { title?: string };
+    };
+    const markdown = data?.results?.markdown?.data?.[0];
+    if (typeof markdown !== 'string' || !markdown.trim()) return null;
+    return {
+      markdown,
+      metadata: { sourceURL: targetUrl, title: data?.metadata?.title },
+    };
+  } catch {
+    return null;
+  }
+}
+
 import { handleSupabaseTokenExchange } from "./lib/handleSupabaseTokenExchange";
 import {
   handleFirestoreMigrateBatch,
@@ -39,6 +76,7 @@ export interface Env {
   GEMINI_API_KEY: string;
   GROQ_API_KEY: string;
   FIRECRAWL_API_KEY: string;
+  SCRAPEGRAPH_API_KEY?: string;
   ONEDRIVE_CLIENT_ID: string;
   ONEDRIVE_CLIENT_SECRET: string;
   ONEDRIVE_REDIRECT_URI: string;
@@ -481,7 +519,7 @@ export default {
         // POST /api/firecrawl-scrape
         if (path === '/api/firecrawl-scrape' && request.method === 'POST') {
           const body: any = await request.json();
-          const { url: targetUrl, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
+          const { url: targetUrl, apiKey, scrapegraphApiKey, onlyMainContent = true, waitFor = 5000 } = body;
           if (!targetUrl) {
             return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400 });
           }
@@ -508,7 +546,21 @@ export default {
                 });
               }
             } catch (e) {
-              console.warn('[scrape] Firecrawl failed, using fetch fallback');
+              console.warn('[scrape] Firecrawl failed, trying ScrapeGraphAI');
+            }
+          }
+
+          const scrapegraphKey = scrapegraphApiKey || env.SCRAPEGRAPH_API_KEY;
+          if (scrapegraphKey) {
+            const sg = await scrapegraphMarkdownFromUrl(targetUrl, scrapegraphKey, waitFor);
+            if (sg?.markdown) {
+              return new Response(JSON.stringify({
+                success: true,
+                data: { markdown: sg.markdown, metadata: sg.metadata },
+                provider: 'scrapegraph',
+              }), {
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+              });
             }
           }
 
@@ -542,8 +594,9 @@ export default {
         // POST /api/firecrawl-scrape-batch
         if (path === '/api/firecrawl-scrape-batch' && request.method === 'POST') {
           const body: any = await request.json();
-          const { urls, apiKey, onlyMainContent = true, waitFor = 5000 } = body;
+          const { urls, apiKey, scrapegraphApiKey, onlyMainContent = true, waitFor = 5000 } = body;
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
+          const scrapegraphKey = scrapegraphApiKey || env.SCRAPEGRAPH_API_KEY;
           const results: any[] = [];
 
           for (const targetUrl of (urls || []).slice(0, 40)) {
@@ -566,6 +619,15 @@ export default {
                   markdown = data.data.markdown;
                   metadata = data.data.metadata;
                   provider = 'firecrawl';
+                }
+              }
+
+              if (!markdown && scrapegraphKey) {
+                const sg = await scrapegraphMarkdownFromUrl(targetUrl, scrapegraphKey, waitFor);
+                if (sg?.markdown) {
+                  markdown = sg.markdown;
+                  metadata = sg.metadata;
+                  provider = 'scrapegraph';
                 }
               }
 
@@ -604,12 +666,13 @@ export default {
         // POST /api/crawl
         if (path === '/api/crawl' && request.method === 'POST') {
           const body: any = await request.json();
-          const { url: targetUrl, limit, apiKey, includePaths, excludePaths } = body;
+          const { url: targetUrl, limit, apiKey, scrapegraphApiKey, includePaths, excludePaths } = body;
           if (!targetUrl) {
             return new Response(JSON.stringify({ error: 'URL is required' }), { status: 400 });
           }
 
           const firecrawlKey = apiKey || env.FIRECRAWL_API_KEY;
+          const scrapegraphKey = scrapegraphApiKey || env.SCRAPEGRAPH_API_KEY;
           if (!firecrawlKey) {
             const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             localCrawlJobs.set(id, { id, status: 'scraping', data: [] });
@@ -630,17 +693,35 @@ export default {
 
                 for (const pageUrl of urls) {
                   try {
-                    const pageRes = await fetch(pageUrl, {
-                      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ForgeCatalogue/1.0)', Accept: 'text/html' },
-                      redirect: 'follow',
-                    });
-                    if (pageRes.ok) {
-                      const html = await pageRes.text();
-                      const $ = cheerio.load(html);
+                    let markdown: string | undefined;
+                    let metadata: { title?: string; sourceURL?: string } | undefined;
+
+                    if (scrapegraphKey) {
+                      const sg = await scrapegraphMarkdownFromUrl(pageUrl, scrapegraphKey);
+                      if (sg?.markdown) {
+                        markdown = sg.markdown;
+                        metadata = sg.metadata;
+                      }
+                    }
+
+                    if (!markdown) {
+                      const pageRes = await fetch(pageUrl, {
+                        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ForgeCatalogue/1.0)', Accept: 'text/html' },
+                        redirect: 'follow',
+                      });
+                      if (pageRes.ok) {
+                        const html = await pageRes.text();
+                        const $ = cheerio.load(html);
+                        markdown = htmlToSimpleMarkdown(html);
+                        metadata = { title: $('title').first().text().trim(), sourceURL: pageUrl };
+                      }
+                    }
+
+                    if (markdown) {
                       job.data.push({
                         url: pageUrl,
-                        markdown: htmlToSimpleMarkdown(html),
-                        metadata: { title: $('title').first().text().trim(), sourceURL: pageUrl },
+                        markdown,
+                        metadata,
                       });
                     }
                   } catch { /* skip page */ }

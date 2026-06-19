@@ -440,7 +440,12 @@ export function LocalDb({ onAddPost, activeBusiness }: { onAddPost: (products: H
       const res = await fetch('/api/crawl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: manualUrl, limit: 50, apiKey: aiSettings.firecrawlApiKey })
+        body: JSON.stringify({
+          url: manualUrl,
+          limit: 50,
+          apiKey: aiSettings.firecrawlApiKey,
+          scrapegraphApiKey: aiSettings.scrapegraphApiKey,
+        })
       });
       
       const data = await res.json();

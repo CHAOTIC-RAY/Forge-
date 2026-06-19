@@ -17,6 +17,7 @@ export interface AiSettings {
   geminiApiKey: string;
   groqApiKey: string;
   firecrawlApiKey: string;
+  scrapegraphApiKey: string;
   systemInstructions: string;
   brandVoice: string;
   businessRules: string;
@@ -56,6 +57,7 @@ export function getDefaultAiSettings(): AiSettings {
     geminiApiKey: '',
     groqApiKey: '',
     firecrawlApiKey: '',
+    scrapegraphApiKey: '',
     systemInstructions: '',
     brandVoice: '',
     businessRules: '',
