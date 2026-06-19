@@ -548,7 +548,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setActiveTab('chat')}
-          className="w-14 h-14 bg-brand text-white rounded-[8px] flex items-center justify-center border-2 border-white dark:border-[#191919]"
+          className="w-14 h-14 forge-chat-fab rounded-[8px] flex items-center justify-center border-2 border-white dark:border-[#191919]"
         >
           <MessageSquare className="w-6 h-6" />
         </motion.button>

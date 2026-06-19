@@ -14,7 +14,7 @@ beforeEach(() => {
   localStorage.clear();
   document.documentElement.removeAttribute('style');
   document.documentElement.removeAttribute('data-sidebar-style');
-  ['forge-font-override', 'forge-radius-override', 'forge-glass-override'].forEach((id) =>
+  ['forge-font-override', 'forge-radius-override', 'forge-glass-override', 'forge-surface-override'].forEach((id) =>
     document.getElementById(id)?.remove(),
   );
 });

@@ -309,6 +309,46 @@ export function applyThemeConfig(config: ThemeConfig): void {
   } else {
     root.setAttribute('data-sidebar-style', 'classic');
   }
+
+  const hasCustomSurfaces = Boolean(
+    config.canvasBackground || config.panelBackground || config.textPrimary || config.textSecondary
+  );
+  if (hasCustomSurfaces) {
+    root.setAttribute('data-forge-themed', 'true');
+  } else {
+    root.removeAttribute('data-forge-themed');
+  }
+
+  let surfaceStyleEl = document.getElementById('forge-surface-override') as HTMLStyleElement | null;
+  if (!surfaceStyleEl) {
+    surfaceStyleEl = document.createElement('style');
+    surfaceStyleEl.id = 'forge-surface-override';
+    document.head.appendChild(surfaceStyleEl);
+  }
+  surfaceStyleEl.textContent = hasCustomSurfaces
+    ? [
+        '[data-forge-themed="true"] .forge-bento-card {',
+        '  background: var(--bg-main) !important;',
+        '  border-color: var(--border-main) !important;',
+        '  color: var(--text-main) !important;',
+        '}',
+        '[data-forge-themed="true"] .forge-bento-card .forge-bento-title {',
+        '  color: var(--text-main) !important;',
+        '}',
+        '[data-forge-themed="true"] .forge-bento-card .forge-bento-subtitle,',
+        '[data-forge-themed="true"] .forge-bento-card .text-secondary-safe {',
+        '  color: var(--text-secondary) !important;',
+        '}',
+        '[data-forge-themed="true"] .forge-setting-shell {',
+        '  background: var(--bg-main) !important;',
+        '  border-color: var(--border-main) !important;',
+        '}',
+        '[data-forge-themed="true"] .forge-chat-shell {',
+        '  background: var(--bg-main) !important;',
+        '  color: var(--text-main) !important;',
+        '}',
+      ].join('\n')
+    : '';
 }
 
 export function resetThemeConfig(): void {
@@ -321,8 +361,9 @@ export function resetThemeConfig(): void {
   ];
   vars.forEach(v => root.style.removeProperty(v));
   root.removeAttribute('data-sidebar-style');
+  root.removeAttribute('data-forge-themed');
   // Remove injected style overrides
-  ['forge-font-override', 'forge-radius-override', 'forge-glass-override'].forEach(id => {
+  ['forge-font-override', 'forge-radius-override', 'forge-glass-override', 'forge-surface-override'].forEach(id => {
     document.getElementById(id)?.remove();
   });
   clearThemeConfig();

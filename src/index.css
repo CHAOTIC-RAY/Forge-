@@ -195,15 +195,15 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .glass-panel {
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(233, 233, 231, 0.9);
+    background: var(--forge-glass-bg, rgba(255, 255, 255, 0.82));
+    backdrop-filter: blur(var(--forge-glass-blur, 14px));
+    -webkit-backdrop-filter: blur(var(--forge-glass-blur, 14px));
+    border: 1px solid color-mix(in srgb, var(--border-main) 90%, transparent);
   }
 
   .dark .glass-panel {
-    background: rgba(32, 32, 32, 0.88);
-    border-color: rgba(46, 46, 46, 0.95);
+    background: var(--forge-glass-dark-bg, rgba(32, 32, 32, 0.88));
+    border-color: color-mix(in srgb, var(--border-main) 95%, transparent);
   }
 
   .glass-card {
@@ -265,6 +265,76 @@ h1, h2, h3, h4, h5, h6 {
 
   .text-secondary-safe {
     color: var(--text-secondary);
+  }
+
+  .text-main-safe {
+    color: var(--text-main);
+  }
+
+  .bg-surface-main {
+    background-color: var(--bg-main);
+  }
+
+  .bg-surface-panel {
+    background-color: var(--bg-secondary);
+  }
+
+  .border-surface {
+    border-color: var(--border-main);
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border-main);
+    border-radius: var(--forge-radius);
+    background-color: var(--bg-main);
+  }
+
+  .setting-row-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .setting-row-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: calc(var(--forge-radius) - 4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background-color: var(--brand-color-bg);
+    color: var(--brand-color);
+  }
+
+  .forge-chat-fab {
+    background: var(--brand-color);
+    color: #ffffff;
+    border: 2px solid color-mix(in srgb, var(--brand-color) 70%, white);
+    box-shadow:
+      0 8px 30px color-mix(in srgb, var(--brand-color) 35%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--brand-color) 20%, transparent);
+  }
+
+  .forge-chat-fab:hover {
+    background: var(--brand-color-hover);
+  }
+
+  .forge-chat-fab-open {
+    background: var(--bg-secondary);
+    color: var(--text-main);
+    border-color: var(--border-main);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  }
+
+  .dark .forge-chat-fab-open {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
   }
 
   .skeleton {

@@ -42,6 +42,7 @@ interface FloatingChatProps {
   isFullPage?: boolean;
   onClose?: () => void;
   onFullScreen?: () => void;
+  chatTitle?: string;
 }
 
 function ModelCategory({ title, models, provider, currentModel, currentProvider, onSelect }: any) {
@@ -58,7 +59,7 @@ function ModelCategory({ title, models, provider, currentModel, currentProvider,
             className={cn(
               "w-full text-left px-3 py-2.5 rounded-xl text-[12px] transition-colors flex items-center justify-between group",
               (currentProvider === provider && currentModel === m.id) || (provider === 'builtin' && m.id === 'webllm-local' && currentModel === 'webllm-local')
-                ? "bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold" 
+                ? "bg-brand-bg dark:bg-brand-bg text-brand dark:text-brand font-bold" 
                 : "hover:bg-black/5 dark:hover:bg-white/5 text-[#444746] dark:text-[#E3E3E3]"
             )}
           >
@@ -66,7 +67,7 @@ function ModelCategory({ title, models, provider, currentModel, currentProvider,
             {m.id.includes('flash') || m.id.includes('instant') ? (
                <Zap className="w-3 h-3 text-orange-400 opacity-60 group-hover:opacity-100" />
             ) : m.id.includes('pro') || m.id.includes('sonnet') ? (
-               <Sparkles className="w-3 h-3 text-indigo-400 opacity-60 group-hover:opacity-100" />
+               <Sparkles className="w-3 h-3 text-brand opacity-60 group-hover:opacity-100" />
             ) : null}
           </button>
         ))}
@@ -88,7 +89,8 @@ export function FloatingChat({
   onClearDroppedItem, 
   isFullPage, 
   onClose, 
-  onFullScreen 
+  onFullScreen,
+  chatTitle = 'AI Assistant',
 }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -477,8 +479,8 @@ export function FloatingChat({
     <div className={cn(
       "fixed z-50 flex flex-col items-end gap-4 transition-all duration-300",
       isFullPage 
-        ? "inset-x-0 top-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:inset-0 bg-white dark:bg-[#191919] p-0 pointer-events-auto" 
-        : "bottom-6 right-6 pointer-events-none"
+        ? "inset-x-0 top-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:inset-0 bg-surface-main p-0 pointer-events-auto" 
+        : "bottom-[calc(72px+env(safe-area-inset-bottom)+1rem)] md:bottom-6 right-4 md:right-6 pointer-events-none"
     )}>
       <AnimatePresence>
         {isOpen && !isMinimized && (
@@ -491,9 +493,9 @@ export function FloatingChat({
             className={cn(
               "flex overflow-hidden pointer-events-auto relative shadow-2xl",
               isFullPage 
-                ? "flex-row w-full h-full rounded-none bg-[#FAFAFA] dark:bg-[#131314] border-none inset-0 absolute transition-opacity" 
-                : "flex-col hidden md:flex w-[380px] lg:w-[440px] h-[640px] max-h-[85vh] rounded-[24px] bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-2xl border border-white/20 dark:border-white/5 transition-all duration-300",
-              isContainerOver && "ring-2 ring-indigo-500"
+                ? "flex-row w-full h-full rounded-none bg-surface-panel border-none inset-0 absolute transition-opacity forge-chat-shell" 
+                : "flex-col hidden md:flex w-[380px] lg:w-[440px] h-[640px] max-h-[85vh] rounded-[24px] glass-panel transition-all duration-300 forge-chat-shell",
+              isContainerOver && "ring-2 ring-brand"
             )}
           >
             {/* Sidebar (Full page only) */}
@@ -507,16 +509,16 @@ export function FloatingChat({
                       <X className="w-5 h-5" />
                     </button>
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+                      <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center text-white">
                         <Zap className="w-4 h-4 fill-current" />
                       </div>
-                      <span className="text-[#444746] dark:text-[#E3E3E3] text-[18px] font-medium tracking-wide">Forge AI</span>
+                      <span className="text-main-safe text-[18px] font-medium tracking-wide">{chatTitle}</span>
                     </div>
                  </div>
 
                  <button 
                    onClick={createNewChat}
-                   className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[16px] py-3 px-4 font-medium text-sm w-fit transition-all mb-6 shadow-lg shadow-indigo-500/20 active:scale-95"
+                   className="flex items-center gap-3 bg-brand hover:bg-brand-hover text-white rounded-[16px] py-3 px-4 font-medium text-sm w-fit transition-all mb-6 shadow-lg shadow-brand/20 active:scale-95"
                  >
                     <Plus className="w-4 h-4" />
                     New chat
@@ -548,13 +550,13 @@ export function FloatingChat({
                        className={cn(
                          "w-full text-left px-4 py-3 text-[13px] rounded-xl flex items-center gap-3 truncate transition-all font-medium group relative overflow-hidden",
                          currentSessionId === session.id 
-                           ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" 
+                           ? "bg-brand-bg dark:bg-brand-bg text-brand dark:text-brand" 
                            : "text-[#444746] dark:text-[#E3E3E3] hover:bg-black/5 dark:hover:bg-white/5"
                        )}
                      >
                        <MessageSquare className={cn(
                          "w-4 h-4 shrink-0 transition-colors",
-                         currentSessionId === session.id ? "text-indigo-500" : "text-[#444746] dark:text-[#8E8E8E] group-hover:text-indigo-500"
+                         currentSessionId === session.id ? "text-brand" : "text-[#444746] dark:text-[#8E8E8E] group-hover:text-brand"
                        )} />
                        <span className="truncate flex-1">{session.title}</span>
                        
@@ -587,7 +589,7 @@ export function FloatingChat({
             {/* AI Glow Effect Background for FullPage */}
             {isFullPage && (
               <>
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full animate-pulse" />
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand/10 blur-[120px] rounded-full animate-pulse" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse" />
               </>
             )}
@@ -599,7 +601,7 @@ export function FloatingChat({
                 <div className="hidden lg:flex p-4 items-center justify-between shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-full border border-black/5 dark:border-white/10 shadow-sm cursor-pointer hover:bg-white dark:hover:bg-white/10 transition-all group" onClick={() => setShowModelSelector(!showModelSelector)}>
-                      <Brain className="w-4 h-4 text-indigo-500" />
+                      <Brain className="w-4 h-4 text-brand" />
                       <span className="text-[12px] font-semibold text-[#444746] dark:text-[#E3E3E3]">
                         {aiSettings.preferredProvider === 'gemini' ? aiSettings.geminiModel : 
                          aiSettings.preferredProvider === 'groq' ? aiSettings.groqModel : 
@@ -644,7 +646,7 @@ export function FloatingChat({
                       <X className="w-5 h-5" />
                     </button>
                     <div className="flex items-center gap-2 px-3 py-1 bg-black/5 dark:bg-white/5 rounded-full" onClick={() => setShowModelSelector(!showModelSelector)}>
-                      <Brain className="w-3.5 h-3.5 text-indigo-500" />
+                      <Brain className="w-3.5 h-3.5 text-brand" />
                       <span className="text-[11px] font-bold text-[#444746] dark:text-[#E3E3E3] truncate max-w-[100px]">
                         {aiSettings.preferredProvider === 'gemini' ? aiSettings.geminiModel : 
                          aiSettings.preferredProvider === 'groq' ? aiSettings.groqModel : 
@@ -662,11 +664,11 @@ export function FloatingChat({
             ) : (
             <div className="relative p-4 border-b flex items-center justify-between shrink-0 z-20 bg-white/40 dark:bg-black/20 backdrop-blur-md border-[#E9E9E7] dark:border-[#2E2E2E]">
               {/* AI Gradient Background */}
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/5 via-purple-600/5 to-blue-600/5 dark:from-indigo-500/10 dark:via-purple-500/10 dark:to-blue-500/10 animate-gradient-x pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-r from-brand/5 via-purple-600/5 to-blue-600/5 dark:from-brand/10 dark:via-purple-500/10 dark:to-blue-500/10 animate-gradient-x pointer-events-none" />
               
               <div className="relative flex items-center gap-3 w-full">
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-blue-600 flex items-center justify-center text-white shadow-lg shadow-brand/20">
                     <Sparkles className="w-5 h-5 animate-pulse" />
                   </div>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#191919] rounded-full" />
@@ -674,7 +676,7 @@ export function FloatingChat({
                 <div>
                   <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-sm flex items-center gap-2">
                     Forge AI Assistant
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest border border-indigo-100 dark:border-indigo-500/20 shadow-sm">v2.0</span>
+                    <span className="px-2 py-0.5 rounded-full bg-brand-bg dark:bg-brand-bg text-[9px] font-black text-brand dark:text-brand uppercase tracking-widest border border-brand-border dark:border-brand-border shadow-sm">v2.0</span>
                   </h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
@@ -734,13 +736,13 @@ export function FloatingChat({
                   <span
                     className={cn(
                       'text-[10px] font-bold uppercase tracking-widest mb-1.5 px-1',
-                      msg.role === 'user' ? 'text-[#757681]' : 'text-indigo-500'
+                      msg.role === 'user' ? 'text-[#757681]' : 'text-brand'
                     )}
                   >
                     {msg.role === 'user' ? 'You' : 'Forge'}
                   </span>
                   {msg.role === 'assistant' && isFullPage && (
-                    <div className="absolute -left-6 top-6 w-3 h-3 bg-indigo-500 rounded-full blur-[8px] opacity-40 animate-pulse" />
+                    <div className="absolute -left-6 top-6 w-3 h-3 bg-brand-bg rounded-full blur-[8px] opacity-40 animate-pulse" />
                   )}
                   <div className={cn(
                     "relative p-4 rounded-[20px] text-[13px] leading-relaxed shadow-sm transition-all group/message border",
@@ -754,7 +756,7 @@ export function FloatingChat({
                     {msg.role === 'assistant' && (
                       <button 
                         onClick={() => navigator.clipboard.writeText(msg.content)}
-                        className="absolute -right-2 -top-2 p-1.5 bg-white dark:bg-[#333] rounded-full opacity-0 group-hover/message:opacity-100 transition-all shadow-md border border-[#E9E9E7] dark:border-[#444] text-[#757681] hover:text-indigo-600 scale-90 hover:scale-100"
+                        className="absolute -right-2 -top-2 p-1.5 bg-white dark:bg-[#333] rounded-full opacity-0 group-hover/message:opacity-100 transition-all shadow-md border border-[#E9E9E7] dark:border-[#444] text-[#757681] hover:text-brand scale-90 hover:scale-100"
                         title="Copy message"
                       >
                         <Copy className="w-3 h-3" />
@@ -841,12 +843,12 @@ export function FloatingChat({
                     {msg.suggestedPost && (
                     <div 
                       onClick={() => onPreviewPost?.(msg.suggestedPost!)}
-                      className="mt-3 w-full max-w-[500px] bg-white dark:bg-[#202020] rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-indigo-500/50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] transition-all group/card flex flex-col"
+                      className="mt-3 w-full max-w-[500px] bg-white dark:bg-[#202020] rounded-[20px] border border-[#E9E9E7] dark:border-[#2E2E2E] overflow-hidden cursor-pointer hover:border-brand/50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] transition-all group/card flex flex-col"
                     >
                       <div className="px-4 py-3 border-b border-[#E9E9E7] dark:border-[#2E2E2E] bg-slate-50/50 dark:bg-[#1A1A1A]/50 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center border border-indigo-100 dark:border-indigo-500/20">
-                            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                          <div className="w-6 h-6 rounded-lg bg-brand-bg dark:bg-brand-bg flex items-center justify-center border border-brand-border dark:border-brand-border">
+                            <Sparkles className="w-3.5 h-3.5 text-brand" />
                           </div>
                           <span className="text-[10px] font-black uppercase tracking-widest text-[#757681] dark:text-[#9B9A97]">AI Draft</span>
                         </div>
@@ -864,7 +866,7 @@ export function FloatingChat({
                               <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#333] text-[9px] font-bold text-[#37352F] dark:text-[#EBE9ED] uppercase tracking-wider">{msg.suggestedPost.outlet}</span>
                             )}
                             {msg.suggestedPost.hashtags && (
-                              <span className="text-[10px] text-indigo-500 font-medium truncate">{msg.suggestedPost.hashtags}</span>
+                              <span className="text-[10px] text-brand font-medium truncate">{msg.suggestedPost.hashtags}</span>
                             )}
                           </div>
                         )}
@@ -886,10 +888,10 @@ export function FloatingChat({
                   {msg.suggestedPosts && msg.suggestedPosts.length > 0 && (
                     <div className="mt-4 w-full space-y-3 bg-white/50 dark:bg-black/10 p-3 rounded-[24px] border border-[#E9E9E7] dark:border-[#2E2E2E]">
                       <div className="flex items-center justify-between px-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-indigo-500" /> Suggested Batch ({msg.suggestedPosts.length})</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#37352F] dark:text-[#EBE9ED] flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-brand" /> Suggested Batch ({msg.suggestedPosts.length})</span>
                         <button 
                           onClick={() => applyBatchSuggestions(msg.suggestedPosts!)}
-                          className="text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500 dark:hover:text-white px-2 py-1 rounded border border-indigo-100 dark:border-indigo-500/20 transition-all flex items-center gap-1"
+                          className="text-[9px] font-black uppercase tracking-widest bg-brand-bg text-brand hover:bg-brand hover:text-white dark:bg-brand-bg dark:text-brand dark:hover:bg-brand-hover dark:hover:text-white px-2 py-1 rounded border border-brand-border dark:border-brand-border transition-all flex items-center gap-1"
                         >
                           <Check className="w-2.5 h-2.5" />
                           Approve All
@@ -900,10 +902,10 @@ export function FloatingChat({
                           <div 
                             key={idx}
                             onClick={() => onPreviewPost?.(post)}
-                            className="bg-white dark:bg-[#202020] rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] p-4 cursor-pointer hover:border-indigo-500/40 hover:shadow-md transition-all group/item"
+                            className="bg-white dark:bg-[#202020] rounded-[16px] border border-[#E9E9E7] dark:border-[#2E2E2E] p-4 cursor-pointer hover:border-brand-border hover:shadow-md transition-all group/item"
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-900/40 uppercase tracking-widest">{post.date}</span>
+                              <span className="text-[9px] font-black text-brand bg-brand-bg px-2 py-0.5 rounded border border-brand-border uppercase tracking-widest">{post.date}</span>
                               <span className="text-[9px] font-bold text-[#757681] dark:text-[#9B9A97] tracking-wider uppercase">{post.type}</span>
                             </div>
                             <p className="text-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] truncate">{post.title}</p>
@@ -916,7 +918,7 @@ export function FloatingChat({
                 </div>
               ))}
               {isTyping && (
-                <div className="flex items-center gap-2 text-indigo-500 dark:text-indigo-400 animate-pulse">
+                <div className="flex items-center gap-2 text-brand dark:text-brand animate-pulse">
                   <div className="flex gap-1">
                     <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                     <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -946,7 +948,7 @@ export function FloatingChat({
                       <button
                         key={i}
                         onClick={() => setInput(pill)}
-                        className="px-4 py-2 bg-white/80 dark:bg-white/5 backdrop-blur-md border border-black/5 dark:border-white/10 rounded-full text-[11px] text-[#444746] dark:text-[#E3E3E3] hover:bg-indigo-50 dark:hover:bg-indigo-500/20 hover:border-indigo-200 dark:hover:border-indigo-500/30 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all font-bold shadow-sm"
+                        className="px-4 py-2 bg-white/80 dark:bg-white/5 backdrop-blur-md border border-black/5 dark:border-white/10 rounded-full text-[11px] text-[#444746] dark:text-[#E3E3E3] hover:bg-brand-bg dark:hover:bg-brand-bg hover:border-brand-border hover:text-brand transition-all font-bold shadow-sm"
                       >
                         {pill}
                       </button>
@@ -967,7 +969,7 @@ export function FloatingChat({
                         "rounded-[8px] font-bold capitalize transition-all duration-300 text-[11px]",
                         isFullPage ? "px-4 py-2 bg-transparent border dark:border-[#444] border-[#E9E9E7]" : "px-3 py-1.5",
                         activeStrategy === mode 
-                          ? (isFullPage ? "bg-[#D3E3FD] dark:bg-indigo-500/20 text-[#041E49] dark:text-indigo-400 border-indigo-500/30 shadow-sm" : "bg-white dark:bg-[#2C2C2C] text-[#37352F] dark:text-[#EBE9ED] shadow-sm border border-[#E9E9E7] dark:border-[#3E3E3E]")
+                          ? (isFullPage ? "bg-[#D3E3FD] dark:bg-brand-bg text-[#041E49] dark:text-brand border-brand-border shadow-sm" : "bg-white dark:bg-[#2C2C2C] text-[#37352F] dark:text-[#EBE9ED] shadow-sm border border-[#E9E9E7] dark:border-[#3E3E3E]")
                           : "text-[#757681] dark:text-[#9B9A97] hover:text-[#37352F] dark:hover:text-[#EBE9ED] hover:bg-black/5 dark:hover:bg-white/5"
                       )}
                     >
@@ -983,17 +985,17 @@ export function FloatingChat({
                 {(attachedItem || attachedImages.length > 0) && (
                 <div className="mb-3 p-3 rounded-2xl bg-white/90 dark:bg-[#252525]/90 border border-[#E9E9E7] dark:border-[#333] shadow-sm">
                   {attachedImages.length > 0 && (
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2 flex items-center gap-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-brand dark:text-brand mb-2 flex items-center gap-1.5">
                       <ImagePlus className="w-3.5 h-3.5" />
                       {attachedImages.length} image{attachedImages.length === 1 ? '' : 's'} — vision analysis when cloud keys are set
                     </p>
                   )}
                 <div className="flex flex-wrap gap-2">
                   {attachedItem && (
-                    <div className="px-3 py-2 bg-white dark:bg-[#252525] rounded-xl border border-[#E9E9E7] dark:border-[#333] flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300 w-full shadow-sm hover:border-indigo-500/30 transition-colors group">
+                    <div className="px-3 py-2 bg-white dark:bg-[#252525] rounded-xl border border-[#E9E9E7] dark:border-[#333] flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300 w-full shadow-sm hover:border-brand-border transition-colors group">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-                          <Paperclip className="w-3.5 h-3.5 text-indigo-500" />
+                        <div className="w-6 h-6 rounded bg-brand-bg dark:bg-brand-bg flex items-center justify-center">
+                          <Paperclip className="w-3.5 h-3.5 text-brand" />
                         </div>
                         <span className="text-xs font-bold text-[#37352F] dark:text-[#EBE9ED] truncate max-w-[200px]">
                           {attachedItem.type === 'post' ? attachedItem.post.title : 
@@ -1024,7 +1026,7 @@ export function FloatingChat({
                 </div>
               )}
               
-              <div className="relative flex items-end gap-2 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px] shadow-lg shadow-black/5 focus-within:ring-4 focus-within:ring-indigo-500/15 focus-within:border-indigo-500/40 transition-all p-2">
+              <div className="relative flex items-end gap-2 bg-white dark:bg-[#1A1A1A] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[24px] shadow-lg shadow-black/5 focus-within:ring-4 focus-within:ring-brand/15 focus-within:border-brand-border transition-all p-2">
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -1038,8 +1040,8 @@ export function FloatingChat({
                   className={cn(
                     'p-2.5 mb-0.5 rounded-[14px] transition-all shrink-0',
                     attachedImages.length > 0
-                      ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-500/15'
-                      : 'text-[#757681] dark:text-[#9B9A97] hover:text-indigo-600 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E]'
+                      ? 'text-brand bg-brand-bg dark:bg-brand-bg/15'
+                      : 'text-[#757681] dark:text-[#9B9A97] hover:text-brand hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E]'
                   )}
                   title="Attach images for vision analysis"
                 >
@@ -1048,7 +1050,7 @@ export function FloatingChat({
                 {attachedItem && (
                   <button
                     type="button"
-                    className="p-2.5 mb-0.5 text-[#757681] hover:text-indigo-600 rounded-[14px] shrink-0"
+                    className="p-2.5 mb-0.5 text-[#757681] hover:text-brand rounded-[14px] shrink-0"
                     title="Attached item"
                   >
                     <Paperclip className="w-4 h-4" />
@@ -1084,7 +1086,7 @@ export function FloatingChat({
                   className={cn(
                     "p-3 mb-0.5 rounded-[14px] transition-all shrink-0 flex items-center justify-center",
                     input.trim() || attachedItem || attachedImages.length > 0
-                      ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20 active:scale-95"
+                      ? "bg-brand hover:bg-brand-hover text-white shadow-md shadow-brand/20 active:scale-95"
                       : "bg-[#E9E9E7] dark:bg-[#2E2E2E] text-[#A0A0A0] dark:text-[#666]"
                   )}
                 >
@@ -1108,10 +1110,14 @@ export function FloatingChat({
 
       {/* Floating Button */}
       {!isFullPage && (
-        <div className="relative pointer-events-auto hidden md:block">
+        <div className="relative pointer-events-auto">
           <button 
             ref={setButtonRef}
             onClick={() => {
+              if (window.innerWidth < 768 && onFullScreen) {
+                onFullScreen();
+                return;
+              }
               if (isOpen && !isMinimized) {
                 setIsOpen(false);
               } else {
@@ -1119,39 +1125,32 @@ export function FloatingChat({
                 setIsMinimized(false);
               }
             }}
+            aria-label={chatTitle}
             className={cn(
-              "w-14 h-14 rounded-full flex items-center justify-center transition-all duration-500 group relative overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] border border-white/20 dark:border-white/10",
-              isButtonOver 
-                ? "bg-[#37352F] dark:bg-white scale-110" 
-                : "bg-gradient-to-br from-[#111] to-[#333] dark:from-white dark:to-[#E9E9E7] hover:scale-105",
-              isOpen && !isMinimized ? "rotate-90 bg-[#F7F7F5] dark:bg-[#333] text-[#757681]" : ""
+              "w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 group relative overflow-hidden",
+              isOpen && !isMinimized
+                ? "forge-chat-fab-open rotate-90"
+                : "forge-chat-fab hover:scale-105",
+              isButtonOver && "scale-110"
             )}
           >
-            {/* Animated Glow */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-            
             {isOpen && !isMinimized ? (
-              <X className="w-5 h-5 text-[#757681] dark:text-white relative z-10" />
+              <X className="w-5 h-5 relative z-10" />
             ) : (
-              <div className="relative z-10">
-                <Sparkles className="w-5 h-5 text-white dark:text-[#111] animate-pulse" />
-              </div>
+              <Sparkles className="w-5 h-5 relative z-10 animate-pulse" />
             )}
             
-            {/* Pulse effect when item is over */}
             {isOver && (
               <div className="absolute inset-0 bg-white/20 animate-ping rounded-full"></div>
             )}
             
-            {/* Tooltip */}
             {!isOpen && (
-              <div className="absolute right-full mr-4 px-3 py-1.5 bg-[#1A1A1A] text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 whitespace-nowrap pointer-events-none shadow-xl border border-white/10">
-                AI Assistant
+              <div className="absolute right-full mr-4 px-3 py-1.5 bg-[#1A1A1A] text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 whitespace-nowrap pointer-events-none shadow-xl border border-white/10 hidden md:block">
+                {chatTitle}
               </div>
             )}
           </button>
   
-          {/* Minimized indicator */}
           {isOpen && isMinimized && (
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white dark:border-[#191919] rounded-full animate-pulse"></div>
           )}

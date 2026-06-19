@@ -142,7 +142,7 @@ const BentoCard = ({
     <motion.div 
       layout="position"
       className={cn(
-        "bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] overflow-hidden flex flex-col h-full",
+        "forge-bento-card bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] overflow-hidden flex flex-col h-full",
         isExpanded && !isDesktop ? "border-brand dark:border-brand" : "hover:border-[#D9D9D7] dark:hover:border-[#3E3E3E] transition-colors"
       )}
     >
@@ -155,8 +155,8 @@ const BentoCard = ({
             {customIcon ? customIcon : <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
           </div>
           <div>
-            <h3 className="font-bold text-[#37352F] dark:text-[#EBE9ED] text-base sm:text-lg group-hover:text-brand transition-colors">{title}</h3>
-            <p className="text-xs sm:text-sm text-[#757681] dark:text-[#9B9A97]">{subtitle}</p>
+            <h3 className="forge-bento-title font-bold text-main-safe text-base sm:text-lg group-hover:text-brand transition-colors">{title}</h3>
+            <p className="forge-bento-subtitle text-xs sm:text-sm text-secondary-safe">{subtitle}</p>
           </div>
         </div>
         {!isDesktop && (
@@ -1024,14 +1024,14 @@ export function SettingsView({
           onToggle={toggleExpand}
         >
           <div className="space-y-6 pt-4">
-            <div className="flex items-center justify-between p-4 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px]">
+            <div className="flex items-center justify-between p-4 border border-surface rounded-[16px] bg-surface-main">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-[12px] flex items-center justify-center text-gray-600 dark:text-gray-400">
                   <Moon className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Dark Mode</h3>
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Toggle dark mode</p>
+                  <h3 className="font-bold text-sm text-main-safe">Dark Mode</h3>
+                  <p className="text-xs text-secondary-safe">Toggle dark mode</p>
                 </div>
               </div>
               <button
@@ -1049,7 +1049,7 @@ export function SettingsView({
             </div>
 
             {/* Unified Theme & Customization */}
-            <div className="p-4 sm:p-5 border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[16px] space-y-6 bg-white dark:bg-[#191919]">
+            <div className="p-4 sm:p-5 border border-surface rounded-[16px] space-y-6 bg-surface-main forge-setting-shell">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-[12px] flex items-center justify-center text-pink-600 dark:text-pink-400">
                   <Palette className="w-5 h-5" />
@@ -2628,17 +2628,17 @@ export function SettingsView({
               </div>
             </div>
             
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-[16px] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-[12px] flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="setting-row">
+              <div className="setting-row-label">
+                <div className="setting-row-icon">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-blue-700 dark:text-blue-300">AI coach</h3>
-                  <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70">Optional daily summary from calendar stats (Insights tab)</p>
+                  <h3 className="text-sm font-bold text-main-safe">AI coach</h3>
+                  <p className="text-[10px] text-secondary-safe">Optional daily summary from calendar stats (Insights tab)</p>
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
                 <input 
                   type="checkbox" 
                   className="sr-only peer" 

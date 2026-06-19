@@ -3730,6 +3730,7 @@ export default function App() {
                       isFullPage={activeTab === 'chat'}
                       onClose={() => setActiveTab('schedule')}
                       onFullScreen={() => setActiveTab('chat')}
+                      chatTitle={industryConfig.terminology.chat}
                     />
                     </React.Suspense>
                   )}
@@ -3744,7 +3745,7 @@ export default function App() {
                   <nav className="flex-1 flex flex-row justify-between w-full h-[72px] items-stretch" aria-label="Primary mobile navigation">
                     {[
                       { id: 'schedule', icon: CalendarIcon, title: 'Calendar' },
-                      { id: 'chat', icon: MessageSquare, title: 'Chat' },
+                      { id: 'chat', icon: MessageSquare, title: industryConfig.terminology.chat },
                       { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
                       { id: 'more', icon: Menu, title: 'More' }
                     ].map(tab => {
