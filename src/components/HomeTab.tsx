@@ -31,6 +31,14 @@ import { User } from 'firebase/auth';
 import { subscribeToInventory } from '../lib/supabase';
 import { inventoryToHighStock } from '../lib/catalogueSupabase';
 
+function getGreetingName(user: User | null | undefined, activeBusiness: Business | null): string {
+  const fromProfile = user?.displayName?.trim();
+  if (fromProfile) return fromProfile.split(/\s+/)[0];
+  const fromBusiness = activeBusiness?.name?.trim();
+  if (fromBusiness) return fromBusiness.split(/\s+/)[0];
+  return 'there';
+}
+
 interface HomeTabProps {
   posts: Post[];
   activeBusiness: Business | null;
@@ -128,9 +136,9 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
 
   useEffect(() => {
     const fetchGreeting = async () => {
-      const userName = user?.displayName || 'User';
+      const userName = getGreetingName(user, activeBusiness);
       const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const cacheKey = `daily_greetings_${userName}`;
+      const cacheKey = `daily_greetings_v2_${user?.uid || 'anon'}_${activeBusiness?.id || 'default'}`;
       const cached = localStorage.getItem(cacheKey);
       
       const hour = new Date().getHours();
@@ -165,7 +173,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
     };
 
     fetchGreeting();
-  }, [user?.displayName]);
+  }, [user?.uid, user?.displayName, activeBusiness?.id, activeBusiness?.name]);
 
   useEffect(() => {
     loadRecommendedIdea(false);
@@ -236,7 +244,7 @@ export function HomeTab({ posts, activeBusiness, setActiveTab, onAddPost, isAdmi
           className="flex flex-col gap-1"
         >
           <h2 className="text-2xl sm:text-3xl font-black text-[#37352F] dark:text-[#EBE9ED] tracking-tight leading-tight">
-            {greeting || `Welcome back, ${user?.displayName || 'User'}`}
+            {greeting || `Welcome back, ${getGreetingName(user, activeBusiness)}`}
           </h2>
           <p className="text-sm sm:text-base text-secondary-safe">
             {activeBusiness ? `Managing workspace: ${activeBusiness.name}` : "Here's what's happening with your brand today."}

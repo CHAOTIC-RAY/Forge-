@@ -2963,9 +2963,9 @@ export default function App() {
 
       await upsertBrandKit(newBiz.id, {
         brand_colors: {
-          primary: (data as { brandColors?: { primary?: string } }).brandColors?.primary || '#3b82f6',
-          secondary: (data as { brandColors?: { secondary?: string } }).brandColors?.secondary || '#1e293b',
-          accent: (data as { brandColors?: { accent?: string } }).brandColors?.accent || '#f59e0b',
+          primary: (data as { brandColors?: { primary?: string } }).brandColors?.primary || '#2665fd',
+          secondary: (data as { brandColors?: { secondary?: string } }).brandColors?.secondary || '#0f172a',
+          accent: (data as { brandColors?: { accent?: string } }).brandColors?.accent || '#60a5fa',
         },
         ai_generated_guide: `Brand Voice: Professional and engaging.\nIndustry: ${data.industry}.\nDescription: ${data.description}.`,
       });

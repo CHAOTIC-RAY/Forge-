@@ -44,9 +44,9 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
     description: '',
     outletNames: '',
     brandColors: {
-      primary: '#3b82f6',
-      secondary: '#1e293b',
-      accent: '#f59e0b',
+      primary: '#2665fd',
+      secondary: '#0f172a',
+      accent: '#60a5fa',
     },
     targetUrl: '',
     theme: 'system',
@@ -195,7 +195,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
                     />
                     <input
                       type="text"
-                      placeholder="e.g. Rainbow Enterprises"
+                      placeholder="e.g. Atlas & Ember Co."
                       value={formData.name}
                       onChange={(e) =>
                         setFormData({
@@ -220,7 +220,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
                     />
                     <input
                       type="text"
-                      placeholder="e.g. Rainbow Living Mall, Rainbow Office System"
+                      placeholder="e.g. Riverside Gallery, Old Town Workshop"
                       value={formData.outletNames}
                       onChange={(e) =>
                         setFormData({ ...formData, outletNames: e.target.value })
@@ -258,7 +258,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Marketing Manager"
+                      placeholder="e.g. Creative Director"
                       className="w-full px-4 py-3.5 rounded-2xl border-2 border-slate-100 dark:border-[#2E2E2E] bg-white dark:bg-[#1A1A1A] focus:border-brand outline-none text-slate-900 dark:text-white"
                     />
                   </div>
@@ -269,7 +269,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
                     Short description
                   </label>
                   <textarea
-                    placeholder="What does your business do?"
+                    placeholder="e.g. Curated home goods and small-batch ceramics for modern spaces."
                     rows={3}
                     value={formData.description}
                     onChange={(e) =>
@@ -301,7 +301,7 @@ export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProp
                       />
                       <input
                         type="url"
-                        placeholder="https://your-store.com"
+                        placeholder="https://atlasandember.com"
                         value={formData.targetUrl}
                         onChange={(e) =>
                           setFormData({ ...formData, targetUrl: e.target.value })

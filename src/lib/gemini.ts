@@ -3640,26 +3640,32 @@ export async function generateHashtagSuggestions(content: string, business?: Bus
 }
 
 export async function generateGreeting(userName: string, timeOfDay: string): Promise<string> {
-  const prompt = `Generate a highly creative, unique, and energetic greeting for a user named "${userName}". 
-  The current time of day is "${timeOfDay}". 
-  CRITICAL: DO NOT use standard phrases like "Good morning", "Good afternoon", "Good evening", or "Hello". 
-  Be imaginative, inspiring, or slightly playful. Keep it under 12 words. Do not include quotes.`;
+  const firstName = userName.trim().split(/\s+/)[0] || 'there';
+  const prompt = `Generate a short, creative greeting for someone whose first name is "${firstName}".
+  The current time of day is "${timeOfDay}".
+  CRITICAL RULES:
+  - Use their first name exactly as written — do NOT invent nicknames, pet names, or playful substitutions.
+  - DO NOT use standard phrases like "Good morning", "Good afternoon", "Good evening", or "Hello".
+  - Keep it under 12 words. Do not include quotes.`;
 
   try {
     const text = await generateAppText(`${prompt}\n\nReturn ONLY the greeting text.`);
-    return text.replace(/["']/g, '').trim() || `Ready to conquer the ${timeOfDay}, ${userName}?`;
+    return text.replace(/["']/g, '').trim() || `Ready to create, ${firstName}.`;
   } catch (error) {
     console.error("Failed to generate greeting:", error);
-    return `Ready to conquer the ${timeOfDay}, ${userName}?`;
+    return `Ready to create, ${firstName}.`;
   }
 }
 
 export async function generateDailyGreetings(userName: string): Promise<{ morning: string, evening: string, night: string, midnight: string }> {
-  const prompt = `Generate 4 unique, creative, and energetic greetings for a user named "${userName}".
+  const firstName = userName.trim().split(/\s+/)[0] || 'there';
+  const prompt = `Generate 4 unique, creative greetings for someone whose first name is "${firstName}".
   One for each time of day: morning, evening, night, and midnight.
   
-  CRITICAL: DO NOT use standard phrases like "Good morning", "Good evening", etc.
-  Be imaginative, inspiring, or slightly playful. Keep each under 12 words.
+  CRITICAL RULES:
+  - Use their first name exactly as written — do NOT invent nicknames, pet names, or playful substitutions.
+  - DO NOT use standard phrases like "Good morning", "Good evening", etc.
+  - Keep each under 12 words.
   
   Return ONLY a valid JSON object with keys: morning, evening, night, midnight.`;
 
@@ -3670,10 +3676,10 @@ export async function generateDailyGreetings(userName: string): Promise<{ mornin
   } catch (error) {
     console.error("Failed to generate daily greetings:", error);
     return {
-      morning: `Rise and shine, ${userName}! Let's make today legendary.`,
-      evening: `The sun sets, but your momentum doesn't, ${userName}.`,
-      night: `Stars are out, and so is your brilliance, ${userName}.`,
-      midnight: `Burning the midnight oil? You're a force of nature, ${userName}.`
+      morning: `Ready to create, ${firstName}.`,
+      evening: `Keep the momentum going, ${firstName}.`,
+      night: `Still at it, ${firstName}? You've got this.`,
+      midnight: `Late session, ${firstName} — make it count.`
     };
   }
 }
