@@ -1,4 +1,5 @@
 import type { Post } from '../data';
+import { firestoreEntityId } from './firestoreMigrateIds';
 
 export type SupabasePostRow = Record<string, unknown>;
 
@@ -44,7 +45,9 @@ export function postToDbRow(
     postcard_data: post.postcardData ?? null,
     is_hidden_for_others: post.isHiddenForOthers ?? false,
   };
-  if (post.id) row.id = post.id;
+  if (post.id) {
+    row.id = firestoreEntityId('post', post.id) || post.id;
+  }
   return row;
 }
 

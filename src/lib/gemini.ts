@@ -64,7 +64,11 @@ export const fetchServerConfig = async () => {
 
     const data = await response.json();
     if (data && typeof data === 'object') {
-      serverConfig = data;
+      serverConfig = {
+        hasGeminiApiKey: Boolean(data.hasGeminiApiKey ?? data.geminiApiKey),
+        hasGroqApiKey: Boolean(data.hasGroqApiKey ?? data.groqApiKey),
+        cloudinaryCloudName: data.cloudinaryCloudName ?? null,
+      };
       console.log('[AI Config] Server configuration loaded successfully.');
     }
   } catch (error) {
@@ -123,7 +127,10 @@ const getVertexModel = (modelName: string) => {
   return getGenerativeModel(vertexAI, { model: modelName });
 };
 
-const GROQ_API_KEY = (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) || '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';
+const GROQ_API_KEY =
+  (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) ||
+  (import.meta.env && (import.meta.env as { VITE_GROQ_API_KEY?: string }).VITE_GROQ_API_KEY) ||
+  '';
 
 export const GEMINI_MODELS = [
   { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Fastest)' },
@@ -938,12 +945,17 @@ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType
 
   const settings = getAiSettings();
 
-  if (!settings.groqApiKey && !serverConfig?.hasGroqApiKey && !GROQ_API_KEY) {
+  if (!settings.groqApiKey && !serverConfig?.hasGroqApiKey) {
     await fetchServerConfig();
   }
 
-  const apiKey = settings.groqApiKey || GROQ_API_KEY;
-  const useProxy = !settings.groqApiKey && serverConfig?.hasGroqApiKey;
+  const userKey = settings.groqApiKey?.trim();
+  const canUseServerProxy = !userKey && !!serverConfig?.hasGroqApiKey;
+  const canUseUserKey = !!userKey;
+
+  if (!canUseUserKey && !canUseServerProxy) {
+    throw new Error('Groq API key is not configured. Add one in Settings or set GROQ_API_KEY on the server.');
+  }
 
   const messages: any[] = [];
 
@@ -973,8 +985,10 @@ async function fetchFromGroq(prompt: string, images?: { base64: string, mimeType
     model,
     messages,
     temperature: 0.7,
-    apiKey // Pass key to proxy
   };
+  if (canUseUserKey) {
+    body.apiKey = userKey;
+  }
 
   if (isJsonExpected) {
     body.response_format = { type: 'json_object' };
@@ -2419,12 +2433,19 @@ Generate 10 ideas for ${business?.industry || 'this domain'}.<|end_of_turn|><|st
     });
     return JSON.parse(response.text || '[]');
   } catch (error) {
-    console.warn("Gemini failed, falling back to Groq:", error);
-    const groqResponse = await fetchFromGroq(
-      promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}"
-    );
-    const parsed = JSON.parse(groqResponse || '{}');
-    return parsed.posts || parsed || [];
+    console.warn('Gemini failed for task ideas:', error);
+    if (!isGroqDisabledForSession && (settings.groqApiKey || serverConfig?.hasGroqApiKey)) {
+      try {
+        const groqResponse = await fetchFromGroq(
+          promptText + " You MUST return ONLY a valid JSON object with a 'posts' array containing the 10 objects. Example: {\"posts\": [...]}"
+        );
+        const parsed = JSON.parse(groqResponse || '{}');
+        return parsed.posts || parsed || [];
+      } catch (groqError) {
+        console.warn('Groq fallback for task ideas also failed:', groqError);
+      }
+    }
+    throw error;
   }
 }
 

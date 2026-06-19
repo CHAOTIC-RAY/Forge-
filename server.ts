@@ -123,8 +123,8 @@ export async function startServer(forcePort?: number) {
     }
     try {
       const config = {
-        geminiApiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || null,
-        groqApiKey: process.env.GROQ_API_KEY || null,
+        hasGeminiApiKey: !!(process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY),
+        hasGroqApiKey: !!process.env.GROQ_API_KEY,
         cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
       };
       console.log("[Server] Returning config (keys hidden)");
@@ -132,6 +132,34 @@ export async function startServer(forcePort?: number) {
     } catch (error: any) {
       console.error("[Server] Error in /api/config:", error);
       res.status(500).json({ error: "Internal Server Error", details: error.message });
+    }
+  });
+
+  app.post("/api/groq", async (req, res) => {
+    try {
+      const payload = { ...(req.body || {}) } as Record<string, unknown>;
+      const clientKey = typeof payload.apiKey === 'string' ? payload.apiKey.trim() : '';
+      delete payload.apiKey;
+
+      const apiKey = clientKey || process.env.GROQ_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: 'Groq API key is not configured on the server' });
+      }
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const body = await response.text();
+      res.status(response.status).type('application/json').send(body);
+    } catch (error: any) {
+      console.error('[Server] /api/groq error:', error);
+      res.status(500).json({ error: error.message || 'Groq proxy failed' });
     }
   });
 

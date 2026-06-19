@@ -71,6 +71,7 @@ import {
   upsertBrandKit,
 } from './lib/supabase';
 import { syncCatalogueProducts, saveCategoryCounts } from './lib/catalogueSupabase';
+import { firestoreEntityId } from './lib/firestoreMigrateIds';
 import { uploadBase64Image, deleteAppStorageFile } from './lib/storage';
 import { useAppStore } from './store';
 import { signInWithPopup, getRedirectResult, signOut } from 'firebase/auth';
@@ -2602,7 +2603,7 @@ export default function App() {
               const processedPosts: Post[] = [];
               for (let index = 0; index < data.posts.length; index++) {
                 const post = data.posts[index];
-                const postId = post.id || uuidv4();
+                const postId = firestoreEntityId('post', post.id) || uuidv4();
                 addSyncLog(`Processing post ${index + 1}/${data.posts.length}: ${post.title || 'Untitled'}`, 'info');
 
                 const imageUrls: string[] = [];

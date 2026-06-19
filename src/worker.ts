@@ -229,19 +229,35 @@ export default {
 
       // Proxy for Groq API
       if (path === '/api/groq' && request.method === 'POST') {
-        const apiKey = env.GROQ_API_KEY;
+        let payload: Record<string, unknown>;
+        try {
+          payload = (await request.json()) as Record<string, unknown>;
+        } catch {
+          return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+
+        const clientKey = typeof payload.apiKey === 'string' ? payload.apiKey.trim() : '';
+        delete payload.apiKey;
+
+        const apiKey = clientKey || env.GROQ_API_KEY;
         if (!apiKey) {
-          return new Response(JSON.stringify({ error: "Groq API key is not configured on the server" }), { status: 500 });
+          return new Response(JSON.stringify({ error: 'Groq API key is not configured on the server' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
         }
 
         const proxyReq = new Request('https://api.groq.com/openai/v1/chat/completions', {
-          method: request.method,
-          headers: request.headers,
-          body: request.body
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(payload),
         });
-        
-        proxyReq.headers.set('Authorization', `Bearer ${apiKey}`);
-        proxyReq.headers.delete('host');
 
         const response = await fetch(proxyReq);
         const newResponse = new Response(response.body, response);
