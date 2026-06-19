@@ -554,6 +554,10 @@ export function SettingsView({
     toast.success(`Theme preset updated to ${preset}!`);
   };
 
+  const previewTheme = (config: ThemeConfig) => {
+    applyThemeConfig(config, { isDarkMode });
+  };
+
   const BASE_THEME_PRESETS = [
     { id: 'default', name: 'Notion Minimal', colors: ['#FFFFFF', '#37352F'], description: 'Clean, focused, and professional.' },
     { id: 'midnight', name: 'Midnight Forge', colors: ['#0F172A', '#38BDF8'], description: 'Deep blues and vibrant highlights.' },
@@ -603,7 +607,7 @@ export function SettingsView({
     const cp = customPresets.find(p => p.id === presetId);
     if (cp) {
       setCustomTheme(cp.config);
-      applyThemeConfig(cp.config);
+      applyThemeConfig(cp.config, { isDarkMode });
       saveThemeConfig(cp.config);
       toast.success(`Applied "${cp.name}"`);
     } else {
@@ -644,12 +648,16 @@ export function SettingsView({
     const next: ThemeConfig = { ...customTheme, ...preset.config };
     // Keep light/dark mode in sync with the preset so a light theme never
     // renders on top of dark mode (and vice-versa).
+    let targetDarkMode = isDarkMode;
     if (preset.mode && toggleDarkMode) {
       const currentMode = isDarkMode ? 'dark' : 'light';
-      if (preset.mode !== currentMode) toggleDarkMode();
+      if (preset.mode !== currentMode) {
+        toggleDarkMode();
+        targetDarkMode = preset.mode === 'dark';
+      }
     }
     setCustomTheme(next);
-    applyThemeConfig(next);
+    applyThemeConfig(next, { isDarkMode: targetDarkMode });
     saveThemeConfig(next);
     setActivePresetId(preset.id);
     localStorage.setItem('forge_active_preset', preset.id);
@@ -1018,8 +1026,8 @@ export function SettingsView({
           title="Appearance & Theme"
           subtitle="Customize your workspace"
           icon={Palette}
-          iconBg="bg-pink-100 dark:bg-pink-900/30"
-          iconColor="text-pink-600 dark:text-pink-400"
+          iconBg="bg-brand/10"
+          iconColor="text-brand"
           expandedId={expandedId}
           onToggle={toggleExpand}
         >
@@ -1051,12 +1059,12 @@ export function SettingsView({
             {/* Unified Theme & Customization */}
             <div className="p-4 sm:p-5 border border-surface rounded-[16px] space-y-6 bg-surface-main forge-setting-shell">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-[12px] flex items-center justify-center text-pink-600 dark:text-pink-400">
+                <div className="w-10 h-10 bg-brand/10 rounded-[12px] flex items-center justify-center text-brand">
                   <Palette className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-[#37352F] dark:text-[#EBE9ED]">Theme &amp; Customization</h3>
-                  <p className="text-xs text-[#757681] dark:text-[#9B9A97]">Pick a preset or fine-tune every detail — changes preview live.</p>
+                  <h3 className="font-bold text-sm text-main-safe">Theme &amp; Customization</h3>
+                  <p className="text-xs text-secondary-safe">Pick a preset or fine-tune every detail — changes preview live.</p>
                 </div>
               </div>
 
@@ -1163,7 +1171,7 @@ export function SettingsView({
                           onChange={e => {
                             const next = { ...customTheme, [key]: e.target.value };
                             setCustomTheme(next);
-                            applyThemeConfig(next); // live preview
+                            previewTheme(next); // live preview
                           }}
                           className="w-7 h-7 rounded-lg border border-[#E9E9E7] dark:border-[#2E2E2E] cursor-pointer bg-transparent p-0.5 shrink-0"
                         />
@@ -1183,7 +1191,7 @@ export function SettingsView({
                     onChange={e => {
                       const next = { ...customTheme, fontFamily: e.target.value };
                       setCustomTheme(next);
-                      applyThemeConfig(next); // live preview
+                      previewTheme(next); // live preview
                     }}
                     className="w-full px-3 py-2 rounded-[10px] border border-[#E9E9E7] dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-xs text-[#37352F] dark:text-[#EBE9ED] focus:outline-none focus:ring-2 focus:ring-brand/30"
                   >
@@ -1203,7 +1211,7 @@ export function SettingsView({
                         onClick={() => {
                           const next = { ...customTheme, borderRadius: r };
                           setCustomTheme(next);
-                          applyThemeConfig(next); // live preview
+                          previewTheme(next); // live preview
                         }}
                         className={cn(
                           'flex-1 py-1.5 text-[10px] font-bold capitalize border transition-all',
@@ -1229,7 +1237,7 @@ export function SettingsView({
                         onClick={() => {
                           const next = { ...customTheme, glassIntensity: g };
                           setCustomTheme(next);
-                          applyThemeConfig(next); // live preview
+                          previewTheme(next); // live preview
                         }}
                         className={cn(
                           'flex-1 py-1.5 text-[10px] font-bold capitalize rounded-lg border transition-all',
@@ -1261,7 +1269,7 @@ export function SettingsView({
                           onClick={() => {
                             const next = { ...customTheme, sidebarStyle: opt.value };
                             setCustomTheme(next);
-                            applyThemeConfig(next);
+                            previewTheme(next);
                           }}
                           className={cn(
                             'p-2.5 rounded-[12px] border text-left transition-all flex items-center gap-2.5',
@@ -1318,7 +1326,7 @@ export function SettingsView({
                 <div className="flex flex-wrap gap-2 pt-1">
                   <button
                     onClick={() => {
-                      applyThemeConfig(customTheme);
+                      previewTheme(customTheme);
                       saveThemeConfig(customTheme);
                       toast.success('Custom theme applied & saved!');
                     }}
@@ -2589,8 +2597,8 @@ export function SettingsView({
           title="Analytics"
           subtitle="Optional profile links · insights use your calendar"
           icon={BarChart3}
-          iconBg="bg-pink-100 dark:bg-pink-900/30"
-          iconColor="text-pink-600 dark:text-pink-400"
+          iconBg="bg-brand/10"
+          iconColor="text-brand"
           expandedId={expandedId}
           onToggle={toggleExpand}
         >

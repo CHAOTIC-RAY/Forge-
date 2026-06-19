@@ -209,8 +209,73 @@ function rgbString(hex: string, alpha: number) {
   return `rgba(${c.r},${c.g},${c.b},${alpha})`;
 }
 
-export function applyThemeConfig(config: ThemeConfig): void {
+const RUNTIME_STYLE_IDS = [
+  'forge-font-override',
+  'forge-radius-override',
+  'forge-glass-override',
+  'forge-surface-override',
+] as const;
+
+const RUNTIME_CSS_VARS = [
+  '--brand-color',
+  '--brand-color-hover',
+  '--brand-color-bg',
+  '--brand-color-border',
+  '--brand-color-ring',
+  '--bg-main',
+  '--bg-secondary',
+  '--text-main',
+  '--text-secondary',
+  '--text-muted',
+  '--border-main',
+  '--forge-radius',
+  '--forge-glass-blur',
+  '--forge-glass-bg',
+  '--forge-glass-dark-bg',
+  '--forge-font-family',
+] as const;
+
+export type ApplyThemeOptions = {
+  isDarkMode?: boolean;
+};
+
+function relativeLuminance(hex: string): number | null {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+}
+
+function shouldApplySurfaceTokens(config: ThemeConfig, isDarkMode: boolean): boolean {
+  const hasCustomSurfaces = Boolean(
+    config.canvasBackground || config.panelBackground || config.textPrimary || config.textSecondary
+  );
+  if (!hasCustomSurfaces) return false;
+  if (!isDarkMode) return true;
+  if (!config.canvasBackground) return false;
+  const luminance = relativeLuminance(config.canvasBackground);
+  return luminance !== null && luminance < 0.45;
+}
+
+function clearRuntimeThemeOverrides(root: HTMLElement): void {
+  RUNTIME_CSS_VARS.forEach((v) => root.style.removeProperty(v));
+  RUNTIME_STYLE_IDS.forEach((id) => document.getElementById(id)?.remove());
+}
+
+/** Reset DOM theme state for landing/login without clearing saved user preferences. */
+export function applyPublicTheme(): void {
   const root = document.documentElement;
+  root.classList.remove('dark');
+  root.setAttribute('data-theme', 'default');
+  root.removeAttribute('data-sidebar-style');
+  root.removeAttribute('data-forge-themed');
+  clearRuntimeThemeOverrides(root);
+}
+
+export function applyThemeConfig(config: ThemeConfig, options: ApplyThemeOptions = {}): void {
+  const root = document.documentElement;
+  const isDarkMode =
+    options.isDarkMode ?? root.classList.contains('dark');
+  const applySurfaces = shouldApplySurfaceTokens(config, isDarkMode);
 
   if (config.accentColor) {
     root.style.setProperty('--brand-color', config.accentColor);
@@ -220,21 +285,32 @@ export function applyThemeConfig(config: ThemeConfig): void {
     root.style.setProperty('--brand-color-ring', rgbString(config.accentColor, 0.4));
   }
 
-  if (config.canvasBackground) {
-    root.style.setProperty('--bg-main', config.canvasBackground);
+  if (applySurfaces) {
+    if (config.canvasBackground) {
+      root.style.setProperty('--bg-main', config.canvasBackground);
+    }
+    if (config.panelBackground) {
+      root.style.setProperty('--bg-secondary', config.panelBackground);
+    }
+    if (config.textPrimary) {
+      root.style.setProperty('--text-main', config.textPrimary);
+    }
+    if (config.textSecondary) {
+      root.style.setProperty('--text-secondary', config.textSecondary);
+      root.style.setProperty('--text-muted', config.textSecondary);
+    }
+  } else {
+    root.style.removeProperty('--bg-main');
+    root.style.removeProperty('--bg-secondary');
+    root.style.removeProperty('--text-main');
+    root.style.removeProperty('--text-secondary');
+    root.style.removeProperty('--text-muted');
   }
-  if (config.panelBackground) {
-    root.style.setProperty('--bg-secondary', config.panelBackground);
-  }
-  if (config.textPrimary) {
-    root.style.setProperty('--text-main', config.textPrimary);
-  }
-  if (config.textSecondary) {
-    root.style.setProperty('--text-secondary', config.textSecondary);
-    root.style.setProperty('--text-muted', config.textSecondary);
-  }
+
   if (config.borderColor) {
     root.style.setProperty('--border-main', config.borderColor);
+  } else {
+    root.style.removeProperty('--border-main');
   }
 
   const radius = BORDER_RADIUS_MAP[config.borderRadius] ?? '16px';
@@ -310,10 +386,7 @@ export function applyThemeConfig(config: ThemeConfig): void {
     root.setAttribute('data-sidebar-style', 'classic');
   }
 
-  const hasCustomSurfaces = Boolean(
-    config.canvasBackground || config.panelBackground || config.textPrimary || config.textSecondary
-  );
-  if (hasCustomSurfaces) {
+  if (applySurfaces) {
     root.setAttribute('data-forge-themed', 'true');
   } else {
     root.removeAttribute('data-forge-themed');
@@ -325,25 +398,26 @@ export function applyThemeConfig(config: ThemeConfig): void {
     surfaceStyleEl.id = 'forge-surface-override';
     document.head.appendChild(surfaceStyleEl);
   }
-  surfaceStyleEl.textContent = hasCustomSurfaces
+  const surfaceScope = isDarkMode ? 'html.dark' : 'html:not(.dark)';
+  surfaceStyleEl.textContent = applySurfaces
     ? [
-        '[data-forge-themed="true"] .forge-bento-card {',
+        `${surfaceScope} [data-forge-themed="true"] .forge-bento-card {`,
         '  background: var(--bg-main) !important;',
         '  border-color: var(--border-main) !important;',
         '  color: var(--text-main) !important;',
         '}',
-        '[data-forge-themed="true"] .forge-bento-card .forge-bento-title {',
+        `${surfaceScope} [data-forge-themed="true"] .forge-bento-card .forge-bento-title {`,
         '  color: var(--text-main) !important;',
         '}',
-        '[data-forge-themed="true"] .forge-bento-card .forge-bento-subtitle,',
-        '[data-forge-themed="true"] .forge-bento-card .text-secondary-safe {',
+        `${surfaceScope} [data-forge-themed="true"] .forge-bento-card .forge-bento-subtitle,`,
+        `${surfaceScope} [data-forge-themed="true"] .forge-bento-card .text-secondary-safe {`,
         '  color: var(--text-secondary) !important;',
         '}',
-        '[data-forge-themed="true"] .forge-setting-shell {',
+        `${surfaceScope} [data-forge-themed="true"] .forge-setting-shell {`,
         '  background: var(--bg-main) !important;',
         '  border-color: var(--border-main) !important;',
         '}',
-        '[data-forge-themed="true"] .forge-chat-shell {',
+        `${surfaceScope} [data-forge-themed="true"] .forge-chat-shell {`,
         '  background: var(--bg-main) !important;',
         '  color: var(--text-main) !important;',
         '}',
@@ -353,19 +427,9 @@ export function applyThemeConfig(config: ThemeConfig): void {
 
 export function resetThemeConfig(): void {
   const root = document.documentElement;
-  const vars = [
-    '--brand-color', '--brand-color-hover', '--brand-color-bg', '--brand-color-border',
-    '--brand-color-ring', '--bg-main', '--bg-secondary', '--text-main', '--text-secondary',
-    '--text-muted', '--border-main', '--forge-radius', '--forge-glass-blur',
-    '--forge-glass-bg', '--forge-glass-dark-bg', '--forge-font-family',
-  ];
-  vars.forEach(v => root.style.removeProperty(v));
+  clearRuntimeThemeOverrides(root);
   root.removeAttribute('data-sidebar-style');
   root.removeAttribute('data-forge-themed');
-  // Remove injected style overrides
-  ['forge-font-override', 'forge-radius-override', 'forge-glass-override', 'forge-surface-override'].forEach(id => {
-    document.getElementById(id)?.remove();
-  });
   clearThemeConfig();
 }
 

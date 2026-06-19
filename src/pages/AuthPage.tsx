@@ -1,12 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../lib/firebase';
 import { Login } from '../components/Login';
 import { ArrowLeft } from 'lucide-react';
+import { applyPublicTheme } from '../lib/themeEngine';
 
 export function AuthPage() {
   const navigate = useNavigate();
   const [user, loading] = useAuthState(auth);
+
+  useEffect(() => {
+    applyPublicTheme();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F7F7F5] dark:bg-[#202020]">

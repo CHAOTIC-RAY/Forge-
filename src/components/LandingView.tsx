@@ -40,6 +40,7 @@ import {
 import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
+import { applyPublicTheme } from '../lib/themeEngine';
 import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent } from 'motion/react';
 import { HeroHandwritingTitle } from './HeroHandwritingTitle';
 import { ChaoticStudioCredits } from './ChaoticStudioCredits';
@@ -894,6 +895,10 @@ export function LandingView(_props: LandingViewProps) {
   const [tourFocusId, setTourFocusId] = useState<string | null>(null);
 
   const footerImmersive = ctaImmersive || tourFocusId === 'footer-cta';
+
+  useEffect(() => {
+    applyPublicTheme();
+  }, []);
   const hideScribbleDecor = isAutoScrolling || !!tourFocusId || footerImmersive;
 
   useMotionValueEvent(scrollYProgress, 'change', (v) => {

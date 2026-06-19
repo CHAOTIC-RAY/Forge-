@@ -38,7 +38,7 @@ import { Post, initialPosts, Business, OUTLETS } from './data';
 import { WorkspaceProvider as AppWorkspaceProvider } from './contexts/WorkspaceContext';
 import { WorkspaceProvider as ConfigWorkspaceProvider } from './lib/workspaceConfig';
 import { getIndustryConfig, getDbMode } from './lib/industryConfig';
-import { loadThemeConfig, applyThemeConfig, resetThemeConfig } from './lib/themeEngine';
+import { loadThemeConfig, applyThemeConfig, applyPublicTheme, DEFAULT_THEME_CONFIG } from './lib/themeEngine';
 import type { ExportSettings } from './components/modals/ExportModal';
 import { getAiSettings, setAiSettings } from './lib/aiSettings';
 import type { HighStockProduct } from './types/catalogue';
@@ -609,15 +609,15 @@ export default function App() {
     localStorage.setItem('forge_theme_preset', themePreset);
   }, [isDarkMode, themePreset]);
 
-  // Apply saved custom theme when user is logged in; strip it on landing/login
+  // Apply saved custom theme when user is logged in; use public defaults on landing/login
   useEffect(() => {
     if (user) {
       const saved = loadThemeConfig();
-      if (saved) applyThemeConfig(saved);
+      applyThemeConfig(saved ?? DEFAULT_THEME_CONFIG, { isDarkMode });
     } else {
-      resetThemeConfig();
+      applyPublicTheme();
     }
-  }, [user?.uid]);
+  }, [user?.uid, isDarkMode]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
   const userProfileSynced = useRef<string | null>(null);

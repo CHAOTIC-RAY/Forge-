@@ -21,8 +21,8 @@ export function ForgeLogo({ className, size = 32 }: ForgeLogoProps) {
       <defs>
         <radialGradient id="forge-logo-gradient" cx="50%" cy="35%" r="65%">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="55%" stopColor="#fce7f3" />
-          <stop offset="100%" stopColor="#f472b6" />
+          <stop offset="55%" stopColor="#dbeafe" />
+          <stop offset="100%" stopColor="#2665fd" />
         </radialGradient>
         <style>
           {`.cls-1 { fill: url(#forge-logo-gradient); }`}

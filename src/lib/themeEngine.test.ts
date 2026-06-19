@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_THEME_CONFIG,
   PALETTE_PRESETS,
+  applyPublicTheme,
   applyThemeConfig,
   clearThemeConfig,
   loadThemeConfig,
@@ -14,6 +15,8 @@ beforeEach(() => {
   localStorage.clear();
   document.documentElement.removeAttribute('style');
   document.documentElement.removeAttribute('data-sidebar-style');
+  document.documentElement.removeAttribute('data-forge-themed');
+  document.documentElement.classList.remove('dark');
   ['forge-font-override', 'forge-radius-override', 'forge-glass-override', 'forge-surface-override'].forEach((id) =>
     document.getElementById(id)?.remove(),
   );
@@ -84,6 +87,52 @@ describe('applyThemeConfig', () => {
   it('injects a glass override style tag', () => {
     applyThemeConfig({ ...DEFAULT_THEME_CONFIG, glassIntensity: 'glassy' });
     expect(document.getElementById('forge-glass-override')).not.toBeNull();
+  });
+
+  it('skips light surface tokens while dark mode is active', () => {
+    document.documentElement.classList.add('dark');
+    applyThemeConfig(
+      {
+        ...DEFAULT_THEME_CONFIG,
+        canvasBackground: '#f5f0e8',
+        panelBackground: '#ede8de',
+        textPrimary: '#2d3b2d',
+        textSecondary: '#5a6b5a',
+      },
+      { isDarkMode: true },
+    );
+    expect(document.documentElement.style.getPropertyValue('--bg-main')).toBe('');
+    expect(document.documentElement.getAttribute('data-forge-themed')).toBeNull();
+  });
+
+  it('applies dark surface tokens in dark mode for dark palettes', () => {
+    document.documentElement.classList.add('dark');
+    applyThemeConfig(
+      {
+        ...DEFAULT_THEME_CONFIG,
+        canvasBackground: '#0d0b1a',
+        panelBackground: '#150e28',
+        textPrimary: '#ede9fe',
+        textSecondary: '#9d8fcc',
+      },
+      { isDarkMode: true },
+    );
+    expect(document.documentElement.style.getPropertyValue('--bg-main')).toBe('#0d0b1a');
+    expect(document.documentElement.getAttribute('data-forge-themed')).toBe('true');
+  });
+});
+
+describe('applyPublicTheme', () => {
+  it('clears dark mode and runtime overrides without clearing storage', () => {
+    saveThemeConfig({ ...DEFAULT_THEME_CONFIG, accentColor: '#ff0000' });
+    document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-forge-themed', 'true');
+    applyThemeConfig({ ...DEFAULT_THEME_CONFIG, fontFamily: 'Lora' });
+    applyPublicTheme();
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(document.documentElement.getAttribute('data-forge-themed')).toBeNull();
+    expect(document.getElementById('forge-font-override')).toBeNull();
+    expect(loadThemeConfig()?.accentColor).toBe('#ff0000');
   });
 });
 
