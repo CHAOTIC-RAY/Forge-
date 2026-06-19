@@ -11,16 +11,13 @@ import {
   signInWithPopup,
 } from 'firebase/auth';
 import { exchangeSupabaseAccessToken } from '../lib/supabaseSession';
-import { setDataBackend, type DataBackend } from '../lib/dataBackend';
-import { toast } from 'sonner';
+import { ensureSupabaseBackend } from '../lib/dataBackend';
 
 type AuthMode = 'signIn' | 'signUp';
 
 interface LoginProps {
   /** Navigate to dashboard only after an explicit sign-in action on this page */
   redirectOnSignIn?: boolean;
-  /** Show separate Google buttons for legacy Firestore vs Supabase */
-  showDualDatabase?: boolean;
 }
 
 function getAuthErrorMessage(error: unknown): string {
@@ -51,7 +48,7 @@ function getAuthErrorMessage(error: unknown): string {
   }
 }
 
-export function Login({ redirectOnSignIn = false, showDualDatabase = false }: LoginProps) {
+export function Login({ redirectOnSignIn = false }: LoginProps) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -120,24 +117,18 @@ export function Login({ redirectOnSignIn = false, showDualDatabase = false }: Lo
     }
   };
 
-  const handleGoogleLogin = async (backend: DataBackend = 'supabase') => {
+  const handleGoogleLogin = async () => {
     if (isGoogleSigningIn) return;
     setIsGoogleSigningIn(true);
     setError(null);
     setNotice(null);
 
     try {
-      setDataBackend(backend);
+      ensureSupabaseBackend();
       const result = await signInWithPopup(auth, googleProvider);
-      console.log('[Login] Success! User:', result.user.email, 'backend:', backend);
-
-      if (backend === 'supabase') {
-        await exchangeSupabaseAccessToken(true);
-        goToAppAfterSignIn();
-      } else {
-        toast.success('Connected to legacy Firestore database.');
-        goToAppAfterSignIn();
-      }
+      console.log('[Login] Success! User:', result.user.email);
+      await exchangeSupabaseAccessToken(true);
+      goToAppAfterSignIn();
     } catch (err: unknown) {
       console.error('[Login] Google sign-in error:', err);
       const code = (err as { code?: string })?.code;
@@ -365,44 +356,14 @@ export function Login({ redirectOnSignIn = false, showDualDatabase = false }: Lo
                 <div className="h-px flex-1 bg-[#E9E9E7] dark:bg-[#2E2E2E]" />
               </div>
 
-              {showDualDatabase ? (
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => handleGoogleLogin('legacy')}
-                    disabled={isGoogleSigningIn}
-                    className="w-full py-4 px-6 bg-amber-50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100 rounded-[14px] font-bold flex items-center justify-center gap-3 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-[0.98] disabled:opacity-50 border border-amber-200 dark:border-amber-800"
-                  >
-                    <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                    {isGoogleSigningIn ? 'Signing in...' : 'Google — Old database (Firestore)'}
-                  </button>
-                  <p className="text-[11px] text-center text-[#787774] dark:text-[#9B9A97] leading-relaxed px-2">
-                    Access your legacy calendar and export posts as JSON.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => handleGoogleLogin('supabase')}
-                    disabled={isGoogleSigningIn}
-                    className="w-full py-4 px-6 bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[14px] font-bold flex items-center justify-center gap-3 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all active:scale-[0.98] disabled:opacity-50 border border-[#E9E9E7] dark:border-[#2E2E2E]"
-                  >
-                    <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                    {isGoogleSigningIn ? 'Signing in...' : 'Google — New database (Supabase)'}
-                  </button>
-                  <p className="text-[11px] text-center text-[#787774] dark:text-[#9B9A97] leading-relaxed px-2">
-                    Use the live app with workspaces and calendar import on Supabase.
-                  </p>
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleGoogleLogin('supabase')}
-                  disabled={isGoogleSigningIn}
-                  className="w-full py-4 px-6 bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[14px] font-bold flex items-center justify-center gap-3 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all active:scale-[0.98] disabled:opacity-50 border border-[#E9E9E7] dark:border-[#2E2E2E]"
-                >
-                  <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                  {isGoogleSigningIn ? 'Signing in...' : 'Continue with Google'}
-                </button>
-              )}
+              <button
+                onClick={() => handleGoogleLogin()}
+                disabled={isGoogleSigningIn}
+                className="w-full py-4 px-6 bg-white dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] rounded-[14px] font-bold flex items-center justify-center gap-3 hover:bg-[#F7F7F5] dark:hover:bg-[#2E2E2E] transition-all active:scale-[0.98] disabled:opacity-50 border border-[#E9E9E7] dark:border-[#2E2E2E]"
+              >
+                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                {isGoogleSigningIn ? 'Signing in...' : 'Continue with Google'}
+              </button>
 
               <div className="mt-7 pt-5 border-t border-[#E9E9E7] dark:border-[#2E2E2E] flex justify-center">
                 <button

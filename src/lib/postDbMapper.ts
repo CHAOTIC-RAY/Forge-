@@ -1,0 +1,92 @@
+import type { Post } from '../data';
+
+export type SupabasePostRow = Record<string, unknown>;
+
+export function postToDbRow(
+  post: Partial<Post>,
+  businessId: string,
+  profileId?: string
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {
+    business_id: businessId,
+    profile_id: profileId || post.userId || null,
+    date: post.date || new Date().toISOString().split('T')[0],
+    outlet: post.outlet ?? null,
+    product_category: post.productCategory ?? null,
+    type: post.type ?? null,
+    title: post.title ?? '',
+    brief: post.brief ?? '',
+    caption: post.caption ?? '',
+    hashtags: post.hashtags ?? '',
+    images: post.images || [],
+    link: post.link ?? null,
+    publish_status: post.publishStatus || post.status || 'draft',
+    scheduled_time: post.scheduledTime ?? null,
+    published_at: post.publishedAt ?? null,
+    instagram_post_id: post.instagramPostId ?? null,
+    facebook_post_id: post.facebookPostId ?? null,
+    publish_error: post.publishError ?? null,
+    platforms: post.platforms ?? null,
+    is_ai_generated: post.isAiGenerated ?? false,
+    ai_provider: post.aiProvider ?? null,
+    framework: post.framework ?? null,
+    campaign_type: post.campaignType ?? null,
+    campaign_name: post.campaignName ?? null,
+    content_formats: post.contentFormats ?? null,
+    approval_status: post.approvalStatus ?? null,
+    approval_note: post.approvalNote ?? null,
+    submitted_at: post.submittedAt ?? null,
+    reviewed_at: post.reviewedAt ?? null,
+    repeat_enabled: post.repeatEnabled ?? false,
+    repeat_interval: post.repeatInterval ?? null,
+    last_repeat_date: post.lastRepeatDate ?? null,
+    analytics: post.analytics ?? null,
+    postcard_data: post.postcardData ?? null,
+    is_hidden_for_others: post.isHiddenForOthers ?? false,
+  };
+  if (post.id) row.id = post.id;
+  return row;
+}
+
+export function transformPostFromDb(data: SupabasePostRow): Post {
+  return {
+    id: String(data.id),
+    businessId: data.business_id as string | undefined,
+    userId: data.profile_id as string | undefined,
+    date: String(data.date || ''),
+    outlet: data.outlet as string | undefined,
+    productCategory: data.product_category as string | undefined,
+    type: data.type as string | undefined,
+    title: (data.title as string) || '',
+    brief: (data.brief as string) || '',
+    caption: (data.caption as string) || '',
+    hashtags: (data.hashtags as string) || '',
+    images: (data.images as string[]) || [],
+    link: data.link as string | undefined,
+    publishStatus: data.publish_status as Post['publishStatus'],
+    status: data.publish_status as Post['status'],
+    scheduledTime: data.scheduled_time as string | undefined,
+    publishedAt: data.published_at as string | undefined,
+    instagramPostId: data.instagram_post_id as string | undefined,
+    facebookPostId: data.facebook_post_id as string | undefined,
+    publishError: data.publish_error as string | undefined,
+    platforms: data.platforms as Post['platforms'],
+    isAiGenerated: data.is_ai_generated as boolean | undefined,
+    aiProvider: data.ai_provider as string | undefined,
+    framework: data.framework as Post['framework'],
+    campaignType: data.campaign_type as string | undefined,
+    campaignName: data.campaign_name as string | undefined,
+    contentFormats: data.content_formats as Post['contentFormats'],
+    approvalStatus: data.approval_status as Post['approvalStatus'],
+    approvalNote: data.approval_note as string | undefined,
+    submittedAt: data.submitted_at as string | undefined,
+    reviewedAt: data.reviewed_at as string | undefined,
+    repeatEnabled: data.repeat_enabled as boolean | undefined,
+    repeatInterval: data.repeat_interval as Post['repeatInterval'],
+    lastRepeatDate: data.last_repeat_date as string | undefined,
+    analytics: data.analytics as Post['analytics'],
+    postcardData: data.postcard_data as Post['postcardData'],
+    isHiddenForOthers: data.is_hidden_for_others as boolean | undefined,
+    createdAt: data.created_at as string | undefined,
+  };
+}

@@ -90,11 +90,11 @@ export function Calendar({ currentDate, posts, onEditPost, onAddPost, onDeletePo
   const profile = useProfile();
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || !activeBusiness?.id) return;
     return subscribeToTodos(profile.id, (items: TodoItem[]) => {
       setTodos(items as Todo[]);
-    });
-  }, [profile?.id]);
+    }, activeBusiness.id);
+  }, [profile?.id, activeBusiness?.id]);
   
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);

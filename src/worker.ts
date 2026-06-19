@@ -12,6 +12,12 @@ import {
   handleProfileCompleteOnboarding,
   handleBusinessesMine,
 } from "./lib/handleSupabaseProfile";
+import {
+  handleDataPosts,
+  handleDataPostById,
+  handleDataPostsBatchImport,
+  handleDataWorkspace,
+} from "./lib/handleSupabaseDataAccess";
 
 export interface Env {
   VITE_SUPABASE_URL: string;
@@ -167,6 +173,19 @@ export default {
       }
       if (path === '/api/businesses/mine') {
         return handleBusinessesMine(request, env);
+      }
+      if (path === '/api/data/posts/batch-import') {
+        return handleDataPostsBatchImport(request, env);
+      }
+      if (path === '/api/data/posts') {
+        return handleDataPosts(request, env);
+      }
+      if (path.startsWith('/api/data/posts/')) {
+        const postId = path.slice('/api/data/posts/'.length);
+        if (postId) return handleDataPostById(request, env, postId);
+      }
+      if (path === '/api/data/workspace') {
+        return handleDataWorkspace(request, env);
       }
 
       // Proxy for Gemini API

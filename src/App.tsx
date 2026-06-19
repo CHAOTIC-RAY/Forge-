@@ -81,14 +81,6 @@ import { WorkspacesSettings } from './components/WorkspacesSettings';
 import { ForgeLoader } from './components/ForgeLoader';
 import { ForgeLogo } from './components/ForgeLogo';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { isLegacyBackend } from './lib/dataBackend';
-import {
-  deleteLegacyPost,
-  getLegacyUserOnboardingComplete,
-  saveLegacyPost,
-  subscribeToLegacyBusinesses,
-  subscribeToLegacyPosts,
-} from './lib/legacyFirestoreData';
 import { LandingView } from './components/LandingView';
 import { LocalAiTabLoader } from './components/LocalAiTabLoader';
 import { CorsImage } from './components/CorsImage';
@@ -372,8 +364,6 @@ export default function App() {
   const isGuest = !user;
   const [calendarMode, setCalendarMode] = useState<'work' | 'personal'>('work');
 
-  const legacyMode = isLegacyBackend();
-
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [userOnboardingComplete, setUserOnboardingComplete] = useState<boolean | null>(null);
 
@@ -382,7 +372,7 @@ export default function App() {
   const setBrandKit = useAppStore(state => state.setBrandKit);
 
   useEffect(() => {
-    if (!activeBusiness || isViewOnly || legacyMode) {
+    if (!activeBusiness || isViewOnly) {
       setBrandKit(null);
       return;
     }
@@ -779,12 +769,20 @@ export default function App() {
     handleUrlActions();
   }, [user]);
 
-  // Fetch user's workspaces from Supabase or legacy Firestore
+  // Fetch user's workspaces from Supabase
   useEffect(() => {
     if (isViewOnly) return;
 
     if (!user) {
       setLoadingBusinesses(false);
+      return;
+    }
+
+    if (!profile) {
+      if (!profileLoading) {
+        setLoadingBusinesses(false);
+        setShowOnboarding(true);
+      }
       return;
     }
 
@@ -801,38 +799,6 @@ export default function App() {
         }
       }
     };
-
-    if (legacyMode) {
-      let cancelled = false;
-      const unsubscribe = subscribeToLegacyBusinesses(
-        user.uid,
-        (bizList) => {
-          if (cancelled) return;
-          applyBusinessList(bizList);
-        },
-        () => {
-          if (!cancelled) setLoadingBusinesses(false);
-        }
-      );
-
-      void getLegacyUserOnboardingComplete(user.uid).then((complete) => {
-        if (cancelled || complete === null) return;
-        setUserOnboardingComplete(complete);
-      });
-
-      return () => {
-        cancelled = true;
-        unsubscribe();
-      };
-    }
-
-    if (!profile) {
-      if (!profileLoading) {
-        setLoadingBusinesses(false);
-        setShowOnboarding(true);
-      }
-      return;
-    }
 
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
@@ -853,10 +819,10 @@ export default function App() {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [profile, profileLoading, user, isViewOnly, legacyMode]);
+  }, [profile, profileLoading, user, isViewOnly]);
 
   useEffect(() => {
-    if (!user || !profile || isViewOnly || legacyMode) return;
+    if (!user || !profile || isViewOnly) return;
 
     const sessionKey = 'forge_supabase_session_ready';
     void (async () => {
@@ -1099,12 +1065,7 @@ export default function App() {
       };
 
       const existingPost = posts.find((p) => p.id === post.id);
-      if (legacyMode) {
-        await saveLegacyPost({
-          ...postPayload,
-          userId: user.uid,
-        });
-      } else if (existingPost) {
+      if (existingPost) {
         await updatePost(post.id, postPayload);
       } else if (businessIdForPost) {
         await createPost(postPayload, businessIdForPost, profile?.id);
@@ -1113,7 +1074,7 @@ export default function App() {
       }
       addSyncLog(`Successfully saved post: ${post.title || 'Untitled'}`, 'success');
 
-      if (!legacyMode && activeBusiness?.id) {
+      if (activeBusiness?.id) {
         try {
           const catDoc = await getCategoriesDoc(activeBusiness.id);
           const currentCats: any[] = (catDoc?.categories as any[]) || [];
@@ -1408,11 +1369,7 @@ export default function App() {
         }
       }
 
-      if (legacyMode) {
-        await deleteLegacyPost(id);
-      } else {
-        await deletePost(id);
-      }
+      await deletePost(id);
       addSyncLog(`Successfully deleted post: ${postToDelete?.title || id}`, 'success');
     } catch (error) {
       console.error("Failed to delete post:", error);
@@ -1425,12 +1382,9 @@ export default function App() {
 
   const prevDeps = useRef<any>({});
   useEffect(() => {
-    if (loading) return;
-    if (!legacyMode && !profile) return;
+    if (loading || !profile) return;
 
-    const currentDeps = legacyMode
-      ? { userId: user?.uid, activeBusiness: activeBusiness?.id, sharedBusiness: sharedBusiness?.id, isViewOnly, calendarMode, legacyMode }
-      : { profileId: profile?.id, activeBusiness: activeBusiness?.id, sharedBusiness: sharedBusiness?.id, isViewOnly, calendarMode, legacyMode };
+    const currentDeps = { profileId: profile.id, activeBusiness: activeBusiness?.id, sharedBusiness: sharedBusiness?.id, isViewOnly, calendarMode };
     const changedDeps = Object.keys(currentDeps).filter(k => (currentDeps as any)[k] !== prevDeps.current[k]);
     if (changedDeps.length > 0) {
       console.log(`[Sync] Dependencies changed: ${changedDeps.join(', ')}`);
@@ -1439,7 +1393,7 @@ export default function App() {
 
     setIsSyncing(true);
     const context = calendarMode === 'personal' ? 'personal' : (activeBusiness ? `business ${activeBusiness.id}` : 'shared/none');
-    addSyncLog(`Connecting to ${legacyMode ? 'Firestore' : 'Supabase'} (${context})...`, 'info');
+    addSyncLog(`Connecting to Supabase (${context})...`, 'info');
 
     let unsubscribe: () => void;
     const onPosts = (fetchedPosts: Post[]) => {
@@ -1448,21 +1402,9 @@ export default function App() {
       setIsSyncing(false);
     };
 
-    if (legacyMode && user) {
-      unsubscribe = subscribeToLegacyPosts(
-        {
-          userId: user.uid,
-          activeBusinessId: activeBusiness?.id,
-          sharedBusinessId: sharedBusiness?.id,
-          calendarMode,
-          isViewOnly,
-        },
-        onPosts,
-        () => setIsSyncing(false)
-      );
-    } else if (isViewOnly && sharedBusiness?.id) {
+    if (isViewOnly && sharedBusiness?.id) {
       unsubscribe = subscribeToPosts(sharedBusiness.id, onPosts);
-    } else if (calendarMode === 'personal' && profile) {
+    } else if (calendarMode === 'personal') {
       unsubscribe = subscribeToPostsForProfile(profile.id, onPosts);
     } else if (activeBusiness?.id) {
       unsubscribe = subscribeToPosts(activeBusiness.id, onPosts);
@@ -1477,7 +1419,7 @@ export default function App() {
       unsubscribe();
       clearTimeout(timeoutId);
     };
-  }, [profile, activeBusiness, sharedBusiness, isViewOnly, calendarMode, loading, legacyMode, user]);
+  }, [profile, activeBusiness, sharedBusiness, isViewOnly, calendarMode, loading]);
 
   useEffect(() => {
     if (profile) {
@@ -2728,13 +2670,15 @@ export default function App() {
               }
 
               addSyncLog(`All images processed. Saving ${processedPosts.length} posts to cloud...`, 'info');
-              for (const post of processedPosts) {
-                if (post.id) {
-                  await createPost(post, post.businessId || activeBusiness?.id || '', profile?.id);
-                }
-              }
-              addSyncLog(`Successfully imported and synced ${processedPosts.length} posts`, 'success');
+              const { importPostsViaApi } = await import('./lib/dataAccessApi');
+              const result = await importPostsViaApi(
+                processedPosts,
+                activeBusiness?.id || processedPosts[0]?.businessId || '',
+                profile?.id
+              );
+              addSyncLog(`Successfully imported and synced ${result.imported} posts`, 'success');
               toast.success('Schedule imported and synced successfully!');
+              void getPosts(activeBusiness?.id || '').then(setPosts).catch(() => undefined);
             } catch (err) {
               console.error('Failed to sync imported posts:', err);
               addSyncLog('Failed to sync imported posts to cloud', 'error');
@@ -3074,7 +3018,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SkipLink />
-      {showOnboarding && user && !legacyMode && (
+      {showOnboarding && user && (
         <React.Suspense fallback={null}>
           <OnboardingWizard
             userEmail={user.email || ''}
@@ -3085,12 +3029,11 @@ export default function App() {
       <AppWorkspaceProvider activeBusiness={activeBusiness}>
         <ConfigWorkspaceProvider activeBusiness={activeBusiness}>
           <NetworkStatus />
-          {profileSyncError && user && !legacyMode && (
+          {profileSyncError && user && (
             <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-sm text-amber-900 dark:text-amber-100 flex flex-wrap items-center justify-between gap-2 z-50 relative">
               <span>
-                Cloud sync failed (JWT). Tabs work locally, but workspaces need Supabase auth fixed.
-                Set <code className="text-xs bg-black/10 px-1 rounded">SUPABASE_JWT_SECRET</code> in Cloudflare to match
-                Supabase → Project Settings → API → JWT Settings → <strong>Legacy JWT secret</strong>.
+                Cloud sync failed. Workspace data loads through the server API — if tabs stay empty, confirm{' '}
+                <code className="text-xs bg-black/10 px-1 rounded">SUPABASE_SERVICE_KEY</code> is set on Cloudflare.
               </span>
               <button
                 type="button"
@@ -3542,9 +3485,7 @@ export default function App() {
                               calendarMode={calendarMode}
                               onCalendarModeChange={setCalendarMode}
                               isSyncing={isSyncing}
-                              showCalendarExport={legacyMode && isAdmin}
-                              showCalendarImport={!legacyMode && isAdmin}
-                              onExportCalendar={exportScheduleJson}
+                              showCalendarImport={isAdmin}
                               onImportCalendar={importScheduleJson}
                             />
                           </div>

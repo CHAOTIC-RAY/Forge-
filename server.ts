@@ -15,6 +15,12 @@ import {
   handleProfileCompleteOnboarding,
   handleBusinessesMine,
 } from "./src/lib/handleSupabaseProfile";
+import {
+  handleDataPosts,
+  handleDataPostById,
+  handleDataPostsBatchImport,
+  handleDataWorkspace,
+} from "./src/lib/handleSupabaseDataAccess";
 
 function supabaseWorkerEnv() {
   return {
@@ -271,6 +277,108 @@ export async function startServer(forcePort?: number) {
     } catch (error: any) {
       console.error("[Server] /api/businesses/mine error:", error);
       res.status(500).json({ error: error.message || "Load businesses failed" });
+    }
+  });
+
+  app.get("/api/data/posts", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "GET",
+        headers: { Authorization: req.get("Authorization") || "" },
+      });
+      const response = await handleDataPosts(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/posts GET error:", error);
+      res.status(500).json({ error: error.message || "Load posts failed" });
+    }
+  });
+
+  app.post("/api/data/posts", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "POST",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleDataPosts(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/posts POST error:", error);
+      res.status(500).json({ error: error.message || "Create post failed" });
+    }
+  });
+
+  app.post("/api/data/posts/batch-import", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "POST",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleDataPostsBatchImport(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/posts/batch-import error:", error);
+      res.status(500).json({ error: error.message || "Import posts failed" });
+    }
+  });
+
+  app.patch("/api/data/posts/:id", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleDataPostById(request, supabaseWorkerEnv(), req.params.id);
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/posts PATCH error:", error);
+      res.status(500).json({ error: error.message || "Update post failed" });
+    }
+  });
+
+  app.delete("/api/data/posts/:id", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "DELETE",
+        headers: { Authorization: req.get("Authorization") || "" },
+      });
+      const response = await handleDataPostById(request, supabaseWorkerEnv(), req.params.id);
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/posts DELETE error:", error);
+      res.status(500).json({ error: error.message || "Delete post failed" });
+    }
+  });
+
+  app.get("/api/data/workspace", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "GET",
+        headers: { Authorization: req.get("Authorization") || "" },
+      });
+      const response = await handleDataWorkspace(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/workspace error:", error);
+      res.status(500).json({ error: error.message || "Load workspace data failed" });
     }
   });
 

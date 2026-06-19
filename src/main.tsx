@@ -7,6 +7,7 @@ import { HomeRoute } from './pages/HomeRoute';
 import { ForgeLoader } from './components/ForgeLoader';
 import { ensureAuthSessionVersion } from './lib/authMigration';
 import { ensureSupabaseConfig } from './lib/supabase';
+import { ensureSupabaseBackend } from './lib/dataBackend';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -17,6 +18,7 @@ registerSW();
 
 void (async () => {
   await ensureAuthSessionVersion();
+  ensureSupabaseBackend();
   await ensureSupabaseConfig();
 
 // Global Image Error Handler (CORS fallback mechanism)

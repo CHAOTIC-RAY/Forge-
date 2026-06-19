@@ -45,7 +45,7 @@ function mapProfile(row: DbProfile) {
   };
 }
 
-async function fetchProfileByFirebaseUid(
+export async function fetchProfileByFirebaseUid(
   env: SupabaseAuthEnv,
   firebaseUid: string
 ): Promise<DbProfile | null> {

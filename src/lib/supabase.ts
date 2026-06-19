@@ -3,6 +3,15 @@ import { Post, Business } from '../data';
 import { auth } from './firebase';
 import { exchangeSupabaseAccessToken, clearSupabaseAccessToken } from './supabaseSession';
 import { firestoreEntityId } from './firestoreMigrateIds';
+import {
+  createPostViaApi,
+  deletePostViaApi,
+  fetchPostsByProfileViaApi,
+  fetchPostsViaApi,
+  fetchWorkspaceSnapshotViaApi,
+  updatePostViaApi,
+} from './dataAccessApi';
+import { transformPostFromDb } from './postDbMapper';
 
 declare global {
   interface Window {
@@ -593,18 +602,12 @@ export async function removeMemberByFirebaseUid(
 // ============================================
 
 export async function getPosts(businessId: string): Promise<Post[]> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('*')
-    .eq('business_id', businessId)
-    .order('date', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching posts:', error);
+  try {
+    return await fetchPostsViaApi(businessId);
+  } catch (error) {
+    console.error('Error fetching posts via API:', error);
     throw error;
   }
-
-  return (data || []).map(transformPost);
 }
 
 export async function getPost(id: string): Promise<Post | null> {
@@ -624,107 +627,15 @@ export async function getPost(id: string): Promise<Post | null> {
 }
 
 export async function createPost(post: Partial<Post>, businessId: string, profileId?: string): Promise<Post> {
-  const { data, error } = await supabase
-    .from('posts')
-    .insert({
-      business_id: businessId,
-      profile_id: profileId,
-      date: post.date || new Date().toISOString().split('T')[0],
-      outlet: post.outlet,
-      product_category: post.productCategory,
-      type: post.type,
-      title: post.title,
-      brief: post.brief,
-      caption: post.caption,
-      hashtags: post.hashtags,
-      images: post.images || [],
-      link: post.link,
-      publish_status: post.publishStatus || post.status || 'draft',
-      scheduled_time: post.scheduledTime,
-      platforms: post.platforms,
-      is_ai_generated: post.isAiGenerated,
-      ai_provider: post.aiProvider,
-      framework: post.framework,
-      campaign_type: post.campaignType,
-      campaign_name: post.campaignName,
-      content_formats: post.contentFormats,
-      approval_status: post.approvalStatus,
-      repeat_enabled: post.repeatEnabled,
-      repeat_interval: post.repeatInterval,
-      analytics: post.analytics,
-      postcard_data: post.postcardData,
-      is_hidden_for_others: post.isHiddenForOthers,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating post:', error);
-    throw error;
-  }
-
-  return transformPost(data);
+  return createPostViaApi(post, businessId, profileId);
 }
 
 export async function updatePost(id: string, updates: Partial<Post>): Promise<Post> {
-  const { data, error } = await supabase
-    .from('posts')
-    .update({
-      date: updates.date,
-      outlet: updates.outlet,
-      product_category: updates.productCategory,
-      type: updates.type,
-      title: updates.title,
-      brief: updates.brief,
-      caption: updates.caption,
-      hashtags: updates.hashtags,
-      images: updates.images,
-      link: updates.link,
-      publish_status: updates.publishStatus || updates.status,
-      scheduled_time: updates.scheduledTime,
-      published_at: updates.publishedAt,
-      instagram_post_id: updates.instagramPostId,
-      facebook_post_id: updates.facebookPostId,
-      publish_error: updates.publishError,
-      platforms: updates.platforms,
-      is_ai_generated: updates.isAiGenerated,
-      ai_provider: updates.aiProvider,
-      framework: updates.framework,
-      campaign_type: updates.campaignType,
-      campaign_name: updates.campaignName,
-      content_formats: updates.contentFormats,
-      approval_status: updates.approvalStatus,
-      approval_note: updates.approvalNote,
-      reviewed_at: updates.reviewedAt,
-      repeat_enabled: updates.repeatEnabled,
-      repeat_interval: updates.repeatInterval,
-      last_repeat_date: updates.lastRepeatDate,
-      analytics: updates.analytics,
-      postcard_data: updates.postcardData,
-      is_hidden_for_others: updates.isHiddenForOthers,
-    })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating post:', error);
-    throw error;
-  }
-
-  return transformPost(data);
+  return updatePostViaApi(id, updates);
 }
 
 export async function deletePost(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting post:', error);
-    throw error;
-  }
+  return deletePostViaApi(id);
 }
 
 export async function deleteAllPosts(businessId: string): Promise<void> {
@@ -740,17 +651,7 @@ export async function deleteAllPosts(businessId: string): Promise<void> {
 }
 
 export async function getPostsByProfileId(profileId: string): Promise<Post[]> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('*')
-    .eq('profile_id', profileId)
-    .order('date', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching posts by profile:', error);
-    throw error;
-  }
-  return (data || []).map(transformPost);
+  return fetchPostsByProfileViaApi(profileId);
 }
 
 export function subscribeToBusinesses(
@@ -778,16 +679,22 @@ export function subscribeToPostsForProfile(
   profileId: string,
   callback: (posts: Post[]) => void
 ): () => void {
-  const channel = supabase
-    .channel(`posts-profile:${profileId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'posts', filter: `profile_id=eq.${profileId}` },
-      async () => callback(await getPostsByProfileId(profileId))
-    )
-    .subscribe();
-  void getPostsByProfileId(profileId).then(callback);
-  return () => supabase.removeChannel(channel);
+  let cancelled = false;
+  const load = () => {
+    getPostsByProfileId(profileId)
+      .then((posts) => {
+        if (!cancelled) callback(posts);
+      })
+      .catch((error) => {
+        console.error('[subscribeToPostsForProfile] poll failed:', error);
+      });
+  };
+  load();
+  const intervalId = window.setInterval(load, 12000);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 // ============================================
@@ -795,17 +702,13 @@ export function subscribeToPostsForProfile(
 // ============================================
 
 export async function getInventoryProducts(businessId: string): Promise<InventoryProduct[]> {
-  const { data, error } = await supabase
-    .from('inventory_products')
-    .select('*')
-    .eq('business_id', businessId)
-    .order('name', { ascending: true });
-
-  if (error) {
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    return snapshot.inventory;
+  } catch (error) {
     console.error('Error fetching inventory:', error);
-    throw error;
+    return [];
   }
-  return data || [];
 }
 
 export async function createInventoryProduct(product: Partial<InventoryProduct>): Promise<InventoryProduct> {
@@ -1241,23 +1144,13 @@ export async function getProfileByFirebaseUid(firebaseUid: string): Promise<Prof
 // ============================================
 
 export async function getBrandKit(businessId: string): Promise<Record<string, any> | null> {
-  const { data, error } = await supabase
-    .from('brand_kits')
-    .select('*')
-    .eq('business_id', businessId)
-    .maybeSingle();
-
-  if (error) {
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    return snapshot.brandKit;
+  } catch (error) {
     console.error('Error fetching brand kit:', error);
-    throw error;
+    return null;
   }
-  if (!data) return null;
-  const kitData = (data.kit_data as Record<string, unknown>) || {};
-  return {
-    ...kitData,
-    designGuide: kitData.designGuide || data.ai_generated_guide || '',
-    brandProfile: kitData.brandProfile || '',
-  };
 }
 
 export async function upsertBrandKit(businessId: string, updates: Record<string, any>): Promise<Record<string, any>> {
@@ -1284,16 +1177,22 @@ export function subscribeToBrandKit(
   businessId: string,
   callback: (data: Record<string, unknown> | null) => void
 ): () => void {
-  const channel = supabase
-    .channel(`brandkit:${businessId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'brand_kits', filter: `business_id=eq.${businessId}` },
-      async () => callback(await getBrandKit(businessId))
-    )
-    .subscribe();
-  void getBrandKit(businessId).then(callback);
-  return () => supabase.removeChannel(channel);
+  let cancelled = false;
+  const load = () => {
+    getBrandKit(businessId)
+      .then((data) => {
+        if (!cancelled) callback(data);
+      })
+      .catch(() => {
+        if (!cancelled) callback(null);
+      });
+  };
+  load();
+  const intervalId = window.setInterval(load, 15000);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 // ============================================
@@ -1385,25 +1284,21 @@ export function subscribeToPosts(
   businessId: string,
   callback: (posts: Post[]) => void
 ): () => void {
-  const channel = supabase
-    .channel(`posts:${businessId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'posts',
-        filter: `business_id=eq.${businessId}`,
-      },
-      async () => {
-        const posts = await getPosts(businessId);
-        callback(posts);
-      }
-    )
-    .subscribe();
-
+  let cancelled = false;
+  const load = () => {
+    getPosts(businessId)
+      .then((posts) => {
+        if (!cancelled) callback(posts);
+      })
+      .catch((error) => {
+        console.error('[subscribeToPosts] poll failed:', error);
+      });
+  };
+  load();
+  const intervalId = window.setInterval(load, 12000);
   return () => {
-    supabase.removeChannel(channel);
+    cancelled = true;
+    window.clearInterval(intervalId);
   };
 }
 
@@ -1411,25 +1306,22 @@ export function subscribeToInventory(
   businessId: string,
   callback: (products: InventoryProduct[]) => void
 ): () => void {
-  const channel = supabase
-    .channel(`inventory:${businessId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'inventory_products',
-        filter: `business_id=eq.${businessId}`,
-      },
-      async () => {
-        const products = await getInventoryProducts(businessId);
-        callback(products);
-      }
-    )
-    .subscribe();
-
+  let cancelled = false;
+  const load = () => {
+    getInventoryProducts(businessId)
+      .then((products) => {
+        if (!cancelled) callback(products);
+      })
+      .catch((error) => {
+        console.error('[subscribeToInventory] poll failed:', error);
+        if (!cancelled) callback([]);
+      });
+  };
+  load();
+  const intervalId = window.setInterval(load, 15000);
   return () => {
-    supabase.removeChannel(channel);
+    cancelled = true;
+    window.clearInterval(intervalId);
   };
 }
 
@@ -1575,13 +1467,13 @@ export async function setFirebaseUidForRls(firebaseUid: string): Promise<void> {
 // ============================================
 
 export async function getCategoriesDoc(businessId: string): Promise<Record<string, unknown> | null> {
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('business_id', businessId)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    return snapshot.categories;
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return null;
+  }
 }
 
 export async function upsertCategoriesDoc(
@@ -1604,16 +1496,22 @@ export function subscribeToCategories(
   businessId: string,
   callback: (data: Record<string, unknown> | null) => void
 ): () => void {
-  const channel = supabase
-    .channel(`categories:${businessId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'categories', filter: `business_id=eq.${businessId}` },
-      async () => callback(await getCategoriesDoc(businessId))
-    )
-    .subscribe();
-  void getCategoriesDoc(businessId).then(callback);
-  return () => supabase.removeChannel(channel);
+  let cancelled = false;
+  const load = () => {
+    getCategoriesDoc(businessId)
+      .then((data) => {
+        if (!cancelled) callback(data);
+      })
+      .catch(() => {
+        if (!cancelled) callback(null);
+      });
+  };
+  load();
+  const intervalId = window.setInterval(load, 15000);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 export function normalizeCategoriesDoc(
@@ -1660,37 +1558,42 @@ export interface TodoItem {
   project?: string;
 }
 
-export async function getTodos(profileId: string): Promise<TodoItem[]> {
-  const { data, error } = await supabase
-    .from('todos')
-    .select('*')
-    .eq('profile_id', profileId);
-  if (error) throw error;
-  return (data || []).map((t) => ({
-    id: t.id,
-    text: t.text,
-    completed: t.completed,
-    dueDate: t.due_date,
-    dueTime: t.due_time,
-    priority: t.priority,
-    project: t.project,
-  }));
+export async function getTodos(profileId: string, businessId?: string): Promise<TodoItem[]> {
+  if (!businessId) return [];
+  try {
+    const snapshot = await fetchWorkspaceSnapshotViaApi(businessId);
+    return snapshot.todos;
+  } catch (error) {
+    console.error('Error fetching todos:', error);
+    return [];
+  }
 }
 
 export function subscribeToTodos(
   profileId: string,
-  callback: (todos: TodoItem[]) => void
+  callback: (todos: TodoItem[]) => void,
+  businessId?: string
 ): () => void {
-  const channel = supabase
-    .channel(`todos:${profileId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'todos', filter: `profile_id=eq.${profileId}` },
-      async () => callback(await getTodos(profileId))
-    )
-    .subscribe();
-  void getTodos(profileId).then(callback);
-  return () => supabase.removeChannel(channel);
+  if (!businessId) {
+    callback([]);
+    return () => undefined;
+  }
+  let cancelled = false;
+  const load = () => {
+    getTodos(profileId, businessId)
+      .then((todos) => {
+        if (!cancelled) callback(todos);
+      })
+      .catch(() => {
+        if (!cancelled) callback([]);
+      });
+  };
+  load();
+  const intervalId = window.setInterval(load, 15000);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 export async function updateProfileAiSettings(
