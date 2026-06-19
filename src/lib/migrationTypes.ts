@@ -4,6 +4,7 @@ export type FirestoreExportPayload = {
   exportedAt?: string;
   firestoreDatabaseId?: string;
   firebaseProjectId?: string;
+  counts?: Record<string, number>;
   collections?: Record<string, FirestoreExportDoc[]>;
 };
 

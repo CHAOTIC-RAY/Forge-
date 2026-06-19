@@ -1,11 +1,11 @@
 import { auth } from './firebase';
 import { repairWorkspaceOwnership } from './workspaceRepair';
-import { parseFirestoreExportJson } from './migrationScan';
+import type { FirestoreExportPayload } from './migrationTypes';
 import type { MigrationSelection } from './migrationTypes';
 import { normalizeMigrationSelection } from './migrationTypes';
 
 export async function importForgeJsonBackup(
-  file: File,
+  payload: FirestoreExportPayload,
   onProgress: (stage: string) => void,
   selection?: MigrationSelection
 ): Promise<void> {
@@ -14,8 +14,6 @@ export async function importForgeJsonBackup(
     throw new Error('Sign in required');
   }
 
-  const text = await file.text();
-  const payload = parseFirestoreExportJson(text);
   const normalized = normalizeMigrationSelection(selection || ({} as MigrationSelection));
 
   const anySelected = Object.values(normalized).some(Boolean);

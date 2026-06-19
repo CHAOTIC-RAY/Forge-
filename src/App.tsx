@@ -2998,7 +2998,7 @@ export default function App() {
   };
 
   const handleOnboardingImport = async (
-    file: File,
+    bundle: import('./lib/migrationScan').MigrationScanBundle,
     selection: import('./lib/migrationTypes').MigrationSelection,
     onProgress: (stage: string) => void
   ) => {
@@ -3007,7 +3007,7 @@ export default function App() {
     }
 
     const { importForgeJsonBackup } = await import('./lib/onboardingJsonImport');
-    await importForgeJsonBackup(file, onProgress, selection);
+    await importForgeJsonBackup(bundle.payload, onProgress, selection);
 
     const { completeOnboardingViaApi } = await import('./lib/profileApi');
     await completeOnboardingViaApi();
@@ -3015,6 +3015,17 @@ export default function App() {
     setShowOnboarding(false);
     toast.success('Import complete — loading your workspace…');
     window.location.reload();
+  };
+
+  const handleSettingsMigrationImport = async (
+    bundle: import('./lib/migrationScan').MigrationScanBundle,
+    selection: import('./lib/migrationTypes').MigrationSelection,
+    onProgress: (stage: string) => void
+  ) => {
+    if (!user) throw new Error('Sign in required');
+    const { importForgeJsonBackup } = await import('./lib/onboardingJsonImport');
+    await importForgeJsonBackup(bundle.payload, onProgress, selection);
+    toast.success('Import complete — refreshing your workspace…');
   };
 
   return (
@@ -3603,6 +3614,7 @@ export default function App() {
                               exportProductJson={exportProductJson}
                               exportExtensionZip={handleExportExtensionZip}
                               importProductJson={importProductJson}
+                              onImportMigration={handleSettingsMigrationImport}
                               onThemePresetChange={setThemePreset}
                               finetuneStatus={finetuneStatus}
                               handleStartFinetune={handleStartFinetune}

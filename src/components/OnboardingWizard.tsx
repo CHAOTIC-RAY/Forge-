@@ -21,10 +21,9 @@ import { Business } from '../data';
 import { builtInAi, type BuiltInAiStatus } from '../lib/builtinAi';
 import { ensureLocalAiEnginesReady } from '../lib/localAiBootstrap';
 import { canUseBuiltinWebGpuVision } from '../lib/webGpu';
-import { scanFirestoreExportFile } from '../lib/migrationScan';
-import type { MigrationScanResult, MigrationSelection } from '../lib/migrationTypes';
-import { countSelectedItems } from '../lib/migrationTypes';
-import { MigrationImportReview } from './MigrationImportReview';
+import type { MigrationSelection } from '../lib/migrationTypes';
+import type { MigrationScanBundle } from '../lib/migrationScan';
+import { MigrationImportModal } from './MigrationImportModal';
 
 interface OnboardingWizardProps {
   onComplete: (data: Partial<Business> & {
@@ -34,26 +33,20 @@ interface OnboardingWizardProps {
     outletNames?: string;
   }) => Promise<void>;
   onImportJson: (
-    file: File,
-    selection: import('../lib/migrationTypes').MigrationSelection,
+    bundle: MigrationScanBundle,
+    selection: MigrationSelection,
     onProgress: (stage: string) => void
   ) => Promise<void>;
   userEmail: string;
 }
 
-type OnboardingPath = 'choose' | 'create' | 'import';
-type ImportStep = 'pick' | 'review';
+type OnboardingPath = 'choose' | 'create';
 
 export function OnboardingWizard({ onComplete, onImportJson, userEmail }: OnboardingWizardProps) {
   const [path, setPath] = useState<OnboardingPath>('choose');
-  const [importStep, setImportStep] = useState<ImportStep>('pick');
+  const [showImportModal, setShowImportModal] = useState(false);
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importScan, setImportScan] = useState<MigrationScanResult | null>(null);
-  const [importSelection, setImportSelection] = useState<MigrationSelection | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [importProgress, setImportProgress] = useState('');
   const [aiStatus, setAiStatus] = useState<BuiltInAiStatus | null>(null);
   const [aiBootstrapStarted, setAiBootstrapStarted] = useState(false);
   const [formData, setFormData] = useState({
@@ -126,52 +119,6 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
     }
   };
 
-  const handleScanFile = async (file: File | null) => {
-    setImportFile(file);
-    setImportScan(null);
-    setImportSelection(null);
-    setImportStep('pick');
-    if (!file) return;
-
-    setScanning(true);
-    try {
-      const scan = await scanFirestoreExportFile(file);
-      if (!scan.valid) {
-        toast.error(scan.error || 'Could not read export file');
-        return;
-      }
-      setImportScan(scan);
-      setImportSelection(scan.defaultSelection);
-      setImportStep('review');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to scan file');
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const handleImport = async () => {
-    if (!importFile || !importSelection || !importScan?.valid) {
-      toast.error('Scan your export file and choose what to import.');
-      return;
-    }
-    if (countSelectedItems(importScan.units, importSelection) === 0) {
-      toast.error('Select at least one item to import.');
-      return;
-    }
-    setIsSubmitting(true);
-    setImportProgress('Starting import…');
-    try {
-      await onImportJson(importFile, importSelection, setImportProgress);
-    } catch (error) {
-      console.error('Import failed', error);
-      toast.error(error instanceof Error ? error.message : 'Import failed');
-      setImportProgress('');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const steps = [
     { id: 1, title: 'Workspace', icon: Building2 },
     { id: 2, title: 'Brand', icon: Palette },
@@ -202,9 +149,7 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
             <div className="text-xs font-medium px-3 py-1 rounded-full bg-brand/10 text-brand">
               {path === 'choose'
                 ? 'Get started'
-                : path === 'import'
-                  ? 'Import backup'
-                  : `Step ${step} of 4`}
+                : `Step ${step} of 4`}
             </div>
           </div>
 
@@ -268,7 +213,7 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPath('import')}
+                    onClick={() => setShowImportModal(true)}
                     className="text-left p-6 rounded-2xl border-2 border-slate-200 dark:border-[#2E2E2E] hover:border-brand dark:hover:border-brand transition-colors bg-white dark:bg-[#202020]"
                   >
                     <Upload className="w-8 h-8 text-brand mb-4" />
@@ -278,61 +223,6 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
                     </p>
                   </button>
                 </div>
-              </motion.div>
-            )}
-
-            {path === 'import' && importStep === 'pick' && (
-              <motion.div
-                key="import-pick"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
-              >
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Select your <code className="text-xs bg-slate-100 dark:bg-[#2E2E2E] px-1.5 py-0.5 rounded">forge-firestore-export-*.json</code> file.
-                  We will scan it and show exactly what can be copied into your account.
-                </p>
-                <label className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-300 dark:border-[#3E3E3E] rounded-2xl cursor-pointer hover:border-brand transition-colors">
-                  {scanning ? (
-                    <RefreshCw className="w-10 h-10 text-brand animate-spin" />
-                  ) : (
-                    <Upload className="w-10 h-10 text-slate-400" />
-                  )}
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    {scanning
-                      ? 'Scanning export…'
-                      : importFile
-                        ? importFile.name
-                        : 'Choose JSON file'}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".json,application/json"
-                    className="hidden"
-                    disabled={scanning}
-                    onChange={(e) => void handleScanFile(e.target.files?.[0] || null)}
-                  />
-                </label>
-              </motion.div>
-            )}
-
-            {path === 'import' && importStep === 'review' && importScan && importSelection && (
-              <motion.div
-                key="import-review"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-4"
-              >
-                <MigrationImportReview
-                  scan={importScan}
-                  selection={importSelection}
-                  onSelectionChange={setImportSelection}
-                />
-                {importProgress && (
-                  <p className="text-sm text-brand font-medium text-center">{importProgress}</p>
-                )}
               </motion.div>
             )}
 
@@ -689,18 +579,6 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
           <button
             type="button"
             onClick={() => {
-              if (path === 'import') {
-                if (importStep === 'review') {
-                  setImportStep('pick');
-                  return;
-                }
-                setPath('choose');
-                setImportFile(null);
-                setImportScan(null);
-                setImportSelection(null);
-                setImportProgress('');
-                return;
-              }
               if (step === 1) {
                 setPath('choose');
                 return;
@@ -712,47 +590,6 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
           >
             Back
           </button>
-          {path === 'import' ? (
-            importStep === 'pick' ? (
-              <button
-                type="button"
-                disabled
-                className="px-8 py-3.5 rounded-2xl font-bold opacity-40 bg-slate-200 dark:bg-[#2E2E2E] text-slate-500"
-              >
-                Scan a file first
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleImport}
-                disabled={
-                  !importFile ||
-                  !importSelection ||
-                  isSubmitting ||
-                  (importScan ? countSelectedItems(importScan.units, importSelection) === 0 : true)
-                }
-                className="px-8 py-3.5 rounded-2xl font-bold flex items-center gap-2 shadow-xl transition-all active:scale-95 disabled:opacity-50 bg-brand text-white shadow-brand/20"
-              >
-                {isSubmitting ? (
-                  <>
-                    <RefreshCw size={18} className="animate-spin" />
-                    <span>Importing…</span>
-                  </>
-                ) : (
-                  <>
-                    <span>
-                      Import{' '}
-                      {importScan && importSelection
-                        ? countSelectedItems(importScan.units, importSelection)
-                        : 0}{' '}
-                      items
-                    </span>
-                    <ArrowRight size={18} />
-                  </>
-                )}
-              </button>
-            )
-          ) : (
           <button
             type="button"
             onClick={handleNext}
@@ -776,11 +613,19 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
               </>
             )}
           </button>
-          )}
             </>
           )}
         </div>
       </motion.div>
+
+      <MigrationImportModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        title="Import JSON backup"
+        description="We will fast-scan your export file locally, then let you choose what to copy into your account."
+        onImport={onImportJson}
+        reloadOnSuccess={false}
+      />
     </div>
   );
 }

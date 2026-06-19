@@ -34,6 +34,9 @@ import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
 import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
+import { MigrationImportModal } from './MigrationImportModal';
+import { detectJsonImportKind } from '../lib/jsonImportDetect';
+import { scanFirestoreExportText, type MigrationScanBundle } from '../lib/migrationScan';
 
 type UnifiedPreset = {
   id: string;
@@ -218,6 +221,7 @@ export function SettingsView({
   exportProductJson,
   exportExtensionZip,
   importProductJson,
+  onImportMigration,
   googleTokens,
   handleDisconnectGoogleDrive,
   setConfirmAction,
@@ -255,7 +259,9 @@ export function SettingsView({
   const [isOneDriveOpen, setIsOneDriveOpen] = useState(false);
   const [dataAction, setDataAction] = useState<{ type: 'restore' | 'export' | 'backup' | null }>({ type: null });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [restoreTarget, setRestoreTarget] = useState<'schedule' | 'product' | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<'schedule' | 'product' | 'auto' | null>(null);
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [migrationInitialBundle, setMigrationInitialBundle] = useState<MigrationScanBundle | null>(null);
   
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(user?.displayName || '');
@@ -354,7 +360,7 @@ export function SettingsView({
     }
   };
 
-  const handleDataActionSelect = (target: 'schedule' | 'product' | 'extension') => {
+  const handleDataActionSelect = (target: 'schedule' | 'product' | 'extension' | 'account' | 'auto') => {
     if (dataAction.type === 'export') {
       if (target === 'schedule') setIsExportModalOpen(true);
       else if (target === 'product') exportProductExcel();
@@ -363,18 +369,55 @@ export function SettingsView({
       if (target === 'schedule') exportScheduleJson();
       else exportProductJson();
     } else if (dataAction.type === 'restore') {
-      setRestoreTarget(target as 'schedule' | 'product');
-      setTimeout(() => fileInputRef.current?.click(), 100);
+      if (target === 'account') {
+        setMigrationInitialBundle(null);
+        setShowMigrationModal(true);
+      } else if (target === 'schedule' || target === 'product') {
+        setRestoreTarget(target);
+        setTimeout(() => fileInputRef.current?.click(), 100);
+      } else {
+        setRestoreTarget('auto');
+        setTimeout(() => fileInputRef.current?.click(), 100);
+      }
     }
     setDataAction({ type: null });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     if (restoreTarget === 'schedule') {
       importScheduleJson(e);
     } else if (restoreTarget === 'product') {
       importProductJson(e);
+    } else if (restoreTarget === 'auto') {
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text) as unknown;
+        const kind = detectJsonImportKind(parsed);
+
+        if (kind === 'forge-export') {
+          const bundle = await scanFirestoreExportText(text, file.name);
+          if (!bundle.scan.valid) {
+            toast.error(bundle.scan.error || 'Invalid account export');
+            return;
+          }
+          setMigrationInitialBundle(bundle);
+          setShowMigrationModal(true);
+        } else if (kind === 'schedule-backup') {
+          importScheduleJson(e);
+        } else if (kind === 'product-backup') {
+          importProductJson(e);
+        } else {
+          toast.error('Unrecognized JSON backup format.');
+        }
+      } catch (error) {
+        console.error('Restore failed', error);
+        toast.error(error instanceof Error ? error.message : 'Invalid backup file');
+      }
     }
+
     if (fileInputRef.current) fileInputRef.current.value = '';
     setRestoreTarget(null);
   };
@@ -2827,8 +2870,34 @@ export function SettingsView({
               <h3 className="text-lg font-bold text-[#37352F] dark:text-[#EBE9ED] mb-2">
                 {dataAction.type === 'restore' ? 'Restore JSON' : dataAction.type === 'export' ? 'Export Excel' : 'Backup JSON'}
               </h3>
-              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mb-6">Select which data you want to {dataAction.type}.</p>
+              <p className="text-sm text-[#757681] dark:text-[#9B9A97] mb-6">
+                {dataAction.type === 'restore'
+                  ? 'Pick a backup type, or auto-detect from any JSON file.'
+                  : `Select which data you want to ${dataAction.type}.`}
+              </p>
               <div className="space-y-3">
+                {dataAction.type === 'restore' && (
+                  <>
+                    <button
+                      onClick={() => handleDataActionSelect('account')}
+                      className="w-full p-3 bg-brand/10 border border-brand-border rounded-[12px] font-bold text-brand hover:bg-brand/15 transition-colors text-left"
+                    >
+                      Full account backup
+                      <span className="block text-[10px] font-normal text-brand/80 mt-0.5">
+                        forge-firestore-export — scan & choose what to import
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleDataActionSelect('auto')}
+                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors text-left"
+                    >
+                      Auto-detect from file
+                      <span className="block text-[10px] font-normal text-[#757681] dark:text-[#9B9A97] mt-0.5">
+                        Calendar, catalogue, or full account export
+                      </span>
+                    </button>
+                  </>
+                )}
                 <button onClick={() => handleDataActionSelect('schedule')} className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors">
                   Calendar Schedule
                 </button>
@@ -2848,6 +2917,21 @@ export function SettingsView({
           </div>
         )}
       </AnimatePresence>
+
+      {onImportMigration && (
+        <MigrationImportModal
+          open={showMigrationModal}
+          onClose={() => {
+            setShowMigrationModal(false);
+            setMigrationInitialBundle(null);
+          }}
+          initialBundle={migrationInitialBundle}
+          title="Import account backup"
+          description="Fast local scan — choose workspaces, posts, AI settings, and catalogue data to copy into your account."
+          onImport={onImportMigration}
+          reloadOnSuccess
+        />
+      )}
       </TabPageContent>
     </TabPageShell>
   );
