@@ -15,7 +15,26 @@ import {
   DEFAULT_BUILTIN_VISION_MODEL_ID,
   type BuiltInModel,
 } from './builtinModels';
-import { ensureWebGpuAdapter } from './webGpu';
+import { ensureWebGpuAdapter, clearWebGpuAdapterCache } from './webGpu';
+
+function isStaleGpuInstanceError(err: unknown): boolean {
+  const raw = `${err instanceof Error ? err.message : String(err)} ${(err as { stack?: string })?.stack || ''}`.toLowerCase();
+  return (
+    raw.includes('valid external instance reference no longer exists') ||
+    raw.includes('gpupipelineerror') ||
+    raw.includes('device lost') ||
+    raw.includes('out of memory')
+  );
+}
+
+function humanizeGpuError(err: unknown, modelKind: 'text' | 'vision'): string {
+  if (isStaleGpuInstanceError(err)) {
+    return modelKind === 'vision'
+      ? 'GPU ran out of memory for the vision model. Try the balanced Phi-3.5 Vision preset, close other GPU tabs, or enable cloud fallback in Settings.'
+      : 'GPU memory was exhausted loading the local model. Try Llama 3.2 1B in Settings, close other GPU tabs, or enable cloud fallback.';
+  }
+  return err instanceof Error ? err.message : 'Failed to initialize Local AI Engine.';
+}
 
 export type { BuiltInModel };
 export { BUILTIN_MODELS, BUILTIN_VISION_MODELS, DEFAULT_BUILTIN_VISION_MODEL_ID };
@@ -161,36 +180,62 @@ class BuiltInAiService {
   }
 
   reset() {
+    this.unloadTextEngine();
+    this.unloadVisionEngine();
+    clearWebGpuAdapterCache();
+    this.isLoading = false;
+    this.isProcessing = false;
+    this.progress = 0;
+    this.message = "";
+    this.error = null;
+    this.corsBlocked = false;
+    this.visionIsLoading = false;
+    this.notify();
+  }
+
+  private unloadTextEngine() {
     if (this.engine) {
-      this.engine.unload();
+      try {
+        this.engine.unload();
+      } catch {
+        /* engine may already be torn down */
+      }
       this.engine = null;
     }
+    this.isLoaded = false;
+  }
+
+  private unloadVisionEngine() {
     if (this.visionEngine) {
-      this.visionEngine.unload();
+      try {
+        this.visionEngine.unload();
+      } catch {
+        /* engine may already be torn down */
+      }
       this.visionEngine = null;
     }
     this.visionModelId = null;
     this.visionIsLoaded = false;
     this.visionIsLoading = false;
-    this.isLoading = false;
-    this.isLoaded = false;
-    this.progress = 0;
-    this.message = "";
-    this.error = null;
-    this.corsBlocked = false;
-    this.notify();
   }
 
-  async initVision(modelId: string = DEFAULT_BUILTIN_VISION_MODEL_ID) {
+  private hardResetGpuState() {
+    this.unloadTextEngine();
+    this.unloadVisionEngine();
+    clearWebGpuAdapterCache();
+  }
+
+  async initVision(modelId: string = DEFAULT_BUILTIN_VISION_MODEL_ID, attempt = 0) {
     const normalizedId = normalizeBuiltinModelId(modelId);
     if (this.visionIsLoading) return;
     if (this.visionIsLoaded && this.visionModelId === normalizedId) return;
 
     if (this.visionEngine && this.visionModelId !== normalizedId) {
-      this.visionEngine.unload();
-      this.visionEngine = null;
-      this.visionIsLoaded = false;
+      this.unloadVisionEngine();
     }
+
+    // Keep only one WebLLM engine in GPU memory at a time.
+    this.unloadTextEngine();
 
     this.visionIsLoading = true;
     this.message = `Loading vision model (${normalizedId})…`;
@@ -217,7 +262,13 @@ class BuiltInAiService {
       this.message = 'Local vision model ready';
       console.log(`[BuiltInAI] Vision model ${normalizedId} loaded.`);
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to load local vision model.';
+      if (isStaleGpuInstanceError(err) && attempt === 0) {
+        console.warn('[BuiltInAI] Vision GPU instance lost — resetting and retrying once…');
+        this.hardResetGpuState();
+        this.visionIsLoading = false;
+        return this.initVision(normalizedId, attempt + 1);
+      }
+      const errorMsg = humanizeGpuError(err, 'vision');
       this.error = errorMsg;
       console.error('[BuiltInAI] Vision init failed:', err);
       throw new Error(errorMsg);
@@ -262,22 +313,37 @@ class BuiltInAiService {
         image_url: { url },
       }));
 
-      const response = await this.visionEngine.chat.completions.create({
-        messages: [
-          { role: 'system', content: BUILTIN_SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: [...imageParts, { type: 'text' as const, text: textPrompt }],
-          },
-        ],
-        stream: false,
-        temperature: 0.35,
-        max_tokens: Math.min(1536, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
-      });
+      const runVision = async () => {
+        const response = await this.visionEngine.chat.completions.create({
+          messages: [
+            { role: 'system', content: BUILTIN_SYSTEM_PROMPT },
+            {
+              role: 'user',
+              content: [...imageParts, { type: 'text' as const, text: textPrompt }],
+            },
+          ],
+          stream: false,
+          temperature: 0.35,
+          max_tokens: Math.min(1536, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
+        });
 
-      const content = response?.choices?.[0]?.message?.content;
-      if (typeof content === 'string') return content;
-      return '';
+        const content = response?.choices?.[0]?.message?.content;
+        if (typeof content === 'string') return content;
+        return '';
+      };
+
+      try {
+        return await runVision();
+      } catch (visionErr) {
+        if (isStaleGpuInstanceError(visionErr)) {
+          console.warn('[BuiltInAI] GPU instance lost during vision — resetting and retrying once…');
+          this.hardResetGpuState();
+          await this.initVision(visionId);
+          if (!this.visionEngine) throw new Error(this.error || humanizeGpuError(visionErr, 'vision'));
+          return await runVision();
+        }
+        throw visionErr;
+      }
     } finally {
       this.isProcessing = false;
       this.notify();
@@ -285,11 +351,17 @@ class BuiltInAiService {
     }
   }
 
-  async init(modelId: string = 'Phi-3-mini-4k-instruct-q4f16_1-MLC', customConfig?: any) {
+  async init(modelId: string = 'Llama-3.2-1B-Instruct-q4f16_1-MLC', customConfig?: any, attempt = 0) {
     if (this.isLoading) return;
     const normalizedId = normalizeBuiltinModelId(modelId);
 
     if (this.isLoaded && this.currentModelId === normalizedId && !customConfig) return;
+
+    // Keep only one WebLLM engine in GPU memory at a time.
+    this.unloadVisionEngine();
+    if (this.engine && this.currentModelId !== normalizedId) {
+      this.unloadTextEngine();
+    }
 
     this.isLoading = true;
     this.error = null;
@@ -334,10 +406,17 @@ class BuiltInAiService {
       this.currentModelId = normalizedId;
       console.log(`[BuiltInAI] Model ${normalizedId} loaded successfully.`);
     } catch (err: any) {
-      let errorMsg = err.message || "Failed to initialize Local AI Engine.";
+      if (isStaleGpuInstanceError(err) && attempt === 0) {
+        console.warn('[BuiltInAI] Text GPU instance lost — resetting and retrying once…');
+        this.hardResetGpuState();
+        this.isLoading = false;
+        return this.init(normalizedId, customConfig, attempt + 1);
+      }
+
+      let errorMsg = humanizeGpuError(err, 'text');
       const raw = `${err?.message || ''} ${err?.stack || ''}`.toLowerCase();
       
-      if (errorMsg.includes("Failed to execute 'add' on 'Cache'")) {
+      if (err?.message?.includes("Failed to execute 'add' on 'Cache'")) {
         errorMsg = "Browser Cache Restriction: Google AI Studio iframes block local storage. You MUST open this app in a NEW TAB to use local AI models.";
         console.warn("[BuiltInAI] Detected iframe cache restriction. User must open app in new tab.");
       }
@@ -389,7 +468,7 @@ class BuiltInAiService {
       this.notify();
 
       // Determine default model if none exists
-      if (!this.currentModelId) this.currentModelId = 'Phi-3-mini-4k-instruct-q4f16_1-MLC';
+      if (!this.currentModelId) this.currentModelId = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
 
       // Normalize input to messages array and inject Forge Master System Prompt
       const messages: any[] = [];
@@ -434,24 +513,42 @@ class BuiltInAiService {
       }
 
       let fullText = "";
-      const chunks = await this.engine!.chat.completions.create({
-        messages,
-        stream: true,
-        temperature: 0.7,
-        top_p: 0.9,
-        repetition_penalty: 1.2,
-        max_tokens: Math.min(1024, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
-      });
+      const runStream = async () => {
+        fullText = "";
+        const chunks = await this.engine!.chat.completions.create({
+          messages,
+          stream: true,
+          temperature: 0.7,
+          top_p: 0.9,
+          repetition_penalty: 1.2,
+          max_tokens: Math.min(1024, Math.floor(budget.contextWindow * budget.reserveOutputRatio)),
+        });
 
-      for await (const chunk of chunks) {
-        const delta = chunk.choices[0]?.delta.content || "";
-        fullText += delta;
-        if (onToken) onToken(delta);
+        for await (const chunk of chunks) {
+          const delta = chunk.choices[0]?.delta.content || "";
+          fullText += delta;
+          if (onToken) onToken(delta);
+        }
+        return fullText;
+      };
+
+      try {
+        return await runStream();
+      } catch (streamErr) {
+        if (isStaleGpuInstanceError(streamErr)) {
+          console.warn('[BuiltInAI] GPU instance lost during generation — resetting and retrying once…');
+          this.hardResetGpuState();
+          await this.init(this.currentModelId!);
+          if (!this.isLoaded) throw new Error(this.error || humanizeGpuError(streamErr, 'text'));
+          return await runStream();
+        }
+        throw streamErr;
       }
-
-      return fullText;
     } catch (err: any) {
       console.error("[BuiltInAI] Generation error:", err);
+      if (isStaleGpuInstanceError(err)) {
+        throw new Error(humanizeGpuError(err, 'text'));
+      }
       throw err;
     } finally {
       this.isProcessing = false;

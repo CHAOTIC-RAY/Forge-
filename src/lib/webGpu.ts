@@ -90,3 +90,9 @@ export async function ensureWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
   }
   return info;
 }
+
+/** Clear cached adapter probe so a lost GPU device can be re-detected after reset. */
+export function clearWebGpuAdapterCache(): void {
+  cachedAdapterInfo = null;
+  probePromise = null;
+}

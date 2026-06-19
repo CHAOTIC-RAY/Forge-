@@ -630,7 +630,7 @@ export default function App() {
     setAiSettings(profile.ai_settings as typeof aiSettings);
   }, [profile?.id, profile?.ai_settings]);
 
-  // Preload local text + vision models after sign-in (default provider is built-in)
+  // Preload local text model after sign-in (vision loads on demand to save GPU memory)
   useEffect(() => {
     if (!user) return;
     void import('./lib/localAiBootstrap').then(({ ensureLocalAiEnginesReady }) =>

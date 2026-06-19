@@ -4,24 +4,15 @@ export type LocalAiBootstrapResult = {
   visionSkipped: boolean;
 };
 
-/** Download and warm both local text and vision WebLLM engines when WebGPU is available. */
+/** Download and warm the local text WebLLM engine when WebGPU is available. Vision loads on demand. */
 export async function ensureLocalAiEnginesReady(): Promise<LocalAiBootstrapResult> {
-  const {
-    ensureLocalTextEngineReady,
-    canUseBuiltinWebGpuVision,
-    ensureBuiltinVisionReady,
-  } = await import('./gemini');
+  const { ensureLocalTextEngineReady } = await import('./gemini');
 
-  await ensureLocalTextEngineReady();
-  let visionReady = false;
-  const visionSkipped = !canUseBuiltinWebGpuVision();
-  if (!visionSkipped) {
-    try {
-      await ensureBuiltinVisionReady();
-      visionReady = true;
-    } catch (err) {
-      console.warn('[ensureLocalAiEnginesReady] Vision preload failed:', err);
-    }
+  try {
+    await ensureLocalTextEngineReady();
+    return { textReady: true, visionReady: false, visionSkipped: true };
+  } catch (err) {
+    console.warn('[ensureLocalAiEnginesReady] Text preload failed:', err);
+    return { textReady: false, visionReady: false, visionSkipped: true };
   }
-  return { textReady: true, visionReady, visionSkipped };
 }

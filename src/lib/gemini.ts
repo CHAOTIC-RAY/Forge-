@@ -513,7 +513,7 @@ export async function ensureLocalTextEngineReady(): Promise<void> {
   const builtInAi = await getBuiltInAi();
   const status = builtInAi.getStatus();
   if (!status.isLoaded && !status.isLoading) {
-    await builtInAi.init(settings.builtinModelId || 'Phi-3-mini-4k-instruct-q4f16_1-MLC');
+    await builtInAi.init(settings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC');
   }
 }
 
