@@ -3512,6 +3512,7 @@ export default function App() {
                               <AnalyticsTab
                                 posts={posts}
                                 activeBusiness={activeBusiness}
+                                isTabActive={activeTab === 'analytics'}
                                 setActiveTab={setActiveTab}
                               />
                             )}

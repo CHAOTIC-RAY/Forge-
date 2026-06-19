@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -28,6 +28,7 @@ import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader'
 type AnalyticsTabProps = {
   posts?: Post[];
   activeBusiness?: Business | null;
+  isTabActive?: boolean;
   setActiveTab?: (
     tab:
       | 'home'
@@ -75,31 +76,39 @@ function StatCard({
 function BarChart({
   items,
   maxCount,
+  animate,
 }: {
   items: { label: string; count: number }[];
   maxCount: number;
+  animate: boolean;
 }) {
   if (items.length === 0) {
     return (
       <p className="text-xs text-[#757681] py-8 text-center">No posts in this period yet.</p>
     );
   }
+
   return (
-    <div className="flex items-end justify-between gap-2 h-[140px] pt-2">
-      {items.map((item) => (
-        <div key={item.label} className="flex flex-col items-center gap-1 flex-1 min-w-0 group">
-          <span className="text-[9px] font-bold text-brand opacity-0 group-hover:opacity-100 transition-opacity tabular-nums">
-            {item.count}
-          </span>
-          <div
-            className="w-full bg-brand/20 rounded-t-md overflow-hidden flex flex-col justify-end"
-            style={{ height: `${maxCount > 0 ? Math.max(8, (item.count / maxCount) * 120) : 8}px` }}
-          >
-            <div className="w-full bg-brand rounded-t-md min-h-[4px]" style={{ flex: 1 }} />
+    <div className="flex items-end gap-1.5 h-[140px] min-h-[120px] pt-2">
+      {items.map((item, i) => {
+        const heightPercent = maxCount > 0 ? Math.max(8, (item.count / maxCount) * 100) : 8;
+
+        return (
+          <div key={item.label} className="flex-1 flex flex-col justify-end gap-1 min-w-0 h-full group">
+            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity tabular-nums text-center">
+              {item.count}
+            </span>
+            <motion.div
+              className="w-full rounded-t-md origin-bottom bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_-2px_8px_rgba(16,185,129,0.25)]"
+              initial={{ scaleY: 0, opacity: 0.4 }}
+              animate={animate ? { scaleY: 1, opacity: 1 } : { scaleY: 0, opacity: 0.4 }}
+              transition={{ duration: 0.55, delay: 0.08 * i, ease: [0.22, 1, 0.36, 1] }}
+              style={{ height: `${heightPercent}%`, minHeight: 8 }}
+            />
+            <span className="text-[8px] text-[#757681] truncate w-full text-center font-bold">{item.label}</span>
           </div>
-          <span className="text-[8px] text-[#757681] truncate w-full text-center">{item.label}</span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -125,10 +134,12 @@ function MixList({ items, emptyLabel }: { items: { name: string; percent: number
   );
 }
 
-export function AnalyticsTab({ posts = [], activeBusiness, setActiveTab }: AnalyticsTabProps) {
+export function AnalyticsTab({ posts = [], activeBusiness, isTabActive = true, setActiveTab }: AnalyticsTabProps) {
   const [rangeDays, setRangeDays] = useState<InsightsRangeDays>(30);
   const [coachSummary, setCoachSummary] = useState<string | null>(null);
   const [isCoaching, setIsCoaching] = useState(false);
+  const [chartAnimate, setChartAnimate] = useState(false);
+  const chartAnimationRef = useRef<number | null>(null);
 
   const settings = getAnalyticsSettings();
   const hasProfileLinks = !!(settings.instagramUrl || settings.facebookUrl);
@@ -140,6 +151,31 @@ export function AnalyticsTab({ posts = [], activeBusiness, setActiveTab }: Analy
     label: d.day.slice(0, 3),
     count: d.count,
   }));
+  const weekChartSignature = weekChartItems.map((item) => `${item.label}:${item.count}`).join('|');
+
+  useEffect(() => {
+    if (!isTabActive) {
+      setChartAnimate(false);
+      return;
+    }
+
+    setChartAnimate(false);
+    if (chartAnimationRef.current !== null) {
+      window.clearTimeout(chartAnimationRef.current);
+    }
+
+    chartAnimationRef.current = window.setTimeout(() => {
+      setChartAnimate(true);
+      chartAnimationRef.current = null;
+    }, 60);
+
+    return () => {
+      if (chartAnimationRef.current !== null) {
+        window.clearTimeout(chartAnimationRef.current);
+        chartAnimationRef.current = null;
+      }
+    };
+  }, [isTabActive, rangeDays, weekChartSignature]);
 
   const handleCoach = async () => {
     if (stats.postsCount === 0) {
@@ -284,7 +320,7 @@ Return 4–6 short bullet recommendations (markdown bullets) for what to post ne
                   </p>
                 </div>
                 <div className="p-4">
-                  <BarChart items={weekChartItems} maxCount={weekdayMax} />
+                  <BarChart items={weekChartItems} maxCount={weekdayMax} animate={chartAnimate} />
                 </div>
               </div>
 
