@@ -34,9 +34,7 @@ import { Cpu, Info } from 'lucide-react';
 import { testLocalServerConnection, getDefaultAiSettings } from '../lib/gemini';
 import { TabPageContent, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
 import { persistBrandKnowledgeToAiSettings } from '../lib/brandKnowledge';
-import { MigrationImportModal } from './MigrationImportModal';
 import { detectJsonImportKind } from '../lib/jsonImportDetect';
-import { scanFirestoreExportText, type MigrationScanBundle } from '../lib/migrationScan';
 
 type UnifiedPreset = {
   id: string;
@@ -221,7 +219,6 @@ export function SettingsView({
   exportProductJson,
   exportExtensionZip,
   importProductJson,
-  onImportMigration,
   googleTokens,
   handleDisconnectGoogleDrive,
   setConfirmAction,
@@ -260,8 +257,6 @@ export function SettingsView({
   const [dataAction, setDataAction] = useState<{ type: 'restore' | 'export' | 'backup' | null }>({ type: null });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [restoreTarget, setRestoreTarget] = useState<'schedule' | 'product' | 'auto' | null>(null);
-  const [showMigrationModal, setShowMigrationModal] = useState(false);
-  const [migrationInitialBundle, setMigrationInitialBundle] = useState<MigrationScanBundle | null>(null);
   
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(user?.displayName || '');
@@ -360,7 +355,7 @@ export function SettingsView({
     }
   };
 
-  const handleDataActionSelect = (target: 'schedule' | 'product' | 'extension' | 'account' | 'auto') => {
+  const handleDataActionSelect = (target: 'schedule' | 'product' | 'extension' | 'auto') => {
     if (dataAction.type === 'export') {
       if (target === 'schedule') setIsExportModalOpen(true);
       else if (target === 'product') exportProductExcel();
@@ -369,10 +364,7 @@ export function SettingsView({
       if (target === 'schedule') exportScheduleJson();
       else exportProductJson();
     } else if (dataAction.type === 'restore') {
-      if (target === 'account') {
-        setMigrationInitialBundle(null);
-        setShowMigrationModal(true);
-      } else if (target === 'schedule' || target === 'product') {
+      if (target === 'schedule' || target === 'product') {
         setRestoreTarget(target);
         setTimeout(() => fileInputRef.current?.click(), 100);
       } else {
@@ -397,18 +389,12 @@ export function SettingsView({
         const parsed = JSON.parse(text) as unknown;
         const kind = detectJsonImportKind(parsed);
 
-        if (kind === 'forge-export') {
-          const bundle = await scanFirestoreExportText(text, file.name);
-          if (!bundle.scan.valid) {
-            toast.error(bundle.scan.error || 'Invalid account export');
-            return;
-          }
-          setMigrationInitialBundle(bundle);
-          setShowMigrationModal(true);
-        } else if (kind === 'schedule-backup') {
+        if (kind === 'schedule-backup') {
           importScheduleJson(e);
         } else if (kind === 'product-backup') {
           importProductJson(e);
+        } else if (kind === 'forge-export') {
+          toast.error('Full account migration was removed. Export calendar from the legacy database, then use Import calendar on Supabase.');
         } else {
           toast.error('Unrecognized JSON backup format.');
         }
@@ -2877,26 +2863,15 @@ export function SettingsView({
               </p>
               <div className="space-y-3">
                 {dataAction.type === 'restore' && (
-                  <>
-                    <button
-                      onClick={() => handleDataActionSelect('account')}
-                      className="w-full p-3 bg-brand/10 border border-brand-border rounded-[12px] font-bold text-brand hover:bg-brand/15 transition-colors text-left"
-                    >
-                      Full account backup
-                      <span className="block text-[10px] font-normal text-brand/80 mt-0.5">
-                        forge-firestore-export — scan & choose what to import
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => handleDataActionSelect('auto')}
-                      className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors text-left"
-                    >
-                      Auto-detect from file
-                      <span className="block text-[10px] font-normal text-[#757681] dark:text-[#9B9A97] mt-0.5">
-                        Calendar, catalogue, or full account export
-                      </span>
-                    </button>
-                  </>
+                  <button
+                    onClick={() => handleDataActionSelect('auto')}
+                    className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors text-left"
+                  >
+                    Auto-detect from file
+                    <span className="block text-[10px] font-normal text-[#757681] dark:text-[#9B9A97] mt-0.5">
+                      Calendar or product JSON backup
+                    </span>
+                  </button>
                 )}
                 <button onClick={() => handleDataActionSelect('schedule')} className="w-full p-3 bg-[#F7F7F5] dark:bg-[#202020] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[12px] font-bold text-[#37352F] dark:text-[#EBE9ED] hover:bg-[#E9E9E7] dark:hover:bg-[#2E2E2E] transition-colors">
                   Calendar Schedule
@@ -2917,21 +2892,6 @@ export function SettingsView({
           </div>
         )}
       </AnimatePresence>
-
-      {onImportMigration && (
-        <MigrationImportModal
-          open={showMigrationModal}
-          onClose={() => {
-            setShowMigrationModal(false);
-            setMigrationInitialBundle(null);
-          }}
-          initialBundle={migrationInitialBundle}
-          title="Import account backup"
-          description="Fast local scan — choose workspaces, posts, AI settings, and catalogue data to copy into your account."
-          onImport={onImportMigration}
-          reloadOnSuccess
-        />
-      )}
       </TabPageContent>
     </TabPageShell>
   );

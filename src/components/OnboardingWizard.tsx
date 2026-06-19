@@ -12,8 +12,6 @@ import {
   Cpu,
   Eye,
   Store,
-  Upload,
-  PlusCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -21,9 +19,6 @@ import { Business } from '../data';
 import { builtInAi, type BuiltInAiStatus } from '../lib/builtinAi';
 import { ensureLocalAiEnginesReady } from '../lib/localAiBootstrap';
 import { canUseBuiltinWebGpuVision } from '../lib/webGpu';
-import type { MigrationSelection } from '../lib/migrationTypes';
-import type { MigrationScanBundle } from '../lib/migrationScan';
-import { MigrationImportModal } from './MigrationImportModal';
 
 interface OnboardingWizardProps {
   onComplete: (data: Partial<Business> & {
@@ -32,19 +27,13 @@ interface OnboardingWizardProps {
     geminiApiKey?: string;
     outletNames?: string;
   }) => Promise<void>;
-  onImportJson: (
-    bundle: MigrationScanBundle,
-    selection: MigrationSelection,
-    onProgress: (stage: string) => void
-  ) => Promise<void>;
   userEmail: string;
 }
 
-type OnboardingPath = 'choose' | 'create';
+type OnboardingPath = 'create';
 
-export function OnboardingWizard({ onComplete, onImportJson, userEmail }: OnboardingWizardProps) {
-  const [path, setPath] = useState<OnboardingPath>('choose');
-  const [showImportModal, setShowImportModal] = useState(false);
+export function OnboardingWizard({ onComplete, userEmail }: OnboardingWizardProps) {
+  const [path] = useState<OnboardingPath>('create');
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiStatus, setAiStatus] = useState<BuiltInAiStatus | null>(null);
@@ -147,9 +136,7 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
               </div>
             </div>
             <div className="text-xs font-medium px-3 py-1 rounded-full bg-brand/10 text-brand">
-              {path === 'choose'
-                ? 'Get started'
-                : `Step ${step} of 4`}
+              Step {step} of 4
             </div>
           </div>
 
@@ -185,47 +172,6 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
 
         <div className="flex-1 overflow-y-auto p-8">
           <AnimatePresence mode="wait">
-            {path === 'choose' && (
-              <motion.div
-                key="choose"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
-              >
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Welcome to Forge. Create a fresh workspace or restore data from a JSON export file.
-                </p>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPath('create');
-                      setStep(1);
-                    }}
-                    className="text-left p-6 rounded-2xl border-2 border-slate-200 dark:border-[#2E2E2E] hover:border-brand dark:hover:border-brand transition-colors bg-white dark:bg-[#202020]"
-                  >
-                    <PlusCircle className="w-8 h-8 text-brand mb-4" />
-                    <h3 className="font-bold text-slate-900 dark:text-white mb-2">Start fresh</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Set up a new business workspace, brand kit, and calendar from scratch.
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowImportModal(true)}
-                    className="text-left p-6 rounded-2xl border-2 border-slate-200 dark:border-[#2E2E2E] hover:border-brand dark:hover:border-brand transition-colors bg-white dark:bg-[#202020]"
-                  >
-                    <Upload className="w-8 h-8 text-brand mb-4" />
-                    <h3 className="font-bold text-slate-900 dark:text-white mb-2">Import JSON backup</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Restore workspaces, calendar posts, AI settings, and inventory from an export file.
-                    </p>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
             {path === 'create' && step === 1 && (
               <motion.div
                 key="step1"
@@ -570,22 +516,10 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
         </div>
 
         <div className="p-8 border-t border-slate-100 dark:border-[#2E2E2E] flex items-center justify-between bg-slate-50/50 dark:bg-[#202020]/50">
-          {path === 'choose' ? (
-            <div className="w-full text-center text-xs text-slate-500 dark:text-slate-400">
-              You can change this later from Settings.
-            </div>
-          ) : (
-            <>
           <button
             type="button"
-            onClick={() => {
-              if (step === 1) {
-                setPath('choose');
-                return;
-              }
-              setStep(Math.max(1, step - 1));
-            }}
-            disabled={isSubmitting}
+            onClick={() => setStep(Math.max(1, step - 1))}
+            disabled={isSubmitting || step === 1}
             className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-50"
           >
             Back
@@ -613,19 +547,8 @@ export function OnboardingWizard({ onComplete, onImportJson, userEmail }: Onboar
               </>
             )}
           </button>
-            </>
-          )}
         </div>
       </motion.div>
-
-      <MigrationImportModal
-        open={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        title="Import JSON backup"
-        description="We will fast-scan your export file locally, then let you choose what to copy into your account."
-        onImport={onImportJson}
-        reloadOnSuccess={false}
-      />
     </div>
   );
 }

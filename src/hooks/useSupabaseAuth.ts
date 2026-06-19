@@ -7,6 +7,7 @@ import {
 import { clearSupabaseAccessToken, ensureSupabaseAccessToken } from '../lib/supabaseSession';
 import { firestoreEntityId } from '../lib/firestoreMigrateIds';
 import { syncProfileViaApi } from '../lib/profileApi';
+import { isLegacyBackend } from '../lib/dataBackend';
 
 function buildFallbackProfile(firebaseUser: User): Profile {
   const id =
@@ -55,6 +56,16 @@ export function useSupabaseAuth(): AuthState & {
       return;
     }
 
+    if (isLegacyBackend()) {
+      setState(prev => ({
+        ...prev,
+        profile: buildFallbackProfile(firebaseUser),
+        loading: false,
+        error: null,
+      }));
+      return;
+    }
+
     try {
       const profile = await syncProfile(firebaseUser);
       setState(prev => ({ ...prev, profile, loading: false, error: null }));
@@ -78,6 +89,16 @@ export function useSupabaseAuth(): AuthState & {
       }
 
       setState(prev => ({ ...prev, loading: true, firebaseUser }));
+
+      if (isLegacyBackend()) {
+        setState({
+          firebaseUser,
+          profile: buildFallbackProfile(firebaseUser),
+          loading: false,
+          error: null,
+        });
+        return;
+      }
 
       try {
         await ensureSupabaseAccessToken(true);
@@ -136,6 +157,11 @@ export function useProfile(): Profile | null {
       const firebaseUser = auth.currentUser;
       if (!firebaseUser) {
         setProfile(null);
+        return;
+      }
+
+      if (isLegacyBackend()) {
+        setProfile(buildFallbackProfile(firebaseUser));
         return;
       }
 
