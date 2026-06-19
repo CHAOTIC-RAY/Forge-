@@ -124,13 +124,13 @@ describe('applyThemeConfig', () => {
 });
 
 describe('applyPublicTheme', () => {
-  it('clears dark mode and runtime overrides without clearing storage', () => {
+  it('enforces dark public theme without clearing stored preferences', () => {
     saveThemeConfig({ ...DEFAULT_THEME_CONFIG, accentColor: '#ff0000' });
-    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('dark');
     document.documentElement.setAttribute('data-forge-themed', 'true');
     applyThemeConfig({ ...DEFAULT_THEME_CONFIG, fontFamily: 'Lora' });
     applyPublicTheme();
-    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(document.documentElement.getAttribute('data-forge-themed')).toBeNull();
     expect(document.getElementById('forge-font-override')).toBeNull();
     expect(loadThemeConfig()?.accentColor).toBe('#ff0000');

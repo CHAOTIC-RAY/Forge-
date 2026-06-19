@@ -41,7 +41,7 @@ import { ForgeLogo, ScribbleFlame } from './ForgeLogo';
 import { cn } from '../lib/utils';
 import { INDUSTRY_CONFIGS } from '../lib/industryConfig';
 import { applyPublicTheme } from '../lib/themeEngine';
-import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent } from 'motion/react';
+import { motion, useScroll, useTransform, AnimatePresence, useMotionValueEvent, useInView } from 'motion/react';
 import { HeroHandwritingTitle } from './HeroHandwritingTitle';
 import { ChaoticStudioCredits } from './ChaoticStudioCredits';
 import { animateScrollTo, easeOutExpo, easeInOutQuint, waitMs } from '../lib/guidedScroll';
@@ -542,12 +542,15 @@ function BrandKitLandingPreview() {
 }
 
 function AnalyticsLandingPreview() {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInView = useInView(chartRef, { once: true, amount: 0.35 });
   const bars = [42, 68, 55, 88, 72, 95, 61];
   const stats = [
     { label: 'Posts / 30d', value: '24', delta: 'scheduled' },
     { label: 'Top day', value: 'Tuesday', delta: '6 posts' },
     { label: 'Top format', value: 'Carousel', delta: '42%' },
   ];
+  const linePath = 'M 4 52 L 20 44 L 36 40 L 52 24 L 68 30 L 84 12 L 96 18';
 
   return (
     <div className={LANDING_PREVIEW_SHELL}>
@@ -572,7 +575,7 @@ function AnalyticsLandingPreview() {
             key={s.label}
             className="rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-2.5"
           >
-            <p className="text-[9px] font-bold uppercase tracking-wide text-[#787774]">{s.label}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wide text-[#787774] dark:text-[#9B9A97]">{s.label}</p>
             <p className="text-base font-black text-[#37352F] dark:text-[#EBE9ED] mt-0.5">{s.value}</p>
             <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">{s.delta}</p>
           </div>
@@ -580,11 +583,53 @@ function AnalyticsLandingPreview() {
       </div>
 
       <div className="flex-1 flex gap-2 min-h-[100px]">
-        <div className="flex-[1.2] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 flex items-end gap-1.5">
+        <div
+          ref={chartRef}
+          className="flex-[1.2] rounded-xl border border-[#E9E9E7] dark:border-[#2E2E2E] bg-[#FAFAF9] dark:bg-[#202020] p-3 flex items-end gap-1.5 relative overflow-hidden"
+        >
+          <svg
+            className="absolute inset-3 bottom-8 pointer-events-none"
+            viewBox="0 0 100 60"
+            preserveAspectRatio="none"
+            aria-hidden
+          >
+            <motion.path
+              d={linePath}
+              fill="none"
+              stroke="rgb(16 185 129 / 0.55)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={chartInView ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
+              transition={{ duration: 1.2, ease: 'easeOut', delay: 0.15 }}
+            />
+            <motion.path
+              d={`${linePath} L 96 60 L 4 60 Z`}
+              fill="url(#landingAnalyticsFill)"
+              initial={{ opacity: 0 }}
+              animate={chartInView ? { opacity: 0.18 } : { opacity: 0 }}
+              transition={{ duration: 0.8, delay: 0.9 }}
+            />
+            <defs>
+              <linearGradient id="landingAnalyticsFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgb(16 185 129)" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="rgb(16 185 129)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+          </svg>
           {bars.map((h, i) => (
-            <div key={i} className="flex-1 flex flex-col justify-end gap-1 min-w-0">
-              <div className="w-full bg-emerald-500/80 rounded-t-md" style={{ height: `${h}%`, minHeight: 4 }} />
-              <span className="text-[7px] text-center text-[#787774] font-bold">{['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}</span>
+            <div key={i} className="flex-1 flex flex-col justify-end gap-1 min-w-0 relative z-[1]">
+              <motion.div
+                className="w-full bg-emerald-500/80 rounded-t-md origin-bottom"
+                initial={{ scaleY: 0 }}
+                animate={chartInView ? { scaleY: 1 } : { scaleY: 0 }}
+                transition={{ duration: 0.55, delay: 0.08 * i, ease: [0.22, 1, 0.36, 1] }}
+                style={{ height: `${h}%`, minHeight: 4 }}
+              />
+              <span className="text-[7px] text-center text-[#787774] dark:text-[#9B9A97] font-bold">
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}
+              </span>
             </div>
           ))}
         </div>
@@ -595,9 +640,14 @@ function AnalyticsLandingPreview() {
           <p className="text-[9px] text-[#37352F] dark:text-[#EBE9ED] leading-relaxed flex-1">
             You post most on Tue/Thu. Carousels lead your mix—consider one reel this week to balance formats.
           </p>
-          <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <motion.span
+            className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1"
+            initial={{ opacity: 0, y: 4 }}
+            animate={chartInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
+            transition={{ duration: 0.4, delay: 1.1 }}
+          >
             <TrendingUp className="w-3 h-3" /> From your calendar
-          </span>
+          </motion.span>
         </div>
       </div>
     </div>
@@ -1011,7 +1061,7 @@ export function LandingView(_props: LandingViewProps) {
 
   return (
     <div
-      className="relative flex flex-col md:flex-row h-screen bg-[#F7F7F5] dark:bg-[#202020] text-[#37352F] dark:text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white"
+      className="relative flex flex-col md:flex-row h-screen bg-[#191919] text-[#EBE9ED] overflow-hidden font-sans selection:bg-[#2383E2] selection:text-white"
     >
       {/* Top right floating Log In / Sign Up button for quick access */}
       <motion.div

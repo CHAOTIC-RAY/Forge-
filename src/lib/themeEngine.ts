@@ -264,7 +264,7 @@ function clearRuntimeThemeOverrides(root: HTMLElement): void {
 /** Reset DOM theme state for landing/login without clearing saved user preferences. */
 export function applyPublicTheme(): void {
   const root = document.documentElement;
-  root.classList.remove('dark');
+  root.classList.add('dark');
   root.setAttribute('data-theme', 'default');
   root.removeAttribute('data-sidebar-style');
   root.removeAttribute('data-glass-intensity');
