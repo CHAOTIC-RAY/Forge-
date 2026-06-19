@@ -9,6 +9,8 @@ import {
   fetchPostsByProfileViaApi,
   fetchPostsViaApi,
   fetchWorkspaceSnapshotViaApi,
+  fetchNotebookViaApi,
+  upsertNotebookViaApi,
   updatePostViaApi,
 } from './dataAccessApi';
 import { transformPostFromDb } from './postDbMapper';
@@ -786,41 +788,30 @@ export async function getCategoryCounts(businessId: string): Promise<Record<stri
 // ============================================
 
 export async function getNotebook(businessId: string, profileId: string): Promise<Notebook | null> {
-  const { data, error } = await supabase
-    .from('notebooks')
-    .select('*')
-    .eq('business_id', businessId)
-    .eq('profile_id', profileId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
+  try {
+    return await fetchNotebookViaApi(businessId);
+  } catch (error) {
     console.error('Error fetching notebook:', error);
     throw error;
   }
-  return data;
 }
 
 export async function upsertNotebook(
   businessId: string,
-  profileId: string,
+  _profileId: string,
   updates: Partial<Notebook>
 ): Promise<Notebook> {
-  const { data, error } = await supabase
-    .from('notebooks')
-    .upsert({
-      business_id: businessId,
-      profile_id: profileId,
-      ...updates,
-    }, { onConflict: 'business_id,profile_id' })
-    .select()
-    .single();
-
-  if (error) {
+  try {
+    return await upsertNotebookViaApi(businessId, {
+      title: updates.title,
+      blocks: updates.blocks,
+      links: updates.links,
+      folders: updates.folders,
+    });
+  } catch (error) {
     console.error('Error upserting notebook:', error);
     throw error;
   }
-  return data;
 }
 
 // ============================================
@@ -1333,26 +1324,10 @@ export function subscribeToNotebook(
   };
 
   load();
-
-  const channel = supabase
-    .channel(`notebook:${businessId}:${profileId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'notebooks',
-        filter: `business_id=eq.${businessId}`,
-      },
-      () => {
-        load();
-      }
-    )
-    .subscribe();
-
+  const intervalId = window.setInterval(load, 15000);
   return () => {
     cancelled = true;
-    supabase.removeChannel(channel);
+    window.clearInterval(intervalId);
   };
 }
 

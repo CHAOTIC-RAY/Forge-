@@ -19,6 +19,7 @@ import {
   handleDataPostById,
   handleDataPostsBatchImport,
   handleDataWorkspace,
+  handleDataNotebook,
 } from "./lib/handleSupabaseDataAccess";
 
 export interface Env {
@@ -194,6 +195,9 @@ export default {
       }
       if (path === '/api/data/workspace') {
         return handleDataWorkspace(request, env);
+      }
+      if (path === '/api/data/notebook') {
+        return handleDataNotebook(request, env);
       }
 
       // Proxy for Gemini API

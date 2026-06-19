@@ -425,3 +425,101 @@ export async function handleDataWorkspace(request: Request, env: SupabaseAuthEnv
     );
   }
 }
+
+type NotebookRow = {
+  id?: string;
+  business_id?: string;
+  profile_id?: string;
+  title?: string;
+  blocks?: unknown;
+  links?: unknown;
+  folders?: unknown;
+};
+
+export async function handleDataNotebook(request: Request, env: SupabaseAuthEnv): Promise<Response> {
+  const auth = await verifyFirebaseBearer(request, env);
+  if (auth instanceof Response) return auth;
+
+  const businessId = new URL(request.url).searchParams.get('businessId') || '';
+  if (!businessId) {
+    return new Response(JSON.stringify({ error: 'businessId is required' }), {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
+
+  try {
+    const access = await assertBusinessAccess(env, auth.uid, businessId);
+    if (access instanceof Response) return access;
+
+    const { profileId } = access;
+    const { serviceKey, supabaseUrl } = getServiceConfig(env);
+    const headers = serviceHeaders(serviceKey, { Accept: 'application/json' });
+
+    if (request.method === 'GET') {
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/notebooks?business_id=eq.${encodeURIComponent(businessId)}&profile_id=eq.${encodeURIComponent(profileId)}&select=*`,
+        { headers }
+      );
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to load notebook: ${text}`);
+      }
+      const rows = (await response.json()) as NotebookRow[];
+      return new Response(JSON.stringify({ notebook: rows[0] ?? null }), {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
+
+    if (request.method === 'PUT' || request.method === 'PATCH') {
+      let body: { updates?: NotebookRow } & NotebookRow;
+      try {
+        body = (await request.json()) as { updates?: NotebookRow } & NotebookRow;
+      } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+          status: 400,
+          headers: corsHeaders,
+        });
+      }
+
+      const updates = body.updates ?? body;
+      const payload = {
+        business_id: businessId,
+        profile_id: profileId,
+        title: updates.title ?? 'Ideas',
+        blocks: updates.blocks ?? [],
+        links: updates.links ?? [],
+        folders: updates.folders ?? [],
+      };
+
+      const response = await fetch(`${supabaseUrl}/rest/v1/notebooks?on_conflict=business_id,profile_id`, {
+        method: 'POST',
+        headers: serviceHeaders(serviceKey, {
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=representation',
+        }),
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to save notebook: ${text}`);
+      }
+      const rows = (await response.json()) as NotebookRow[];
+      return new Response(JSON.stringify({ notebook: rows[0] }), {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
+
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: corsHeaders,
+    });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Notebook request failed' }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}

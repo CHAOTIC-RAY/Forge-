@@ -22,6 +22,7 @@ import {
   handleDataPostById,
   handleDataPostsBatchImport,
   handleDataWorkspace,
+  handleDataNotebook,
 } from "./src/lib/handleSupabaseDataAccess";
 
 function supabaseWorkerEnv() {
@@ -447,6 +448,40 @@ export async function startServer(forcePort?: number) {
     } catch (error: any) {
       console.error("[Server] /api/data/workspace error:", error);
       res.status(500).json({ error: error.message || "Load workspace data failed" });
+    }
+  });
+
+  app.get("/api/data/notebook", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "GET",
+        headers: { Authorization: req.get("Authorization") || "" },
+      });
+      const response = await handleDataNotebook(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/notebook GET error:", error);
+      res.status(500).json({ error: error.message || "Load notebook failed" });
+    }
+  });
+
+  app.put("/api/data/notebook", async (req, res) => {
+    try {
+      const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
+        method: "PUT",
+        headers: {
+          Authorization: req.get("Authorization") || "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      });
+      const response = await handleDataNotebook(request, supabaseWorkerEnv());
+      const body = await response.text();
+      res.status(response.status).type("application/json").send(body);
+    } catch (error: any) {
+      console.error("[Server] /api/data/notebook PUT error:", error);
+      res.status(500).json({ error: error.message || "Save notebook failed" });
     }
   });
 

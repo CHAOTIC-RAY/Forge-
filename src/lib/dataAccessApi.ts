@@ -108,3 +108,44 @@ export async function fetchWorkspaceSnapshotViaApi(businessId: string): Promise<
   if (!response.ok) await parseError(response, 'Failed to load workspace data');
   return (await response.json()) as WorkspaceSnapshot;
 }
+
+export type NotebookApiRow = {
+  id: string;
+  business_id: string;
+  profile_id: string;
+  title: string;
+  blocks: unknown[];
+  links: unknown[];
+  folders: unknown[];
+  created_at: string;
+  updated_at: string;
+};
+
+export async function fetchNotebookViaApi(businessId: string): Promise<NotebookApiRow | null> {
+  const headers = await firebaseAuthHeader();
+  const response = await fetch(
+    `/api/data/notebook?businessId=${encodeURIComponent(businessId)}`,
+    { headers }
+  );
+  if (!response.ok) await parseError(response, 'Failed to load notebook');
+  const body = (await response.json()) as { notebook: NotebookApiRow | null };
+  return body.notebook ?? null;
+}
+
+export async function upsertNotebookViaApi(
+  businessId: string,
+  updates: Partial<Pick<NotebookApiRow, 'title' | 'blocks' | 'links' | 'folders'>>
+): Promise<NotebookApiRow> {
+  const headers = await firebaseAuthHeader();
+  const response = await fetch(
+    `/api/data/notebook?businessId=${encodeURIComponent(businessId)}`,
+    {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates }),
+    }
+  );
+  if (!response.ok) await parseError(response, 'Failed to save notebook');
+  const body = (await response.json()) as { notebook: NotebookApiRow };
+  return body.notebook;
+}
