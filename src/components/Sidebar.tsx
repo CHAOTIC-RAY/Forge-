@@ -372,19 +372,10 @@ function DockSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, isAdmin }: {
   isAdmin?: boolean;
 }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 glass-panel rounded-2xl shadow-xl shadow-black/10 border border-white/20 dark:border-[#2E2E2E]/50">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 glass-panel forge-dock-nav shadow-xl shadow-black/10">
       <nav className="flex items-center gap-1">
-        {navItems.filter(item => isAdmin || !['bulk', 'excel'].includes(item.id)).map((item, idx) => {
+        {navItems.filter(item => isAdmin || !['bulk', 'excel'].includes(item.id)).map((item) => {
           const isActive = activeTab === item.id || (item.id === 'schedule' && activeTab === 'schedule');
-          const colors = [
-            'bg-rose-500 text-white',
-            'bg-amber-500 text-white',
-            'bg-emerald-500 text-white',
-            'bg-sky-500 text-white',
-            'bg-violet-500 text-white',
-            'bg-brand text-white',
-            'bg-[#6074b9] text-white',
-          ];
           return (
             <button
               key={item.id}
@@ -392,8 +383,8 @@ function DockSidebar({ sidebarStyle, onNavClick, activeTab, isOpen, isAdmin }: {
               className={cn(
                 "w-12 h-12 rounded-xl flex items-center justify-center transition-all relative group",
                 isActive
-                  ? `${colors[idx % colors.length]} shadow-lg scale-110`
-                  : "hover:bg-[#F7F7F5] dark:hover:bg-[#202020] text-[#757681]"
+                  ? "dock-nav-active scale-110"
+                  : "hover:bg-[#F7F7F5] dark:hover:bg-[#202020] text-[#757681] dark:text-[#9B9A97]"
               )}
               title={item.label}
             >

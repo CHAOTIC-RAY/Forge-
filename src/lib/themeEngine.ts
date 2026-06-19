@@ -378,7 +378,6 @@ export function applyThemeConfig(config: ThemeConfig, options: ApplyThemeOptions
   const glassSurfaces = [
     '.glass-panel',
     '.glass-card',
-    '.forge-sidebar-rail',
     '.forge-mobile-tab-bar',
     '.forge-dock-nav',
   ].join(', ');
@@ -424,6 +423,12 @@ export function applyThemeConfig(config: ThemeConfig, options: ApplyThemeOptions
         '}',
         `${surfaceScope} [data-forge-themed="true"] .forge-setting-shell {`,
         '  background: var(--bg-main) !important;',
+        '  border-color: var(--border-main) !important;',
+        '}',
+        `${surfaceScope} [data-forge-themed="true"] .forge-sidebar-rail,`,
+        `${surfaceScope} [data-forge-themed="true"] .forge-dock-nav,`,
+        `${surfaceScope} [data-forge-themed="true"] .forge-mobile-tab-bar {`,
+        '  background: var(--bg-secondary) !important;',
         '  border-color: var(--border-main) !important;',
         '}',
         `${surfaceScope} [data-forge-themed="true"] .forge-chat-shell {`,

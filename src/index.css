@@ -366,6 +366,24 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Sidebar Style Variants */
+.forge-sidebar-rail {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border-main) !important;
+  color: var(--text-main);
+}
+
+.forge-dock-nav {
+  display: none;
+  border-color: var(--border-main) !important;
+  border-radius: var(--forge-radius, 16px);
+}
+
+.forge-dock-nav .dock-nav-active {
+  background: var(--brand-color) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-color) 35%, transparent);
+}
+
 [data-sidebar-style="classic"] {
   --sidebar-width: 64px;
   --sidebar-padding: 0.5rem;
@@ -428,16 +446,31 @@ h1, h2, h3, h4, h5, h6 {
   margin: 1rem;
   height: calc(100vh - 2rem) !important;
   border-radius: 20px;
-  background: var(--forge-glass-bg, rgba(255, 255, 255, 0.85)) !important;
-  backdrop-filter: blur(var(--forge-glass-blur, 14px));
-  -webkit-backdrop-filter: blur(var(--forge-glass-blur, 14px));
-  border: 1px solid rgba(233, 233, 231, 0.6);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-main) !important;
+  border-right: 1px solid var(--border-main) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
-.dark [data-sidebar-style="island"] .forge-sidebar-rail {
-  background: var(--forge-glass-dark-bg, rgba(26, 26, 26, 0.85)) !important;
-  border-color: rgba(46, 46, 46, 0.6);
+html:not([data-glass-intensity="off"]):not(.dark) [data-sidebar-style="island"] .forge-sidebar-rail {
+  background: var(--forge-glass-bg, rgba(255, 255, 255, 0.92)) !important;
+  backdrop-filter: blur(var(--forge-glass-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--forge-glass-blur, 14px));
+}
+
+html.dark:not([data-glass-intensity="off"]) [data-sidebar-style="island"] .forge-sidebar-rail {
+  background: var(--forge-glass-dark-bg, rgba(26, 26, 26, 0.92)) !important;
+  backdrop-filter: blur(var(--forge-glass-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--forge-glass-blur, 14px));
+}
+
+[data-sidebar-style="island"] .forge-sidebar-rail nav button:not(.nav-pill-active) {
+  color: var(--text-secondary);
+}
+
+[data-sidebar-style="island"] .forge-sidebar-rail nav button.nav-pill-active {
+  color: var(--brand-color);
+  background: var(--brand-color-bg);
 }
 
 [data-sidebar-style="island"] .forge-sidebar-rail nav {
@@ -470,10 +503,6 @@ h1, h2, h3, h4, h5, h6 {
   display: none !important;
 }
 
-.forge-dock-nav {
-  display: none;
-}
-
 [data-sidebar-style="dock"] .forge-dock-nav {
   display: flex !important;
 }
@@ -486,14 +515,18 @@ h1, h2, h3, h4, h5, h6 {
     width: auto;
     max-width: calc(100% - 1.5rem);
     bottom: calc(0.75rem + env(safe-area-inset-bottom));
-    border-radius: 9999px;
-    border: 1px solid rgba(233, 233, 231, 0.7);
+    border-radius: var(--forge-radius, 9999px);
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-main) !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   }
 
-  .dark [data-sidebar-style="dock"] .forge-mobile-tab-bar {
-    border-color: rgba(46, 46, 46, 0.8);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  html:not([data-glass-intensity="off"]):not(.dark) [data-sidebar-style="dock"] .forge-mobile-tab-bar {
+    background: var(--forge-glass-bg) !important;
+  }
+
+  html.dark:not([data-glass-intensity="off"]) [data-sidebar-style="dock"] .forge-mobile-tab-bar {
+    background: var(--forge-glass-dark-bg) !important;
   }
 
   [data-sidebar-style="dock"] .forge-dock-nav {
@@ -514,13 +547,17 @@ h1, h2, h3, h4, h5, h6 {
     bottom: calc(0.75rem + env(safe-area-inset-bottom));
     width: auto;
     border-radius: 1.25rem;
-    border: 1px solid rgba(233, 233, 231, 0.7);
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-main) !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   }
 
-  .dark [data-sidebar-style="island"] .forge-mobile-tab-bar {
-    border-color: rgba(46, 46, 46, 0.8);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  html:not([data-glass-intensity="off"]):not(.dark) [data-sidebar-style="island"] .forge-mobile-tab-bar {
+    background: var(--forge-glass-bg) !important;
+  }
+
+  html.dark:not([data-glass-intensity="off"]) [data-sidebar-style="island"] .forge-mobile-tab-bar {
+    background: var(--forge-glass-dark-bg) !important;
   }
 
   [data-sidebar-style="expanded"] .forge-mobile-tab-bar nav button span {

@@ -3074,7 +3074,7 @@ export default function App() {
               ]}>
                 <div className="flex flex-1 w-full relative">
                   {/* Sidebar (Desktop Only) — Notion Minimal Rail */}
-                  <aside className="forge-sidebar-rail hidden md:flex sticky top-0 h-screen w-16 bg-[#FBFAF8] dark:bg-[#191919] border-r border-[#E9E9E7] dark:border-[#2E2E2E] flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar transition-all duration-300">
+                  <aside className="forge-sidebar-rail hidden md:flex sticky top-0 h-screen w-16 border-r flex-col shrink-0 z-50 items-center py-4 justify-between print:hidden overflow-y-auto no-scrollbar transition-all duration-300">
                     <div className="flex flex-col gap-2 lg:gap-4 w-full items-center">
                       {/* Logo */}
                       <div className="w-10 h-10 bg-transparent rounded-[12px] flex items-center justify-center text-gray-400 font-black text-lg shrink-0 overflow-hidden">
@@ -3810,18 +3810,18 @@ export default function App() {
               </div>
 
               {/* Desktop Dock Navigation (for dock sidebar style) */}
-              <div className="forge-dock-nav hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 glass-panel rounded-2xl shadow-xl shadow-black/10 border border-white/20 dark:border-[#2E2E2E]/50">
+              <div className="forge-dock-nav hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 glass-panel shadow-xl shadow-black/10">
                 <nav className="flex items-center gap-1">
                   {[
-                    { id: 'home', icon: LayoutGrid, title: 'Home', color: 'bg-rose-500' },
-                    { id: 'schedule', icon: CalendarIcon, title: industryConfig.terminology.calendar, color: 'bg-amber-500' },
-                    { id: 'search', icon: Database, title: industryConfig.terminology.products, color: 'bg-emerald-500' },
-                    { id: 'ideas', icon: Lightbulb, title: 'Ideas', color: 'bg-sky-500' },
-                    { id: 'brandkit', icon: Palette, title: 'Assets', color: 'bg-violet-500' },
-                    { id: 'widgets', icon: Boxes, title: 'Widgets', color: 'bg-fuchsia-500' },
-                    { id: 'analytics', icon: BarChart3, title: 'Analytics', color: 'bg-brand' },
-                    { id: 'more', icon: Settings, title: 'Settings', color: 'bg-[#6074b9]' },
-                  ].map((tab, idx) => {
+                    { id: 'home', icon: LayoutGrid, title: 'Home' },
+                    { id: 'schedule', icon: CalendarIcon, title: industryConfig.terminology.calendar },
+                    { id: 'search', icon: Database, title: industryConfig.terminology.products },
+                    { id: 'ideas', icon: Lightbulb, title: 'Ideas' },
+                    { id: 'brandkit', icon: Palette, title: 'Assets' },
+                    { id: 'widgets', icon: Boxes, title: 'Widgets' },
+                    { id: 'analytics', icon: BarChart3, title: 'Analytics' },
+                    { id: 'more', icon: Settings, title: 'Settings' },
+                  ].map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id ||
                       (tab.id === 'ideas' && isIdeasTabActive) ||
@@ -3834,8 +3834,8 @@ export default function App() {
                         className={cn(
                           "w-12 h-12 rounded-xl flex items-center justify-center transition-all relative group",
                           isActive
-                            ? `${tab.color} text-white shadow-lg scale-110`
-                            : "hover:bg-[#F7F7F5] dark:hover:bg-[#202020] text-[#757681]"
+                            ? "dock-nav-active scale-110"
+                            : "hover:bg-[#F7F7F5] dark:hover:bg-[#202020] text-[#757681] dark:text-[#9B9A97]"
                         )}
                         title={tab.title}
                       >
