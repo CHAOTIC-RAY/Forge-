@@ -1,5 +1,6 @@
 import { auth } from './firebase';
 import { repairWorkspaceOwnership } from './workspaceRepair';
+import { clearSupabaseAccessToken, ensureSupabaseAccessToken } from './supabaseSession';
 import type { FirestoreExportPayload } from './migrationTypes';
 import type { MigrationSelection } from './migrationTypes';
 import { normalizeMigrationSelection } from './migrationTypes';
@@ -38,4 +39,7 @@ export async function importForgeJsonBackup(
 
   onProgress('Linking workspaces to your account…');
   await repairWorkspaceOwnership();
+
+  clearSupabaseAccessToken();
+  await ensureSupabaseAccessToken(true);
 }

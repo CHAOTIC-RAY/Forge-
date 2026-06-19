@@ -110,6 +110,7 @@ export function MigrationImportModal({
     try {
       await onImport(bundle, selection, setImportProgress);
       toast.success('Import complete!');
+      sessionStorage.removeItem('forge_supabase_session_ready');
       handleClose();
       if (reloadOnSuccess) {
         window.location.reload();

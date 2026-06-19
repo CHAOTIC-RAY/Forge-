@@ -193,17 +193,28 @@ export async function repairMigratedOwnership(
     throw new Error('No Supabase profile found for this Firebase user. Migrate profiles first.');
   }
 
-  const businessesRes = await fetch(`${supabaseUrl}/rest/v1/businesses?select=id,owner_id`, {
-    headers: serviceHeaders(serviceKey, { Accept: 'application/json' }),
-  });
+  const businessesRes = await fetch(
+    `${supabaseUrl}/rest/v1/businesses?select=id,owner_id,owner:profiles!businesses_owner_id_fkey(firebase_uid)`,
+    { headers: serviceHeaders(serviceKey, { Accept: 'application/json' }) }
+  );
   if (!businessesRes.ok) {
     const text = await businessesRes.text();
     throw new Error(`Failed to load businesses for repair: ${text}`);
   }
-  const businesses = (await businessesRes.json()) as Array<{ id: string; owner_id: string | null }>;
+  const businesses = (await businessesRes.json()) as Array<{
+    id: string;
+    owner_id: string | null;
+    owner?: { firebase_uid?: string | null } | null;
+  }>;
+
+  const relevantBusinesses = businesses.filter((business) => {
+    const ownerFirebase = business.owner?.firebase_uid;
+    if (!ownerFirebase) return true;
+    return ownerFirebase === firebaseUid;
+  });
 
   let repairedBusinesses = 0;
-  for (const business of businesses) {
+  for (const business of relevantBusinesses) {
     if (business.owner_id === profileId) continue;
     const response = await fetch(
       `${supabaseUrl}/rest/v1/businesses?id=eq.${encodeURIComponent(business.id)}`,
@@ -224,7 +235,7 @@ export async function repairMigratedOwnership(
   }
 
   let repairedMembers = 0;
-  for (const business of businesses) {
+  for (const business of relevantBusinesses) {
     const memberRes = await fetch(
       `${supabaseUrl}/rest/v1/business_members?business_id=eq.${encodeURIComponent(business.id)}&profile_id=eq.${encodeURIComponent(profileId)}&select=business_id`,
       { headers: serviceHeaders(serviceKey, { Accept: 'application/json' }) }

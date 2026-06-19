@@ -827,6 +827,26 @@ export default function App() {
   }, [profile, profileLoading, user, isViewOnly]);
 
   useEffect(() => {
+    if (!user || !profile || isViewOnly) return;
+
+    const sessionKey = 'forge_supabase_session_ready';
+    void (async () => {
+      try {
+        const { ensureSupabaseAccessToken } = await import('./lib/supabaseSession');
+        await ensureSupabaseAccessToken(false);
+
+        if (sessionStorage.getItem(sessionKey)) return;
+
+        const { repairWorkspaceOwnership } = await import('./lib/workspaceRepair');
+        await repairWorkspaceOwnership();
+        sessionStorage.setItem(sessionKey, '1');
+      } catch (error) {
+        console.warn('[auth] Supabase session setup failed:', error);
+      }
+    })();
+  }, [user?.uid, profile?.id, isViewOnly]);
+
+  useEffect(() => {
     if (activeBusiness && !isViewOnly) {
       localStorage.setItem('last_active_business_id', activeBusiness.id);
     }
@@ -3014,6 +3034,7 @@ export default function App() {
     setUserOnboardingComplete(true);
     setShowOnboarding(false);
     toast.success('Import complete — loading your workspace…');
+    sessionStorage.removeItem('forge_supabase_session_ready');
     window.location.reload();
   };
 
@@ -3025,6 +3046,7 @@ export default function App() {
     if (!user) throw new Error('Sign in required');
     const { importForgeJsonBackup } = await import('./lib/onboardingJsonImport');
     await importForgeJsonBackup(bundle.payload, onProgress, selection);
+    sessionStorage.removeItem('forge_supabase_session_ready');
     toast.success('Import complete — refreshing your workspace…');
   };
 

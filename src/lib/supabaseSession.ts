@@ -29,8 +29,8 @@ export async function exchangeSupabaseAccessToken(forceRefresh = false): Promise
     return inflightExchange;
   }
 
-  inflightExchange = (async () => {
-    const firebaseToken = await user.getIdToken(forceRefresh);
+  const runExchange = async (refreshFirebaseToken: boolean): Promise<string | null> => {
+    const firebaseToken = await user.getIdToken(refreshFirebaseToken);
     const response = await fetch('/api/auth/supabase-token', {
       method: 'POST',
       headers: {
@@ -42,7 +42,7 @@ export async function exchangeSupabaseAccessToken(forceRefresh = false): Promise
     if (!response.ok) {
       clearSupabaseAccessToken();
       const body = await response.json().catch(() => ({}));
-      throw new Error(body.error || `Supabase token exchange failed (${response.status})`);
+      throw new Error((body as { error?: string }).error || `Supabase token exchange failed (${response.status})`);
     }
 
     const data = (await response.json()) as { access_token: string; expires_in?: number };
@@ -52,6 +52,21 @@ export async function exchangeSupabaseAccessToken(forceRefresh = false): Promise
       expiresAt: Date.now() + expiresInMs,
     };
     return cachedToken.token;
+  };
+
+  inflightExchange = (async () => {
+    try {
+      return await runExchange(forceRefresh);
+    } catch (firstError) {
+      if (!forceRefresh) {
+        try {
+          return await runExchange(true);
+        } catch {
+          throw firstError;
+        }
+      }
+      throw firstError;
+    }
   })();
 
   try {
@@ -59,4 +74,13 @@ export async function exchangeSupabaseAccessToken(forceRefresh = false): Promise
   } finally {
     inflightExchange = null;
   }
+}
+
+/** Exchange Firebase session for Supabase JWT — required before direct Supabase REST calls. */
+export async function ensureSupabaseAccessToken(forceRefresh = false): Promise<string> {
+  const token = await exchangeSupabaseAccessToken(forceRefresh);
+  if (!token) {
+    throw new Error('Supabase token exchange returned no token. Sign in again.');
+  }
+  return token;
 }

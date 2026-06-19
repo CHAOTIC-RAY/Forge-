@@ -42,10 +42,17 @@ function createSupabaseClient(): SupabaseClient {
     },
     accessToken: async () => {
       try {
-        return await exchangeSupabaseAccessToken();
+        const token = await exchangeSupabaseAccessToken();
+        if (token) return token;
+        return await exchangeSupabaseAccessToken(true);
       } catch (error) {
         console.warn('[supabase] access token exchange failed:', error);
-        return null;
+        try {
+          return await exchangeSupabaseAccessToken(true);
+        } catch (retryError) {
+          console.warn('[supabase] access token retry failed:', retryError);
+          return null;
+        }
       }
     },
   });

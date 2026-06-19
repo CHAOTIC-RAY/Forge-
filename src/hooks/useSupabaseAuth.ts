@@ -4,7 +4,7 @@ import { auth } from '../lib/firebase';
 import {
   Profile,
 } from '../lib/supabase';
-import { clearSupabaseAccessToken } from '../lib/supabaseSession';
+import { clearSupabaseAccessToken, ensureSupabaseAccessToken } from '../lib/supabaseSession';
 import { firestoreEntityId } from '../lib/firestoreMigrateIds';
 import { syncProfileViaApi } from '../lib/profileApi';
 
@@ -80,6 +80,7 @@ export function useSupabaseAuth(): AuthState & {
       setState(prev => ({ ...prev, loading: true, firebaseUser }));
 
       try {
+        await ensureSupabaseAccessToken(true);
         const profile = await syncProfile(firebaseUser);
         setState({
           firebaseUser,
@@ -90,12 +91,23 @@ export function useSupabaseAuth(): AuthState & {
       } catch (error) {
         console.error('Error syncing user to Supabase:', error);
         clearSupabaseAccessToken();
-        setState({
-          firebaseUser,
-          profile: buildFallbackProfile(firebaseUser),
-          loading: false,
-          error: error as Error,
-        });
+        try {
+          const profile = await syncProfile(firebaseUser);
+          setState({
+            firebaseUser,
+            profile,
+            loading: false,
+            error: error as Error,
+          });
+        } catch (syncError) {
+          console.error('Profile API sync also failed:', syncError);
+          setState({
+            firebaseUser,
+            profile: buildFallbackProfile(firebaseUser),
+            loading: false,
+            error: error as Error,
+          });
+        }
       }
     });
 
