@@ -80,6 +80,7 @@ import { ref, deleteObject, getBlob } from 'firebase/storage';
 import { cn, readFileAsDataURL, createImageCollage, getAnalyticsSettings, setAnalyticsSettings } from './lib/utils';
 import { WorkspacesSettings } from './components/WorkspacesSettings';
 import { ForgeLoader } from './components/ForgeLoader';
+import { ForgeWorkspaceLoader } from './components/ForgeWorkspaceLoader';
 import { ForgeLogo } from './components/ForgeLogo';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { LandingView } from './components/LandingView';
@@ -2704,14 +2705,11 @@ export default function App() {
   };
 
   if ((loading || (user && profileLoading) || (user && profile && loadingBusinesses)) && !authTimeout) {
+    const stage =
+      loading ? 'auth' : profileLoading ? 'profile' : 'workspaces';
     return (
       <div className="min-h-screen bg-[#1A1C1E] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-6">
-          <ForgeLoader size={60} />
-          <p className="text-[#909094] animate-pulse font-medium tracking-wide">
-            {loading ? 'Syncing with cloud...' : 'Loading workspaces...'}
-          </p>
-        </div>
+        <ForgeWorkspaceLoader stage={stage} includeLocalAiStatus />
       </div>
     );
   }

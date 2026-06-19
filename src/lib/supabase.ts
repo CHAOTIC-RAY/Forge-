@@ -1319,6 +1319,21 @@ export function subscribeToNotebook(
   profileId: string,
   callback: (notebook: Notebook | null) => void
 ): () => void {
+  let cancelled = false;
+
+  const load = () => {
+    getNotebook(businessId, profileId)
+      .then((notebook) => {
+        if (!cancelled) callback(notebook);
+      })
+      .catch((error) => {
+        console.error('[subscribeToNotebook] load failed:', error);
+        if (!cancelled) callback(null);
+      });
+  };
+
+  load();
+
   const channel = supabase
     .channel(`notebook:${businessId}:${profileId}`)
     .on(
@@ -1329,14 +1344,14 @@ export function subscribeToNotebook(
         table: 'notebooks',
         filter: `business_id=eq.${businessId}`,
       },
-      async () => {
-        const notebook = await getNotebook(businessId, profileId);
-        callback(notebook);
+      () => {
+        load();
       }
     )
     .subscribe();
 
   return () => {
+    cancelled = true;
     supabase.removeChannel(channel);
   };
 }

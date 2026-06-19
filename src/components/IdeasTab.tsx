@@ -40,8 +40,8 @@ import {
 } from '../lib/gemini';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
-import { IdeasBoardSkeleton } from './ui/Skeleton';
 import { TabHeaderBadge, TabPageHeader, TabPageShell } from './ui/TabPageHeader';
+import { ForgeWorkspaceLoader } from './ForgeWorkspaceLoader';
 
 /**
  * Shorthand for generating unique IDs
@@ -270,67 +270,69 @@ export function IdeasTab({ activeBusiness, onAddToCalendar }: IdeasTabProps) {
     isInitialLoad.current = true;
 
     const applyNotebook = async (docData: { id: string; blocks?: Block[]; links?: Link[]; folders?: Folder[] } | null) => {
-      if (!docData) {
-        const welcomeBlock = {
-          id: 'initial-1',
-          type: 'text' as const,
-          title: 'Welcome to Ideas',
-          content: `Capture thoughts in the bar above, generate campaigns with AI, and drag ideas to the calendar when you're ready to schedule.`,
-          status: 'organized' as const,
-          folderId: null,
-        };
-        const created = await upsertNotebook(activeBusiness.id, profile.id, {
-          title: 'Creative Strategy',
-          blocks: [welcomeBlock],
-          links: [],
-          folders: [],
-        });
-        setNotebookId(created.id);
-        setBlocks([welcomeBlock]);
+      try {
+        if (!docData) {
+          const created = await upsertNotebook(activeBusiness.id, profile.id, {
+            title: 'Ideas',
+            blocks: [],
+            links: [],
+            folders: [],
+          });
+          setNotebookId(created.id);
+          setBlocks([]);
+          setLinks([]);
+          setFolders([]);
+          setIsReady(true);
+          isInitialLoad.current = false;
+          return;
+        }
+
+        setNotebookId(docData.id);
+        if (isInitialLoad.current) {
+          let loadedBlocks = docData.blocks || [];
+          let hasChanges = false;
+
+          const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+          loadedBlocks = loadedBlocks.filter((b: Block) => {
+            if (b.status === 'history' && b.createdAt && b.createdAt < thirtyDaysAgo) {
+              hasChanges = true;
+              return false;
+            }
+            return true;
+          });
+
+          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          loadedBlocks = loadedBlocks.map((b: Block) => {
+            if (b.status === 'inbox' && b.createdAt && b.createdAt < sevenDaysAgo) {
+              hasChanges = true;
+              return { ...b, status: 'history' as const };
+            }
+            return b;
+          });
+
+          setBlocks(loadedBlocks);
+          setLinks(docData.links || []);
+          setFolders(docData.folders || []);
+          isInitialLoad.current = false;
+
+          if (hasChanges) {
+            await upsertNotebook(activeBusiness.id, profile.id, {
+              blocks: loadedBlocks,
+              links: docData.links || [],
+              folders: docData.folders || [],
+            });
+          }
+        }
+        setIsReady(true);
+      } catch (error) {
+        console.error('Error loading ideas notebook:', error);
+        toast.error('Could not load ideas — showing an empty board.');
+        setBlocks([]);
         setLinks([]);
         setFolders([]);
         setIsReady(true);
         isInitialLoad.current = false;
-        return;
       }
-
-      setNotebookId(docData.id);
-      if (isInitialLoad.current) {
-        let loadedBlocks = docData.blocks || [];
-        let hasChanges = false;
-
-        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        loadedBlocks = loadedBlocks.filter((b: Block) => {
-          if (b.status === 'history' && b.createdAt && b.createdAt < thirtyDaysAgo) {
-            hasChanges = true;
-            return false;
-          }
-          return true;
-        });
-
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        loadedBlocks = loadedBlocks.map((b: Block) => {
-          if (b.status === 'inbox' && b.createdAt && b.createdAt < sevenDaysAgo) {
-            hasChanges = true;
-            return { ...b, status: 'history' as const };
-          }
-          return b;
-        });
-
-        setBlocks(loadedBlocks);
-        setLinks(docData.links || []);
-        setFolders(docData.folders || []);
-        isInitialLoad.current = false;
-
-        if (hasChanges) {
-          await upsertNotebook(activeBusiness.id, profile.id, {
-            blocks: loadedBlocks,
-            links: docData.links || [],
-            folders: docData.folders || [],
-          });
-        }
-      }
-      setIsReady(true);
     };
 
     const unsubscribe = subscribeToNotebook(activeBusiness.id, profile.id, (notebook) => {
@@ -1172,8 +1174,8 @@ export function IdeasTab({ activeBusiness, onAddToCalendar }: IdeasTabProps) {
         )}
       >
         {!isReady && (
-          <div className="absolute inset-0 z-40 bg-white/80 dark:bg-black/60 backdrop-blur-sm overflow-y-auto">
-            <IdeasBoardSkeleton />
+          <div className="absolute inset-0 z-40 bg-white/90 dark:bg-[#111111]/90 backdrop-blur-sm flex items-center justify-center">
+            <ForgeWorkspaceLoader stage="ideas" size={44} />
           </div>
         )}
 
