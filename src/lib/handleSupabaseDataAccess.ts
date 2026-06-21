@@ -140,11 +140,11 @@ export async function handleDataPosts(request: Request, env: SupabaseAuthEnv): P
 
       const { serviceKey, supabaseUrl } = getServiceConfig(env);
       const row = postToDbRow(body.post as never, businessId, body.profileId || access.profileId);
-      const response = await fetch(`${supabaseUrl}/rest/v1/posts`, {
+      const response = await fetch(`${supabaseUrl}/rest/v1/posts?on_conflict=id`, {
         method: 'POST',
         headers: serviceHeaders(serviceKey, {
           'Content-Type': 'application/json',
-          Prefer: 'return=representation',
+          Prefer: 'resolution=merge-duplicates,return=representation',
         }),
         body: JSON.stringify(row),
       });
