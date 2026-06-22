@@ -28,8 +28,7 @@ export function highStockToInventory(
       ? parseFloat(p.price.replace(/[^0-9.]/g, ''))
       : undefined;
 
-  return {
-    id: existingId,
+  const base = {
     business_id: businessId,
     name: p.title,
     category: p.type,
@@ -44,6 +43,12 @@ export function highStockToInventory(
       legacyTitle: p.title,
     },
   };
+
+  if (existingId) {
+    return { ...base, id: existingId } as Partial<InventoryProduct> & { business_id: string; name: string };
+  }
+
+  return base as Partial<InventoryProduct> & { business_id: string; name: string };
 }
 
 export function inventoryToHighStock(p: InventoryProduct): HighStockProduct {

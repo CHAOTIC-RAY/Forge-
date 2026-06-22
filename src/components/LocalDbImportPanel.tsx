@@ -812,6 +812,60 @@ export function LocalDbImportPanel({
               Import paste
             </button>
           </div>
+
+          <div className="bg-[#F7F7F5] dark:bg-[#202020] p-4 rounded-[12px] space-y-3">
+            <h4 className="text-sm font-bold flex items-center gap-2">
+              <Globe className="w-4 h-4 text-brand" /> WooCommerce Console Scraper
+            </h4>
+            <p className="text-[10px] text-secondary-safe">
+              Run this snippet in your browser console on a WooCommerce shop page to extract products as JSON.
+            </p>
+            <pre className="bg-white dark:bg-[#191919] p-3 rounded-[8px] text-[10px] font-mono overflow-x-auto border border-[#E9E9E7] dark:border-[#2E2E2E]">
+{`const products = [];
+document.querySelectorAll('ul.products li.product.type-product').forEach(item => {
+    const title = item.querySelector('.woocommerce-loop-product__title').innerText.trim();
+    const link = item.querySelector('.woocommerce-LoopProduct-link').href;
+    const price = item.querySelector('.price .amount bdi').innerText.replace(/\\u00a0/g, ' ').trim();
+    products.push({ title, price, link });
+});
+console.log(JSON.stringify(products, null, 2));`}
+            </pre>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(`const products = [];
+document.querySelectorAll('ul.products li.product.type-product').forEach(item => {
+    const title = item.querySelector('.woocommerce-loop-product__title').innerText.trim();
+    const link = item.querySelector('.woocommerce-LoopProduct-link').href;
+    const price = item.querySelector('.price .amount bdi').innerText.replace(/\\u00a0/g, ' ').trim();
+    products.push({ title, price, link });
+});
+console.log(JSON.stringify(products, null, 2));`);
+                toast.success('Copied to clipboard');
+              }}
+              className="px-3 py-1.5 border border-brand text-brand rounded-[8px] text-[10px] font-bold"
+            >
+              Copy to clipboard
+            </button>
+          </div>
+
+          <div className="bg-[#F7F7F5] dark:bg-[#202020] p-4 rounded-[12px] space-y-3">
+            <h4 className="text-sm font-bold flex items-center gap-2">
+              <Download className="w-4 h-4 text-brand" /> Python Scrape Method
+            </h4>
+            <p className="text-[10px] text-secondary-safe">
+              Choose the built-in Python scraper for batch URL processing.
+            </p>
+            <select
+              defaultValue="crawl4ai"
+              className="w-full px-3 py-2 border rounded-[10px] text-xs bg-white dark:bg-[#191919]"
+            >
+              <option value="crawl4ai">crawl4ai (browser-based markdown)</option>
+              <option value="llm-reader">llm-reader (text extraction)</option>
+              <option value="auto">auto (try crawl4ai, fallback llm-reader)</option>
+            </select>
+          </div>
+
           {onJsonFileUpload && (
             <div className="pt-3 border-t border-[#E9E9E7] dark:border-[#2E2E2E]">
               <p className="text-xs text-secondary-safe mb-2">Upload Firecrawl JSON export</p>
