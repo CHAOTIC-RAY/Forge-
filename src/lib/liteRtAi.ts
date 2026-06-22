@@ -188,25 +188,22 @@ class LiteRtAiService {
   }
 
   private async ensureTensorFlow(): Promise<any> {
-    try {
-      const tf = await import('@tensorflow/tfjs-backend-webgl');
-      await tf.ready();
-      return tf;
-    } catch {
+    const candidates = [
+      '@tensorflow/tfjs-backend-webgl',
+      '@tensorflow/tfjs-backend-wasm',
+      '@tensorflow/tfjs',
+    ];
+
+    for (const name of candidates) {
       try {
-        const tf = await import('@tensorflow/tfjs-backend-wasm');
+        const tf = await import(/* @vite-ignore */ name);
         await tf.ready();
         return tf;
       } catch {
-        try {
-          const tf = await import('@tensorflow/tfjs');
-          await tf.ready();
-          return tf;
-        } catch {
-          return null;
-        }
+        // try next backend
       }
     }
+    return null;
   }
 
   private tokenize(text: string): number[] {

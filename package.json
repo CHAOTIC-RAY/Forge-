@@ -39,6 +39,9 @@
     "@supabase/supabase-js": "^2.108.1",
     "@tailwindcss/vite": "^4.1.14",
     "@tanstack/react-virtual": "^3.13.23",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "@tiptap/extension-character-count": "^3.22.4",
     "@tiptap/extension-placeholder": "^3.22.4",
     "@tiptap/react": "^3.22.4",
@@ -73,10 +76,7 @@
     "tailwind-merge": "^3.5.0",
     "tegaki": "^0.17.1",
     "uuid": "^13.0.0",
-    "zustand": "^5.0.12",
-    "@tensorflow/tfjs": "^4.22.0",
-    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
-    "@tensorflow/tfjs-backend-wasm": "^4.22.0"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.31.2",
