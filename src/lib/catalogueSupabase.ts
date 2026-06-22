@@ -45,10 +45,14 @@ export function highStockToInventory(
   };
 
   if (existingId) {
-    return { ...base, id: existingId } as Partial<InventoryProduct> & { business_id: string; name: string };
+const recordWithId = { ...base, id: existingId };
+if (typeof existingId === 'string') {
+    return recordWithId as Partial<InventoryProduct> & { business_id: string; name: string };
+}
+return base as Partial<InventoryProduct> & { business_id: string; name: string };
   }
 
-  return base as Partial<InventoryProduct> & { business_id: string; name: string };
+return base as Partial<InventoryProduct> & { business_id: string; name: string };
 }
 
 export function inventoryToHighStock(p: InventoryProduct): HighStockProduct {
@@ -86,11 +90,24 @@ export async function syncCatalogueProducts(
   const existing = await getInventoryProducts(businessId);
   const byKey = new Map(existing.map((r) => [matchKey(r), r]));
 
-  const rows = items.map((item) => {
-    const key = matchKey({ ...item, name: item.title });
-    const found = byKey.get(key);
-    return highStockToInventory(item, businessId, found?.id);
-  });
+  // Filter items to only include those for which a matching existing product ID was found.
+  const rows = items
+    .map((item) => {
+       const key = matchKey({ ...item, name: item.title });
+       const found = byKey.get(key);
+
+       // Check if found exists and has a truthy string id value to prevent the database error (23502)
+       if (!found || typeof found.id !== 'string' || !found.id.trim()) {
+         return null; // Mark items without a valid, non-empty ID for exclusion later
+       }
+      
+      // Since we checked that found.id is a string, it's safe to pass.
+      return highStockToInventory(item, businessId, found.id); 
+    })
+    // Filter out records where the ID was not found or not a valid string type
+    .filter((row): row is Partial<InventoryProduct> & { business_id: string; name: string } => {
+      return row !== null;
+    });
 
   await upsertInventoryProducts(rows);
 }
