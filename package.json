@@ -73,7 +73,10 @@
     "tailwind-merge": "^3.5.0",
     "tegaki": "^0.17.1",
     "uuid": "^13.0.0",
-    "zustand": "^5.0.12"
+    "zustand": "^5.0.12",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.31.2",

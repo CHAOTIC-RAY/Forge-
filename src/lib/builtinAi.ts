@@ -499,14 +499,31 @@ class BuiltInAiService {
         : messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
       // ── 1. Try Chrome's built-in Gemini Nano first ──
-      // Note: window.ai currently only takes a string prompt
       const windowAiResult = await tryWindowAi(flatPrompt);
       if (windowAiResult) {
         if (onToken) onToken(windowAiResult);
         return windowAiResult;
       }
 
-      // ── 2. Use WebLLM Engine ──
+      // ── 2. Try LiteRT if preferred and available (mobile-first, fast fallback) ──
+      const settings = getAiSettings?.();
+      const prefersLiteRt = (settings as any)?.preferLiteRt === true;
+      if (prefersLiteRt) {
+        try {
+          const { liteRtAi } = await import('./liteRtAi');
+          if (liteRtAi.getStatus().isLoaded) {
+            return await liteRtAi.generateText(flatPrompt, onToken);
+          }
+          await liteRtAi.loadModel();
+          if (liteRtAi.getStatus().isLoaded) {
+            return await liteRtAi.generateText(flatPrompt, onToken);
+          }
+        } catch (e) {
+          console.warn('[BuiltInAI] LiteRT skipped, falling back to WebLLM:', e);
+        }
+      }
+
+      // ── 3. Use WebLLM Engine ──
       if (!this.isLoaded || !this.engine) {
         await this.init(this.currentModelId);
         if (!this.isLoaded) throw new Error(this.error || "Built-in AI engine not ready.");

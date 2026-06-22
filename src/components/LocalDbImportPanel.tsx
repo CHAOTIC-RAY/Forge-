@@ -818,35 +818,9 @@ export function LocalDbImportPanel({
               <Globe className="w-4 h-4 text-brand" /> WooCommerce Console Scraper
             </h4>
             <p className="text-[10px] text-secondary-safe">
-              Run this snippet in your browser console on a WooCommerce shop page to extract products as JSON.
+              Choose a method and run the snippet in your browser console on a WooCommerce shop page.
             </p>
-            <pre className="bg-white dark:bg-[#191919] p-3 rounded-[8px] text-[10px] font-mono overflow-x-auto border border-[#E9E9E7] dark:border-[#2E2E2E]">
-{`const products = [];
-document.querySelectorAll('ul.products li.product.type-product').forEach(item => {
-    const title = item.querySelector('.woocommerce-loop-product__title').innerText.trim();
-    const link = item.querySelector('.woocommerce-LoopProduct-link').href;
-    const price = item.querySelector('.price .amount bdi').innerText.replace(/\\u00a0/g, ' ').trim();
-    products.push({ title, price, link });
-});
-console.log(JSON.stringify(products, null, 2));`}
-            </pre>
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(`const products = [];
-document.querySelectorAll('ul.products li.product.type-product').forEach(item => {
-    const title = item.querySelector('.woocommerce-loop-product__title').innerText.trim();
-    const link = item.querySelector('.woocommerce-LoopProduct-link').href;
-    const price = item.querySelector('.price .amount bdi').innerText.replace(/\\u00a0/g, ' ').trim();
-    products.push({ title, price, link });
-});
-console.log(JSON.stringify(products, null, 2));`);
-                toast.success('Copied to clipboard');
-              }}
-              className="px-3 py-1.5 border border-brand text-brand rounded-[8px] text-[10px] font-bold"
-            >
-              Copy to clipboard
-            </button>
+            <WooCommerceScraperSnippet />
           </div>
 
           <div className="bg-[#F7F7F5] dark:bg-[#202020] p-4 rounded-[12px] space-y-3">
