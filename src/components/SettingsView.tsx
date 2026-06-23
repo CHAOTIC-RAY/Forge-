@@ -1701,7 +1701,7 @@ export function SettingsView({
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/30 rounded-[16px] space-y-4">
                     {(() => {
-                      const selectedModelId = aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+                      const selectedModelId = aiSettings.builtinModelId || 'gemma-4-e2b-it-web';
                       const selectedModel = BUILTIN_MODELS.find(m => m.id === selectedModelId) || BUILTIN_MODELS[0];
                       const stageLabel = builtInStatus.isLoading ? 'INITIALIZING' : builtInStatus.isLoaded ? 'READY' : builtInStatus.error ? 'ACTION REQUIRED' : 'NOT INITIALIZED';
                       return (
@@ -1730,7 +1730,7 @@ export function SettingsView({
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-[#757681] dark:text-[#9B9A97]">Select Local Model</label>
                         <select 
-                          value={aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'}
+                          value={aiSettings.builtinModelId || 'gemma-4-e2b-it-web'}
                           onChange={(e) => handleAiSettingChange('builtinModelId', e.target.value)}
                           className="w-full p-2.5 bg-white dark:bg-[#191919] border border-[#E9E9E7] dark:border-[#2E2E2E] rounded-[10px] text-xs outline-none focus:border-brand"
                         >
@@ -1744,14 +1744,14 @@ export function SettingsView({
                           <p className="text-[10px] text-[#757681] leading-tight">
                             {aiSettings.builtinModelId === 'custom' 
                               ? 'Configure a custom model from a URL or local directory.' 
-                              : BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC'))?.description}
+                              : BUILTIN_MODELS.find(m => m.id === (aiSettings.builtinModelId || 'gemma-4-e2b-it-web'))?.description}
                           </p>
                         </div>
                         {(() => {
                           const modelId =
                             aiSettings.builtinModelId === 'custom'
                               ? null
-                              : aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+                              : aiSettings.builtinModelId || 'gemma-4-e2b-it-web';
                           const budget = getContextBudget(modelId);
                           const inputK = Math.round(budget.maxInputChars / 1000);
                           const loadedBudget =
@@ -2022,7 +2022,7 @@ export function SettingsView({
                     </button>
                     
                     {(() => {
-                      const selectedModelId = aiSettings.builtinModelId || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+                      const selectedModelId = aiSettings.builtinModelId || 'gemma-4-e2b-it-web';
                       const isModelSelectedLoaded = builtInStatus.isLoaded && (builtInStatus.modelId === selectedModelId || (selectedModelId === 'custom' && !!builtInStatus.modelId));
                       const getModelName = () => {
                         if (selectedModelId === 'custom') return 'Custom Model';

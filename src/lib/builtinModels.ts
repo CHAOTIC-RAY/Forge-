@@ -17,6 +17,32 @@ export interface BuiltInModel {
 
 export const BUILTIN_MODELS: BuiltInModel[] = [
   {
+    id: 'gemma-4-e2b-it-web',
+    name: 'Gemma 4 E2B IT (LiteRT)',
+    size: '1.2GB',
+    description:
+      "Ultra-fast Gemma 4 model optimized for LiteRT-LM. Best for mobile and speed.",
+    recommendedRamGb: 4,
+    estimatedVramGb: 1,
+    recommendedDatasetMin: 50,
+    recommendedDatasetMax: 300,
+    expectedTuneMinutes: '3-8',
+    supportsAdvancedTuning: false,
+  },
+  {
+    id: 'gemma-2-9b-it-web',
+    name: 'Gemma 2 9B IT (LiteRT)',
+    size: '5.4GB',
+    description:
+      "High-performance 9B Gemma model for complex reasoning. Best for desktop.",
+    recommendedRamGb: 16,
+    estimatedVramGb: 6,
+    recommendedDatasetMin: 100,
+    recommendedDatasetMax: 500,
+    expectedTuneMinutes: '15-40',
+    supportsAdvancedTuning: false,
+  },
+  {
     id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
     name: 'Llama 3.2 1B Instruct',
     size: '0.8GB',
