@@ -3,6 +3,7 @@ import {
   Globe, RefreshCw, Square, Sparkles, Upload, ClipboardPaste, Moon, Trash2, Filter,
   ChevronDown, Check, Download,
 } from 'lucide-react';
+import { WooCommerceScraperSnippet } from './WooCommerceScraperSnippet';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { ForgeLoader } from './ForgeLoader';

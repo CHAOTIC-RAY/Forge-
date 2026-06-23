@@ -9,6 +9,7 @@ import {
   truncateMessagesForLocalAi,
   truncatePromptText,
 } from './localAiContext';
+import { getAiSettings } from './aiSettings';
 import {
   BUILTIN_MODELS,
   BUILTIN_VISION_MODELS,
@@ -91,6 +92,7 @@ type WebLlmModule = typeof import('@mlc-ai/web-llm');
 class BuiltInAiService {
    
   private engine: any = null;
+  private isLiteRt = false;
    
   private visionEngine: any = null;
   private webllmModule: WebLlmModule | null = null;
@@ -180,7 +182,7 @@ class BuiltInAiService {
   }
 
   reset() {
-    this.unloadTextEngine();
+    void this.unloadTextEngine();
     this.unloadVisionEngine();
     clearWebGpuAdapterCache();
     this.isLoading = false;
@@ -193,15 +195,21 @@ class BuiltInAiService {
     this.notify();
   }
 
-  private unloadTextEngine() {
+  private async unloadTextEngine() {
     if (this.engine) {
       try {
-        this.engine.unload();
+        if (this.isLiteRt) {
+          const { litertllm } = await import('./litertllm');
+          litertllm.unload();
+        } else {
+          this.engine.unload();
+        }
       } catch {
         /* engine may already be torn down */
       }
       this.engine = null;
     }
+    this.isLiteRt = false;
     this.isLoaded = false;
   }
 
@@ -235,7 +243,7 @@ class BuiltInAiService {
     }
 
     // Keep only one WebLLM engine in GPU memory at a time.
-    this.unloadTextEngine();
+    await this.unloadTextEngine();
 
     this.visionIsLoading = true;
     this.message = `Loading vision model (${normalizedId})…`;
@@ -351,16 +359,16 @@ class BuiltInAiService {
     }
   }
 
-  async init(modelId: string = 'Llama-3.2-1B-Instruct-q4f16_1-MLC', customConfig?: any, attempt = 0) {
+  async init(modelId: string = 'gemma-4-e2b-it-web', customConfig?: any, attempt = 0) {
     if (this.isLoading) return;
     const normalizedId = normalizeBuiltinModelId(modelId);
 
     if (this.isLoaded && this.currentModelId === normalizedId && !customConfig) return;
 
-    // Keep only one WebLLM engine in GPU memory at a time.
+    // Keep only one local engine in memory at a time.
     this.unloadVisionEngine();
     if (this.engine && this.currentModelId !== normalizedId) {
-      this.unloadTextEngine();
+      await this.unloadTextEngine();
     }
 
     this.isLoading = true;
@@ -375,36 +383,48 @@ class BuiltInAiService {
 
       console.log(`[BuiltInAI] Initializing ${normalizedId}...`);
       
-      const engineConfig: any = {
-        initProgressCallback: (report: any) => {
-          this.message = report.text;
-          this.progress = Math.round(report.progress * 100);
-          this.notify();
-        }
-      };
+      const isLiteRtModel = normalizedId.includes('gemma') && normalizedId.includes('it-web');
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-
-      if (customConfig?.model_list) {
-        engineConfig.appConfig = {
-          ...customConfig,
-          model_list: customConfig.model_list.map((rec: any) => ({
-            ...rec,
-            model: rewriteHuggingFaceModelUrl(rec.model, origin),
-          })),
-        };
-        console.log('[BuiltInAI] Using custom appConfig (HF URLs proxied).');
+      if (isLiteRtModel) {
+        const { litertllm } = await import('./litertllm');
+        await litertllm.loadModel(normalizedId);
+        this.engine = litertllm;
+        this.isLiteRt = true;
+        this.isLoaded = true;
+        this.currentModelId = normalizedId;
+        console.log(`[BuiltInAI] LiteRT Model ${normalizedId} loaded successfully.`);
       } else {
-        engineConfig.appConfig = await buildProxiedWebLlmAppConfig(origin);
-        console.log('[BuiltInAI] Using proxied WebLLM appConfig for HuggingFace weights.');
+        const engineConfig: any = {
+          initProgressCallback: (report: any) => {
+            this.message = report.text;
+            this.progress = Math.round(report.progress * 100);
+            this.notify();
+          }
+        };
+
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+        if (customConfig?.model_list) {
+          engineConfig.appConfig = {
+            ...customConfig,
+            model_list: customConfig.model_list.map((rec: any) => ({
+              ...rec,
+              model: rewriteHuggingFaceModelUrl(rec.model, origin),
+            })),
+          };
+          console.log('[BuiltInAI] Using custom appConfig (HF URLs proxied).');
+        } else {
+          engineConfig.appConfig = await buildProxiedWebLlmAppConfig(origin);
+          console.log('[BuiltInAI] Using proxied WebLLM appConfig for HuggingFace weights.');
+        }
+
+        const webllm = await this.loadWebLlm();
+        this.engine = await webllm.CreateMLCEngine(normalizedId, engineConfig);
+
+        this.isLoaded = true;
+        this.currentModelId = normalizedId;
+        console.log(`[BuiltInAI] WebLLM Model ${normalizedId} loaded successfully.`);
       }
-
-      const webllm = await this.loadWebLlm();
-      this.engine = await webllm.CreateMLCEngine(normalizedId, engineConfig);
-
-      this.isLoaded = true;
-      this.currentModelId = normalizedId;
-      console.log(`[BuiltInAI] Model ${normalizedId} loaded successfully.`);
     } catch (err: any) {
       if (isStaleGpuInstanceError(err) && attempt === 0) {
         console.warn('[BuiltInAI] Text GPU instance lost — resetting and retrying once…');
@@ -468,7 +488,7 @@ class BuiltInAiService {
       this.notify();
 
       // Determine default model if none exists
-      if (!this.currentModelId) this.currentModelId = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+      if (!this.currentModelId) this.currentModelId = 'gemma-4-e2b-it-web';
 
       // Normalize input to messages array and inject Forge Master System Prompt
       const messages: any[] = [];
@@ -510,23 +530,32 @@ class BuiltInAiService {
       const prefersLiteRt = (settings as any)?.preferLiteRt === true;
       if (prefersLiteRt) {
         try {
-          const { liteRtAi } = await import('./liteRtAi');
-          if (liteRtAi.getStatus().isLoaded) {
-            return await liteRtAi.generateText(flatPrompt, onToken);
+          const { litertllm } = await import('./litertllm');
+          if (litertllm.getStatus().isLoaded) {
+            return await litertllm.generateText(flatPrompt, onToken);
           }
-          await liteRtAi.loadModel();
-          if (liteRtAi.getStatus().isLoaded) {
-            return await liteRtAi.generateText(flatPrompt, onToken);
+          await litertllm.loadModel();
+          if (litertllm.getStatus().isLoaded) {
+            return await litertllm.generateText(flatPrompt, onToken);
           }
         } catch (e) {
           console.warn('[BuiltInAI] LiteRT skipped, falling back to WebLLM:', e);
         }
       }
 
-      // ── 3. Use WebLLM Engine ──
+      // ── 3. Use Local Engine (LiteRT or WebLLM) ──
       if (!this.isLoaded || !this.engine) {
         await this.init(this.currentModelId);
         if (!this.isLoaded) throw new Error(this.error || "Built-in AI engine not ready.");
+      }
+
+      if (this.isLiteRt) {
+        try {
+          return await this.engine.generateText(flatPrompt, onToken);
+        } catch (liteRtErr) {
+          console.error('[BuiltInAI] LiteRT generation failed:', liteRtErr);
+          throw liteRtErr;
+        }
       }
 
       let fullText = "";

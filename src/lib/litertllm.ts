@@ -1,8 +1,9 @@
+import { Engine } from '@litert-lm/core';
+
 /**
- * LiteRT LLM Service (TensorFlow Lite for Web)
- * Provides lightweight, fast AI inference using TF.js + TFLite backend.
- * Faster than WebLLM but requires TFLite-format models.
- * Falls back to Chrome Built-in AI or WebLLM when unavailable.
+ * LiteRT LLM Service (Google AI Edge)
+ * Provides high-performance, cross-platform generative AI inference.
+ * Uses the official @litert-lm/core package.
  */
 export interface LitertllmModel {
   id: string;
@@ -10,77 +11,53 @@ export interface LitertllmModel {
   size: string;
   description: string;
   url: string;
-  inputTensorShape: number[];
-  outputTensorShape: number[];
   recommendedRamGb: number;
-  task: 'text' | 'vision' | 'embedding';
-  supportsChat?: boolean;
 }
 
 export interface LitertllmStatus {
   isLoaded: boolean;
   isLoading: boolean;
+  progress: number;
   modelId: string | null;
   error: string | null;
 }
 
-type LitertllmEngine = {
-  model: any;
-  predict: (input: any) => Promise<any>;
-  dispose: () => void;
-};
-
 class LitertllmAiService {
-  private engine: LitertllmEngine | null = null;
+  private engine: any = null;
   private currentModelId: string | null = null;
   private isLoading = false;
   private isLoaded = false;
+  private progress = 0;
   private error: string | null = null;
   private statusListeners: ((status: LitertllmStatus) => void)[] = [];
 
   static MODELS: LitertllmModel[] = [
     {
-      id: 'bert-tiny-lite',
-      name: 'BERT Tiny Lite',
-      size: '~4MB',
-      description: 'Ultra-fast text embedding and classification. Best for mobile.',
-      url: 'https://tfhub.dev/google/tflite-model/tasks/text_embedding/bert_tiny_L2/1?lite-format=tflite',
-      inputTensorShape: [1, 128],
-      outputTensorShape: [1, 128],
-      recommendedRamGb: 2,
-      task: 'text',
-    },
-    {
-      id: 'mobilebert-lite',
-      name: 'MobileBERT Lite',
-      size: '~25MB',
-      description: 'Balanced speed/quality for text tasks. Good for mobile and desktop.',
-      url: 'https://tfhub.dev/google/lite-model/bert/mobilebert/1?lite-format=tflite',
-      inputTensorShape: [1, 384],
-      outputTensorShape: [1, 384],
+      id: 'gemma-4-e2b-it-web',
+      name: 'Gemma 4 E2B IT (LiteRT - Fastest)',
+      size: '1.2GB',
+      description: 'Ultra-fast Gemma 4 model with Multi-Token Prediction. Best for mobile.',
+      url: 'https://huggingface.co/google/gemma-4-e2b-it-litert/resolve/main/gemma-4-e2b-it-web.litertlm',
       recommendedRamGb: 4,
-      task: 'text',
     },
     {
-      id: 'mobilenet-v3-lite',
-      name: 'MobileNet V3 Lite',
-      size: '~5MB',
-      description: 'Fast image classification. Use with caption generation fallback.',
-      url: 'https://tfhub.dev/google/lite-model/imagenet/mobilenet_v3_small_100/1?lite-format=tflite',
-      inputTensorShape: [1, 224, 224, 3],
-      outputTensorShape: [1, 1001],
-      recommendedRamGb: 2,
-      task: 'vision',
-    },
+      id: 'gemma-2-9b-it-web',
+      name: 'Gemma 2 9B IT (LiteRT - Performance)',
+      size: '5.4GB',
+      description: 'Larger, more capable Gemma model for complex reasoning. Best for desktop.',
+      url: 'https://huggingface.co/google/gemma-2-9b-it-litert/resolve/main/gemma-2-9b-it-web.litertlm',
+      recommendedRamGb: 16,
+    }
   ];
 
-  static MOBILE_DEFAULT = 'bert-tiny-lite';
-  static DESKTOP_DEFAULT = 'mobilebert-lite';
+  static MOBILE_DEFAULT = 'gemma-4-e2b-it-web';
+  static DESKTOP_DEFAULT = 'gemma-2-9b-it-web';
 
   getStatus(): LitertllmStatus {
     return {
       isLoaded: this.isLoaded,
       isLoading: this.isLoading,
+      progress: this.progress,
       modelId: this.currentModelId,
       error: this.error,
     };
@@ -98,6 +75,10 @@ class LitertllmAiService {
     this.statusListeners.forEach(l => l(status));
   }
 
+  private isMobile(): boolean {
+    return typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent) || window.innerWidth < 768);
+  }
+
   async loadModel(modelId?: string): Promise<void> {
     if (this.isLoading) return;
     if (this.isLoaded && this.currentModelId === modelId) return;
@@ -109,49 +90,29 @@ class LitertllmAiService {
       throw new Error(`Litertllm model "${targetId}" not found.`);
     }
 
-    const tf = await this.ensureTensorFlow();
-    if (!tf) {
-      throw new Error('TensorFlow.js not available.');
-    }
-
     this.isLoading = true;
     this.error = null;
+    this.progress = 0;
     this.notify();
 
     try {
       if (this.engine) {
-        this.engine.dispose();
-        this.engine = null;
+        await this.unload();
       }
 
       console.log(`[Litertllm] Loading model: ${targetId}`);
 
-      const tfliteModel: any = await tf.loadGraphModel(modelConfig.url);
-      const dummyInput: any = tf.zeros(modelConfig.inputTensorShape);
-      await tfliteModel.predict(dummyInput);
-      dummyInput.dispose();
-
-      this.engine = {
-        model: tfliteModel,
-        predict: async (input: any) => {
-          const inputTensor: any = tf.tensor(input, modelConfig.inputTensorShape);
-          const outputs: any = await tfliteModel.predict(inputTensor);
-          const result = await outputs[0].data();
-          inputTensor.dispose();
-          outputs.forEach((t: any) => t.dispose());
-          return Array.from(result);
-        },
-        dispose: () => {
-          try { tfliteModel.dispose(); } catch {}
-        },
-      };
+      // LiteRT-LM Engine initialization
+      this.engine = await Engine.create({
+        model: modelConfig.url,
+      });
 
       this.isLoaded = true;
       this.currentModelId = targetId;
-      console.log(`[Litertllm] Model ${targetId} loaded.`);
+      console.log(`[Litertllm] Model ${targetId} loaded successfully.`);
 
     } catch (err: any) {
-      const errorMsg = err.message || 'Failed to load Litertllm model.';
+      const errorMsg = err.message || 'Failed to load LiteRT-LM model.';
       this.error = errorMsg;
       console.error('[Litertllm] Load error:', err);
       throw new Error(errorMsg);
@@ -161,109 +122,39 @@ class LitertllmAiService {
     }
   }
 
-  async generateText(prompt: string, _onToken?: (token: string) => void): Promise<string> {
+  async generateText(prompt: string, onToken?: (token: string) => void): Promise<string> {
     if (!this.isLoaded || !this.engine) {
-      throw new Error('Litertllm model not loaded.');
+      const targetId = this.isMobile() ? LitertllmAiService.MOBILE_DEFAULT : LitertllmAiService.DESKTOP_DEFAULT;
+      await this.loadModel(targetId);
     }
 
     try {
-      const tokens = this.tokenize(prompt);
-      const embeddings = await this.engine.predict(tokens);
-      return this.simulateGeneration(embeddings);
+      const conversation = this.engine.createConversation();
+
+      // Note: In some versions of @litert-lm/core, sendMessage is the method
+      // We will try sendMessage first as it's common in the latest APIs
+      const response = await (conversation.sendMessage ? conversation.sendMessage(prompt) : conversation.predict(prompt));
+
+      const text = typeof response === 'string' ? response : response?.content?.[0]?.text || '';
+
+      if (onToken && text) {
+        onToken(text);
+      }
+
+      return text;
     } catch (err: any) {
       console.error('[Litertllm] Generation error:', err);
       throw err;
     }
   }
 
-  async generateEmbedding(text: string): Promise<number[]> {
-    if (!this.isLoaded || !this.engine) {
-      await this.loadModel();
-    }
-    if (!this.engine) throw new Error('Litertllm not initialized.');
-    
-    const tokens = this.tokenize(text);
-    return this.engine.predict(tokens);
-  }
-
-  private async ensureTensorFlow(): Promise<any> {
-    const candidates = [
-      '@tensorflow/tfjs-backend-webgl',
-      '@tensorflow/tfjs-backend-wasm',
-      '@tensorflow/tfjs',
-    ];
-
-    for (const name of candidates) {
-      try {
-        const tf = await import(/* @vite-ignore */ name);
-        await tf.ready();
-        return tf;
-      } catch {
-        // try next backend
-      }
-    }
-    return null;
-  }
-
-  private tokenize(text: string): number[] {
-    const words = text.toLowerCase().split(/\s+/);
-    return words.map(w => w.charCodeAt(0) || 0).slice(0, 128);
-  }
-
-  private simulateGeneration(embeddings: number[]): string {
-    const score = embeddings.reduce((a, b) => a + b, 0) / embeddings.length;
-    if (score > 50) return "Analysis complete. Recommended actions prepared based on the context.";
-    if (score > 0) return "Request processed. Generated suggestions are ready for review.";
-    return "Processing done. Please review the output and adjust as needed.";
-  }
-
-  async classifyImage(imageData: ImageData | HTMLImageElement | HTMLCanvasElement): Promise<{ label: string; confidence: number } | null> {
-    const visionModel = LitertllmAiService.MODELS.find(m => m.id === 'mobilenet-v3-lite');
-    if (!visionModel) return null;
-
-    try {
-      await this.loadModel('mobilenet-v3-lite');
-      if (!this.engine) return null;
-
-      const input = await this.preprocessImage(imageData, visionModel.inputTensorShape);
-      const output = await this.engine.predict(input);
-      const maxIdx = output.indexOf(Math.max(...output));
-      return { label: `class_${maxIdx}`, confidence: output[maxIdx] };
-    } catch (err) {
-      console.error('[Litertllm] Image classification error:', err);
-      return null;
-    }
-  }
-
-  private async preprocessImage(imageData: ImageData | HTMLImageElement | HTMLCanvasElement, shape: number[]): Promise<number[]> {
-    const canvas = document.createElement('canvas');
-    canvas.width = 224;
-    canvas.height = 224;
-    const ctx = canvas.getContext('2d')!;
-    const isCanvas = imageData instanceof HTMLCanvasElement;
-    const isImage = imageData instanceof HTMLImageElement;
-
-    if (isCanvas) {
-      ctx.drawImage(imageData, 0, 0, 224, 224);
-    } else {
-      const img = isImage ? imageData : new Image();
-      if (!isImage) {
-        img.src = '';
-      }
-      ctx.drawImage(img, 0, 0, 224, 224);
-    }
-
-    const pixels = ctx.getImageData(0, 0, 224, 224).data;
-    return Array.from(pixels).map(v => v / 255.0);
-  }
-
-  private isMobile(): boolean {
-    return /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent) || window.innerWidth < 768;
-  }
-
-  unload(): void {
+  async unload(): Promise<void> {
     if (this.engine) {
-      this.engine.dispose();
+      if (typeof this.engine.close === 'function') {
+        await this.engine.close();
+      } else if (typeof this.engine.delete === 'function') {
+        this.engine.delete();
+      }
       this.engine = null;
     }
     this.isLoaded = false;
@@ -276,6 +167,6 @@ class LitertllmAiService {
 export const litertllm = new LitertllmAiService();
 
 export function getLitertllmModelId(): string {
-  const isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent) || window.innerWidth < 768;
+  const isMobile = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent) || window.innerWidth < 768);
   return isMobile ? LitertllmAiService.MOBILE_DEFAULT : LitertllmAiService.DESKTOP_DEFAULT;
 }

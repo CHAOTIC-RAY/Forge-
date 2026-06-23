@@ -50,7 +50,7 @@ export function getDefaultAiSettings(): AiSettings {
     pollinationApiKey: '',
     puterTextModel: 'gpt-4o-mini',
     puterImageModel: 'dall-e-3',
-    builtinModelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+    builtinModelId: 'gemma-4-e2b-it-web',
     builtinVisionModelId: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
     customModelUrl: '',
     customModelConfig: null,
@@ -109,7 +109,7 @@ export const getAiSettings = (): AiSettings => {
       if (!parsed.targetUrl) parsed.targetUrl = '';
       if (!parsed.imageProvider) parsed.imageProvider = 'builtin';
       if (!parsed.puterImageModel) parsed.puterImageModel = 'dall-e-3';
-      if (!parsed.builtinModelId) parsed.builtinModelId = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+      if (!parsed.builtinModelId) parsed.builtinModelId = 'gemma-4-e2b-it-web';
       if (!parsed.builtinVisionModelId) parsed.builtinVisionModelId = 'Phi-3.5-vision-instruct-q4f16_1-MLC';
       if (!parsed.allowedAutoProviders) parsed.allowedAutoProviders = ['builtin', 'local_proxy', 'groq', 'gemini'];
       if (!parsed.brandVoice) parsed.brandVoice = '';
