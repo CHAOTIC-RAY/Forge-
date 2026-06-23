@@ -584,14 +584,15 @@ export async function startServer(forcePort?: number) {
   });
   // ----------------------------------
 
-  // HuggingFace proxy for WebLLM model weights (browser CORS)
+  // HuggingFace proxy for AI model weights (browser CORS)
   app.use('/api/hf-proxy', async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       return res.status(405).send('Method not allowed');
     }
     const hfSubPath = req.path.replace(/^\//, '');
-    if (!hfSubPath?.startsWith('mlc-ai/')) {
-      return res.status(403).json({ error: 'Only mlc-ai HuggingFace repos are allowed' });
+    const allowedRepos = ['mlc-ai/', 'litert-community/', 'google/'];
+    if (!allowedRepos.some(repo => hfSubPath?.startsWith(repo))) {
+      return res.status(403).json({ error: 'Only mlc-ai, litert-community, and google HuggingFace repos are allowed' });
     }
 
     try {

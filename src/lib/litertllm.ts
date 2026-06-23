@@ -37,7 +37,7 @@ class LitertllmAiService {
       name: 'Gemma 4 E2B IT (LiteRT - Fastest)',
       size: '1.2GB',
       description: 'Ultra-fast Gemma 4 model with Multi-Token Prediction. Best for mobile.',
-      url: 'https://huggingface.co/google/gemma-4-e2b-it-litert/resolve/main/gemma-4-e2b-it-web.litertlm',
+      url: '/api/hf-proxy/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm',
       recommendedRamGb: 4,
     },
     {
@@ -45,7 +45,7 @@ class LitertllmAiService {
       name: 'Gemma 2 9B IT (LiteRT - Performance)',
       size: '5.4GB',
       description: 'Larger, more capable Gemma model for complex reasoning. Best for desktop.',
-      url: 'https://huggingface.co/google/gemma-2-9b-it-litert/resolve/main/gemma-2-9b-it-web.litertlm',
+      url: '/api/hf-proxy/google/gemma-2-9b-it-litert/resolve/main/gemma-2-9b-it-web.litertlm',
       recommendedRamGb: 16,
     }
   ];
@@ -100,11 +100,17 @@ class LitertllmAiService {
         await this.unload();
       }
 
-      console.log(`[Litertllm] Loading model: ${targetId}`);
+      console.log(`[Litertllm] Loading model: ${targetId} from ${modelConfig.url}`);
 
-      // LiteRT-LM Engine initialization
+      // The Web SDK expectes a path or URL. We use our proxy to bypass CORS.
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const fullUrl = modelConfig.url.startsWith('/') ? `${origin}${modelConfig.url}` : modelConfig.url;
+
       this.engine = await Engine.create({
-        model: modelConfig.url,
+        model: fullUrl,
+        mainExecutorSettings: {
+          maxNumTokens: targetId.includes('9b') ? 4096 : 8192,
+        }
       });
 
       this.isLoaded = true;
@@ -129,19 +135,24 @@ class LitertllmAiService {
     }
 
     try {
-      const conversation = this.engine.createConversation();
+      const conversation = await this.engine.createConversation();
 
-      // Note: In some versions of @litert-lm/core, sendMessage is the method
-      // We will try sendMessage first as it's common in the latest APIs
-      const response = await (conversation.sendMessage ? conversation.sendMessage(prompt) : conversation.predict(prompt));
-
-      const text = typeof response === 'string' ? response : response?.content?.[0]?.text || '';
-
-      if (onToken && text) {
-        onToken(text);
+      if (onToken) {
+        const stream = conversation.sendMessageStreaming(prompt);
+        let fullText = '';
+        for await (const chunk of stream) {
+          for (const item of chunk.content) {
+            if (item.type === 'text') {
+              fullText += item.text;
+              onToken(item.text);
+            }
+          }
+        }
+        return fullText;
+      } else {
+        const response = await conversation.sendMessage(prompt);
+        return response.content[0].text;
       }
-
-      return text;
     } catch (err: any) {
       console.error('[Litertllm] Generation error:', err);
       throw err;
@@ -150,10 +161,8 @@ class LitertllmAiService {
 
   async unload(): Promise<void> {
     if (this.engine) {
-      if (typeof this.engine.close === 'function') {
-        await this.engine.close();
-      } else if (typeof this.engine.delete === 'function') {
-        this.engine.delete();
+      if (typeof this.engine.delete === 'function') {
+        await this.engine.delete();
       }
       this.engine = null;
     }

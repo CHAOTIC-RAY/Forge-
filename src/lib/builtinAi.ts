@@ -227,8 +227,8 @@ class BuiltInAiService {
     this.visionIsLoading = false;
   }
 
-  private hardResetGpuState() {
-    this.unloadTextEngine();
+  private async hardResetGpuState() {
+    await this.unloadTextEngine();
     this.unloadVisionEngine();
     clearWebGpuAdapterCache();
   }
@@ -272,7 +272,7 @@ class BuiltInAiService {
     } catch (err: unknown) {
       if (isStaleGpuInstanceError(err) && attempt === 0) {
         console.warn('[BuiltInAI] Vision GPU instance lost — resetting and retrying once…');
-        this.hardResetGpuState();
+        await this.hardResetGpuState();
         this.visionIsLoading = false;
         return this.initVision(normalizedId, attempt + 1);
       }
@@ -428,7 +428,7 @@ class BuiltInAiService {
     } catch (err: any) {
       if (isStaleGpuInstanceError(err) && attempt === 0) {
         console.warn('[BuiltInAI] Text GPU instance lost — resetting and retrying once…');
-        this.hardResetGpuState();
+        await this.hardResetGpuState();
         this.isLoading = false;
         return this.init(normalizedId, customConfig, attempt + 1);
       }
@@ -583,7 +583,7 @@ class BuiltInAiService {
       } catch (streamErr) {
         if (isStaleGpuInstanceError(streamErr)) {
           console.warn('[BuiltInAI] GPU instance lost during generation — resetting and retrying once…');
-          this.hardResetGpuState();
+          await this.hardResetGpuState();
           await this.init(this.currentModelId!);
           if (!this.isLoaded) throw new Error(this.error || humanizeGpuError(streamErr, 'text'));
           return await runStream();
