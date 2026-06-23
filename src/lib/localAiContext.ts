@@ -21,7 +21,7 @@ const CHARS_PER_TOKEN_ESTIMATE = 4;
 /** Conservative context windows per WebLLM / LiteRT model id (align with overrides where known). */
 export const LOCAL_MODEL_CONTEXT: Record<string, number> = {
   'gemma-4-e2b-it-web': 8192,
-  'gemma-2-9b-it-web': 8192,
+  'gemma-4-e4b-it-web': 8192,
   'Llama-3.2-1B-Instruct-q4f16_1-MLC': 4096,
   'Phi-3-mini-4k-instruct-q4f16_1-MLC': 4096,
   'Gemma-2-2b-it-q4f16_1-MLC': 8192,

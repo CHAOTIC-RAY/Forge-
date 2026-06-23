@@ -41,17 +41,17 @@ class LitertllmAiService {
       recommendedRamGb: 4,
     },
     {
-      id: 'gemma-2-9b-it-web',
-      name: 'Gemma 2 9B IT (LiteRT - Performance)',
-      size: '5.4GB',
-      description: 'Larger, more capable Gemma model for complex reasoning. Best for desktop.',
-      url: '/api/hf-proxy/google/gemma-2-9b-it-litert/resolve/main/gemma-2-9b-it-web.litertlm',
-      recommendedRamGb: 16,
+      id: 'gemma-4-e4b-it-web',
+      name: 'Gemma 4 E4B IT (LiteRT - Performance)',
+      size: '2.8GB',
+      description: 'More capable Gemma 4 model for higher quality text. Best for desktop.',
+      url: '/api/hf-proxy/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.litertlm',
+      recommendedRamGb: 8,
     }
   ];
 
   static MOBILE_DEFAULT = 'gemma-4-e2b-it-web';
-  static DESKTOP_DEFAULT = 'gemma-2-9b-it-web';
+  static DESKTOP_DEFAULT = 'gemma-4-e4b-it-web';
 
   getStatus(): LitertllmStatus {
     return {
@@ -81,9 +81,10 @@ class LitertllmAiService {
 
   async loadModel(modelId?: string): Promise<void> {
     if (this.isLoading) return;
-    if (this.isLoaded && this.currentModelId === modelId) return;
-
     const targetId = modelId || (this.isMobile() ? LitertllmAiService.MOBILE_DEFAULT : LitertllmAiService.DESKTOP_DEFAULT);
+
+    if (this.isLoaded && this.currentModelId === targetId) return;
+
     const modelConfig = LitertllmAiService.MODELS.find(m => m.id === targetId);
 
     if (!modelConfig) {
@@ -102,14 +103,13 @@ class LitertllmAiService {
 
       console.log(`[Litertllm] Loading model: ${targetId} from ${modelConfig.url}`);
 
-      // The Web SDK expectes a path or URL. We use our proxy to bypass CORS.
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const fullUrl = modelConfig.url.startsWith('/') ? `${origin}${modelConfig.url}` : modelConfig.url;
 
       this.engine = await Engine.create({
         model: fullUrl,
         mainExecutorSettings: {
-          maxNumTokens: targetId.includes('9b') ? 4096 : 8192,
+          maxNumTokens: 8192,
         }
       });
 

@@ -1,6 +1,6 @@
 import { BUILTIN_MODEL_IDS, BUILTIN_VISION_MODEL_IDS } from './builtinModels';
 
-const ALLOWED_REPO_PREFIX = 'mlc-ai/';
+const ALLOWED_REPO_PREFIXES = ['mlc-ai/', 'litert-community/', 'google/'];
 
 /** Rewrite Hugging Face model URLs to same-origin proxy (fixes CORS on deployed Forge). */
 export function rewriteHuggingFaceModelUrl(modelUrl: string, origin: string): string {
@@ -14,8 +14,9 @@ export function rewriteHuggingFaceModelUrl(modelUrl: string, origin: string): st
       return parsed.href;
     }
     const repoPath = parsed.pathname.replace(/^\//, '');
-    if (!repoPath.startsWith(ALLOWED_REPO_PREFIX)) {
-      console.warn('[WebLLM] Skipping proxy for non-mlc-ai repo:', repoPath);
+    const isAllowed = ALLOWED_REPO_PREFIXES.some(prefix => repoPath.startsWith(prefix));
+    if (!isAllowed) {
+      console.warn('[WebLLM] Skipping proxy for non-allowed repo:', repoPath);
       return modelUrl;
     }
     const base = origin.replace(/\/+$/, '');
