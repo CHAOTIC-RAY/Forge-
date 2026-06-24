@@ -1,4 +1,5 @@
 import { Engine } from '@litert-lm/core';
+import { rewriteHuggingFaceModelUrl } from './webLlmAppConfig';
 
 /**
  * LiteRT LLM Service (Google AI Edge)
@@ -102,9 +103,12 @@ class LitertllmAiService {
 
       console.log(`[Litertllm] Loading model: ${targetId}`);
 
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const proxiedUrl = rewriteHuggingFaceModelUrl(modelConfig.url, origin);
+
       // LiteRT-LM Engine initialization
       this.engine = await Engine.create({
-        model: modelConfig.url,
+        model: proxiedUrl,
       });
 
       this.isLoaded = true;
