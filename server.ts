@@ -590,8 +590,8 @@ export async function startServer(forcePort?: number) {
       return res.status(405).send('Method not allowed');
     }
     const hfSubPath = req.path.replace(/^\//, '');
-    if (!hfSubPath?.startsWith('mlc-ai/')) {
-      return res.status(403).json({ error: 'Only mlc-ai HuggingFace repos are allowed' });
+    if (!hfSubPath?.startsWith('mlc-ai/') && !hfSubPath?.startsWith('google/')) {
+      return res.status(403).json({ error: 'Only mlc-ai and google HuggingFace repos are allowed' });
     }
 
     try {
