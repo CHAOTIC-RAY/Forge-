@@ -409,11 +409,11 @@ export default {
           });
         }
 
-        // GET|HEAD /api/hf-proxy/mlc-ai/<model>/... — HuggingFace weights for WebLLM (CORS + Range)
+        // GET|HEAD /api/hf-proxy/<repo>/... — HuggingFace weights for Local AI (CORS + Range)
         if (path.startsWith('/api/hf-proxy/')) {
           const hfSubPath = path.slice('/api/hf-proxy/'.length);
-          if (!hfSubPath.startsWith('mlc-ai/')) {
-            return new Response(JSON.stringify({ error: 'Only mlc-ai HuggingFace repos are allowed' }), {
+          if (!hfSubPath.startsWith('mlc-ai/') && !hfSubPath.startsWith('google/')) {
+            return new Response(JSON.stringify({ error: 'Only mlc-ai and google HuggingFace repos are allowed' }), {
               status: 403,
               headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             });
