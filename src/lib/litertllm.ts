@@ -1,4 +1,4 @@
-import { Engine } from '@litert-lm/core';
+import { Engine, loadLiteRtLm } from '@litert-lm/core';
 
 /**
  * LiteRT LLM Service (Google AI Edge)
@@ -98,12 +98,22 @@ class LitertllmAiService {
 
     try {
       if (this.engine) {
+        console.log('[Litertllm] Unloading previous engine before new load.');
         await this.unload();
+      }
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+      // 1. Ensure LiteRT WASM is loaded from our local server to avoid CDN issues
+      try {
+        await loadLiteRtLm(`${origin}/wasm/`);
+      } catch (e) {
+        console.warn('[Litertllm] loadLiteRtLm already initialized or using default:', e);
       }
 
       console.log(`[Litertllm] Loading model: ${targetId} from ${modelConfig.url}`);
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      // 2. Initialize engine using the proxied URL
       const fullUrl = modelConfig.url.startsWith('/') ? `${origin}${modelConfig.url}` : modelConfig.url;
 
       this.engine = await Engine.create({
@@ -140,18 +150,33 @@ class LitertllmAiService {
       if (onToken) {
         const stream = conversation.sendMessageStreaming(prompt);
         let fullText = '';
-        for await (const chunk of stream) {
-          for (const item of chunk.content) {
-            if (item.type === 'text') {
-              fullText += item.text;
-              onToken(item.text);
+        try {
+          for await (const chunk of stream) {
+            if (chunk?.content) {
+              const contentItems = Array.isArray(chunk.content) ? chunk.content : [];
+              for (const item of contentItems) {
+                if (item.type === 'text' && item.text) {
+                  fullText += item.text;
+                  onToken(item.text);
+                }
+              }
+              // Handle string content if any
+              if (typeof chunk.content === 'string') {
+                 fullText += chunk.content;
+                 onToken(chunk.content);
+              }
             }
           }
+        } catch (streamErr) {
+          console.warn('[Litertllm] Stream interrupted:', streamErr);
         }
         return fullText;
       } else {
         const response = await conversation.sendMessage(prompt);
-        return response.content[0].text;
+        const text = typeof response.content === 'string'
+          ? response.content
+          : response.content?.[0]?.text || '';
+        return text;
       }
     } catch (err: any) {
       console.error('[Litertllm] Generation error:', err);
@@ -161,8 +186,12 @@ class LitertllmAiService {
 
   async unload(): Promise<void> {
     if (this.engine) {
-      if (typeof this.engine.delete === 'function') {
-        await this.engine.delete();
+      try {
+        if (typeof this.engine.delete === 'function') {
+          await this.engine.delete();
+        }
+      } catch (e) {
+        console.warn('[Litertllm] Error during engine delete:', e);
       }
       this.engine = null;
     }

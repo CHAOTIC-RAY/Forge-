@@ -584,6 +584,9 @@ export async function startServer(forcePort?: number) {
   });
   // ----------------------------------
 
+  // Serve LiteRT WASM files from node_modules
+  app.use('/wasm', express.static(path.join(process.cwd(), 'node_modules/@litert-lm/core/wasm')));
+
   // HuggingFace proxy for AI model weights (browser CORS)
   app.use('/api/hf-proxy', async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
