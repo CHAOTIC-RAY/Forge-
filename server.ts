@@ -26,6 +26,7 @@ import {
   handleDataCategories,
   handleDataBrandOverview,
 } from "./src/lib/handleSupabaseDataAccess";
+import { createMlcFetchProxyHandler, createMlcHeadProxyHandler } from "./src/lib/mlcFetchProxy";
 
 function supabaseWorkerEnv() {
   return {
@@ -165,6 +166,10 @@ export async function startServer(forcePort?: number) {
       res.status(500).json({ error: error.message || 'Groq proxy failed' });
     }
   });
+
+  // MLC/LiteRT fetch proxy for model downloads
+  app.post("/api/mlc-fetch", createMlcFetchProxyHandler());
+  app.get("/api/mlc-head", createMlcHeadProxyHandler());
 
   app.post("/api/auth/supabase-token", async (req, res) => {
     try {

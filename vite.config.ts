@@ -7,6 +7,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
+    worker: {
+      format: 'es', // ES workers for dynamic imports
+    },
     plugins: [react(), tailwindcss(), VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'logo192x192.png', 'logo512x512.png'],
@@ -71,7 +74,8 @@ export default defineConfig(({mode}) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('@mlc-ai/web-llm')) return 'webllm';
+            if (id.includes('@litert-lm/core')) return 'vendor-litert';
+            if (id.includes('@mlc-ai/web-llm')) return 'vendor-webllm';
           },
         },
       },

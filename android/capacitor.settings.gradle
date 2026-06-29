@@ -1,0 +1,5 @@
+// Capacitor settings for CookXpert LiteRT plugin
+// This file should be included in the main project's settings.gradle
+
+include ':cookxpert-litert'
+project(':cookxpert-litert').projectDir = new File('../plugins/cookxpert-litert/android')

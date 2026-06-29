@@ -1,0 +1,30 @@
+{
+  "name": "cookxpert-litert",
+  "version": "1.0.0",
+  "description": "Capacitor plugin for LiteRT LM with Android native support and WebGPU fallback",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": [
+    "android/",
+    "src/"
+  ],
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  },
+  "keywords": [
+    "capacitor",
+    "plugin",
+    "litert",
+    "litert-lm",
+    "android",
+    "webgpu",
+    "local-ai"
+  ],
+  "author": "CookXpert",
+  "license": "MIT",
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  }
+}

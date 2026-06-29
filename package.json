@@ -19,7 +19,11 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "prepare": "husky",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "cap:sync": "capacitor sync",
+    "cap:open:android": "capacitor open android",
+    "cap:build:android": "capacitor build android",
+    "cap:run:android": "capacitor run android"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
@@ -36,6 +40,9 @@
     "@heyputer/puter.js": "^2.2.15",
     "@litert-lm/core": "^0.13.1",
     "@mlc-ai/web-llm": "^0.2.82",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "cookxpert-litert": "file:plugins/cookxpert-litert",
     "@splinetool/react-spline": "^4.1.0",
     "@supabase/supabase-js": "^2.108.1",
     "@tailwindcss/vite": "^4.1.14",
@@ -92,6 +99,7 @@
     "@types/node": "^22.14.0",
     "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^4.1.9",
+    "@capacitor/cli": "^6.0.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.1",
     "eslint": "^9.39.4",

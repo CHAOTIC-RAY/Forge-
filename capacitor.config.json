@@ -1,0 +1,38 @@
+{
+  "appId": "com.forge.app",
+  "appName": "Forge",
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": [
+      "huggingface.co",
+      "*.huggingface.co",
+      "github.com",
+      "*.github.com"
+    ],
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CookXpertLiteRt": {},
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "launchAutoHide": true,
+      "backgroundColor": "#030712",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "androidSpinnerStyle": "large",
+      "iosSpinnerStyle": "large",
+      "spinnerColor": "#999999",
+      "splashFullScreen": true,
+      "splashImmersive": true,
+      "layoutName": "launch_screen",
+      "useDialog": true
+    }
+  },
+  "android": {
+    "buildOptions": {
+      "keystorePath": "",
+      "keystoreAlias": ""
+    }
+  }
+}
