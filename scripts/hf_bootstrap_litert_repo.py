@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Hugging Face Repo Bootstrap Script for LiteRT Models
-Mirrors community weights to CookXpert repo and uploads model manifest
+Mirrors community weights to the Forge repo and uploads model manifest
 """
 
 import os
@@ -26,8 +26,8 @@ def load_config(config_path: str) -> dict:
 
 def collect_file_pairs(cfg: dict, manifest: dict, gpu_only: bool = False) -> List[Tuple[str, str]]:
     """
-    Collect file pairs from community repo to mirror to CookXpert repo
-    Returns list of (community_file, chef_file) tuples
+    Collect file pairs from community repo to mirror to the Forge repo
+    Returns list of (community_file, forge_file) tuples
     """
     pairs = []
     
@@ -95,7 +95,7 @@ def download_community_file(community_repo: str, community_file: str, dest: Path
     print(f"Downloaded {community_file} to {dest_path}")
 
 def upload_to_chef_repo(chef_repo: str, staging_dir: Path, token: str):
-    """Upload files to CookXpert Hugging Face repo"""
+    """Upload files to the Forge Hugging Face repo"""
     api = HfApi(token=token)
     
     print(f"Uploading files to {chef_repo}...")
@@ -202,7 +202,7 @@ def main():
             print(f"Failed to download {community_file}: {e}")
             continue
     
-    # Upload to CookXpert repo
+    # Upload to Forge repo
     if not args.dry_run and args.token:
         chef_repo = cfg['litert']['hf_repo']
         upload_to_chef_repo(chef_repo, staging_dir, args.token)

@@ -12,7 +12,6 @@
     "androidScheme": "https"
   },
   "plugins": {
-    "CookXpertLiteRt": {},
     "SplashScreen": {
       "launchShowDuration": 0,
       "launchAutoHide": true,

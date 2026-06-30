@@ -16,19 +16,13 @@ This implementation provides a comprehensive local AI system using Google's Lite
 
 ## Component Structure
 
-### 1. Capacitor Plugin (`plugins/cookxpert-litert/`)
+### 1. Community LiteRT Layer (`src/lib/communityLitert.ts`)
 
-**Purpose**: Native Android implementation and Web wrapper for LiteRT-LM
+**Purpose**: Cross-platform LiteRT-LM implementation using `@litert-lm/core` directly (no Capacitor plugin wrapper required)
 
-**Files Created**:
-- `package.json` - Plugin configuration and dependencies
-- `src/definitions.ts` - TypeScript interfaces and type definitions
-- `src/runtime.ts` - Runtime detection utilities (WebGPU, JSPI, platform)
-- `src/web.ts` - Web implementation using @litert-lm/core
-- `src/index.ts` - Plugin entry point
-- `android/build.gradle` - Android build configuration
-- `android/src/main/java/com/cookxpert/litert/CookXpertLiteRtPlugin.kt` - Android native plugin
-- `android/src/main/AndroidManifest.xml` - Android manifest
+**Files**:
+- `src/lib/communityLitert.ts` - Community LiteRT singleton with download, load, complete, and streaming
+- `src/lib/litertModelResolver.ts` - Model variant selection based on device capabilities
 
 **Key Features**:
 - Cross-platform runtime detection
@@ -170,7 +164,7 @@ This implementation provides a comprehensive local AI system using Google's Lite
 
 **Key Settings**:
 - Hugging Face allowlisting for model downloads
-- CookXpert LiteRT plugin registration
+- Community LiteRT (no native plugin required)
 - Android build configuration (SDK 24+, Kotlin)
 
 ### 10. Package Dependencies
@@ -178,7 +172,7 @@ This implementation provides a comprehensive local AI system using Google's Lite
 **Added Dependencies**:
 - `@capacitor/core`: ^6.0.0
 - `@capacitor/android`: ^6.0.0
-- `cookxpert-litert`: file:plugins/cookxpert-litert
+- `@litert-lm/core`: ^0.13.1
 
 **Added Dev Dependencies**:
 - `@capacitor/cli`: ^6.0.0
@@ -192,7 +186,7 @@ This implementation provides a comprehensive local AI system using Google's Lite
 ### 11. Training Pipeline Scripts
 
 **Files Created**:
-- `scripts/ml/cookxpert_chef_ft/config.litert-gemma.yaml` - Training configuration
+- `scripts/ml/forge_ft/config.litert-gemma.yaml` - Training configuration
 - `scripts/hf_bootstrap_litert_repo.py` - Hugging Face repo bootstrap script
 - `scripts/test_litert_system.ts` - System integration test
 
@@ -319,7 +313,7 @@ To train custom models:
 4. Bootstrap models to Hugging Face:
 
 ```bash
-python scripts/hf_bootstrap_litert_repo.py --config scripts/ml/cookxpert_chef_ft/config.litert-gemma.yaml --token YOUR_HF_TOKEN
+python scripts/hf_bootstrap_litert_repo.py --config scripts/ml/forge_ft/config.litert-gemma.yaml --token YOUR_HF_TOKEN
 ```
 
 ## Performance Considerations

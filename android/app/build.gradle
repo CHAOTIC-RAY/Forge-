@@ -34,17 +34,14 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    
+
     // Capacitor core
     implementation 'com.capacitorjs:core:6.0.0'
-    
-    // CookXpert LiteRT plugin
-    implementation project(':cookxpert-litert')
-    
+
     // AndroidX
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

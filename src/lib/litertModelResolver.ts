@@ -1,9 +1,10 @@
 /**
  * LiteRT Model Resolver
- * Handles model variant selection based on device capabilities, SoC model, and runtime type
+ * Handles model variant selection based on device capabilities, SoC model, and runtime type.
+ * Uses community LiteRT models from the litert-community Hugging Face organization.
  */
 
-export interface CookXpertMlcManifestModel {
+export interface CommunityLitertManifestModel {
   model_id: string;
   name: string;
   runtime: string;
@@ -65,7 +66,7 @@ export function normalizeLiteRtSocModel(socModel?: string | null): string | null
 /**
  * Pick the best variant key for a given SoC model
  */
-function pickVariantKey(entry: CookXpertMlcManifestModel, socModel: string | null): string | null {
+function pickVariantKey(entry: CommunityLitertManifestModel, socModel: string | null): string | null {
   if (!entry.litert_variants || !socModel) return null;
   
   const normalizedSoc = normalizeLiteRtSocModel(socModel);
@@ -107,7 +108,7 @@ async function probeHfFile(repo: string, file: string): Promise<boolean> {
  * Resolve LiteRT artifact for a given model entry
  */
 export async function resolveLiteRtArtifact(
-  entry: CookXpertMlcManifestModel,
+  entry: CommunityLitertManifestModel,
   socModelRaw?: string | null,
   platform?: 'android' | 'ios' | 'web'
 ): Promise<ResolvedLiteRtArtifact> {
@@ -216,7 +217,7 @@ function detectPlatform(): 'android' | 'ios' | 'web' {
 /**
  * Load and parse the model manifest
  */
-export async function loadModelManifest(): Promise<CookXpertMlcManifestModel[]> {
+export async function loadModelManifest(): Promise<CommunityLitertManifestModel[]> {
   try {
     const response = await fetch('/litert-models.manifest.json');
     if (!response.ok) {
@@ -238,7 +239,7 @@ export async function findBestModel(
   powerTier: 'balanced' | 'performance' | 'efficiency' = 'balanced',
   platform?: 'android' | 'ios' | 'web',
   socModel?: string | null
-): Promise<CookXpertMlcManifestModel | null> {
+): Promise<CommunityLitertManifestModel | null> {
   const models = await loadModelManifest();
   const currentPlatform = platform || detectPlatform();
   
@@ -292,7 +293,7 @@ export function buildLiteRtDownloadUrl(artifact: ResolvedLiteRtArtifact): string
 /**
  * Get all available models from manifest
  */
-export async function getAvailableModels(): Promise<CookXpertMlcManifestModel[]> {
+export async function getAvailableModels(): Promise<CommunityLitertManifestModel[]> {
   const models = await loadModelManifest();
   return models.filter(model => model.published);
 }

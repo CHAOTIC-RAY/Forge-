@@ -1,5 +1,2 @@
-// Capacitor settings for CookXpert LiteRT plugin
-// This file should be included in the main project's settings.gradle
-
-include ':cookxpert-litert'
-project(':cookxpert-litert').projectDir = new File('../plugins/cookxpert-litert/android')
+// Capacitor settings - community LiteRT models (no native plugin required)
+// Community LiteRT runs via @litert-lm/core directly in the web layer.

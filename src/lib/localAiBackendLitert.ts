@@ -1,14 +1,18 @@
 /**
  * Local AI Backend Service for LiteRT-LM
- * Integrates Capacitor plugin, model resolver, and runtime detection
- * Provides a unified interface for local AI inference
+ * Uses community LiteRT models via @litert-lm/core directly.
+ * No Capacitor plugin wrapper required - works cross-platform.
  */
 
-import { CookXpertLiteRt, DeviceInfo, LoadModelOptions, CompleteOptions, CompleteResult, ModelStatus, Backend } from '../plugins/cookxpert-litert/src/definitions';
-import { findBestModel, resolveLiteRtArtifact, buildLiteRtDownloadUrl, getAvailableModels, CookXpertMlcManifestModel } from './litertModelResolver';
+import {
+  CommunityLitert,
+  CommunityLitertLoadModelOptions,
+  CommunityLitertCompleteOptions,
+  Backend,
+} from './communityLitert';
+import { findBestModel, resolveLiteRtArtifact, buildLiteRtDownloadUrl, getAvailableModels, CommunityLitertManifestModel } from './litertModelResolver';
 import { getRuntimeCapabilities, isLiteRtSupported, getRecommendedRuntime } from './runtimeDetection';
 import { installWebGpuAdapterPreferencePatch } from './webGpuAdapterPatch';
-import { fetchMlcUpstream } from './mlcFetchProxy';
 import { getContextBudget, truncateMessagesForLocalAi } from './localAiContext';
 
 export interface LocalAiBackendConfig {
@@ -17,7 +21,7 @@ export interface LocalAiBackendConfig {
   preferredBackend?: Backend;
   enableWebGpuPatch?: boolean;
   proxyDownloads?: boolean;
-  preferredModelId?: string; // Allow specific model selection
+  preferredModelId?: string;
 }
 
 export interface LocalAiBackendStatus {
@@ -25,7 +29,7 @@ export interface LocalAiBackendStatus {
   isLoaded: boolean;
   isDownloading: boolean;
   downloadProgress: number;
-  currentModel: CookXpertMlcManifestModel | null;
+  currentModel: CommunityLitertManifestModel | null;
   backend: Backend | null;
   runtime: 'litert' | 'webllm' | 'none';
   platform: string;
@@ -68,25 +72,19 @@ class LocalAiBackendService {
     };
   }
 
-  /**
-   * Initialize the backend
-   */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     console.log('[LocalAiBackend] Initializing...');
 
     try {
-      // Install WebGPU adapter patch if enabled
       if (this.config.enableWebGpuPatch) {
         installWebGpuAdapterPreferencePatch();
       }
 
-      // Get runtime capabilities
       const capabilities = await getRuntimeCapabilities();
       this.status.platform = capabilities.platform;
 
-      // Check if LiteRT is supported
       const supported = await isLiteRtSupported();
       if (!supported) {
         const recommendedRuntime = await getRecommendedRuntime();
@@ -99,15 +97,13 @@ class LocalAiBackendService {
       this.status.runtime = 'litert';
       this.status.isReady = true;
 
-      // Get device info from Capacitor plugin
       try {
-        const deviceInfo = await CookXpertLiteRt.getDeviceInfo();
+        const deviceInfo = await CommunityLitert.getDeviceInfo();
         console.log('[LocalAiBackend] Device info:', deviceInfo);
       } catch (error) {
         console.warn('[LocalAiBackend] Could not get device info:', error);
       }
 
-      // Auto-bootstrap if enabled
       if (this.config.autoBootstrap) {
         await this.autoBootstrap();
       }
@@ -122,12 +118,8 @@ class LocalAiBackendService {
     }
   }
 
-  /**
-   * Auto-bootstrap the best model
-   */
   private async autoBootstrap(): Promise<void> {
     try {
-      // If a specific model is preferred, use it
       if (this.config.preferredModelId) {
         console.log(`[LocalAiBackend] Loading preferred model: ${this.config.preferredModelId}`);
         await this.loadModel(this.config.preferredModelId);
@@ -136,9 +128,9 @@ class LocalAiBackendService {
 
       const platform = this.status.platform;
       const powerTier = this.config.preferredPowerTier || 'balanced';
-      
+
       console.log(`[LocalAiBackend] Auto-bootstrapping with tier: ${powerTier}`);
-      
+
       const model = await findBestModel(powerTier, platform as any);
       if (!model) {
         console.warn('[LocalAiBackend] No suitable model found for auto-bootstrap');
@@ -148,22 +140,17 @@ class LocalAiBackendService {
       await this.loadModel(model.model_id);
     } catch (error: any) {
       console.error('[LocalAiBackend] Auto-bootstrap failed:', error);
-      // Don't throw - auto-bootstrap is best-effort
     }
   }
 
-  /**
-   * Load a specific model
-   */
   async loadModel(modelId: string): Promise<void> {
     try {
       console.log(`[LocalAiBackend] Loading model: ${modelId}`);
-      
+
       this.status.isDownloading = true;
       this.status.downloadProgress = 0;
       this.notifyStatus();
 
-      // Get model info
       const models = await getAvailableModels();
       const model = models.find(m => m.model_id === modelId);
       if (!model) {
@@ -172,43 +159,36 @@ class LocalAiBackendService {
 
       this.status.currentModel = model;
 
-      // Get device info for SoC model
       let socModel: string | null = null;
       try {
-        const deviceInfo = await CookXpertLiteRt.getDeviceInfo();
+        const deviceInfo = await CommunityLitert.getDeviceInfo();
         socModel = deviceInfo.socModel || null;
       } catch (error) {
         // Continue without SoC model
       }
 
-      // Resolve artifact
       const artifact = await resolveLiteRtArtifact(model, socModel, this.status.platform as any);
       this.currentArtifact = artifact;
 
       console.log('[LocalAiBackend] Resolved artifact:', artifact);
 
-      // Build download URL
       const downloadUrl = buildLiteRtDownloadUrl(artifact);
 
-      // Download model
       if (this.config.proxyDownloads) {
-        // Use proxy for download
         await this.downloadWithProxy(modelId, downloadUrl);
       } else {
-        // Direct download
         await this.downloadDirect(modelId, downloadUrl);
       }
 
-      // Load model with Capacitor plugin
-      const loadOptions: LoadModelOptions = {
+      const loadOptions: CommunityLitertLoadModelOptions = {
         modelId,
         modelPath: this.currentArtifact.modelPath || downloadUrl,
         backend: this.config.preferredBackend || artifact.backend,
         contextWindowSize: model.context_window_size
       };
 
-      const loadResult = await CookXpertLiteRt.loadModel(loadOptions);
-      
+      const loadResult = await CommunityLitert.loadModel(loadOptions);
+
       if (!loadResult.success) {
         throw new Error(loadResult.error || 'Failed to load model');
       }
@@ -231,16 +211,11 @@ class LocalAiBackendService {
     }
   }
 
-  /**
-   * Download model with proxy
-   */
   private async downloadWithProxy(modelId: string, url: string): Promise<void> {
     console.log('[LocalAiBackend] Downloading with proxy:', url);
 
-    // For web implementation, the Capacitor plugin handles download
-    // For native, we'd use the plugin's download method
     try {
-      const downloadResult = await CookXpertLiteRt.downloadModel({
+      const downloadResult = await CommunityLitert.downloadModel({
         modelId,
         url
       });
@@ -252,19 +227,15 @@ class LocalAiBackendService {
       }
     } catch (error: any) {
       console.error('[LocalAiBackend] Proxy download failed, trying direct:', error);
-      // Fallback to direct download
       await this.downloadDirect(modelId, url);
     }
   }
 
-  /**
-   * Download model directly
-   */
   private async downloadDirect(modelId: string, url: string): Promise<void> {
     console.log('[LocalAiBackend] Downloading directly:', url);
 
     try {
-      const downloadResult = await CookXpertLiteRt.downloadModel({
+      const downloadResult = await CommunityLitert.downloadModel({
         modelId,
         url
       });
@@ -279,9 +250,6 @@ class LocalAiBackendService {
     }
   }
 
-  /**
-   * Generate text completion
-   */
   async generateText(
     messages: Array<{ role: string; content: string }>,
     options: GenerationOptions = {}
@@ -291,22 +259,17 @@ class LocalAiBackendService {
     }
 
     try {
-      // Get context budget
       const budget = getContextBudget(this.status.currentModel?.model_id || null);
-      
-      // Truncate messages if needed
       const truncatedMessages = truncateMessagesForLocalAi(messages, budget.maxInputChars);
 
-      // Prepare completion options
-      const completeOptions: CompleteOptions = {
+      const completeOptions: CommunityLitertCompleteOptions = {
         messages: truncatedMessages as any,
-        maxTokens: options.maxTokens || budget.maxOutputChars / 4, // Approximate tokens
+        maxTokens: options.maxTokens || budget.maxOutputChars / 4,
         temperature: options.temperature || 0.7,
         topP: options.topP || 0.9
       };
 
-      // Generate completion
-      const result = await CookXpertLiteRt.complete(completeOptions);
+      const result = await CommunityLitert.complete(completeOptions);
 
       if (result.error) {
         throw new Error(result.error);
@@ -319,9 +282,6 @@ class LocalAiBackendService {
     }
   }
 
-  /**
-   * Generate streaming text completion
-   */
   async generateTextStream(
     messages: Array<{ role: string; content: string }>,
     options: GenerationOptions = {}
@@ -331,14 +291,10 @@ class LocalAiBackendService {
     }
 
     try {
-      // Get context budget
       const budget = getContextBudget(this.status.currentModel?.model_id || null);
-      
-      // Truncate messages if needed
       const truncatedMessages = truncateMessagesForLocalAi(messages, budget.maxInputChars);
 
-      // Prepare completion options
-      const completeOptions: CompleteOptions = {
+      const completeOptions: CommunityLitertCompleteOptions = {
         messages: truncatedMessages as any,
         maxTokens: options.maxTokens || budget.maxOutputChars / 4,
         temperature: options.temperature || 0.7,
@@ -347,8 +303,7 @@ class LocalAiBackendService {
 
       let fullText = '';
 
-      // Generate streaming completion
-      await CookXpertLiteRt.completeStream(completeOptions, (chunk) => {
+      await CommunityLitert.completeStream(completeOptions, (chunk) => {
         fullText += chunk;
         if (options.onProgress) {
           options.onProgress(chunk);
@@ -362,13 +317,10 @@ class LocalAiBackendService {
     }
   }
 
-  /**
-   * Unload current model
-   */
   async unloadModel(): Promise<void> {
     try {
-      await CookXpertLiteRt.unloadModel();
-      
+      await CommunityLitert.unloadModel();
+
       this.status.isLoaded = false;
       this.status.currentModel = null;
       this.status.backend = null;
@@ -380,16 +332,10 @@ class LocalAiBackendService {
     }
   }
 
-  /**
-   * Get current status
-   */
   getStatus(): LocalAiBackendStatus {
     return { ...this.status };
   }
 
-  /**
-   * Subscribe to status changes
-   */
   onStatusChange(callback: (status: LocalAiBackendStatus) => void): () => void {
     this.statusListeners.push(callback);
     callback(this.getStatus());
@@ -398,19 +344,13 @@ class LocalAiBackendService {
     };
   }
 
-  /**
-   * Get available models
-   */
-  async getAvailableModels(): Promise<CookXpertMlcManifestModel[]> {
+  async getAvailableModels(): Promise<CommunityLitertManifestModel[]> {
     return getAvailableModels();
   }
 
-  /**
-   * Cancel current operation
-   */
   async cancel(): Promise<void> {
     try {
-      await CookXpertLiteRt.cancel();
+      await CommunityLitert.cancel();
       this.status.isDownloading = false;
       this.notifyStatus();
     } catch (error: any) {
@@ -419,21 +359,14 @@ class LocalAiBackendService {
     }
   }
 
-  /**
-   * Notify status listeners
-   */
   private notifyStatus(): void {
     const status = this.getStatus();
     this.statusListeners.forEach(listener => listener(status));
   }
 }
 
-// Singleton instance
 let localAiBackendInstance: LocalAiBackendService | null = null;
 
-/**
- * Get or create the local AI backend service
- */
 export function getLocalAiBackend(config?: LocalAiBackendConfig): LocalAiBackendService {
   if (!localAiBackendInstance) {
     localAiBackendInstance = new LocalAiBackendService(config);
@@ -441,9 +374,6 @@ export function getLocalAiBackend(config?: LocalAiBackendConfig): LocalAiBackend
   return localAiBackendInstance;
 }
 
-/**
- * Reset the local AI backend service (useful for testing)
- */
 export function resetLocalAiBackend(): void {
   if (localAiBackendInstance) {
     localAiBackendInstance = null;
