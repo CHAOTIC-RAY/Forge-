@@ -611,17 +611,20 @@ export async function startServer(forcePort?: number) {
 
     try {
       const targetUrl = `https://huggingface.co/${hfSubPath}`;
+      console.log(`[HF Proxy] Fetching: ${targetUrl}`);
+      
       const response = await axios.get(targetUrl, {
         responseType: 'stream',
         timeout: 120000,
         headers: {
-          'User-Agent': 'Forge-WebLLM-Proxy/1.0',
+          'User-Agent': 'Mozilla/5.0 (compatible; ForgeApp/1.0)',
           ...(req.headers.range ? { Range: req.headers.range as string } : {}),
         },
         validateStatus: (status) => status < 500,
       });
 
       if (response.status >= 400) {
+        console.error(`[HF Proxy] HuggingFace returned ${response.status}: ${response.statusText}`);
         return res.status(response.status).send(response.statusText);
       }
 
@@ -640,9 +643,15 @@ export async function startServer(forcePort?: number) {
         res.setHeader('Accept-Ranges', response.headers['accept-ranges']);
       }
       res.setHeader('Cache-Control', 'public, max-age=86400');
+      
+      console.log(`[HF Proxy] Successfully proxied: ${hfSubPath}`);
       response.data.pipe(res);
     } catch (error: any) {
       console.error('[HF Proxy] failed:', error.message);
+      if (error.response) {
+        console.error('[HF Proxy] Response status:', error.response.status);
+        console.error('[HF Proxy] Response data:', error.response.data);
+      }
       res.status(502).json({ error: 'HuggingFace proxy failed', details: error.message });
     }
   });

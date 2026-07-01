@@ -91,13 +91,22 @@ function pickVariantKey(entry: CommunityLitertManifestModel, socModel: string | 
 }
 
 /**
- * Check if a file exists on Hugging Face
+ * Check if a file exists on Hugging Face using proxy
  */
 async function probeHfFile(repo: string, file: string): Promise<boolean> {
   try {
-    const url = `https://huggingface.co/${repo}/resolve/main/${file}`;
-    const response = await fetch(url, { method: 'HEAD' });
-    return response.ok;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const directUrl = `https://huggingface.co/${repo}/resolve/main/${file}`;
+    
+    // Use proxy URL for the probe
+    const proxyUrl = `${origin}/api/hf-proxy/${repo}/resolve/main/${file}`;
+    
+    console.log(`[LiteRtModelResolver] Probing via proxy: ${proxyUrl}`);
+    const response = await fetch(proxyUrl, { method: 'HEAD' });
+    
+    const success = response.ok;
+    console.log(`[LiteRtModelResolver] Probe result: ${success} (${response.status})`);
+    return success;
   } catch (error) {
     console.warn(`[LiteRtModelResolver] Failed to probe HF file ${repo}/${file}:`, error);
     return false;

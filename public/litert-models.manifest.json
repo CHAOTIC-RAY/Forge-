@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "models": [
     {
       "model_id": "gemma-3-1b-it-web",
@@ -11,42 +11,6 @@
       "power_tier": "balanced",
       "context_window_size": 4096,
       "size_mb": 1200,
-      "published": true
-    },
-    {
-      "model_id": "gemma-4-e2b-it-web",
-      "name": "Gemma 4 E2B IT (LiteRT Web)",
-      "runtime": "litert_lm",
-      "litert_web": true,
-      "litert_community_repo": "google/gemma-4-e2b-it-litert",
-      "litert_file": "gemma-4-e2b-it-web.litertlm",
-      "power_tier": "balanced",
-      "context_window_size": 8192,
-      "size_mb": 1200,
-      "published": true
-    },
-    {
-      "model_id": "gemma-2-9b-it-web",
-      "name": "Gemma 2 9B IT (LiteRT Web)",
-      "runtime": "litert_lm",
-      "litert_web": true,
-      "litert_community_repo": "google/gemma-2-9b-it-litert",
-      "litert_file": "gemma-2-9b-it-web.litertlm",
-      "power_tier": "performance",
-      "context_window_size": 8192,
-      "size_mb": 5400,
-      "published": true
-    },
-    {
-      "model_id": "gemma-2-2b-it-web",
-      "name": "Gemma 2 2B IT (LiteRT Web)",
-      "runtime": "litert_lm",
-      "litert_web": true,
-      "litert_community_repo": "google/gemma-2-2b-it-litert",
-      "litert_file": "gemma-2-2b-it-web.litertlm",
-      "power_tier": "balanced",
-      "context_window_size": 4096,
-      "size_mb": 1600,
       "published": true
     },
     {
@@ -71,6 +35,18 @@
       "power_tier": "efficiency",
       "context_window_size": 4096,
       "size_mb": 800,
+      "published": true
+    },
+    {
+      "model_id": "gemma-2-2b-it-web",
+      "name": "Gemma 2 2B IT (LiteRT Web)",
+      "runtime": "litert_lm",
+      "litert_web": true,
+      "litert_community_repo": "litert-community/Gemma-2-2b-IT",
+      "litert_file": "Gemma-2-2b-IT_q4_ekv2048.litertlm",
+      "power_tier": "balanced",
+      "context_window_size": 4096,
+      "size_mb": 1600,
       "published": true
     }
   ]
