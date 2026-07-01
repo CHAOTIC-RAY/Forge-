@@ -1,10 +1,9 @@
-import { Engine } from '@litert-lm/core';
-import { rewriteHuggingFaceModelUrl } from './webLlmAppConfig';
+import { CommunityLitert } from './communityLitert';
 
 /**
  * LiteRT LLM Service (Google AI Edge)
  * Provides high-performance, cross-platform generative AI inference.
- * Uses the official @litert-lm/core package.
+ * Uses the CommunityLitert wrapper for @litert-lm/core.
  */
 export interface LitertllmModel {
   id: string;
@@ -24,7 +23,6 @@ export interface LitertllmStatus {
 }
 
 class LitertllmAiService {
-  private engine: any = null;
   private currentModelId: string | null = null;
   private isLoading = false;
   private isLoaded = false;
@@ -129,23 +127,37 @@ class LitertllmAiService {
     this.notify();
 
     try {
-      if (this.engine) {
-        await this.unload();
-      }
-
       console.log(`[Litertllm] Loading model: ${targetId}`);
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const proxiedUrl = rewriteHuggingFaceModelUrl(modelConfig.url, origin);
-
-      // LiteRT-LM Engine initialization
-      this.engine = await Engine.create({
-        model: proxiedUrl,
+      // Download model using CommunityLitert
+      const downloadResult = await CommunityLitert.downloadModel({
+        modelId: targetId,
+        url: modelConfig.url
       });
+
+      if (downloadResult.status !== 'completed' || !downloadResult.modelPath) {
+        throw new Error(downloadResult.error || 'Download failed');
+      }
+
+      this.progress = 0.8;
+      this.notify();
+
+      // Load model using CommunityLitert
+      const loadResult = await CommunityLitert.loadModel({
+        modelId: targetId,
+        modelPath: downloadResult.modelPath,
+        contextWindowSize: 4096
+      });
+
+      if (!loadResult.success) {
+        throw new Error(loadResult.error || 'Load failed');
+      }
 
       this.isLoaded = true;
       this.currentModelId = targetId;
+      this.progress = 1;
       console.log(`[Litertllm] Model ${targetId} loaded successfully.`);
+      this.notify();
 
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to load LiteRT-LM model.';
@@ -159,25 +171,25 @@ class LitertllmAiService {
   }
 
   async generateText(prompt: string, onToken?: (token: string) => void): Promise<string> {
-    if (!this.isLoaded || !this.engine) {
+    if (!this.isLoaded) {
       const targetId = this.isMobile() ? LitertllmAiService.MOBILE_DEFAULT : LitertllmAiService.DESKTOP_DEFAULT;
       await this.loadModel(targetId);
     }
 
     try {
-      const conversation = this.engine.createConversation();
+      const result = await CommunityLitert.complete({
+        messages: [{ role: 'user', content: prompt }]
+      });
 
-      // Note: In some versions of @litert-lm/core, sendMessage is the method
-      // We will try sendMessage first as it's common in the latest APIs
-      const response = await (conversation.sendMessage ? conversation.sendMessage(prompt) : conversation.predict(prompt));
-
-      const text = typeof response === 'string' ? response : response?.content?.[0]?.text || '';
-
-      if (onToken && text) {
-        onToken(text);
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      return text;
+      if (onToken && result.text) {
+        onToken(result.text);
+      }
+
+      return result.text;
     } catch (err: any) {
       console.error('[Litertllm] Generation error:', err);
       throw err;
@@ -185,14 +197,7 @@ class LitertllmAiService {
   }
 
   async unload(): Promise<void> {
-    if (this.engine) {
-      if (typeof this.engine.close === 'function') {
-        await this.engine.close();
-      } else if (typeof this.engine.delete === 'function') {
-        this.engine.delete();
-      }
-      this.engine = null;
-    }
+    await CommunityLitert.unloadModel();
     this.isLoaded = false;
     this.currentModelId = null;
     this.error = null;

@@ -291,6 +291,23 @@ export function buildLiteRtDownloadUrl(artifact: ResolvedLiteRtArtifact): string
 }
 
 /**
+ * Build resolved artifact for community models (simplified)
+ */
+export async function resolveCommunityModel(
+  modelId: string,
+  platform?: 'android' | 'ios' | 'web'
+): Promise<ResolvedLiteRtArtifact> {
+  const models = await loadModelManifest();
+  const model = models.find(m => m.model_id === modelId);
+  
+  if (!model) {
+    throw new Error(`Model not found: ${modelId}`);
+  }
+  
+  return resolveLiteRtArtifact(model, null, platform);
+}
+
+/**
  * Get all available models from manifest
  */
 export async function getAvailableModels(): Promise<CommunityLitertManifestModel[]> {

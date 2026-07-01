@@ -217,7 +217,7 @@ class LocalAiBackendService {
     try {
       const downloadResult = await CommunityLitert.downloadModel({
         modelId,
-        url
+        url // The CommunityLitert.downloadModel will handle proxy rewriting
       });
 
       if (downloadResult.status === 'completed' && downloadResult.modelPath) {

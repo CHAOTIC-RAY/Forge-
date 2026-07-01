@@ -10,7 +10,6 @@ const ALLOWED_REPOS = [
   'mlc-ai/',
   'google/',
   'litert-community/',
-  'ChaoticRay/',
   'huggingface/'
 ];
 

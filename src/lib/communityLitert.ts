@@ -128,7 +128,15 @@ class CommunityLitertPlugin {
     this.downloadCancelController = new AbortController();
 
     try {
-      const response = await fetch(options.url, {
+      // Rewrite URL to use proxy if it's a Hugging Face URL
+      let downloadUrl = options.url;
+      if (downloadUrl.includes('huggingface.co')) {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        downloadUrl = rewriteHuggingFaceModelUrl(downloadUrl, origin);
+        console.log('[CommunityLitert] Using proxy URL:', downloadUrl);
+      }
+
+      const response = await fetch(downloadUrl, {
         signal: this.downloadCancelController.signal,
       });
 

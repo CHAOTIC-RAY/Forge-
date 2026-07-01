@@ -1,6 +1,6 @@
 import { BUILTIN_MODEL_IDS, BUILTIN_VISION_MODEL_IDS } from './builtinModels';
 
-const ALLOWED_REPO_PREFIXES = ['mlc-ai/', 'google/'];
+const ALLOWED_REPO_PREFIXES = ['mlc-ai/', 'google/', 'litert-community/'];
 
 /** Rewrite Hugging Face model URLs to same-origin proxy (fixes CORS on deployed Forge). */
 export function rewriteHuggingFaceModelUrl(modelUrl: string, origin: string): string {
